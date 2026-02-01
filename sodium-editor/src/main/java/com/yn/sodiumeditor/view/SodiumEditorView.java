@@ -18,7 +18,6 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.text.Editable;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.util.AttributeSet;
@@ -31,14 +30,9 @@ import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.animation.DecelerateInterpolator;
-import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.EditorInfo;
-import android.view.inputmethod.ExtractedText;
-import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
-import android.view.inputmethod.SurroundingText;
-import android.widget.OverScroller;
 import androidx.annotation.Nullable;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -79,21 +73,17 @@ public class SodiumEditorView extends View {
   public static final int STYLE_ITALIC = 2;
   public static final int STYLE_BOLD_ITALIC = 3;
 
-  public static final int SCROLL_MODE_SINGLE_AXIS = 0;
-  public static final int SCROLL_MODE_GRID = 1;
-  public static final int SCROLL_MODE_FREE = 2;
-
   // paint & metrics
   private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
   private Typeface baseTypeface = Typeface.DEFAULT;
-  private float lineHeight;
+  float lineHeight;
   private float paddingLeft = 10f; // Made non-final for line numbers
 
   // --- Line Number State ---
   private boolean showLineNumbers = false;
   private boolean highlightCurrentLineInGutter = true;
   private boolean lineNumberSelectionEnabled = true;
-  private float lineNumbersGutterWidth = 0f;
+  float lineNumbersGutterWidth = 0f;
   private final Paint lineNumbersPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   private final Paint gutterPaint = new Paint();
   private final Paint gutterSeparatorPaint = new Paint();
@@ -114,45 +104,37 @@ public class SodiumEditorView extends View {
   private float lineNumberCacheLineHeight = 0f;
   private int lineNumberCacheColor = 0;
   private float gutterSeparatorWidth;
-  private boolean isRtl = false;
+  boolean isRtl = false;
   private final Rect textBounds = new Rect();
   private final int[] tmpLocationInWindow = new int[2];
   private static final float GUTTER_TEXT_PADDING = 20f;
 
   // visual padding constants
-  private static final float BOTTOM_SCROLL_OFFSET = 100f; // Visual padding below last line
+  static final float BOTTOM_SCROLL_OFFSET = 100f; // Visual padding below last line
   private static final float MIN_BOTTOM_VISIBLE_SPACE =
       50f; // Minimum space to show below last line
 
-  // scroll state (pixels)
-  private float scrollY = 0f;
-  private float scrollX = 0f;
-
   // sliding window
-  private final List<String> linesWindow = new ArrayList<>();
-  private int windowStartLine = 0;
+  final List<String> linesWindow = new ArrayList<>();
+  int windowStartLine = 0;
   private int windowSize = 30; // 2000 yyy
-  private int prefetchLines = 10; // 1000 yyy
+  int prefetchLines = 10; // 1000 yyy
 
   // IO
   private final HandlerThread ioThread;
   private final Handler ioHandler;
   private BufferedReader readerForFile = null;
-  private File sourceFile = null;
-  private boolean isEof = false;
+  File sourceFile = null;
+  boolean isEof = false;
   private final AtomicInteger ioTaskVersion = new AtomicInteger(0);
   private boolean isFileCleared = false; // Track if the file content has been cleared
 
   // caches
-  private final LinkedHashMap<Integer, String> modifiedLines = new LinkedHashMap<>();
+  final LinkedHashMap<Integer, String> modifiedLines = new LinkedHashMap<>();
   private final LinkedHashMap<Integer, Float> lineWidthCache;
   private int lineWidthCacheSize = 200; // 2000 yyy
   private float currentMaxWindowLineWidth = 0f;
   private float globalMaxLineWidth = 0f;
-  private float maxLineWidthForScroll = 0f;
-  private float maxTextStartXForScroll = 0f;
-  private float maxScrollXForScroll = 0f;
-  private float dragMaxScrollX = -1f;
   private int maxSyntaxLineLength = 4096;
   private int prefetchCols = 512;
   private int colsWidthCacheSize = 256;
@@ -184,10 +166,11 @@ public class SodiumEditorView extends View {
           }
         }
       };
-  private final OverScroller scroller;
   private final GestureDetector gestureDetector;
-  @Nullable private ValueAnimator flingStopAnimator;
-  private static final long FLING_STOP_ANIM_DURATION_MS = 90;
+  @Nullable ValueAnimator flingStopAnimator;
+  static final long FLING_STOP_ANIM_DURATION_MS = 90;
+  private final IMEManager imeManager;
+  private final ScrollManager scrollManager;
 
   // --- Zoom State ---
   private boolean isZoomEnabled = true;
@@ -207,9 +190,9 @@ public class SodiumEditorView extends View {
   private int mCurrentSearchMatchColor =
       0x9933B5E5; // A distinct default color for the current match
   private final Paint mCurrentSearchMatchPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  private ScaleGestureDetector scaleGestureDetector;
-  private boolean mJustFinishedScale = false;
-  private boolean isScaling = false;
+  ScaleGestureDetector scaleGestureDetector;
+  boolean mJustFinishedScale = false;
+  boolean isScaling = false;
   private float lastFocusX, lastFocusY;
   private static final float MIN_TEXT_SIZE = 8f;
   private static final float MAX_TEXT_SIZE = 56f;
@@ -236,7 +219,7 @@ public class SodiumEditorView extends View {
   private int pendingZoomScrollAdjustGlobalLine = -1;
   private float pendingZoomScrollAdjustFocusY = -1f;
 
-  private boolean isZoomGestureActive() {
+  boolean isZoomGestureActive() {
     return isScaling
         || pinchVisualZoomActive
         || multiTouchActive
@@ -410,7 +393,7 @@ public class SodiumEditorView extends View {
             : findPrevSearchMatchFrom(startLine, startChar);
     if (match == null) return false;
 
-    ensureLineInWindow(match.line, true);
+    scrollManager.ensureLineInWindow(match.line, true);
     setCursorPosition(match.line, match.start);
     return true;
   }
@@ -594,7 +577,7 @@ public class SodiumEditorView extends View {
     }
 
     // Keep the current top visual line anchored while swapping in the new prefix arrays.
-    int anchorFirstVisual = Math.max(0, (int) (scrollY / lineHeight));
+    int anchorFirstVisual = Math.max(0, (int) (scrollManager.scrollY / lineHeight));
     VisualLinePosition anchorPos = getVisualPositionForIndex(anchorFirstVisual);
     int anchorLine = anchorPos.line;
     int anchorSeg = anchorPos.segment;
@@ -614,34 +597,31 @@ public class SodiumEditorView extends View {
       int newAnchorFirstVisual = wrapLinePrefix[anchorLine] + Math.max(0, anchorSeg);
       int dv = newAnchorFirstVisual - anchorFirstVisual;
       if (dv != 0) {
-        scrollY += dv * lineHeight;
+        scrollManager.scrollY += dv * lineHeight;
         clampScrollY();
       }
     }
   }
 
   // caret
-  private int cursorLine = 0;
-  private int cursorChar = 0;
-
-  // IME editable
-  private final Editable imeEditable = android.text.Editable.Factory.getInstance().newEditable("");
+  int cursorLine = 0;
+  int cursorChar = 0;
 
   // composing
-  private boolean hasComposing = false;
-  private int composingLine = 0, composingOffset = 0, composingLength = 0;
-  private int composingStartLine = -1;
-  private int composingStartChar = 0;
-  private boolean composingStartActive = false;
+  boolean hasComposing = false;
+  int composingLine = 0, composingOffset = 0, composingLength = 0;
+  int composingStartLine = -1;
+  int composingStartChar = 0;
+  boolean composingStartActive = false;
   @Nullable private EditOp composingPendingOp = null;
 
   // selection
-  private boolean hasSelection = false;
-  private int selStartLine = 0, selStartChar = 0;
-  private int selEndLine = 0, selEndChar = 0;
+  boolean hasSelection = false;
+  int selStartLine = 0, selStartChar = 0;
+  int selEndLine = 0, selEndChar = 0;
   private boolean selecting = false;
-  private boolean isSelectAllActive = false;
-  private boolean isEntireFileSelected = false; // Track if the entire file is logically selected
+  boolean isSelectAllActive = false;
+  boolean isEntireFileSelected = false; // Track if the entire file is logically selected
   private boolean pendingPopupAfterDoubleTap = false;
   private int lastDoubleTapLine = -1;
   private int lastDoubleTapWordStart = -1;
@@ -651,22 +631,20 @@ public class SodiumEditorView extends View {
   private int lineNumberSelectAnchorLine = -1;
 
   // touch helpers
-  private boolean pointerDown = false;
-  private boolean movedSinceDown = false;
+  boolean pointerDown = false;
+  boolean movedSinceDown = false;
   private float downX = 0f, downY = 0f;
   private final int touchSlop;
-  private boolean scrollerIsScrolling = false;
-  private boolean multiTouchActive = false;
+  boolean multiTouchActive = false;
   private boolean hadMultiTouch = false;
 
   // auto-scroll when dragging handles
-  private final Handler mainHandler = new Handler(Looper.getMainLooper());
-  private float autoScrollX = 0f, autoScrollY = 0f;
+  final Handler mainHandler = new Handler(Looper.getMainLooper());
   private float lastTouchX = 0f, lastTouchY = 0f;
 
   // keyboard awareness
   private final Rect visibleDisplayFrame = new Rect();
-  private int keyboardHeight = 0;
+  int keyboardHeight = 0;
 
   // typed-character fade animation (in-text, while drawing)
   private boolean isCharAnimationEnabled = false;
@@ -674,14 +652,10 @@ public class SodiumEditorView extends View {
   private int charAnimFastDurationMs = 60;
   private long charAnimFastThresholdMs = 80;
   private long lastCharAnimUptime = 0L;
-  @Nullable private String lastComposingTextForCharAnim;
-  private boolean suppressNextCommitText = false;
-  @Nullable private String lastImeCommitText;
-  private long lastImeCommitUptime = 0L;
-  private boolean imeExtractedTextMonitor = false;
-  private int imeExtractedTextToken = 0;
-  private int imeExtractedBeforeChars = IME_CONTEXT_BEFORE_CHARS;
-  private int imeExtractedAfterChars = IME_CONTEXT_AFTER_CHARS;
+  @Nullable String lastComposingTextForCharAnim;
+  boolean suppressNextCommitText = false;
+  @Nullable String lastImeCommitText;
+  long lastImeCommitUptime = 0L;
   private int charAnimLine = -1;
   private int charAnimStartChar = 0;
   private int charAnimEndChar = 0;
@@ -757,7 +731,7 @@ public class SodiumEditorView extends View {
       };
 
   // floating popup (custom)
-  private boolean showPopup = false;
+  boolean showPopup = false;
   private boolean isMinimalPopup = false;
   private RectF popupRect = new RectF();
   private RectF btnCopyRect = new RectF();
@@ -905,25 +879,7 @@ public class SodiumEditorView extends View {
 
   // Drawing base to avoid float precision issues on very large line indices.
   // During onDraw, we render everything relative to the first visible line.
-  private int drawBaseLine = 0;
-
-  private float getDrawLineTop(int globalLine) {
-    int drawIndex = globalLine;
-    if (isCodeFoldingEnabled) {
-      drawIndex = getVisibleIndexForGlobalLine(globalLine);
-    }
-    return (drawIndex - drawBaseLine) * lineHeight;
-  }
-
-  private float getDrawLineBottom(int globalLine) {
-    return getDrawLineTop(globalLine) + lineHeight;
-  }
-
-  private float getHitTestBaseY() {
-    int baseLine = (int) (scrollY / lineHeight);
-    if (baseLine < 0) baseLine = 0;
-    return baseLine * lineHeight;
-  }
+  int drawBaseLine = 0;
 
   private final LinkedHashMap<Integer, int[]> colorCodeBgCache =
       new LinkedHashMap<Integer, int[]>(600, 0.75f, true) {
@@ -954,16 +910,16 @@ public class SodiumEditorView extends View {
   private boolean isAutoBracketNewlineIndentEnabled = false;
   private boolean isAutoIndentAfterClosingBracketEnabled = false;
   private boolean isIndentationBlocksEnabled = false;
-  private boolean isCodeFoldingEnabled = false;
+  boolean isCodeFoldingEnabled = false;
   private int currentLineHighlightColor = 0x202196F3; // Default: translucent gray (more visible)
   private int currentLineNumberColor = 0xFF2196F3; // Default: same as cursor/handles color
   private final Paint currentLinePaint = new Paint();
 
   private int draggingHandle = 0;
-  private volatile boolean isWindowLoading = false;
+  volatile boolean isWindowLoading = false;
 
-  private boolean isDisabled = false;
-  private boolean isReadOnly = false;
+  boolean isDisabled = false;
+  boolean isReadOnly = false;
   private final AtomicInteger goToLineVersion = new AtomicInteger(0);
 
   // Loading circle variables
@@ -980,9 +936,9 @@ public class SodiumEditorView extends View {
   private int maxWidthRecalcToken = 0;
 
   // index
-  private final Object lineOffsetsLock = new Object();
-  private long[] lineOffsets = new long[0];
-  private volatile boolean isIndexReady = false;
+  final Object lineOffsetsLock = new Object();
+  long[] lineOffsets = new long[0];
+  volatile boolean isIndexReady = false;
   private volatile boolean isIndexBuilding = false;
   private volatile boolean isIndexDisabled = false;
   @Nullable private volatile String indexDisabledPath = null;
@@ -1145,18 +1101,18 @@ public class SodiumEditorView extends View {
         lastSuggestionUpdateUptime = SystemClock.uptimeMillis();
         updateSuggestionInternal();
       };
-  private boolean suggestionAcceptedThisTouch =
+  boolean suggestionAcceptedThisTouch =
       false; // Flag to prevent GestureDetector interference
   private String lastPathQuery = null;
   private String lastPathSuggestion = null;
-  private boolean isWordWrapEnabled = false;
+  boolean isWordWrapEnabled = false;
   private int wrapWidthPx = -1;
   private final java.util.HashMap<Integer, int[]> wrapCache = new java.util.HashMap<>();
   private volatile int[] wrapLineCounts = null;
-  private volatile int[] wrapLinePrefix = null;
+  volatile int[] wrapLinePrefix = null;
   private volatile int wrapPrefixValidUpToLine = -1;
   private volatile int totalWrapVisualLines = 0;
-  private volatile boolean wrapMetricsReady = false;
+  volatile boolean wrapMetricsReady = false;
   private volatile int wrapMetricsWidth = -1;
   private final AtomicInteger wrapMetricsToken = new AtomicInteger(0);
   private volatile boolean wrapMetricsBuilding = false;
@@ -1166,51 +1122,17 @@ public class SodiumEditorView extends View {
   private volatile int wrapSnapshotStart = -1;
   private volatile int wrapSnapshotSize = -1;
   private final AtomicInteger wrapPrefixToken = new AtomicInteger(0);
-  private volatile boolean wrapPrefixBuilding = false;
+  volatile boolean wrapPrefixBuilding = false;
   private volatile int wrapPrefixWidth = -1;
   private volatile int wrapPrefixTargetLine = -1;
-  private boolean wrapPrefixRebuildPending = false;
+  boolean wrapPrefixRebuildPending = false;
   private boolean isWordWrapIndicatorEnabled = false;
   private static final String WORD_WRAP_INDICATOR_TEXT = "\u21A9"; // ↩
   private final Paint wordWrapIndicatorPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   private float wordWrapIndicatorPadPx = 0f;
   private float wordWrapIndicatorWidth = 0f;
   private float wordWrapIndicatorTextScale = 0.85f;
-  private int scrollMode = SCROLL_MODE_FREE;
-  private float scrollSensitivity = 1f;
-  private float flingSensitivity = 1f;
-  private boolean flingBounceEnabled = false;
-  private int flingBounceOverScrollPx = -1; // -1 => auto
-  private float flingBounceOverScrollFactor = 0.2f;
-  private boolean stretchOverscrollEnabled = false;
-  private float stretchOverscrollStrength = 1f;
-  private float stretchX = 0f;
-  private float stretchY = 0f;
-  private int stretchDirX = 0; // -1 left, +1 right
-  private int stretchDirY = 0; // -1 top, +1 bottom
-  @Nullable private ValueAnimator stretchReleaseAnimator;
-  private boolean scrollBarEnabled = true;
-  private int scrollBarColor = 0x80FFFFFF;
-  private float scrollBarWidthPx = 6f;
-  private float scrollBarMinThumbPx = 24f;
-  private float scrollBarCornerRadiusPx = 6f;
-  private float scrollBarMarginPx = 2f;
-  private boolean scrollBarFadeEnabled = true;
-  private long scrollBarFadeDelayMs = 1000;
-  private long scrollBarFadeDurationMs = 200;
-  private float scrollBarAlpha = 0f;
-  private int scrollBarHaloColor = 0x40FFFFFF;
-  private float scrollBarHaloSizePx = 8f;
-  @Nullable private ValueAnimator scrollBarFadeAnimator;
-  private final Runnable scrollBarHideRunnable = this::startScrollBarFadeOut;
-  private final Paint scrollBarPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  private final Paint scrollBarHaloPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  private final RectF scrollBarThumbRect = new RectF();
-  private boolean draggingScrollBar = false;
-  private float scrollBarDragOffset = 0f;
   private boolean binarySafeRenderingEnabled = false;
-  private int scrollLockAxis = 0; // 0 = none, 1 = horizontal, 2 = vertical
-
   private static class TrieNode {
     final Map<Character, TrieNode> children = new java.util.TreeMap<>();
     String word = null;
@@ -1490,7 +1412,7 @@ public class SodiumEditorView extends View {
           "(#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8}))\\b|(\\b0x[a-fA-F0-9]{6,8}\\b)",
           Pattern.CASE_INSENSITIVE);
 
-  private final Runnable delayedWindowCheck =
+  final Runnable delayedWindowCheck =
       new Runnable() {
         @Override
         public void run() {
@@ -1594,7 +1516,8 @@ public class SodiumEditorView extends View {
     wordWrapIndicatorWidth = wordWrapIndicatorPaint.measureText(WORD_WRAP_INDICATOR_TEXT);
 
     touchSlop = ViewConfiguration.get(ctx).getScaledTouchSlop();
-    scroller = new OverScroller(ctx);
+    imeManager = new IMEManager(this);
+    scrollManager = new ScrollManager(this);
 
     gestureDetector =
         new GestureDetector(
@@ -1608,14 +1531,14 @@ public class SodiumEditorView extends View {
                   suggestionAcceptedThisTouch = false; // Reset the flag
                   // DON'T return false; proceed with normal onDown logic
                 }
-                scrollLockAxis = 0;
+                scrollManager.scrollLockAxis = 0;
                 mJustFinishedScale = false;
                 commitComposing(false); // End any active composing when user touches view.
-                if (!scroller.isFinished()) {
-                  scroller.computeScrollOffset();
-                  scrollX = scroller.getCurrX();
-                  scrollY = scroller.getCurrY();
-                  scroller.abortAnimation();
+                if (!scrollManager.scroller.isFinished()) {
+                  scrollManager.scroller.computeScrollOffset();
+                  scrollManager.scrollX = scrollManager.scroller.getCurrX();
+                  scrollManager.scrollY = scrollManager.scroller.getCurrY();
+                  scrollManager.scroller.abortAnimation();
                 }
                 downX = e.getX();
                 downY = e.getY();
@@ -1640,7 +1563,7 @@ public class SodiumEditorView extends View {
                 if (movedSinceDown) return;
 
                 if (lineNumberSelectionEnabled && isInLineNumberGutter(e.getX())) {
-                  float y = e.getY() + scrollY;
+                  float y = e.getY() + scrollManager.scrollY;
                   int line = getGlobalLineForY(y);
                   beginLineNumberSelection(line);
                   return;
@@ -1649,7 +1572,7 @@ public class SodiumEditorView extends View {
                 // Position calculation
                 CursorTarget target = getCursorTargetForPosition(e.getX(), e.getY(), null);
                 int line = target.line;
-                ensureLineInWindow(line, true); // Make sure line data is available
+                scrollManager.ensureLineInWindow(line, true); // Make sure line data is available
 
                 String ln = getLineFromWindowLocal(line - windowStartLine);
                 if (ln == null) ln = getLineTextForRender(line);
@@ -1679,7 +1602,7 @@ public class SodiumEditorView extends View {
                   isEntireFileSelected = false;
                 }
                 if (isCodeFoldingEnabled && isInLineNumberGutter(e.getX())) {
-                  float gy = e.getY() + scrollY;
+                  float gy = e.getY() + scrollManager.scrollY;
                   int line = getGlobalLineForY(gy);
                   if (toggleFoldAtLine(line)) {
                     startFoldMarkerRipple(line);
@@ -1688,7 +1611,7 @@ public class SodiumEditorView extends View {
                     return true;
                   }
                 }
-                float y = e.getY() + scrollY;
+                float y = e.getY() + scrollManager.scrollY;
                 int visibleIndex = Math.max(0, (int) (y / lineHeight));
                 int totalVisible =
                     isWordWrapEnabled ? getTotalVisualLineCount() : getVisibleLineCount();
@@ -1748,7 +1671,7 @@ public class SodiumEditorView extends View {
                     cursorChar = lastLineText.length();
                   }
                 } else {
-                  ensureLineInWindow(line, true);
+                  scrollManager.ensureLineInWindow(line, true);
                   String ln = getLineTextForRender(line);
                   cursorLine = line;
                   cursorChar = Math.max(0, Math.min(target.ch, ln.length()));
@@ -1767,167 +1690,13 @@ public class SodiumEditorView extends View {
               @Override
               public boolean onScroll(
                   MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-                if (e2.getPointerCount() > 1) return true;
-                if (isScaling || scaleGestureDetector.isInProgress()) return true;
-                if (mJustFinishedScale) return true;
-                if (isWordWrapEnabled && wrapPrefixBuilding) {
-                  cancelWrapPrefixRebuildForInteraction();
-                }
-                if (suggestionAcceptedThisTouch)
-                  return false; // Don't process if suggestion was accepted
-
-                movedSinceDown = true;
-                float dx = distanceX * scrollSensitivity;
-                float dy = distanceY * scrollSensitivity;
-                if (scrollMode == SCROLL_MODE_SINGLE_AXIS) {
-                  if (scrollLockAxis == 0) {
-                    scrollLockAxis = (Math.abs(dx) >= Math.abs(dy)) ? 1 : 2;
-                  }
-                  if (scrollLockAxis == 1) dy = 0f;
-                  else dx = 0f;
-                } else if (scrollMode == SCROLL_MODE_GRID) {
-                  if (Math.abs(dx) >= Math.abs(dy)) dy = 0f;
-                  else dx = 0f;
-                }
-                if (isWordWrapEnabled) {
-                  dx = 0f;
-                }
-                if (isRtl && !isWordWrapEnabled) {
-                  dx = -dx;
-                }
-                float maxX = 0f;
-                if (!isWordWrapEnabled) {
-                  if (dragMaxScrollX < 0f) {
-                    dragMaxScrollX = getMaxScrollXForClamp();
-                  } else {
-                    float freshMax = getMaxScrollXForClamp();
-                    if (freshMax > dragMaxScrollX) dragMaxScrollX = freshMax;
-                  }
-                  maxX = dragMaxScrollX;
-                }
-                float maxY = getMaxScrollYForClamp();
-
-                float nextX = scrollX + dx;
-                float nextY = scrollY + dy;
-                if (stretchOverscrollEnabled) {
-                  if (!isWordWrapEnabled) {
-                    if (nextX < 0f && dx < 0f) {
-                      pullStretchX(dx, false);
-                      nextX = 0f;
-                    } else if (nextX > maxX && dx > 0f) {
-                      pullStretchX(dx, true);
-                      nextX = maxX;
-                    }
-                  }
-                  if (nextY < 0f && dy < 0f) {
-                    pullStretchY(dy, false);
-                    nextY = 0f;
-                  } else if (nextY > maxY && dy > 0f) {
-                    pullStretchY(dy, true);
-                    nextY = maxY;
-                  }
-                } else {
-                  if (!isWordWrapEnabled) {
-                    if ((scrollX <= 0f && dx < 0f) || (scrollX >= maxX && dx > 0f)) {
-                      dx = 0f;
-                      nextX = scrollX;
-                    }
-                  }
-                }
-
-                scrollY = nextY;
-                scrollX = nextX;
-                clampScrollY();
-                clampScrollX();
-                showScrollBar();
-
-                removeCallbacks(delayedWindowCheck);
-                if (Math.abs(distanceY) > lineHeight * 6f) {
-                  checkAndLoadWindow();
-                } else {
-                  postDelayed(delayedWindowCheck, 60);
-                }
-
-                if (showPopup) hidePopup();
-                resetCursorBlink();
-                invalidate();
-                return true;
+                return scrollManager.onScroll(e2, distanceX, distanceY);
               }
 
               @Override
               public boolean onFling(
                   MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-                if (isScaling || scaleGestureDetector.isInProgress()) return true;
-                if (mJustFinishedScale) return true;
-                if (isWordWrapEnabled && wrapPrefixBuilding) {
-                  cancelWrapPrefixRebuildForInteraction();
-                }
-                if (suggestionAcceptedThisTouch)
-                  return false; // Don't process if suggestion was accepted
-
-                int startX = Math.round(scrollX);
-                int startY = Math.round(scrollY);
-                int minX = 0;
-                int maxX =
-                    isWordWrapEnabled
-                        ? 0
-                        : Math.max(
-                            0,
-                            Math.round(getMaxLineWidthInWindow() - (getWidth() - getTextStartX())));
-                int minY = 0;
-
-                float maxScrollYFloat;
-                float effectiveHeight =
-                    (keyboardHeight > 0) ? getHeight() - keyboardHeight : getHeight();
-
-                int lineCount =
-                    isWordWrapEnabled
-                        ? getTotalVisualLineCount()
-                        : (isCodeFoldingEnabled
-                            ? getVisibleLineCount()
-                            : Math.max(1, getLinesCount()));
-                if (isEof) {
-                  float paddingToUse =
-                      (keyboardHeight > 0)
-                          ? Math.min(BOTTOM_SCROLL_OFFSET, keyboardHeight * 0.4f)
-                          : BOTTOM_SCROLL_OFFSET;
-                  maxScrollYFloat =
-                      Math.max(0f, lineCount * lineHeight - (effectiveHeight - paddingToUse));
-                } else {
-                  float virtualExtraSpace = Math.max(prefetchLines * lineHeight, 2000f);
-                  maxScrollYFloat =
-                      Math.max(0f, lineCount * lineHeight + virtualExtraSpace - effectiveHeight);
-                }
-                int maxY = Math.max(0, Math.round(maxScrollYFloat));
-
-                removeCallbacks(delayedWindowCheck);
-                float vx = velocityX * flingSensitivity;
-                float vy = velocityY * flingSensitivity;
-                if (scrollMode == SCROLL_MODE_SINGLE_AXIS) {
-                  int axis = scrollLockAxis;
-                  if (axis == 0) axis = (Math.abs(vx) >= Math.abs(vy)) ? 1 : 2;
-                  if (axis == 1) vy = 0f;
-                  else vx = 0f;
-                } else if (scrollMode == SCROLL_MODE_GRID) {
-                  if (Math.abs(vx) >= Math.abs(vy)) vy = 0f;
-                  else vx = 0f;
-                }
-                if (isWordWrapEnabled) {
-                  vx = 0f;
-                }
-                if (isRtl && !isWordWrapEnabled) {
-                  vx = -vx;
-                }
-                int overX = 0;
-                int overY = 0;
-                if (flingBounceEnabled) {
-                  if (!isWordWrapEnabled) overX = Math.max(overX, getFlingOverScrollX());
-                  overY = Math.max(overY, getFlingOverScrollY());
-                }
-                scroller.fling(
-                    startX, startY, (int) -vx, (int) -vy, minX, maxX, minY, maxY, overX, overY);
-                postInvalidateOnAnimation();
-                return true;
+                return scrollManager.onFling(velocityX, velocityY);
               }
 
               @Override
@@ -1936,7 +1705,7 @@ public class SodiumEditorView extends View {
                   return true; // Don't process if suggestion was accepted
                 CursorTarget target = getCursorTargetForPosition(e.getX(), e.getY(), null);
                 int line = target.line;
-                ensureLineInWindow(line, true);
+                scrollManager.ensureLineInWindow(line, true);
                 String ln = getLineTextForRender(line);
                 if (ln == null || ln.isEmpty()) {
                   return onSingleTapUp(e);
@@ -1971,7 +1740,7 @@ public class SodiumEditorView extends View {
                 isScaling = true;
                 lastFocusX = detector.getFocusX();
                 lastFocusY = detector.getFocusY();
-                if (!scroller.isFinished()) scroller.abortAnimation();
+                if (!scrollManager.scroller.isFinished()) scrollManager.scroller.abortAnimation();
                 if (isWordWrapEnabled && deferWrapReflowDuringPinch) {
                   pinchVisualZoomActive = true;
                   pinchVisualScale = 1f;
@@ -1979,7 +1748,7 @@ public class SodiumEditorView extends View {
                   pinchTargetTextSizePx = pinchStartTextSizePx;
                   pinchFocusX = lastFocusX;
                   pinchFocusY = lastFocusY;
-                  pinchAnchorGlobalLineAtFocus = getGlobalLineForY(scrollY + pinchFocusY);
+                  pinchAnchorGlobalLineAtFocus = getGlobalLineForY(scrollManager.scrollY + pinchFocusY);
                 } else {
                   pinchVisualZoomActive = false;
                   pinchVisualScale = 1f;
@@ -2003,7 +1772,7 @@ public class SodiumEditorView extends View {
                 if (pinchVisualZoomActive) {
                   pinchFocusX = focusX;
                   pinchFocusY = focusY;
-                  pinchAnchorGlobalLineAtFocus = getGlobalLineForY(scrollY + focusY);
+                  pinchAnchorGlobalLineAtFocus = getGlobalLineForY(scrollManager.scrollY + focusY);
 
                   pinchVisualScale *= scale;
                   float targetSize = pinchStartTextSizePx * pinchVisualScale;
@@ -2022,7 +1791,7 @@ public class SodiumEditorView extends View {
                 if (isWordWrapEnabled) {
                   // Capture the logical line currently under the focal point BEFORE we change text
                   // size.
-                  anchorGlobalLineAtFocus = getGlobalLineForY(scrollY + focusY);
+                  anchorGlobalLineAtFocus = getGlobalLineForY(scrollManager.scrollY + focusY);
                 }
 
                 // Zoom
@@ -2043,12 +1812,12 @@ public class SodiumEditorView extends View {
                   effectiveScrollX =
                       (effectiveScrollX + focusX - getTextStartX()) * scale
                           - (focusX - getTextStartX());
-                  scrollX = isRtl ? -effectiveScrollX : effectiveScrollX;
-                  // Always adjust scrollY immediately so the view does not "jump" to earlier lines
+                  scrollManager.scrollX = isRtl ? -effectiveScrollX : effectiveScrollX;
+                  // Always adjust scrollManager.scrollY immediately so the view does not "jump" to earlier lines
                   // while pinching.
-                  scrollY = (scrollY + focusY) * effectiveScaleY - focusY;
+                  scrollManager.scrollY = (scrollManager.scrollY + focusY) * effectiveScaleY - focusY;
                   if (isWordWrapEnabled) {
-                    // After wrap metrics rebuild, correct scrollY to keep the same logical line at
+                    // After wrap metrics rebuild, correct scrollManager.scrollY to keep the same logical line at
                     // the focus.
                     pendingZoomScrollAdjustGlobalLine = anchorGlobalLineAtFocus;
                     pendingZoomScrollAdjustFocusY = focusY;
@@ -2091,8 +1860,8 @@ public class SodiumEditorView extends View {
                     effectiveScrollX =
                         (effectiveScrollX + focusX - getTextStartX()) * scaleX
                             - (focusX - getTextStartX());
-                    scrollX = isRtl ? -effectiveScrollX : effectiveScrollX;
-                    scrollY = (scrollY + focusY) * effectiveScaleY - focusY;
+                    scrollManager.scrollX = isRtl ? -effectiveScrollX : effectiveScrollX;
+                    scrollManager.scrollY = (scrollManager.scrollY + focusY) * effectiveScaleY - focusY;
 
                     if (isWordWrapEnabled && anchorLine >= 0) {
                       pendingZoomScrollAdjustGlobalLine = anchorLine;
@@ -2113,7 +1882,7 @@ public class SodiumEditorView extends View {
                 // so it doesn't fight the zoom scroll math and cause a brief jump toward the caret.
                 applyPendingWrapPrefixUpdateIfAny();
 
-                // Perform delayed scrollY adjustment for word wrap after scaling, if pending.
+                // Perform delayed scrollManager.scrollY adjustment for word wrap after scaling, if pending.
                 if (isWordWrapEnabled && pendingZoomScrollAdjustGlobalLine != -1) {
                   final int targetGlobalLine = pendingZoomScrollAdjustGlobalLine;
                   final float targetFocusY = pendingZoomScrollAdjustFocusY;
@@ -2130,8 +1899,8 @@ public class SodiumEditorView extends View {
                           // Check if wrap metrics are ready. If not, repost with delay.
                           if (wrapMetricsReady) {
                             int visualIndex = getVisualIndexForLineAndChar(targetGlobalLine, 0);
-                            // Adjust scrollY to keep the top of the line at the original focusY
-                            scrollY = visualIndex * lineHeight - targetFocusY;
+                            // Adjust scrollManager.scrollY to keep the top of the line at the original focusY
+                            scrollManager.scrollY = visualIndex * lineHeight - targetFocusY;
                             clampScrollY();
                             invalidate();
                           } else {
@@ -2182,7 +1951,7 @@ public class SodiumEditorView extends View {
 
               if (newKeyboardHeight != keyboardHeight) {
                 keyboardHeight = newKeyboardHeight;
-                post(this::keepCursorVisibleHorizontally);
+                post(scrollManager::keepCursorVisibleHorizontally);
               }
             });
 
@@ -2216,60 +1985,8 @@ public class SodiumEditorView extends View {
     invalidate();
   }
 
-  public void setScrollMode(int mode) {
-    if (mode != SCROLL_MODE_SINGLE_AXIS && mode != SCROLL_MODE_GRID && mode != SCROLL_MODE_FREE) {
-      return;
-    }
-    this.scrollMode = mode;
-  }
-
-  public float getScrollXValue() {
-    return scrollX;
-  }
-
-  public float getScrollYValue() {
-    return scrollY;
-  }
-
-  public void setScrollPosition(float x, float y) {
-    scrollX = x;
-    scrollY = y;
-    clampScrollX();
-    clampScrollY();
-    invalidate();
-  }
-
-  public void setScrollSensitivity(float sensitivity) {
-    if (sensitivity <= 0f) return;
-    this.scrollSensitivity = sensitivity;
-  }
-
-  public void setFlingSensitivity(float sensitivity) {
-    if (sensitivity <= 0f) return;
-    this.flingSensitivity = sensitivity;
-  }
-
-  public void setScrollBarEnabled(boolean enabled) {
-    if (scrollBarEnabled == enabled) return;
-    scrollBarEnabled = enabled;
-    invalidate();
-  }
-
-  public void setScrollBarColor(int color) {
-    scrollBarColor = color;
-    invalidate();
-  }
-
-  public void setScrollBarWidthPx(float px) {
-    if (px <= 0f) return;
-    scrollBarWidthPx = px;
-    invalidate();
-  }
-
-  public void setScrollBarMinThumbPx(float px) {
-    if (px <= 0f) return;
-    scrollBarMinThumbPx = px;
-    invalidate();
+  public ScrollManager getScrollManager() {
+    return scrollManager;
   }
 
   public void setBinarySafeRenderingEnabled(boolean enabled) {
@@ -2280,90 +1997,15 @@ public class SodiumEditorView extends View {
     }
     currentMaxWindowLineWidth = 0f;
     globalMaxLineWidth = 0f;
-    maxLineWidthForScroll = 0f;
-    maxTextStartXForScroll = 0f;
-    maxScrollXForScroll = 0f;
+    scrollManager.maxLineWidthForScroll = 0f;
+    scrollManager.maxTextStartXForScroll = 0f;
+    scrollManager.maxScrollXForScroll = 0f;
     invalidateHighlightEnsureRange();
     invalidateBracketGuideCache();
     if (isWordWrapEnabled) invalidateWrapMetrics(true);
     requestWrapPrefixRebuild();
     reloadWindowAroundVisible(false);
     invalidate();
-  }
-
-  public void setScrollBarFadeEnabled(boolean enabled) {
-    scrollBarFadeEnabled = enabled;
-    if (!enabled) {
-      cancelScrollBarFade();
-      scrollBarAlpha = 1f;
-      invalidate();
-    } else {
-      cancelScrollBarFade();
-      scrollBarAlpha = 0f;
-      invalidate();
-    }
-  }
-
-  public void setScrollBarFadeDelayMs(long ms) {
-    scrollBarFadeDelayMs = Math.max(0, ms);
-  }
-
-  public void setScrollBarFadeDurationMs(long ms) {
-    scrollBarFadeDurationMs = Math.max(0, ms);
-  }
-
-  public void setScrollBarHaloColor(int color) {
-    scrollBarHaloColor = color;
-    invalidate();
-  }
-
-  public void setScrollBarHaloSizePx(float px) {
-    if (px < 0f) return;
-    scrollBarHaloSizePx = px;
-    invalidate();
-  }
-
-  public void setScrollBarCornerRadiusPx(float px) {
-    if (px < 0f) return;
-    scrollBarCornerRadiusPx = px;
-    invalidate();
-  }
-
-  public void setScrollBarMarginPx(float px) {
-    if (px < 0f) return;
-    scrollBarMarginPx = px;
-    invalidate();
-  }
-
-  public void setStretchOverscrollEnabled(boolean enabled) {
-    if (stretchOverscrollEnabled == enabled) return;
-    stretchOverscrollEnabled = enabled;
-    if (!enabled) {
-      stretchX = 0f;
-      stretchY = 0f;
-      stretchDirX = 0;
-      stretchDirY = 0;
-      cancelStretchRelease();
-      invalidate();
-    }
-  }
-
-  public void setStretchOverscrollStrength(float strength) {
-    if (strength <= 0f) return;
-    stretchOverscrollStrength = strength;
-  }
-
-  public void setFlingBounceEnabled(boolean enabled) {
-    this.flingBounceEnabled = enabled;
-  }
-
-  public void setFlingBounceDistancePx(int px) {
-    this.flingBounceOverScrollPx = Math.max(0, px);
-  }
-
-  public void setFlingBounceDistanceFactor(float factor) {
-    if (factor <= 0f) return;
-    this.flingBounceOverScrollFactor = factor;
   }
 
   public void setHighlightCurrentSearchMatchEnabled(boolean enabled) {
@@ -2386,7 +2028,7 @@ public class SodiumEditorView extends View {
     this.isWordWrapEnabled = enabled;
     invalidateWrapMetrics();
     if (enabled) {
-      scrollX = 0f;
+      scrollManager.scrollX = 0f;
       clampScrollX();
       clearStreamedLineCaches();
       reloadWindowAroundVisible(false);
@@ -2516,7 +2158,7 @@ public class SodiumEditorView extends View {
 
   // --- Core Logic for Auto Completion ---
 
-  private void clearActiveSuggestion() {
+  void clearActiveSuggestion() {
     if (activeSuggestion != null) {
       activeSuggestion = null;
       activeSuggestionRect.setEmpty();
@@ -2525,7 +2167,7 @@ public class SodiumEditorView extends View {
     }
   }
 
-  private void updateSuggestion() {
+  void updateSuggestion() {
     if (Looper.myLooper() != Looper.getMainLooper()) {
       post(this::updateSuggestion);
       return;
@@ -2808,7 +2450,7 @@ public class SodiumEditorView extends View {
     invalidatePendingIOForEdit();
     editVersion.incrementAndGet();
 
-    ensureLineInWindow(cursorLine, true);
+    scrollManager.ensureLineInWindow(cursorLine, true);
     if (isWindowLoading
         && (cursorLine < windowStartLine || cursorLine >= windowStartLine + linesWindow.size())) {
       post(() -> insertStringAtCursor(text));
@@ -2827,7 +2469,7 @@ public class SodiumEditorView extends View {
       cursorChar += text.length();
       computeWidthForLine(cursorLine, modified);
       recalculateMaxLineWidth();
-      keepCursorVisibleHorizontally();
+      scrollManager.keepCursorVisibleHorizontally();
       invalidate();
     }
   }
@@ -2872,7 +2514,7 @@ public class SodiumEditorView extends View {
   public void setShowLineNumbers(boolean show) {
     if (this.showLineNumbers == show) return;
     this.showLineNumbers = show;
-    maxTextStartXForScroll = 0f;
+    scrollManager.maxTextStartXForScroll = 0f;
     invalidateLineNumberCache();
     requestLayout(); // Recalculate gutter width
     if (isWordWrapEnabled) invalidateWrapMetrics(true);
@@ -3072,7 +2714,7 @@ public class SodiumEditorView extends View {
             : findPrevSearchMatchFrom(startLine, startChar);
     if (match == null) return false;
 
-    ensureLineInWindow(match.line, true);
+    scrollManager.ensureLineInWindow(match.line, true);
     setSelectionInternal(match.line, match.start, match.line, match.end);
     setCursorPositionNoClear(match.line, match.end);
     return true;
@@ -3097,7 +2739,7 @@ public class SodiumEditorView extends View {
             : findPrevSearchMatchFrom(startLine, startChar);
     if (match == null) return false;
 
-    ensureLineInWindow(match.line, true);
+    scrollManager.ensureLineInWindow(match.line, true);
     setSelectionInternal(match.line, match.start, match.line, match.end);
     setCursorPositionNoClear(match.line, match.end);
     return true;
@@ -3106,7 +2748,7 @@ public class SodiumEditorView extends View {
   public boolean selectSearchMatchAtCursorOrNext() {
     SearchMatch atCursor = findSearchMatchAtCursor();
     if (atCursor != null) {
-      ensureLineInWindow(atCursor.line, true);
+      scrollManager.ensureLineInWindow(atCursor.line, true);
       setSelectionInternal(atCursor.line, atCursor.start, atCursor.line, atCursor.end);
       setCursorPositionNoClear(atCursor.line, atCursor.end);
       return true;
@@ -3169,7 +2811,7 @@ public class SodiumEditorView extends View {
       cursorChar = targetCol;
     }
     resetCursorBlink();
-    keepCursorVisibleHorizontally();
+    scrollManager.keepCursorVisibleHorizontally();
     invalidate();
     updateImeSelection();
   }
@@ -3252,9 +2894,9 @@ public class SodiumEditorView extends View {
     }
     currentMaxWindowLineWidth = 0f;
     globalMaxLineWidth = 0f;
-    maxLineWidthForScroll = 0f;
-    maxTextStartXForScroll = 0f;
-    maxScrollXForScroll = 0f;
+    scrollManager.maxLineWidthForScroll = 0f;
+    scrollManager.maxTextStartXForScroll = 0f;
+    scrollManager.maxScrollXForScroll = 0f;
     recalculateMaxLineWidth();
     if (isWordWrapEnabled) invalidateWrapMetrics(true);
     requestWrapPrefixRebuild();
@@ -3278,9 +2920,9 @@ public class SodiumEditorView extends View {
     }
     currentMaxWindowLineWidth = 0f;
     globalMaxLineWidth = 0f;
-    maxLineWidthForScroll = 0f;
-    maxTextStartXForScroll = 0f;
-    maxScrollXForScroll = 0f;
+    scrollManager.maxLineWidthForScroll = 0f;
+    scrollManager.maxTextStartXForScroll = 0f;
+    scrollManager.maxScrollXForScroll = 0f;
     recalculateMaxLineWidth();
     if (isWordWrapEnabled) invalidateWrapMetrics(true);
     if (isWhitespaceGuidesEnabled) invalidate();
@@ -3302,9 +2944,9 @@ public class SodiumEditorView extends View {
     }
     currentMaxWindowLineWidth = 0f;
     globalMaxLineWidth = 0f;
-    maxLineWidthForScroll = 0f;
-    maxTextStartXForScroll = 0f;
-    maxScrollXForScroll = 0f;
+    scrollManager.maxLineWidthForScroll = 0f;
+    scrollManager.maxTextStartXForScroll = 0f;
+    scrollManager.maxScrollXForScroll = 0f;
     invalidateHighlightEnsureRange();
     invalidateBracketGuideCache();
     if (isWordWrapEnabled) invalidateWrapMetrics(true);
@@ -3429,7 +3071,7 @@ public class SodiumEditorView extends View {
       invalidate();
       return;
     }
-    int firstVisibleLine = Math.max(0, getGlobalLineForY(scrollY));
+    int firstVisibleLine = Math.max(0, getGlobalLineForY(scrollManager.scrollY));
     int targetStart = Math.max(0, firstVisibleLine - prefetchLines);
     loadWindowAround(targetStart, null, recalcWidthSync);
   }
@@ -3844,10 +3486,10 @@ public class SodiumEditorView extends View {
     invalidateLineNumberCache();
     requestLayout();
     if (isWordWrapEnabled) invalidateWrapMetrics(true);
-    maxScrollXForScroll = 0f;
-    maxTextStartXForScroll = 0f;
-    scrollX = 0f;
-    keepCursorVisibleHorizontally();
+    scrollManager.maxScrollXForScroll = 0f;
+    scrollManager.maxTextStartXForScroll = 0f;
+    scrollManager.scrollX = 0f;
+    scrollManager.keepCursorVisibleHorizontally();
     invalidate();
   }
 
@@ -4036,7 +3678,7 @@ public class SodiumEditorView extends View {
       cursorChar = targetCol;
     }
     resetCursorBlink();
-    keepCursorVisibleHorizontally();
+    scrollManager.keepCursorVisibleHorizontally();
     invalidate();
   }
 
@@ -4127,12 +3769,12 @@ public class SodiumEditorView extends View {
     float scale = sizePx / oldSize;
     currentMaxWindowLineWidth *= scale;
     globalMaxLineWidth *= scale;
-    maxLineWidthForScroll *= scale;
-    maxScrollXForScroll *= scale;
-    maxTextStartXForScroll = 0f;
+    scrollManager.maxLineWidthForScroll *= scale;
+    scrollManager.maxScrollXForScroll *= scale;
+    scrollManager.maxTextStartXForScroll = 0f;
     if (scale < 1f) {
-      maxLineWidthForScroll = 0f;
-      maxScrollXForScroll = 0f;
+      scrollManager.maxLineWidthForScroll = 0f;
+      scrollManager.maxScrollXForScroll = 0f;
     }
 
     requestLayout(); // Still needed for gutter
@@ -4193,9 +3835,9 @@ public class SodiumEditorView extends View {
     }
     currentMaxWindowLineWidth = 0f;
     globalMaxLineWidth = 0f;
-    maxLineWidthForScroll = 0f;
-    maxTextStartXForScroll = 0f;
-    maxScrollXForScroll = 0f;
+    scrollManager.maxLineWidthForScroll = 0f;
+    scrollManager.maxTextStartXForScroll = 0f;
+    scrollManager.maxScrollXForScroll = 0f;
     recalculateMaxLineWidth();
 
     requestLayout();
@@ -4401,8 +4043,8 @@ public class SodiumEditorView extends View {
       invalidateLineNumberCache();
     }
     if (w != oldw) {
-      maxScrollXForScroll = 0f;
-      maxTextStartXForScroll = 0f;
+      scrollManager.maxScrollXForScroll = 0f;
+      scrollManager.maxTextStartXForScroll = 0f;
     }
     int minWindow = computeMinWindowSize();
     if (windowSize < minWindow) {
@@ -4415,12 +4057,12 @@ public class SodiumEditorView extends View {
     }
   }
 
-  private float getTextStartX() {
+  float getTextStartX() {
     return isRtl ? paddingLeft : paddingLeft + lineNumbersGutterWidth;
   }
 
-  private float getEffectiveScrollX() {
-    return isRtl ? -scrollX : scrollX;
+  float getEffectiveScrollX() {
+    return isRtl ? -scrollManager.scrollX : scrollManager.scrollX;
   }
 
   private float viewToTextX(float viewX) {
@@ -4446,7 +4088,7 @@ public class SodiumEditorView extends View {
     return area - w;
   }
 
-  private float getCaretXForLine(String line, int globalLine, int charIndex) {
+  float getCaretXForLine(String line, int globalLine, int charIndex) {
     float x = measureText(line, charIndex, globalLine);
     if (!isRtl) return x;
     int logicalLen = getLogicalLineLength(globalLine, line);
@@ -4464,7 +4106,7 @@ public class SodiumEditorView extends View {
     return baseX + (w - xRel);
   }
 
-  private float getWrapWidth() {
+  float getWrapWidth() {
     return Math.max(1f, getWidth() - getTextStartX());
   }
 
@@ -4534,7 +4176,7 @@ public class SodiumEditorView extends View {
     scheduleWrapPrefixRebuildUpToWindow();
   }
 
-  private void cancelWrapPrefixRebuildForInteraction() {
+  void cancelWrapPrefixRebuildForInteraction() {
     if (!wrapPrefixBuilding) return;
     // Invalidate the in-flight rebuild and defer a new one to avoid scroll lock/jumps.
     wrapPrefixToken.incrementAndGet();
@@ -4558,17 +4200,7 @@ public class SodiumEditorView extends View {
     return !isWrapMetricsUsableForWindow(widthPx);
   }
 
-  private void scrollToLineFastForSelectAll(int line, int ch) {
-    if (isWordWrapEnabled && (!wrapMetricsReady || wrapLinePrefix == null)) {
-      scrollY = Math.max(0f, (line - 5) * lineHeight);
-    } else {
-      int targetVisual = getVisualIndexForLineAndChar(line, ch);
-      scrollY = Math.max(0f, (targetVisual - 5) * lineHeight);
-    }
-    clampScrollY();
-  }
-
-  private void scheduleWrapPrefixRebuildUpToWindow() {
+  void scheduleWrapPrefixRebuildUpToWindow() {
     if (!isWordWrapEnabled) return;
     if (shouldSuppressWrapMetricsForFastSelectAll()) return;
     int total = getLinesCount();
@@ -4590,13 +4222,13 @@ public class SodiumEditorView extends View {
     wrapPrefixWidth = widthPx;
     wrapPrefixTargetLine = targetLineFinal;
 
-    if (!scroller.isFinished()) scroller.abortAnimation();
+    if (!scrollManager.scroller.isFinished()) scrollManager.scroller.abortAnimation();
 
     final int token = wrapPrefixToken.incrementAndGet();
     final int[] baseCounts =
         (wrapLineCounts != null && wrapLineCounts.length == total) ? wrapLineCounts.clone() : null;
 
-    int anchorVisualIndex = Math.max(0, (int) (scrollY / lineHeight));
+    int anchorVisualIndex = Math.max(0, (int) (scrollManager.scrollY / lineHeight));
     VisualLinePosition anchorPos = getVisualPositionForIndex(anchorVisualIndex);
     final int anchorLine = anchorPos.line;
     final int oldAnchorPrefix =
@@ -4718,7 +4350,7 @@ public class SodiumEditorView extends View {
                 wrapPrefixValidUpToLine =
                     Math.max(wrapPrefixValidUpToLine, Math.min(targetLineFinal, total - 1));
                 if (deltaPrefix != 0) {
-                  scrollY += deltaPrefix * lineHeight;
+                  scrollManager.scrollY += deltaPrefix * lineHeight;
                   clampScrollY();
                 }
                 postInvalidateOnAnimation();
@@ -5200,7 +4832,7 @@ public class SodiumEditorView extends View {
 
   private CursorTarget getCursorTargetForPosition(
       float viewX, float viewY, @Nullable java.util.Map<Integer, String> directLines) {
-    float y = viewY + scrollY;
+    float y = viewY + scrollManager.scrollY;
     int visualIndex = Math.max(0, (int) (y / lineHeight));
     VisualLinePosition pos =
         isWordWrapEnabled
@@ -5247,7 +4879,7 @@ public class SodiumEditorView extends View {
     return wrapPrefixValidUpToLine >= line;
   }
 
-  private int getTotalVisualLineCount() {
+  int getTotalVisualLineCount() {
     if (!isWordWrapEnabled) return getVisibleLineCount();
     int widthPx = Math.max(1, Math.round(getWrapWidth()));
     if (!isWrapMetricsUsableForWindow(widthPx)) {
@@ -5342,7 +4974,7 @@ public class SodiumEditorView extends View {
 
   private float getViewYTopForLineChar(int globalLine, int ch) {
     int v = getVisualIndexForLineAndChar(globalLine, ch);
-    return v * lineHeight - scrollY;
+    return v * lineHeight - scrollManager.scrollY;
   }
 
   private int findLineForVisualIndex(int visualIndex) {
@@ -5405,7 +5037,7 @@ public class SodiumEditorView extends View {
       int newAnchorFirstVisual = wrapLinePrefix[anchorLine] + Math.max(0, anchorSeg);
       int dv = newAnchorFirstVisual - anchorFirstVisual;
       if (dv != 0) {
-        scrollY += dv * lineHeight;
+        scrollManager.scrollY += dv * lineHeight;
         clampScrollY();
       }
     }
@@ -5433,7 +5065,7 @@ public class SodiumEditorView extends View {
   }
 
   private boolean isLineSelectable(int line) {
-    ensureLineInWindow(line, true);
+    scrollManager.ensureLineInWindow(line, true);
     String ln = getLineTextForRender(line);
     return ln != null && ln.length() > 0;
   }
@@ -5466,7 +5098,7 @@ public class SodiumEditorView extends View {
     if (!isLineSelectable(clamped)) return;
     int startLine = Math.min(lineNumberSelectAnchorLine, clamped);
     int endLine = Math.max(lineNumberSelectAnchorLine, clamped);
-    ensureLineInWindow(endLine, true);
+    scrollManager.ensureLineInWindow(endLine, true);
     String endLineText = getLineTextForRender(endLine);
     selStartLine = startLine;
     selStartChar = 0;
@@ -5485,19 +5117,19 @@ public class SodiumEditorView extends View {
         @Override
         public void run() {
           if (draggingHandle == 0) return;
-          if (autoScrollX != 0 || autoScrollY != 0) {
-            scrollX += autoScrollX;
-            float nextY = scrollY + autoScrollY;
+          if (scrollManager.autoScrollX != 0 || scrollManager.autoScrollY != 0) {
+            scrollManager.scrollX += scrollManager.autoScrollX;
+            float nextY = scrollManager.scrollY + scrollManager.autoScrollY;
             if (!isIndexReady && !isEof && isWindowLoading) {
               float effectiveHeight =
                   (keyboardHeight > 0) ? getHeight() - keyboardHeight : getHeight();
               float winTop = windowStartLine * lineHeight;
               float winBottom = (windowStartLine + linesWindow.size()) * lineHeight;
               float maxY = Math.max(0f, winBottom - effectiveHeight);
-              if (autoScrollY > 0 && nextY > maxY) nextY = maxY;
-              if (autoScrollY < 0 && nextY < winTop) nextY = winTop;
+              if (scrollManager.autoScrollY > 0 && nextY > maxY) nextY = maxY;
+              if (scrollManager.autoScrollY < 0 && nextY < winTop) nextY = winTop;
             }
-            scrollY = nextY;
+            scrollManager.scrollY = nextY;
             clampScrollX();
             clampScrollY();
             updateHandlePosition(lastTouchX, lastTouchY);
@@ -5547,7 +5179,7 @@ public class SodiumEditorView extends View {
     FoldRange range = foldRanges.get(globalLine);
     if (range == null) return;
 
-    float y = Math.round(getDrawLineTop(globalLine) + lineHeight - paint.descent());
+    float y = Math.round(scrollManager.getDrawLineTop(globalLine) + lineHeight - paint.descent());
     paint.getTextBounds(FOLD_PLACEHOLDER_TEXT, 0, FOLD_PLACEHOLDER_TEXT.length(), textBounds);
     float top = Math.round(y + textBounds.top - foldPlaceholderPadY);
     float bottom = Math.round(y + textBounds.bottom + foldPlaceholderPadY);
@@ -5801,7 +5433,7 @@ public class SodiumEditorView extends View {
     final boolean drawDecorations = shouldDrawDecorations();
 
     // Calculate visible line range
-    int firstVisibleIndex = (int) (scrollY / lineHeight);
+    int firstVisibleIndex = (int) (scrollManager.scrollY / lineHeight);
     if (firstVisibleIndex < 0) firstVisibleIndex = 0;
     int lastVisibleIndex = firstVisibleIndex + (int) Math.ceil(getHeight() / lineHeight) + 5;
 
@@ -5820,7 +5452,7 @@ public class SodiumEditorView extends View {
     }
 
     float baseY = drawBaseLine * lineHeight;
-    float translateY = -scrollY + baseY;
+    float translateY = -scrollManager.scrollY + baseY;
     if (isEof) {
       synchronized (linesWindow) {
         int lastDocLine = Math.max(0, windowStartLine + linesWindow.size() - 1);
@@ -5863,7 +5495,7 @@ public class SodiumEditorView extends View {
         && cursorLine <= lastVisibleLine
         && (!isCodeFoldingEnabled || !isLineHiddenByFold(cursorLine))) {
       int drawIndex = isCodeFoldingEnabled ? getVisibleIndexForGlobalLine(cursorLine) : cursorLine;
-      float top = Math.round(drawIndex * lineHeight - scrollY);
+      float top = Math.round(drawIndex * lineHeight - scrollManager.scrollY);
       float bottom = top + lineHeight;
       drawCurrentLineHighlightInGutter(canvas, top, bottom);
     }
@@ -5974,8 +5606,8 @@ public class SodiumEditorView extends View {
 
         // Highlight the current line, only if there is no selection
         if (highlightCurrentLine && globalLine == cursorLine && !hasSelection) {
-          float top = Math.round(getDrawLineTop(globalLine));
-          float bottom = Math.round(getDrawLineBottom(globalLine));
+          float top = Math.round(scrollManager.getDrawLineTop(globalLine));
+          float bottom = Math.round(scrollManager.getDrawLineBottom(globalLine));
           float viewLeft = isRtl ? 0f : lineNumbersGutterWidth;
           float viewRight = isRtl ? (getWidth() - lineNumbersGutterWidth) : getWidth();
           float left = viewLeft + getEffectiveScrollX() - getTextStartX();
@@ -5984,10 +5616,10 @@ public class SodiumEditorView extends View {
         }
 
         if (hasSelection && selPaint != null) {
-          float top = Math.round(getDrawLineTop(globalLine));
-          float bottom = Math.round(getDrawLineBottom(globalLine));
+          float top = Math.round(scrollManager.getDrawLineTop(globalLine));
+          float bottom = Math.round(scrollManager.getDrawLineBottom(globalLine));
           float fullRight =
-              Math.max(currentMaxWindowLineWidth, scrollX + (getWidth() - getTextStartX()));
+              Math.max(currentMaxWindowLineWidth, scrollManager.scrollX + (getWidth() - getTextStartX()));
           if (isRtl) {
             fullRight = lineBaseX + lineWidth;
           }
@@ -6103,7 +5735,7 @@ public class SodiumEditorView extends View {
           }
         }
 
-        float y = Math.round(getDrawLineTop(globalLine) + lineHeight - paint.descent());
+        float y = Math.round(scrollManager.getDrawLineTop(globalLine) + lineHeight - paint.descent());
         paint.setUnderlineText(false); // Force disable underline before drawing
 
         canvas.save();
@@ -6126,8 +5758,8 @@ public class SodiumEditorView extends View {
           continue;
         }
 
-        float lineTop = Math.round(getDrawLineTop(globalLine));
-        float lineBottom = Math.round(getDrawLineBottom(globalLine));
+        float lineTop = Math.round(scrollManager.getDrawLineTop(globalLine));
+        float lineBottom = Math.round(scrollManager.getDrawLineBottom(globalLine));
         drawSearchHighlightsForLine(canvas, line, globalLine, lineTop, lineBottom);
         drawHighlightedLine(canvas, line, globalLine, y);
         if (drawDecorations) {
@@ -6161,8 +5793,8 @@ public class SodiumEditorView extends View {
 
         // Highlight the current line, only if there is no selection
         if (highlightCurrentLine && globalLine == cursorLine && !hasSelection) {
-          float top = Math.round(getDrawLineTop(globalLine));
-          float bottom = Math.round(getDrawLineBottom(globalLine));
+          float top = Math.round(scrollManager.getDrawLineTop(globalLine));
+          float bottom = Math.round(scrollManager.getDrawLineBottom(globalLine));
           float viewLeft = isRtl ? 0f : lineNumbersGutterWidth;
           float viewRight = isRtl ? (getWidth() - lineNumbersGutterWidth) : getWidth();
           float left = viewLeft + getEffectiveScrollX() - getTextStartX();
@@ -6171,10 +5803,10 @@ public class SodiumEditorView extends View {
         }
 
         if (hasSelection && selPaint != null) {
-          float top = Math.round(getDrawLineTop(globalLine));
-          float bottom = Math.round(getDrawLineBottom(globalLine));
+          float top = Math.round(scrollManager.getDrawLineTop(globalLine));
+          float bottom = Math.round(scrollManager.getDrawLineBottom(globalLine));
           float fullRight =
-              Math.max(currentMaxWindowLineWidth, scrollX + (getWidth() - getTextStartX()));
+              Math.max(currentMaxWindowLineWidth, scrollManager.scrollX + (getWidth() - getTextStartX()));
           if (isRtl) {
             fullRight = lineBaseX + lineWidth;
           }
@@ -6290,7 +5922,7 @@ public class SodiumEditorView extends View {
           }
         }
 
-        float y = Math.round(getDrawLineTop(globalLine) + lineHeight - paint.descent());
+        float y = Math.round(scrollManager.getDrawLineTop(globalLine) + lineHeight - paint.descent());
         paint.setUnderlineText(false); // Force disable underline before drawing
 
         canvas.save();
@@ -6299,8 +5931,8 @@ public class SodiumEditorView extends View {
         // Draw color code backgrounds underneath the text
         drawColorCodeBackgrounds(canvas, line, globalLine);
 
-        float lineTop = Math.round(getDrawLineTop(globalLine));
-        float lineBottom = Math.round(getDrawLineBottom(globalLine));
+        float lineTop = Math.round(scrollManager.getDrawLineTop(globalLine));
+        float lineBottom = Math.round(scrollManager.getDrawLineBottom(globalLine));
         drawSearchHighlightsForLine(canvas, line, globalLine, lineTop, lineBottom);
         drawHighlightedLine(canvas, line, globalLine, y);
         if (drawDecorations) {
@@ -6331,7 +5963,7 @@ public class SodiumEditorView extends View {
       String cursorLineText = getLineTextForRender(cursorLine);
       int safeChar = Math.min(cursorChar, getLogicalLineLength(cursorLine, cursorLineText));
       float cursorX = getCaretXForLine(cursorLineText, cursorLine, safeChar);
-      float cursorY = getDrawLineTop(cursorLine);
+      float cursorY = scrollManager.getDrawLineTop(cursorLine);
       updateCursorDrawPosition(cursorX, cursorY);
       float drawX = cursorDrawX;
       float drawY = cursorDrawY;
@@ -6360,7 +5992,7 @@ public class SodiumEditorView extends View {
                 startLineText,
                 selStartLine,
                 Math.min(selStartChar, getLogicalLineLength(selStartLine, startLineText)));
-        float startY = getDrawLineTop(selStartLine) + lineHeight;
+        float startY = scrollManager.getDrawLineTop(selStartLine) + lineHeight;
         drawTeardropHandle(canvas, startX, startY, handlePaint);
         if (isRtl) {
           rightHandleRect.set(
@@ -6382,7 +6014,7 @@ public class SodiumEditorView extends View {
                 endLineText,
                 selEndLine,
                 Math.min(selEndChar, getLogicalLineLength(selEndLine, endLineText)));
-        float endY = getDrawLineTop(selEndLine) + lineHeight;
+        float endY = scrollManager.getDrawLineTop(selEndLine) + lineHeight;
         drawTeardropHandle(canvas, endX, endY, handlePaint);
         if (isRtl) {
           leftHandleRect.set(
@@ -6446,7 +6078,7 @@ public class SodiumEditorView extends View {
     if (totalLines <= 0) totalLines = 1;
 
     int totalVisual = getTotalVisualLineCount();
-    int firstVisualIndex = Math.max(0, (int) (scrollY / lineHeight));
+    int firstVisualIndex = Math.max(0, (int) (scrollManager.scrollY / lineHeight));
     int lastVisualIndex =
         Math.min(totalVisual - 1, firstVisualIndex + (int) Math.ceil(getHeight() / lineHeight) + 5);
     if (lastVisualIndex < firstVisualIndex) lastVisualIndex = firstVisualIndex;
@@ -6480,7 +6112,7 @@ public class SodiumEditorView extends View {
       if (totalLines <= 0) totalLines = 1;
 
       totalVisual = getTotalVisualLineCount();
-      firstVisualIndex = Math.max(0, (int) (scrollY / lineHeight));
+      firstVisualIndex = Math.max(0, (int) (scrollManager.scrollY / lineHeight));
       lastVisualIndex =
           Math.min(
               totalVisual - 1, firstVisualIndex + (int) Math.ceil(getHeight() / lineHeight) + 5);
@@ -6499,7 +6131,7 @@ public class SodiumEditorView extends View {
     }
 
     float baseY = firstVisualIndex * lineHeight;
-    float translateY = -scrollY + baseY;
+    float translateY = -scrollManager.scrollY + baseY;
 
     // --- 1. Draw fixed gutter background ---
     if (showLineNumbers) {
@@ -6534,7 +6166,7 @@ public class SodiumEditorView extends View {
       int drawFrom = Math.max(firstVisualIndex, currentVisualIndex);
       int drawTo = Math.min(lastVisualIndex, lastVisualIndexForLine);
       for (int v = drawFrom; v <= drawTo; v++) {
-        float top = Math.round(v * lineHeight - scrollY);
+        float top = Math.round(v * lineHeight - scrollManager.scrollY);
         float bottom = top + lineHeight;
         drawCurrentLineHighlightInGutter(canvas, top, bottom);
       }
@@ -6778,7 +6410,7 @@ public class SodiumEditorView extends View {
   }
 
   private void drawContentWrappedFallback(Canvas canvas, int wrapWidthPx) {
-    int firstIndex = Math.max(0, (int) (scrollY / lineHeight));
+    int firstIndex = Math.max(0, (int) (scrollManager.scrollY / lineHeight));
     int lastIndex = firstIndex + (int) Math.ceil(getHeight() / lineHeight) + 5;
     final boolean drawDecorations = shouldDrawDecorations();
 
@@ -6803,7 +6435,7 @@ public class SodiumEditorView extends View {
     }
 
     float baseY = firstIndex * lineHeight;
-    float translateY = -scrollY + baseY;
+    float translateY = -scrollManager.scrollY + baseY;
 
     // Draw gutter background
     if (showLineNumbers) {
@@ -6829,7 +6461,7 @@ public class SodiumEditorView extends View {
         && (!isCodeFoldingEnabled || !isLineHiddenByFold(cursorLine))) {
       int currentVisualIndex = getVisualIndexForLineAndChar(cursorLine, 0);
       if (currentVisualIndex >= firstIndex && currentVisualIndex <= lastIndex) {
-        float top = Math.round(currentVisualIndex * lineHeight - scrollY);
+        float top = Math.round(currentVisualIndex * lineHeight - scrollManager.scrollY);
         float bottom = top + lineHeight;
         drawCurrentLineHighlightInGutter(canvas, top, bottom);
       }
@@ -7097,11 +6729,11 @@ public class SodiumEditorView extends View {
   protected void onDraw(Canvas canvas) {
     super.onDraw(canvas);
     drawEditorBackground(canvas);
-    if (stretchOverscrollEnabled && (stretchX != 0f || stretchY != 0f)) {
-      float sx = 1f + (stretchX * 0.12f * stretchOverscrollStrength);
-      float sy = 1f + (stretchY * 0.12f * stretchOverscrollStrength);
-      float pivotX = (stretchDirX < 0) ? 0f : (stretchDirX > 0 ? getWidth() : getWidth() * 0.5f);
-      float pivotY = (stretchDirY < 0) ? 0f : (stretchDirY > 0 ? getHeight() : getHeight() * 0.5f);
+    if (scrollManager.stretchOverscrollEnabled && (scrollManager.stretchX != 0f || scrollManager.stretchY != 0f)) {
+      float sx = 1f + (scrollManager.stretchX * 0.12f * scrollManager.stretchOverscrollStrength);
+      float sy = 1f + (scrollManager.stretchY * 0.12f * scrollManager.stretchOverscrollStrength);
+      float pivotX = (scrollManager.stretchDirX < 0) ? 0f : (scrollManager.stretchDirX > 0 ? getWidth() : getWidth() * 0.5f);
+      float pivotY = (scrollManager.stretchDirY < 0) ? 0f : (scrollManager.stretchDirY > 0 ? getHeight() : getHeight() * 0.5f);
       canvas.save();
       canvas.scale(sx, sy, pivotX, pivotY);
       drawContent(canvas);
@@ -7262,7 +6894,7 @@ public class SodiumEditorView extends View {
       }
     }
 
-    float lineTop = getDrawLineTop(globalLine);
+    float lineTop = scrollManager.getDrawLineTop(globalLine);
     float lineBottom = lineTop + lineHeight;
 
     if (highlightRules.isEmpty()) {
@@ -7481,7 +7113,7 @@ public class SodiumEditorView extends View {
       }
     }
 
-    float lineTop = getDrawLineTop(globalLine);
+    float lineTop = scrollManager.getDrawLineTop(globalLine);
     float lineBottom = lineTop + lineHeight;
     float currentX = measureText(line, start, globalLine);
     int lastEnd = start;
@@ -7757,7 +7389,7 @@ public class SodiumEditorView extends View {
     int gutterWidth = Math.max(1, Math.round(lineNumbersGutterWidth));
     float padPx = lineHeight;
     int height = getHeight() + Math.round(padPx * 2f);
-    float baseScrollY = (float) Math.floor(scrollY / lineHeight) * lineHeight - padPx;
+    float baseScrollY = (float) Math.floor(scrollManager.scrollY / lineHeight) * lineHeight - padPx;
 
     boolean needsRebuild =
         lineNumberCacheBitmap == null
@@ -7824,7 +7456,7 @@ public class SodiumEditorView extends View {
       lineNumberCacheColor = lineNumbersPaint.getColor();
     }
 
-    float offsetY = lineNumberCacheBaseScrollY - scrollY;
+    float offsetY = lineNumberCacheBaseScrollY - scrollManager.scrollY;
     canvas.drawBitmap(lineNumberCacheBitmap, getGutterStartX(), offsetY, null);
     drawCurrentLineNumberUnwrapped(canvas, firstVisibleIndex, lastVisibleIndex);
   }
@@ -7845,7 +7477,7 @@ public class SodiumEditorView extends View {
     int gutterWidth = Math.max(1, Math.round(lineNumbersGutterWidth));
     float padPx = lineHeight;
     int height = getHeight() + Math.round(padPx * 2f);
-    float baseScrollY = (float) Math.floor(scrollY / lineHeight) * lineHeight - padPx;
+    float baseScrollY = (float) Math.floor(scrollManager.scrollY / lineHeight) * lineHeight - padPx;
 
     boolean needsRebuild =
         lineNumberCacheBitmap == null
@@ -7897,7 +7529,7 @@ public class SodiumEditorView extends View {
       lineNumberCacheColor = lineNumbersPaint.getColor();
     }
 
-    float offsetY = lineNumberCacheBaseScrollY - scrollY;
+    float offsetY = lineNumberCacheBaseScrollY - scrollManager.scrollY;
     canvas.drawBitmap(lineNumberCacheBitmap, getGutterStartX(), offsetY, null);
     drawCurrentLineNumberWrapped(canvas, firstVisualIndex, lastVisualIndex);
   }
@@ -7933,7 +7565,7 @@ public class SodiumEditorView extends View {
         int i = mapVisibleIndexToGlobal(v);
         int start = writeIntToChars(i + 1, lineNumberChars);
         int count = lineNumberChars.length - start;
-        float y = Math.round(v * lineHeight - scrollY + lineHeight - paint.descent());
+        float y = Math.round(v * lineHeight - scrollManager.scrollY + lineHeight - paint.descent());
         if (i == cursorLine) {
           int originalColor = lineNumbersPaint.getColor();
           lineNumbersPaint.setColor(currentLineNumberColor);
@@ -7947,7 +7579,7 @@ public class SodiumEditorView extends View {
       for (int i = firstVisibleLine; i <= drawLastLine; i++) {
         int start = writeIntToChars(i + 1, lineNumberChars);
         int count = lineNumberChars.length - start;
-        float y = Math.round(i * lineHeight - scrollY + lineHeight - paint.descent());
+        float y = Math.round(i * lineHeight - scrollManager.scrollY + lineHeight - paint.descent());
         if (i == cursorLine) {
           int originalColor = lineNumbersPaint.getColor();
           lineNumbersPaint.setColor(currentLineNumberColor);
@@ -7976,7 +7608,7 @@ public class SodiumEditorView extends View {
       if (pos.segment != 0) continue;
       int start = writeIntToChars(pos.line + 1, lineNumberChars);
       int count = lineNumberChars.length - start;
-      float y = Math.round(v * lineHeight - scrollY + lineHeight - paint.descent());
+      float y = Math.round(v * lineHeight - scrollManager.scrollY + lineHeight - paint.descent());
       if (pos.line == cursorLine) {
         int originalColor = lineNumbersPaint.getColor();
         lineNumbersPaint.setColor(currentLineNumberColor);
@@ -8007,7 +7639,7 @@ public class SodiumEditorView extends View {
                 - GUTTER_TEXT_PADDING;
     int start = writeIntToChars(cursorLine + 1, lineNumberChars);
     int count = lineNumberChars.length - start;
-    float y = Math.round(visibleIndex * lineHeight - scrollY + lineHeight - paint.descent());
+    float y = Math.round(visibleIndex * lineHeight - scrollManager.scrollY + lineHeight - paint.descent());
     int originalColor = lineNumbersPaint.getColor();
     lineNumbersPaint.setColor(currentLineNumberColor);
     canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
@@ -8026,7 +7658,7 @@ public class SodiumEditorView extends View {
             : getGutterStartX() + lineNumbersGutterWidth - GUTTER_TEXT_PADDING;
     int start = writeIntToChars(cursorLine + 1, lineNumberChars);
     int count = lineNumberChars.length - start;
-    float y = Math.round(visualIndex * lineHeight - scrollY + lineHeight - paint.descent());
+    float y = Math.round(visualIndex * lineHeight - scrollManager.scrollY + lineHeight - paint.descent());
     int originalColor = lineNumbersPaint.getColor();
     lineNumbersPaint.setColor(currentLineNumberColor);
     canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
@@ -8049,12 +7681,12 @@ public class SodiumEditorView extends View {
       int line = mapVisibleIndexToGlobal(v);
       String marker = getFoldMarkerForLine(line, getLineTextForRender(line));
       if (marker == null) continue;
-      float y = Math.round(v * lineHeight - scrollY + lineHeight - paint.descent());
+      float y = Math.round(v * lineHeight - scrollManager.scrollY + lineHeight - paint.descent());
       if (line == foldRippleLine && foldRippleAlpha > 0f) {
         int base = foldMarkerPaint.getColor();
         int alpha = Math.min(255, Math.max(0, (int) (255f * foldRippleAlpha)));
         foldRipplePaint.setColor((base & 0x00FFFFFF) | (alpha << 24));
-        float centerY = Math.round(v * lineHeight - scrollY + lineHeight * 0.5f);
+        float centerY = Math.round(v * lineHeight - scrollManager.scrollY + lineHeight * 0.5f);
         canvas.drawCircle(markerX, centerY, foldRippleRadius, foldRipplePaint);
       }
       canvas.drawText(marker, markerX, y, foldMarkerPaint);
@@ -8324,7 +7956,7 @@ public class SodiumEditorView extends View {
       left_view += baseX;
       right_view += baseX;
     }
-    float top_view = visualIndex * lineHeight - scrollY;
+    float top_view = visualIndex * lineHeight - scrollManager.scrollY;
     float bottom_view = top_view + lineHeight;
 
     activeSuggestionRect.set(left_view, top_view, right_view, bottom_view);
@@ -9821,7 +9453,7 @@ public class SodiumEditorView extends View {
 
   private void drawBracketBoxRect(Canvas canvas, int globalLine, float left, float right) {
     final float padding = 1f;
-    final float top = getDrawLineTop(globalLine) + padding;
+    final float top = scrollManager.getDrawLineTop(globalLine) + padding;
     final float bottom = top + lineHeight - (padding * 2f);
 
     float l = left - padding;
@@ -10024,7 +9656,7 @@ public class SodiumEditorView extends View {
         || guideTokens.isEmpty()) return;
     if (line == null) line = "";
     guideSeenXCount = 0;
-    float top = getDrawLineTop(globalLine);
+    float top = scrollManager.getDrawLineTop(globalLine);
     float bottom = top + lineHeight;
     int firstNonSpace = getFirstNonSpaceIndex(line);
     boolean adjustTopGuideToClosingBrace =
@@ -10065,7 +9697,7 @@ public class SodiumEditorView extends View {
     int unitSpaces = INDENT_BLOCK_UNIT.length();
     if (unitSpaces <= 0) return;
 
-    float top = getDrawLineTop(globalLine);
+    float top = scrollManager.getDrawLineTop(globalLine);
     float bottom = top + lineHeight;
     int columns = 0;
     int nextGuide = unitSpaces;
@@ -10465,7 +10097,7 @@ public class SodiumEditorView extends View {
 
     if (triples.length == 0) return;
 
-    float top = getDrawLineTop(globalLine);
+    float top = scrollManager.getDrawLineTop(globalLine);
     float bottom = top + lineHeight;
     colorOverlayPaint.setStyle(Paint.Style.FILL);
     for (int i = 0; i + 2 < triples.length; i += 3) {
@@ -10677,7 +10309,7 @@ public class SodiumEditorView extends View {
         });
   }
 
-  private void maybeKickWindowLoad(int firstVisibleLine) {
+  void maybeKickWindowLoad(int firstVisibleLine) {
     if (isZoomGestureActive()) return;
     if (sourceFile == null || isFileCleared) {
       // in-memory only: no need
@@ -11043,13 +10675,13 @@ public class SodiumEditorView extends View {
     showPopupAnimated();
   }
 
-  private void showPopupAtSelection() {
+  void showPopupAtSelection() {
     if (!hasSelection) return;
     isMinimalPopup = false;
     showPopupAnimated();
   }
 
-  private void hidePopup() {
+  void hidePopup() {
     hidePopupAnimated();
   }
 
@@ -11103,172 +10735,41 @@ public class SodiumEditorView extends View {
   }
 
   private void startFlingStopAnimation(float targetX, float targetY) {
-    cancelFlingStopAnimation();
-    float startX = scrollX;
-    float startY = scrollY;
-    float dx = targetX - startX;
-    float dy = targetY - startY;
-    if (Math.abs(dx) < 0.5f && Math.abs(dy) < 0.5f) {
-      scrollX = targetX;
-      scrollY = targetY;
-      clampScrollY();
-      clampScrollX();
-      return;
-    }
-    flingStopAnimator = ValueAnimator.ofFloat(0f, 1f);
-    flingStopAnimator.setDuration(FLING_STOP_ANIM_DURATION_MS);
-    flingStopAnimator.setInterpolator(new DecelerateInterpolator());
-    flingStopAnimator.addUpdateListener(
-        a -> {
-          float t = (float) a.getAnimatedValue();
-          scrollX = startX + dx * t;
-          scrollY = startY + dy * t;
-          clampScrollY();
-          clampScrollX();
-          removeCallbacks(delayedWindowCheck);
-          maybeKickWindowLoad(getGlobalLineForY(scrollY));
-          postDelayed(delayedWindowCheck, 40);
-          postInvalidateOnAnimation();
-        });
-    flingStopAnimator.addListener(
-        new AnimatorListenerAdapter() {
-          @Override
-          public void onAnimationEnd(Animator animation) {
-            flingStopAnimator = null;
-          }
-
-          @Override
-          public void onAnimationCancel(Animator animation) {
-            flingStopAnimator = null;
-          }
-        });
-    flingStopAnimator.start();
+    scrollManager.startFlingStopAnimation(targetX, targetY);
   }
 
   private void cancelFlingStopAnimation() {
-    if (flingStopAnimator != null) {
-      flingStopAnimator.cancel();
-      flingStopAnimator = null;
-    }
+    scrollManager.cancelFlingStopAnimation();
   }
 
   @Override
   public void computeScroll() {
-    if (scroller.computeScrollOffset()) {
-      scrollerIsScrolling = true;
-      float rawY = scroller.getCurrY();
-      float rawX = scroller.getCurrX();
-      scrollY = rawY;
-      scrollX = rawX;
-      float maxX = getMaxScrollXForClamp();
-      float maxY = getMaxScrollYForClamp();
-      clampScrollY();
-      clampScrollX();
-      removeCallbacks(delayedWindowCheck);
-      maybeKickWindowLoad(getGlobalLineForY(scrollY));
-      postDelayed(delayedWindowCheck, 40);
-      showScrollBar();
-      postInvalidateOnAnimation();
-    } else {
-      if (scrollerIsScrolling) {
-        scrollerIsScrolling = false;
-        showScrollBar();
-        if (stretchOverscrollEnabled) {
-          releaseStretch();
-        }
-        if (flingBounceEnabled) {
-          int maxX = Math.round(getMaxScrollXForClamp());
-          int maxY = Math.round(getMaxScrollYForClamp());
-          if (scrollX < 0 || scrollX > maxX || scrollY < 0 || scrollY > maxY) {
-            if (scroller.springBack(
-                Math.round(scrollX), Math.round(scrollY), 0, maxX, 0, maxY)) {
-              scrollerIsScrolling = true;
-              postInvalidateOnAnimation();
-              return;
-            }
-          }
-        }
-        checkAndLoadWindow();
-        if (isWordWrapEnabled && wrapPrefixRebuildPending && !wrapPrefixBuilding) {
-          wrapPrefixRebuildPending = false;
-          scheduleWrapPrefixRebuildUpToWindow();
-        }
-        if (hasSelection) showPopupAtSelection();
-      }
-    }
+    scrollManager.computeScroll();
   }
 
   private int getFlingOverScrollX() {
-    if (!flingBounceEnabled) return 0;
-    if (flingBounceOverScrollPx >= 0) return flingBounceOverScrollPx;
-    return Math.max(24, Math.round(getWidth() * flingBounceOverScrollFactor));
+    return scrollManager.getFlingOverScrollX();
   }
 
   private int getFlingOverScrollY() {
-    if (!flingBounceEnabled) return 0;
-    if (flingBounceOverScrollPx >= 0) return flingBounceOverScrollPx;
-    return Math.max(24, Math.round(getHeight() * flingBounceOverScrollFactor));
+    return scrollManager.getFlingOverScrollY();
   }
 
 
   private float getMaxScrollYForClamp() {
-    // When word-wrap metrics are rebuilding (common after zoom), the temporary visual line count
-    // can be underestimated, which would incorrectly clamp scrollY and cause a visible "jump".
-    if (isWordWrapEnabled && !wrapMetricsReady && (isScaling || mJustFinishedScale)) {
-      return scrollY;
-    }
-
-    float effectiveHeight = (keyboardHeight > 0) ? getHeight() - keyboardHeight : getHeight();
-    int lineCount =
-        isWordWrapEnabled
-            ? getTotalVisualLineCount()
-            : (isCodeFoldingEnabled
-                ? getVisibleLineCount()
-                : Math.max(1, getLinesCount()));
-    if (isWordWrapEnabled && (isSelectAllActive || isEntireFileSelected)) {
-      // Allow select-all jumps even when total visual metrics aren't ready yet.
-      lineCount = Math.max(lineCount, selEndLine + 1);
-    }
-    if (isEof) {
-      float paddingToUse =
-          (keyboardHeight > 0) ? getKeyboardBarrierPadding() : getBottomBarrierPadding();
-      return Math.max(0f, lineCount * lineHeight - (effectiveHeight - paddingToUse));
-    }
-    float virtualExtraSpace = Math.max(prefetchLines * lineHeight, 2000f);
-    return Math.max(0f, lineCount * lineHeight + virtualExtraSpace - effectiveHeight);
+    return scrollManager.getMaxScrollYForClamp();
   }
 
   private void clampScrollY() {
-    if (!isWordWrapEnabled && isWindowLoading && scrollY < windowStartLine * lineHeight) {
-      boolean allowAboveWindow = scrollerIsScrolling || flingStopAnimator != null;
-      if (!allowAboveWindow) {
-        scrollY = windowStartLine * lineHeight;
-        if (!scroller.isFinished()) scroller.abortAnimation();
-      }
-    }
-
-    float maxScroll = getMaxScrollYForClamp();
-    boolean allowFlingOverscroll = flingBounceEnabled && scrollerIsScrolling;
-    if (allowFlingOverscroll) {
-      int over = getFlingOverScrollY();
-      if (scrollY < -over) scrollY = -over;
-      if (scrollY > maxScroll + over) scrollY = maxScroll + over;
-      return;
-    }
-
-    if (scrollY < 0) scrollY = 0;
-    if (scrollY > maxScroll) {
-      scrollY = maxScroll;
-      if (isEof && !scroller.isFinished()) scroller.abortAnimation();
-    }
+    scrollManager.clampScrollY();
   }
 
-  private void checkAndLoadWindow() {
+  void checkAndLoadWindow() {
     if (sourceFile == null || isFileCleared) return;
     if (getWidth() == 0 || getHeight() == 0) return;
     if (isWindowLoading) return;
 
-    int firstVisibleIndex = (int) (scrollY / lineHeight);
+    int firstVisibleIndex = (int) (scrollManager.scrollY / lineHeight);
     int lastVisibleIndex = firstVisibleIndex + (int) Math.ceil(getHeight() / lineHeight);
     int firstVisibleLine;
     int lastVisibleLine;
@@ -11299,11 +10800,11 @@ public class SodiumEditorView extends View {
     }
   }
 
-  private void loadWindowAround(int startLine, @Nullable Runnable onComplete) {
+  void loadWindowAround(int startLine, @Nullable Runnable onComplete) {
     loadWindowAround(startLine, onComplete, true);
   }
 
-  private void loadWindowAround(
+  void loadWindowAround(
       int startLine, @Nullable Runnable onComplete, boolean recalculateWidthSync) {
     if (isWindowLoading) return;
     // Cancel any in-flight async width calculation for a previous window.
@@ -11591,7 +11092,7 @@ public class SodiumEditorView extends View {
       return;
     }
 
-    int firstVisibleLine = Math.max(0, getGlobalLineForY(scrollY));
+    int firstVisibleLine = Math.max(0, getGlobalLineForY(scrollManager.scrollY));
     int viewHeight = getHeight() - keyboardHeight;
     if (viewHeight <= 0) viewHeight = getHeight();
     int visibleLines = Math.max(1, (int) Math.ceil(viewHeight / lineHeight) + 2);
@@ -11772,15 +11273,15 @@ public class SodiumEditorView extends View {
     clearHighlightCaches();
     currentMaxWindowLineWidth = 0f;
     globalMaxLineWidth = 0f;
-    maxLineWidthForScroll = 0f;
-    maxTextStartXForScroll = 0f;
-    maxScrollXForScroll = 0f;
+    scrollManager.maxLineWidthForScroll = 0f;
+    scrollManager.maxTextStartXForScroll = 0f;
+    scrollManager.maxScrollXForScroll = 0f;
 
     cursorLine = 0;
     cursorChar = 0;
     isEof = true;
-    scrollY = 0;
-    scrollX = 0;
+    scrollManager.scrollY = 0;
+    scrollManager.scrollX = 0;
 
     recalculateMaxLineWidth();
     requestLayout();
@@ -11833,9 +11334,9 @@ public class SodiumEditorView extends View {
     clearHighlightCaches();
     currentMaxWindowLineWidth = 0f;
     globalMaxLineWidth = 0f;
-    maxLineWidthForScroll = 0f;
-    maxTextStartXForScroll = 0f;
-    maxScrollXForScroll = 0f;
+    scrollManager.maxLineWidthForScroll = 0f;
+    scrollManager.maxTextStartXForScroll = 0f;
+    scrollManager.maxScrollXForScroll = 0f;
     synchronized (lineOffsetsLock) {
       lineOffsets = new long[0];
     }
@@ -11847,8 +11348,8 @@ public class SodiumEditorView extends View {
     cursorLine = 0;
     cursorChar = 0;
     isEof = false;
-    scrollY = 0;
-    scrollX = 0;
+    scrollManager.scrollY = 0;
+    scrollManager.scrollX = 0;
     lineCountDelta = 0;
 
     loadWindowAround(0, () -> finishInitialFileOpenWarmup(token), false);
@@ -11947,11 +11448,7 @@ public class SodiumEditorView extends View {
   }
 
   private void restartInput() {
-    InputMethodManager imm =
-        (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-    if (imm != null) {
-      imm.restartInput(this);
-    }
+    imeManager.restartInput();
   }
 
   public void showLoadingCircle(boolean show) {
@@ -12112,7 +11609,7 @@ public class SodiumEditorView extends View {
             cursorChar = 0;
           }
 
-          keepCursorVisibleHorizontally();
+          scrollManager.keepCursorVisibleHorizontally();
           setDisable(false);
           showLoadingCircle(false);
 
@@ -12158,7 +11655,7 @@ public class SodiumEditorView extends View {
     final int beforeLine = cursorLine;
     final int beforeChar = cursorChar;
 
-    ensureLineInWindow(cursorLine, true);
+    scrollManager.ensureLineInWindow(cursorLine, true);
     if (isWindowLoading
         && (cursorLine < windowStartLine || cursorLine >= windowStartLine + linesWindow.size())) {
       post(() -> insertCharAtCursor(c));
@@ -12220,7 +11717,7 @@ public class SodiumEditorView extends View {
         globalMaxLineWidth = Math.max(globalMaxLineWidth, currentMaxWindowLineWidth);
       }
       invalidate();
-      keepCursorVisibleHorizontally();
+      scrollManager.keepCursorVisibleHorizontally();
     }
     updateSuggestion();
 
@@ -12268,7 +11765,7 @@ public class SodiumEditorView extends View {
       cursorLine = targetLine;
       cursorChar = targetChar;
       resetCursorBlink();
-      keepCursorVisibleHorizontally();
+      scrollManager.keepCursorVisibleHorizontally();
       invalidate();
       updateSuggestion();
       return;
@@ -12413,7 +11910,7 @@ public class SodiumEditorView extends View {
     final int beforeLine = cursorLine;
     final int beforeChar = cursorChar;
 
-    ensureLineInWindow(cursorLine, true);
+    scrollManager.ensureLineInWindow(cursorLine, true);
     if (isWindowLoading
         && (cursorLine < windowStartLine || cursorLine >= windowStartLine + linesWindow.size())) {
       post(this::deleteCharAtCursor);
@@ -12464,7 +11961,7 @@ public class SodiumEditorView extends View {
       } else if (cursorLine > 0) {
         int oldLineCount = getLinesCount();
         int prevGlobal = cursorLine - 1;
-        ensureLineInWindow(prevGlobal, true);
+        scrollManager.ensureLineInWindow(prevGlobal, true);
         int prevLocal = prevGlobal - windowStartLine;
         if (prevLocal < 0 || prevLocal >= linesWindow.size()) return;
 
@@ -12526,7 +12023,7 @@ public class SodiumEditorView extends View {
     final int beforeLine = cursorLine;
     final int beforeChar = cursorChar;
 
-    ensureLineInWindow(cursorLine, true);
+    scrollManager.ensureLineInWindow(cursorLine, true);
     if (isWindowLoading
         && (cursorLine < windowStartLine || cursorLine >= windowStartLine + linesWindow.size())) {
       post(this::deleteForwardAtCursor);
@@ -12573,7 +12070,7 @@ public class SodiumEditorView extends View {
         int nextGlobal = cursorLine + 1;
         if (isEof && nextGlobal >= windowStartLine + linesWindow.size()) return;
 
-        ensureLineInWindow(nextGlobal, true);
+        scrollManager.ensureLineInWindow(nextGlobal, true);
         int nextLocal = nextGlobal - windowStartLine;
         if (nextLocal >= 0 && nextLocal < linesWindow.size()) {
           String next = getLineFromWindowLocal(nextLocal);
@@ -12609,7 +12106,7 @@ public class SodiumEditorView extends View {
     updateSuggestion(); // Update suggestion after delete forward
   }
 
-  private void commitComposing(boolean keepInText) {
+  void commitComposing(boolean keepInText) {
     if (!hasComposing) return;
     hasComposing = false;
     composingLength = 0;
@@ -12620,12 +12117,12 @@ public class SodiumEditorView extends View {
     updateSuggestion();
   }
 
-  private void replaceComposingWith(CharSequence textSeq) {
+  void replaceComposingWith(CharSequence textSeq) {
     if (isReadOnly) return;
     invalidatePendingIOForEdit();
     editVersion.incrementAndGet();
 
-    ensureLineInWindow(composingLine, true);
+    scrollManager.ensureLineInWindow(composingLine, true);
     if (isWindowLoading
         && (composingLine < windowStartLine
             || composingLine >= windowStartLine + linesWindow.size())) {
@@ -12680,7 +12177,7 @@ public class SodiumEditorView extends View {
     lastComposingTextForCharAnim = null;
   }
 
-  private int comparePos(int lineA, int charA, int lineB, int charB) {
+  int comparePos(int lineA, int charA, int lineB, int charB) {
     if (lineA != lineB) return Integer.compare(lineA, lineB);
     return Integer.compare(charA, charB);
   }
@@ -12964,7 +12461,7 @@ public class SodiumEditorView extends View {
       cursorLine = selEndLine;
       cursorChar = selEndChar;
 
-      scrollToLineFastForSelectAll(selEndLine, selEndChar);
+      scrollManager.scrollToLineFastForSelectAll(selEndLine, selEndChar);
 
       setDisable(false);
       showLoadingCircle(false);
@@ -12993,7 +12490,7 @@ public class SodiumEditorView extends View {
       cursorLine = windowLast;
       cursorChar = selEndChar;
 
-      scrollToLineFastForSelectAll(windowLast, selEndChar);
+      scrollManager.scrollToLineFastForSelectAll(windowLast, selEndChar);
 
       setDisable(false);
       showLoadingCircle(false);
@@ -13034,7 +12531,7 @@ public class SodiumEditorView extends View {
               cursorLine = windowLast;
               cursorChar = selEndChar;
 
-              scrollToLineFastForSelectAll(windowLast, selEndChar);
+              scrollManager.scrollToLineFastForSelectAll(windowLast, selEndChar);
 
               setDisable(false);
               showLoadingCircle(false);
@@ -13069,7 +12566,7 @@ public class SodiumEditorView extends View {
                         cursorLine = fileLastLine;
                         cursorChar = selEndChar;
 
-                        scrollToLineFastForSelectAll(fileLastLine, selEndChar);
+                        scrollManager.scrollToLineFastForSelectAll(fileLastLine, selEndChar);
 
                         setDisable(false);
                         showLoadingCircle(false);
@@ -13116,7 +12613,7 @@ public class SodiumEditorView extends View {
                               cursorLine = selEndLine;
                               cursorChar = selEndChar;
 
-                              scrollToLineFastForSelectAll(selEndLine, selEndChar);
+                              scrollManager.scrollToLineFastForSelectAll(selEndLine, selEndChar);
 
                               setDisable(false);
                               showLoadingCircle(false);
@@ -13189,7 +12686,7 @@ public class SodiumEditorView extends View {
     deleteSelection();
   }
 
-  private static final class CursorTarget {
+  static final class CursorTarget {
     final int line;
     final int ch;
 
@@ -13782,7 +13279,7 @@ public class SodiumEditorView extends View {
     invalidate();
   }
 
-  private void setSelectionInternal(int sL, int sC, int eL, int eC) {
+  void setSelectionInternal(int sL, int sC, int eL, int eC) {
     int startL = sL, startC = sC, endL = eL, endC = eC;
     if (comparePos(startL, startC, endL, endC) > 0) {
       int tL = startL, tC = startC;
@@ -13802,7 +13299,7 @@ public class SodiumEditorView extends View {
     hidePopup();
   }
 
-  private void updateComposingPendingOp(@Nullable String text, int beforeLine, int beforeChar) {
+  void updateComposingPendingOp(@Nullable String text, int beforeLine, int beforeChar) {
     if (!hasComposing) return;
     if (text == null) text = "";
     if (text.length() > UNDO_TEXT_LIMIT) return;
@@ -13913,7 +13410,7 @@ public class SodiumEditorView extends View {
     }
   }
 
-  private void replaceSelectionWithText(String insertText) {
+  void replaceSelectionWithText(String insertText) {
     if (isReadOnly) return;
     invalidatePendingIOForEdit();
     final int opToken = editVersion.incrementAndGet();
@@ -13973,9 +13470,9 @@ public class SodiumEditorView extends View {
       }
     currentMaxWindowLineWidth = 0f;
     globalMaxLineWidth = 0f;
-    maxLineWidthForScroll = 0f;
-    maxTextStartXForScroll = 0f;
-    maxScrollXForScroll = 0f;
+    scrollManager.maxLineWidthForScroll = 0f;
+    scrollManager.maxTextStartXForScroll = 0f;
+    scrollManager.maxScrollXForScroll = 0f;
 
       // Transition to in-memory mode for cleared content.
       isFileCleared = true;
@@ -13995,8 +13492,8 @@ public class SodiumEditorView extends View {
       selEndLine = 0;
       selStartChar = 0;
       selEndChar = 0;
-      scrollY = 0;
-      scrollX = 0;
+      scrollManager.scrollY = 0;
+      scrollManager.scrollX = 0;
       clearSelectionStateAfterDelete();
 
       // Perform insertion if replacing text.
@@ -14017,7 +13514,7 @@ public class SodiumEditorView extends View {
       onLineCountChanged();
       endLargeEditUi(true);
       recalculateMaxLineWidth();
-      keepCursorVisibleHorizontally();
+      scrollManager.keepCursorVisibleHorizontally();
       requestLayout(); // Request layout to update gutter width after content cleared
       updateSuggestion();
       lineCountDelta += (insertedNewlines - removedNewlines);
@@ -14027,7 +13524,7 @@ public class SodiumEditorView extends View {
 
     // same line + no '\n' => window-only fast path
     if (sL == eL && insertText.indexOf('\n') < 0) {
-      ensureLineInWindow(sL, true);
+      scrollManager.ensureLineInWindow(sL, true);
       if (isWindowLoading && (sL < windowStartLine || sL >= windowStartLine + linesWindow.size())) {
         final String txtFinal = insertText;
         post(() -> replaceSelectionWithText(txtFinal));
@@ -14062,7 +13559,7 @@ public class SodiumEditorView extends View {
 
       clearSelectionStateAfterDelete();
       invalidate();
-      keepCursorVisibleHorizontally();
+      scrollManager.keepCursorVisibleHorizontally();
       endLargeEditUi(false);
       updateSuggestion();
       lineCountDelta += (insertedNewlines - removedNewlines);
@@ -14083,13 +13580,13 @@ public class SodiumEditorView extends View {
     }
 
     clearSelectionStateAfterDelete();
-    keepCursorVisibleHorizontally(); // This scrolls to the new cursor and invalidates.
+    scrollManager.keepCursorVisibleHorizontally(); // This scrolls to the new cursor and invalidates.
     endLargeEditUi(false);
 
     if (sourceFile == null || isFileCleared) {
       if (!fullyInWindow) {
-        ensureLineInWindow(sL, true);
-        ensureLineInWindow(eL, true);
+        scrollManager.ensureLineInWindow(sL, true);
+        scrollManager.ensureLineInWindow(eL, true);
         applyMultiLineReplaceInWindowNow(sL, sC, eL, eC, insertText, target);
       }
       updateSuggestion();
@@ -14250,9 +13747,9 @@ public class SodiumEditorView extends View {
                   }
                   currentMaxWindowLineWidth = 0f;
                   globalMaxLineWidth = 0f;
-                  maxLineWidthForScroll = 0f;
-                  maxTextStartXForScroll = 0f;
-                  maxScrollXForScroll = 0f;
+                  scrollManager.maxLineWidthForScroll = 0f;
+                  scrollManager.maxTextStartXForScroll = 0f;
+                  scrollManager.maxScrollXForScroll = 0f;
                   lineCountDelta = 0;
 
                   synchronized (lineOffsetsLock) {
@@ -14299,7 +13796,7 @@ public class SodiumEditorView extends View {
                           String ln = getLineTextForRender(cursorLine);
                           cursorChar = Math.min(cursorChar, ln.length());
                           clampScrollY();
-                          keepCursorVisibleHorizontally();
+                          scrollManager.keepCursorVisibleHorizontally();
                           requestFocus();
                           InputMethodManager imm =
                               (InputMethodManager)
@@ -14514,7 +14011,7 @@ public class SodiumEditorView extends View {
     return new long[] {offB, offA};
   }
 
-  private String readLineUtf8AtByte(RandomAccessFile raf, long byteOffset) throws Exception {
+  String readLineUtf8AtByte(RandomAccessFile raf, long byteOffset) throws Exception {
     raf.seek(byteOffset);
     ByteArrayOutputStream baos = new ByteArrayOutputStream(128);
     byte[] buf = new byte[1024];
@@ -14729,7 +14226,7 @@ public class SodiumEditorView extends View {
     return textLen;
   }
 
-  private int[] computeWordBounds(String line, int pos) {
+  int[] computeWordBounds(String line, int pos) {
     pos = Math.max(0, Math.min(pos, line.length()));
     if (line.length() == 0) return new int[] {0, 0};
     if (pos == line.length()) pos = Math.max(0, pos - 1);
@@ -14843,87 +14340,87 @@ public class SodiumEditorView extends View {
     return true;
   }
 
-  private void cancelStretchRelease() {
-    if (stretchReleaseAnimator != null) {
-      stretchReleaseAnimator.cancel();
-      stretchReleaseAnimator = null;
+  void cancelStretchRelease() {
+    if (scrollManager.stretchReleaseAnimator != null) {
+      scrollManager.stretchReleaseAnimator.cancel();
+      scrollManager.stretchReleaseAnimator = null;
     }
   }
 
-  private void releaseStretch() {
-    if (!stretchOverscrollEnabled) return;
-    if (stretchX == 0f && stretchY == 0f) return;
+  void releaseStretch() {
+    if (!scrollManager.stretchOverscrollEnabled) return;
+    if (scrollManager.stretchX == 0f && scrollManager.stretchY == 0f) return;
     cancelStretchRelease();
-    final float startX = stretchX;
-    final float startY = stretchY;
-    stretchReleaseAnimator = ValueAnimator.ofFloat(0f, 1f);
-    stretchReleaseAnimator.setDuration(220);
-    stretchReleaseAnimator.setInterpolator(new DecelerateInterpolator());
-    stretchReleaseAnimator.addUpdateListener(
+    final float startX = scrollManager.stretchX;
+    final float startY = scrollManager.stretchY;
+    scrollManager.stretchReleaseAnimator = ValueAnimator.ofFloat(0f, 1f);
+    scrollManager.stretchReleaseAnimator.setDuration(220);
+    scrollManager.stretchReleaseAnimator.setInterpolator(new DecelerateInterpolator());
+    scrollManager.stretchReleaseAnimator.addUpdateListener(
         a -> {
           float t = (float) a.getAnimatedValue();
           float inv = 1f - t;
-          stretchX = startX * inv;
-          stretchY = startY * inv;
-          if (stretchX == 0f) stretchDirX = 0;
-          if (stretchY == 0f) stretchDirY = 0;
+          scrollManager.stretchX = startX * inv;
+          scrollManager.stretchY = startY * inv;
+          if (scrollManager.stretchX == 0f) scrollManager.stretchDirX = 0;
+          if (scrollManager.stretchY == 0f) scrollManager.stretchDirY = 0;
           invalidate();
         });
-    stretchReleaseAnimator.addListener(
+    scrollManager.stretchReleaseAnimator.addListener(
         new AnimatorListenerAdapter() {
           @Override
           public void onAnimationEnd(Animator animation) {
-            stretchReleaseAnimator = null;
-            stretchX = 0f;
-            stretchY = 0f;
-            stretchDirX = 0;
-            stretchDirY = 0;
+            scrollManager.stretchReleaseAnimator = null;
+            scrollManager.stretchX = 0f;
+            scrollManager.stretchY = 0f;
+            scrollManager.stretchDirX = 0;
+            scrollManager.stretchDirY = 0;
           }
 
           @Override
           public void onAnimationCancel(Animator animation) {
-            stretchReleaseAnimator = null;
+            scrollManager.stretchReleaseAnimator = null;
           }
         });
-    stretchReleaseAnimator.start();
+    scrollManager.stretchReleaseAnimator.start();
   }
 
 
-  private void pullStretchX(float deltaPx, boolean toRight) {
-    if (!stretchOverscrollEnabled || isWordWrapEnabled) return;
+  void pullStretchX(float deltaPx, boolean toRight) {
+    if (!scrollManager.stretchOverscrollEnabled || isWordWrapEnabled) return;
     if (getWidth() <= 0) return;
     cancelStretchRelease();
     float norm = Math.abs(deltaPx) / (float) getWidth();
-    float gain = norm * 0.6f * stretchOverscrollStrength;
-    stretchDirX = toRight ? 1 : -1;
-    stretchX = Math.min(1f, stretchX + gain);
+    float gain = norm * 0.6f * scrollManager.stretchOverscrollStrength;
+    scrollManager.stretchDirX = toRight ? 1 : -1;
+    scrollManager.stretchX = Math.min(1f, scrollManager.stretchX + gain);
   }
 
-  private void pullStretchY(float deltaPx, boolean toBottom) {
-    if (!stretchOverscrollEnabled) return;
+  void pullStretchY(float deltaPx, boolean toBottom) {
+    if (!scrollManager.stretchOverscrollEnabled) return;
     if (getHeight() <= 0) return;
     cancelStretchRelease();
     float norm = Math.abs(deltaPx) / (float) getHeight();
-    float gain = norm * 0.6f * stretchOverscrollStrength;
-    stretchDirY = toBottom ? 1 : -1;
-    stretchY = Math.min(1f, stretchY + gain);
+    float gain = norm * 0.6f * scrollManager.stretchOverscrollStrength;
+    scrollManager.stretchDirY = toBottom ? 1 : -1;
+    scrollManager.stretchY = Math.min(1f, scrollManager.stretchY + gain);
   }
 
 
   private void absorbStretchX(float velocityPxPerSec, boolean toRight) {
-    if (!stretchOverscrollEnabled || isWordWrapEnabled) return;
+    if (!scrollManager.stretchOverscrollEnabled || isWordWrapEnabled) return;
     cancelStretchRelease();
     float v = Math.min(1f, Math.abs(velocityPxPerSec) / 6000f);
-    stretchDirX = toRight ? 1 : -1;
-    stretchX = Math.min(1f, stretchX + v * 0.8f * stretchOverscrollStrength);
+    scrollManager.stretchDirX = toRight ? 1 : -1;
+    scrollManager.stretchX = Math.min(1f, scrollManager.stretchX + v * 0.8f * scrollManager.stretchOverscrollStrength);
   }
 
   private void absorbStretchY(float velocityPxPerSec, boolean toBottom) {
-    if (!stretchOverscrollEnabled) return;
+    if (!scrollManager.stretchOverscrollEnabled) return;
     cancelStretchRelease();
     float v = Math.min(1f, Math.abs(velocityPxPerSec) / 6000f);
-    stretchDirY = toBottom ? 1 : -1;
-    stretchY = Math.min(1f, stretchY + v * 0.8f * stretchOverscrollStrength);
+    scrollManager.stretchDirY = toBottom ? 1 : -1;
+    scrollManager.stretchY = Math.min(1f, scrollManager.stretchY + v * 0.8f * scrollManager.stretchOverscrollStrength);
   }
 
   private boolean isPositionInsideSelection(int line, int ch) {
@@ -15104,7 +14601,7 @@ public class SodiumEditorView extends View {
     return best;
   }
 
-  private void insertTextAtCursor(String text) {
+  void insertTextAtCursor(String text) {
     if (isReadOnly) return;
     invalidatePendingIOForEdit();
     final int opToken = editVersion.incrementAndGet();
@@ -15168,7 +14665,7 @@ public class SodiumEditorView extends View {
     }
 
     String[] parts = text.split("\n", -1);
-    ensureLineInWindow(cursorLine, true);
+    scrollManager.ensureLineInWindow(cursorLine, true);
     if (isWindowLoading
         && (cursorLine < windowStartLine || cursorLine >= windowStartLine + linesWindow.size())) {
       post(() -> insertTextAtCursor(text));
@@ -15232,7 +14729,7 @@ public class SodiumEditorView extends View {
       }
 
       recalculateMaxLineWidth();
-      keepCursorVisibleHorizontally();
+      scrollManager.keepCursorVisibleHorizontally();
       resetCursorBlink();
       invalidate();
     }
@@ -15254,15 +14751,6 @@ public class SodiumEditorView extends View {
     op.cursorCharAfter = cursorChar;
     op.timestamp = System.currentTimeMillis();
     recordEdit(op);
-  }
-
-  private void ensureLineInWindow(int globalLine, boolean blockingIfAbsent) {
-    clearActiveSuggestion(); // Clear suggestion when window/view changes
-    if (globalLine >= windowStartLine && globalLine < windowStartLine + linesWindow.size()) return;
-    if (sourceFile != null) {
-      int targetStart = Math.max(0, globalLine - prefetchLines);
-      loadWindowAround(targetStart, null);
-    }
   }
 
   private BufferedReader reopenReaderAtStart() {
@@ -15294,7 +14782,7 @@ public class SodiumEditorView extends View {
     }
   }
 
-  private String getLineFromWindowLocal(int localIdx) {
+  String getLineFromWindowLocal(int localIdx) {
     if (localIdx < 0 || localIdx >= linesWindow.size()) return null;
     return linesWindow.get(localIdx);
   }
@@ -15352,7 +14840,7 @@ public class SodiumEditorView extends View {
     }
   }
 
-  private int getLogicalLineLength(int globalLine, @Nullable String line) {
+  int getLogicalLineLength(int globalLine, @Nullable String line) {
     String mod = modifiedLines.get(globalLine);
     if (mod != null) return mod.length();
     int len = (line == null) ? 0 : line.length();
@@ -15394,11 +14882,7 @@ public class SodiumEditorView extends View {
   }
 
   private void showKeyboard() {
-    if (isReadOnly) return;
-    requestFocus();
-    InputMethodManager imm =
-        (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-    if (imm != null) imm.showSoftInput(this, 0);
+    imeManager.showKeyboard();
   }
 
   public void requestKeyboard() {
@@ -15426,7 +14910,7 @@ public class SodiumEditorView extends View {
     }
   }
 
-  private void startCharAnimationFromText(CharSequence committedText) {
+  void startCharAnimationFromText(CharSequence committedText) {
     if (!isCharAnimationEnabled) return;
     if (committedText == null) return;
 
@@ -15562,7 +15046,7 @@ public class SodiumEditorView extends View {
     else post(start);
   }
 
-  private void handleAutoPairing(String text) {
+  void handleAutoPairing(String text) {
     if (!isAutoPairingEnabled || text == null || text.length() == 0 || text.length() >= 100) return;
 
     char c = text.charAt(text.length() - 1);
@@ -15592,720 +15076,16 @@ public class SodiumEditorView extends View {
 
   @Override
   public boolean onCheckIsTextEditor() {
-    return !isDisabled && !isReadOnly;
-  }
-
-  private static final int IME_CONTEXT_BEFORE_CHARS = 2048;
-  private static final int IME_CONTEXT_AFTER_CHARS = 2048;
-
-  private static final class ImeContext {
-    final int startLine;
-    final int startChar;
-    final String text;
-
-    ImeContext(int startLine, int startChar, String text) {
-      this.startLine = startLine;
-      this.startChar = startChar;
-      this.text = (text == null) ? "" : text;
-    }
-  }
-
-  @Nullable
-  private RandomAccessFile openImeRandomAccessFile() {
-    if (!isIndexReady || sourceFile == null || !sourceFile.exists()) return null;
-    try {
-      return new RandomAccessFile(sourceFile, "r");
-    } catch (Exception ignored) {
-      return null;
-    }
-  }
-
-  private String getLineTextForImeScan(int line, @Nullable RandomAccessFile raf) {
-    if (line < 0) return "";
-    String mod = modifiedLines.get(line);
-    if (mod != null) return mod;
-    if (line >= windowStartLine && line < windowStartLine + linesWindow.size()) {
-      String text = getLineFromWindowLocal(line - windowStartLine);
-      return (text != null) ? text : "";
-    }
-    if (raf != null && isIndexReady) {
-      long offset;
-      synchronized (lineOffsetsLock) {
-        if (line < 0 || line >= lineOffsets.length) return "";
-        offset = lineOffsets[line];
-      }
-      try {
-        return readLineUtf8AtByte(raf, offset);
-      } catch (Exception ignored) {
-        return "";
-      }
-    }
-    return "";
-  }
-
-  private CursorTarget clampLineCharToDocument(int line, int ch, @Nullable RandomAccessFile raf) {
-    int total = getLinesCount();
-    if (total <= 0) return new CursorTarget(0, 0);
-    int clampedLine = Math.max(0, Math.min(line, total - 1));
-    String ln = getLineTextForImeScan(clampedLine, raf);
-    int len = (ln == null) ? 0 : ln.length();
-    int clampedChar = Math.max(0, Math.min(ch, len));
-    return new CursorTarget(clampedLine, clampedChar);
-  }
-
-  private CursorTarget moveCursorByCharsForIme(
-      int line, int ch, int delta, @Nullable RandomAccessFile raf) {
-    CursorTarget base = clampLineCharToDocument(line, ch, raf);
-    int curLine = base.line;
-    int curChar = base.ch;
-    int totalLines = getLinesCount();
-    if (totalLines <= 0) totalLines = 1;
-    if (delta == 0) return base;
-
-    if (delta < 0) {
-      int remaining = -delta;
-      while (remaining > 0) {
-        String ln = getLineTextForImeScan(curLine, raf);
-        int len = (ln == null) ? 0 : ln.length();
-        curChar = Math.min(curChar, len);
-        if (curChar >= remaining) {
-          curChar -= remaining;
-          remaining = 0;
-          break;
-        }
-        remaining -= curChar;
-        if (curLine <= 0) {
-          curChar = 0;
-          remaining = 0;
-          break;
-        }
-        // Move across the newline to the previous line.
-        remaining -= 1;
-        curLine--;
-        ln = getLineTextForImeScan(curLine, raf);
-        curChar = (ln == null) ? 0 : ln.length();
-        if (remaining < 0) remaining = 0;
-      }
-      return new CursorTarget(curLine, curChar);
-    }
-
-    int remaining = delta;
-    while (remaining > 0) {
-      String ln = getLineTextForImeScan(curLine, raf);
-      int len = (ln == null) ? 0 : ln.length();
-      curChar = Math.min(curChar, len);
-      int available = len - curChar;
-      if (available >= remaining) {
-        curChar += remaining;
-        remaining = 0;
-        break;
-      }
-      remaining -= available;
-      if (curLine >= totalLines - 1) {
-        curChar = len;
-        remaining = 0;
-        break;
-      }
-      // Move across the newline to the next line.
-      remaining -= 1;
-      curLine++;
-      curChar = 0;
-      if (remaining < 0) remaining = 0;
-    }
-    return new CursorTarget(curLine, curChar);
-  }
-
-  private String buildRangeTextForIme(
-      CursorTarget start, CursorTarget end, @Nullable RandomAccessFile raf) {
-    int sL = start.line, sC = start.ch, eL = end.line, eC = end.ch;
-    if (comparePos(sL, sC, eL, eC) > 0) {
-      int tL = sL, tC = sC;
-      sL = eL;
-      sC = eC;
-      eL = tL;
-      eC = tC;
-    }
-    StringBuilder sb = new StringBuilder();
-    for (int line = sL; line <= eL; line++) {
-      String ln = getLineTextForImeScan(line, raf);
-      if (ln == null) ln = "";
-      int from = (line == sL) ? Math.min(sC, ln.length()) : 0;
-      int to = (line == eL) ? Math.min(eC, ln.length()) : ln.length();
-      if (from < to) sb.append(ln, from, to);
-      if (line < eL) sb.append('\n');
-    }
-    return sb.toString();
-  }
-
-  private ImeContext buildImeContext(int beforeChars, int afterChars) {
-    int before = Math.max(0, beforeChars);
-    int after = Math.max(0, afterChars);
-    RandomAccessFile raf = openImeRandomAccessFile();
-    try {
-      CursorTarget start = moveCursorByCharsForIme(cursorLine, cursorChar, -before, raf);
-      CursorTarget end = moveCursorByCharsForIme(cursorLine, cursorChar, after, raf);
-      String text = buildRangeTextForIme(start, end, raf);
-      return new ImeContext(start.line, start.ch, text);
-    } finally {
-      if (raf != null) {
-        try {
-          raf.close();
-        } catch (Exception ignored) {
-        }
-      }
-    }
-  }
-
-  private ExtractedText buildExtractedTextFromContext(ImeContext ctx) {
-    ExtractedText et = new ExtractedText();
-    et.text = ctx.text;
-    et.startOffset = 0;
-    et.partialStartOffset = -1;
-    et.partialEndOffset = -1;
-
-    int sLine = cursorLine, sChar = cursorChar, eLine = cursorLine, eChar = cursorChar;
-    if (hasSelection) {
-      sLine = selStartLine;
-      sChar = selStartChar;
-      eLine = selEndLine;
-      eChar = selEndChar;
-      if (comparePos(sLine, sChar, eLine, eChar) > 0) {
-        int tL = sLine, tC = sChar;
-        sLine = eLine;
-        sChar = eChar;
-        eLine = tL;
-        eChar = tC;
-      }
-    }
-    int selStart = lineCharToOffsetInContext(ctx, sLine, sChar);
-    int selEnd = lineCharToOffsetInContext(ctx, eLine, eChar);
-    et.selectionStart = selStart;
-    et.selectionEnd = selEnd;
-    return et;
+    return imeManager.onCheckIsTextEditor();
   }
 
   private void updateImeSelection() {
-    if (isDisabled || isReadOnly) return;
-    if (!isFocused()) return;
-    InputMethodManager imm =
-        (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-    if (imm == null || !imm.isActive(this)) return;
-
-    ImeContext ctx = buildImeContext(imeExtractedBeforeChars, imeExtractedAfterChars);
-
-    int sLine = cursorLine, sChar = cursorChar, eLine = cursorLine, eChar = cursorChar;
-    if (hasSelection) {
-      sLine = selStartLine;
-      sChar = selStartChar;
-      eLine = selEndLine;
-      eChar = selEndChar;
-      if (comparePos(sLine, sChar, eLine, eChar) > 0) {
-        int tL = sLine, tC = sChar;
-        sLine = eLine;
-        sChar = eChar;
-        eLine = tL;
-        eChar = tC;
-      }
-    }
-
-    int selStart = lineCharToOffsetInContext(ctx, sLine, sChar);
-    int selEnd = lineCharToOffsetInContext(ctx, eLine, eChar);
-    int compStart = -1;
-    int compEnd = -1;
-    if (hasComposing) {
-      compStart = lineCharToOffsetInContext(ctx, composingLine, composingOffset);
-      compEnd = lineCharToOffsetInContext(ctx, composingLine, composingOffset + composingLength);
-    }
-    imm.updateSelection(this, selStart, selEnd, compStart, compEnd);
-    if (imeExtractedTextMonitor) {
-      ExtractedText et = buildExtractedTextFromContext(ctx);
-      imm.updateExtractedText(this, imeExtractedTextToken, et);
-    }
-  }
-
-  private CursorTarget offsetToLineCharInContext(ImeContext ctx, int offset) {
-    int safeOffset = Math.max(0, Math.min(offset, ctx.text.length()));
-    int line = ctx.startLine;
-    int ch = ctx.startChar;
-    for (int i = 0; i < safeOffset; i++) {
-      char c = ctx.text.charAt(i);
-      if (c == '\n') {
-        line++;
-        ch = 0;
-      } else {
-        ch++;
-      }
-    }
-    return new CursorTarget(line, ch);
-  }
-
-  private int lineCharToOffsetInContext(ImeContext ctx, int line, int ch) {
-    int offset = 0;
-    int curLine = ctx.startLine;
-    int curChar = ctx.startChar;
-    int len = ctx.text.length();
-    for (int i = 0; i < len; i++) {
-      if (curLine == line && curChar == ch) return offset;
-      char c = ctx.text.charAt(i);
-      if (c == '\n') {
-        curLine++;
-        curChar = 0;
-      } else {
-        curChar++;
-      }
-      offset++;
-    }
-    return Math.max(0, Math.min(offset, len));
-  }
-
-  private String getImeTextBeforeCursor(int length) {
-    if (length <= 0) return "";
-    RandomAccessFile raf = openImeRandomAccessFile();
-    try {
-      CursorTarget start = moveCursorByCharsForIme(cursorLine, cursorChar, -length, raf);
-      return buildRangeTextForIme(start, new CursorTarget(cursorLine, cursorChar), raf);
-    } finally {
-      if (raf != null) {
-        try {
-          raf.close();
-        } catch (Exception ignored) {
-        }
-      }
-    }
-  }
-
-  private String getImeTextAfterCursor(int length) {
-    if (length <= 0) return "";
-    RandomAccessFile raf = openImeRandomAccessFile();
-    try {
-      CursorTarget end = moveCursorByCharsForIme(cursorLine, cursorChar, length, raf);
-      return buildRangeTextForIme(new CursorTarget(cursorLine, cursorChar), end, raf);
-    } finally {
-      if (raf != null) {
-        try {
-          raf.close();
-        } catch (Exception ignored) {
-        }
-      }
-    }
-  }
-
-  private boolean replaceWordAtCursorWith(CharSequence textSeq) {
-    if (textSeq == null) return false;
-    String insert = textSeq.toString();
-    if (insert.isEmpty()) return false;
-    if (hasSelection) {
-      replaceSelectionWithText(insert);
-      return true;
-    }
-    String line = getLineTextForRender(cursorLine);
-    if (line == null || line.isEmpty()) return false;
-    int pos = Math.max(0, Math.min(cursorChar, line.length()));
-    if (pos == line.length()) pos = Math.max(0, pos - 1);
-    int[] bounds = computeWordBounds(line, pos);
-    if (bounds[0] == bounds[1]) return false;
-    setSelectionInternal(cursorLine, bounds[0], cursorLine, bounds[1]);
-    replaceSelectionWithText(insert);
-    return true;
-  }
-
-  private boolean tryReplaceWordFromImeCommit(String insert) {
-    if (hasSelection || hasComposing) return false;
-    if (insert == null || insert.isEmpty()) return false;
-    if (insert.length() <= 1) return false;
-    int end = insert.length();
-    while (end > 0 && Character.isWhitespace(insert.charAt(end - 1))) end--;
-    String trailing = (end < insert.length()) ? insert.substring(end) : "";
-    String core = insert.substring(0, end);
-    if (core.length() <= 1) return false;
-    for (int i = 0; i < core.length(); i++) {
-      if (Character.isWhitespace(core.charAt(i))) return false;
-    }
-    int[] bounds = getWordBoundsAtCursor();
-    if (bounds == null) return false;
-    String line = getLineTextForRender(cursorLine);
-    if (line == null || bounds[0] >= bounds[1] || bounds[1] > line.length()) return false;
-    String word = line.substring(bounds[0], bounds[1]);
-    if (word.isEmpty() || word.equals(core)) return false;
-    setSelectionInternal(cursorLine, bounds[0], cursorLine, bounds[1]);
-    replaceSelectionWithText(core);
-    if (!trailing.isEmpty()) insertTextAtCursor(trailing);
-    markImeCommit(insert);
-    startCharAnimationFromText(insert);
-    return true;
-  }
-
-  @Nullable
-  private int[] getWordBoundsAtCursor() {
-    String line = getLineTextForRender(cursorLine);
-    if (line == null || line.isEmpty()) return null;
-    int pos = Math.max(0, Math.min(cursorChar, line.length()));
-    if (pos == line.length() && pos > 0) pos--;
-    if (pos < 0 || pos >= line.length()) return null;
-    if (Character.isWhitespace(line.charAt(pos))) return null;
-    return computeWordBounds(line, pos);
-  }
-
-  private void markImeCommit(CharSequence textSeq) {
-    if (textSeq == null) return;
-    lastImeCommitText = textSeq.toString();
-    lastImeCommitUptime = SystemClock.uptimeMillis();
-    suppressNextCommitText = true;
+    imeManager.updateImeSelection();
   }
 
   @Override
   public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
-    if (isDisabled || isReadOnly) return null;
-    outAttrs.inputType =
-        EditorInfo.TYPE_CLASS_TEXT
-            | EditorInfo.TYPE_TEXT_FLAG_MULTI_LINE
-            | EditorInfo.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-            | EditorInfo.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD;
-    outAttrs.imeOptions =
-        EditorInfo.IME_ACTION_NONE
-            | EditorInfo.IME_FLAG_NO_EXTRACT_UI
-            | EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING;
-    ImeContext ctx = buildImeContext(imeExtractedBeforeChars, imeExtractedAfterChars);
-    ExtractedText et = buildExtractedTextFromContext(ctx);
-    outAttrs.initialSelStart = et.selectionStart;
-    outAttrs.initialSelEnd = et.selectionEnd;
-
-    return new BaseInputConnection(this, true) {
-      @Override
-      public Editable getEditable() {
-        return imeEditable;
-      }
-
-      @Override
-      public ExtractedText getExtractedText(ExtractedTextRequest request, int flags) {
-        if (isDisabled || isReadOnly) return null;
-        int before = IME_CONTEXT_BEFORE_CHARS;
-        int after = IME_CONTEXT_AFTER_CHARS;
-        if (request != null && request.hintMaxChars > 0) {
-          int half = Math.max(1, request.hintMaxChars / 2);
-          before = Math.min(before, half);
-          after = Math.min(after, Math.max(0, request.hintMaxChars - before));
-        }
-        if (request != null && (flags & InputConnection.GET_EXTRACTED_TEXT_MONITOR) != 0) {
-          imeExtractedTextMonitor = true;
-          imeExtractedTextToken = request.token;
-        }
-        imeExtractedBeforeChars = before;
-        imeExtractedAfterChars = after;
-        ImeContext ctx = buildImeContext(before, after);
-        return buildExtractedTextFromContext(ctx);
-      }
-
-      @Override
-      public CharSequence getTextBeforeCursor(int length, int flags) {
-        if (isDisabled || isReadOnly) return "";
-        return getImeTextBeforeCursor(length);
-      }
-
-      @Override
-      public CharSequence getTextAfterCursor(int length, int flags) {
-        if (isDisabled || isReadOnly) return "";
-        return getImeTextAfterCursor(length);
-      }
-
-      @Override
-      public CharSequence getSelectedText(int flags) {
-        if (isDisabled || isReadOnly) return "";
-        return SodiumEditorView.this.getSelectedText();
-      }
-
-      @Override
-      public SurroundingText getSurroundingText(int beforeLength, int afterLength, int flags) {
-        if (isDisabled || isReadOnly) return null;
-        int before = Math.max(0, beforeLength);
-        int after = Math.max(0, afterLength);
-        ImeContext ctx = buildImeContext(before, after);
-        int sLine = cursorLine, sChar = cursorChar, eLine = cursorLine, eChar = cursorChar;
-        if (hasSelection) {
-          sLine = selStartLine;
-          sChar = selStartChar;
-          eLine = selEndLine;
-          eChar = selEndChar;
-          if (comparePos(sLine, sChar, eLine, eChar) > 0) {
-            int tL = sLine, tC = sChar;
-            sLine = eLine;
-            sChar = eChar;
-            eLine = tL;
-            eChar = tC;
-          }
-        }
-        int selStart = lineCharToOffsetInContext(ctx, sLine, sChar);
-        int selEnd = lineCharToOffsetInContext(ctx, eLine, eChar);
-        return new SurroundingText(ctx.text, selStart, selEnd, 0);
-      }
-
-      @Override
-      public int getCursorCapsMode(int reqModes) {
-        CharSequence before = getTextBeforeCursor(2048, 0);
-        int len = (before == null) ? 0 : before.length();
-        return TextUtils.getCapsMode(before, len, reqModes);
-      }
-
-      @Override
-      public boolean setSelection(int start, int end) {
-        if (isDisabled || isReadOnly) return true;
-        ImeContext ctx = buildImeContext(IME_CONTEXT_BEFORE_CHARS, IME_CONTEXT_AFTER_CHARS);
-        if (ctx.text.isEmpty()) return true;
-        int textLen = ctx.text.length();
-        int sOff = Math.max(0, Math.min(start, textLen));
-        int eOff = Math.max(0, Math.min(end, textLen));
-        int cursorOff = lineCharToOffsetInContext(ctx, cursorLine, cursorChar);
-        if (sOff == eOff && sOff == cursorOff && !hasSelection) return true;
-        if (sOff == 0 && eOff == 0 && cursorOff > 0 && !hasSelection) return true;
-        CursorTarget s = offsetToLineCharInContext(ctx, sOff);
-        CursorTarget e = offsetToLineCharInContext(ctx, eOff);
-        setSelectionInternal(s.line, s.ch, e.line, e.ch);
-        cursorLine = e.line;
-        cursorChar = e.ch;
-        resetCursorBlink();
-        invalidate();
-        updateSuggestion();
-        return true;
-      }
-
-      @Override
-      public boolean setComposingRegion(int start, int end) {
-        if (isDisabled || isReadOnly) return true;
-        if (start > end) {
-          int t = start;
-          start = end;
-          end = t;
-        }
-        ImeContext ctx = buildImeContext(IME_CONTEXT_BEFORE_CHARS, IME_CONTEXT_AFTER_CHARS);
-        if (ctx.text.isEmpty()) return true;
-        int textLen = ctx.text.length();
-        int sOff = Math.max(0, Math.min(start, textLen));
-        int eOff = Math.max(0, Math.min(end, textLen));
-        CursorTarget s = offsetToLineCharInContext(ctx, sOff);
-        CursorTarget e = offsetToLineCharInContext(ctx, eOff);
-        if (s.line != e.line) {
-          setSelectionInternal(s.line, s.ch, e.line, e.ch);
-          cursorLine = e.line;
-          cursorChar = e.ch;
-          resetCursorBlink();
-          invalidate();
-          updateSuggestion();
-          return true;
-        }
-        composingLine = s.line;
-        composingOffset = s.ch;
-        composingLength = Math.max(0, e.ch - s.ch);
-        hasComposing = true;
-        composingStartLine = composingLine;
-        composingStartChar = composingOffset;
-        composingStartActive = true;
-        lastComposingTextForCharAnim = null;
-        invalidate();
-        updateSuggestion();
-        return true;
-      }
-
-      @Override
-      public boolean finishComposingText() {
-        if (isDisabled || isReadOnly) return true;
-        if (lastComposingTextForCharAnim != null && !lastComposingTextForCharAnim.isEmpty()) {
-          markImeCommit(lastComposingTextForCharAnim);
-        }
-        commitComposing(true);
-        return true;
-      }
-
-      @Override
-      public boolean commitCompletion(android.view.inputmethod.CompletionInfo text) {
-        if (isDisabled || isReadOnly) return true;
-        if (text == null || text.getText() == null) return true;
-        if (!hasComposing && !hasSelection && replaceWordAtCursorWith(text.getText())) {
-          markImeCommit(text.getText());
-          return true;
-        }
-        return commitText(text.getText(), 1);
-      }
-
-      @Override
-      public boolean commitCorrection(android.view.inputmethod.CorrectionInfo correctionInfo) {
-        if (isDisabled || isReadOnly) return true;
-        if (correctionInfo == null || correctionInfo.getNewText() == null) return true;
-        if (!hasComposing
-            && !hasSelection
-            && replaceWordAtCursorWith(correctionInfo.getNewText())) {
-          markImeCommit(correctionInfo.getNewText());
-          return true;
-        }
-        return commitText(correctionInfo.getNewText(), 1);
-      }
-
-      @Override
-      public boolean commitText(CharSequence text, int newCursorPosition) {
-        if (isDisabled || isReadOnly) return true;
-        if (SodiumEditorView.this.isZoomGestureActive()) return true;
-        if (text == null) return super.commitText(text, newCursorPosition);
-
-        String str = text.toString();
-        if ("\n".equals(str)) {
-          insertNewlineAtCursor();
-          commitComposing(true);
-          startCharAnimationFromText(text);
-          updateSuggestion();
-          return true;
-        }
-
-        if (tryReplaceWordFromImeCommit(str)) {
-          updateSuggestion();
-          return true;
-        }
-
-        if (!hasComposing && !hasSelection && lastImeCommitText != null) {
-          long now = SystemClock.uptimeMillis();
-          if (now - lastImeCommitUptime < 700 && str.trim().isEmpty()) {
-            int[] bounds = getWordBoundsAtCursor();
-            if (bounds != null) {
-              String line = getLineTextForRender(cursorLine);
-              if (line != null && bounds[0] < bounds[1] && bounds[1] <= line.length()) {
-                String word = line.substring(bounds[0], bounds[1]);
-                if (!word.isEmpty() && lastImeCommitText.startsWith(word)) {
-                  if (!word.equals(lastImeCommitText)) {
-                    setSelectionInternal(cursorLine, bounds[0], cursorLine, bounds[1]);
-                    replaceSelectionWithText(lastImeCommitText);
-                  }
-                  insertTextAtCursor(str);
-                  suppressNextCommitText = false;
-                  return true;
-                }
-              }
-            }
-          }
-        }
-
-        if (!hasComposing && !hasSelection) {
-          long now = SystemClock.uptimeMillis();
-          boolean recentIme =
-              suppressNextCommitText
-                  || (lastImeCommitText != null && (now - lastImeCommitUptime) < 700);
-          if (recentIme) {
-            int anchorLen = Math.max(str.length(), (lastImeCommitText == null) ? 0 : lastImeCommitText.length());
-            int beforeLen = Math.max(32, Math.min(256, anchorLen + 4));
-            String before = getImeTextBeforeCursor(beforeLen);
-
-            if (before != null && !before.isEmpty()) {
-              if (!str.isEmpty() && before.endsWith(str)) {
-                suppressNextCommitText = false;
-                return true;
-              }
-              if (lastImeCommitText != null
-                  && !lastImeCommitText.isEmpty()
-                  && before.endsWith(lastImeCommitText)) {
-                if (str.equals(lastImeCommitText)) {
-                  suppressNextCommitText = false;
-                  return true;
-                }
-                if (str.startsWith(lastImeCommitText)) {
-                  String suffix = str.substring(lastImeCommitText.length());
-                  suppressNextCommitText = false;
-                  if (!suffix.isEmpty()) {
-                    String trimmed = suffix.trim();
-                    if (trimmed.equals(lastImeCommitText)) {
-                      return true;
-                    }
-                    insertTextAtCursor(suffix);
-                    commitComposing(true);
-                    startCharAnimationFromText(suffix);
-                    handleAutoPairing(suffix);
-                    updateSuggestion();
-                  }
-                  return true;
-                }
-              }
-            }
-            suppressNextCommitText = false;
-          }
-        }
-
-        if (hasSelection) {
-          replaceSelectionWithText(str);
-          commitComposing(true);
-          startCharAnimationFromText(text);
-          handleAutoPairing(str);
-          updateSuggestion();
-          return true;
-        }
-
-        if (hasComposing) {
-          int startLine = composingStartActive ? composingStartLine : composingLine;
-          int startChar = composingStartActive ? composingStartChar : composingOffset;
-          replaceComposingWith(text);
-          updateComposingPendingOp(str, startLine, startChar);
-          commitComposing(true);
-          markImeCommit(str);
-          startCharAnimationFromText(text);
-          handleAutoPairing(str);
-          updateSuggestion();
-          return true;
-        }
-
-        insertTextAtCursor(str);
-        commitComposing(true);
-        startCharAnimationFromText(text);
-        handleAutoPairing(str);
-
-        updateSuggestion();
-        return true;
-      }
-
-      @Override
-      public boolean setComposingText(CharSequence text, int newCursorPosition) {
-        if (isDisabled || isReadOnly) return true;
-        if (SodiumEditorView.this.isZoomGestureActive()) return true;
-        if (text == null) return true;
-
-        if (hasSelection) {
-          replaceSelectionWithText(text.toString());
-          startCharAnimationFromText(text);
-          updateSuggestion();
-          return true;
-        }
-
-        ensureLineInWindow(cursorLine, true);
-        if (!hasComposing) {
-          composingLine = cursorLine;
-          composingOffset = cursorChar;
-          composingLength = 0;
-          hasComposing = true;
-          composingStartLine = composingLine;
-          composingStartChar = composingOffset;
-          composingStartActive = true;
-        }
-        String newText = text.toString();
-        String oldText = (lastComposingTextForCharAnim == null) ? "" : lastComposingTextForCharAnim;
-        boolean shouldAnim = newText.length() >= oldText.length() && !newText.equals(oldText);
-        replaceComposingWith(newText);
-        updateComposingPendingOp(newText, composingStartLine, composingStartChar);
-        lastComposingTextForCharAnim = newText;
-        if (shouldAnim) startCharAnimationFromText(newText);
-        updateSuggestion();
-        return true;
-      }
-
-      @Override
-      public boolean deleteSurroundingText(int beforeLength, int afterLength) {
-        if (isDisabled || isReadOnly) return true;
-        if (SodiumEditorView.this.isZoomGestureActive()) return true;
-
-        if (hasSelection) {
-          replaceSelectionWithText("");
-          updateSuggestion();
-          return true;
-        }
-        for (int i = 0; i < beforeLength; i++) deleteCharAtCursor();
-        for (int i = 0; i < afterLength; i++) deleteForwardAtCursor();
-        updateSuggestion();
-        return true;
-      }
-    };
+    return imeManager.onCreateInputConnection(outAttrs);
   }
 
   @Override
@@ -16327,16 +15107,16 @@ public class SodiumEditorView extends View {
       pointerDown = false;
       movedSinceDown = false;
       draggingHandle = 0;
-      dragMaxScrollX = -1f;
+      scrollManager.dragMaxScrollX = -1f;
       selecting = false;
       isLineNumberSelecting = false;
       lineNumberSelectAnchorLine = -1;
       mainHandler.removeCallbacks(autoScrollRunnable);
-      if (!scroller.isFinished()) {
-        scroller.computeScrollOffset();
-        scrollX = scroller.getCurrX();
-        scrollY = scroller.getCurrY();
-        scroller.abortAnimation();
+      if (!scrollManager.scroller.isFinished()) {
+        scrollManager.scroller.computeScrollOffset();
+        scrollManager.scrollX = scrollManager.scroller.getCurrX();
+        scrollManager.scrollY = scrollManager.scroller.getCurrY();
+        scrollManager.scroller.abortAnimation();
       }
       cancelFlingStopAnimation();
     }
@@ -16345,7 +15125,7 @@ public class SodiumEditorView extends View {
       if (pointerCount - 1 <= 1) {
         multiTouchActive = false;
         mJustFinishedScale = true;
-        dragMaxScrollX = -1f;
+        scrollManager.dragMaxScrollX = -1f;
       }
     }
 
@@ -16369,7 +15149,7 @@ public class SodiumEditorView extends View {
       isLineNumberSelecting = false;
       lineNumberSelectAnchorLine = -1;
       mainHandler.removeCallbacks(autoScrollRunnable);
-      dragMaxScrollX = -1f;
+      scrollManager.dragMaxScrollX = -1f;
       return true;
     }
 
@@ -16386,14 +15166,14 @@ public class SodiumEditorView extends View {
         downY = ey;
         movedSinceDown = false;
         suggestionAcceptedThisTouch = false; // Reset flag for new touch sequence
-        dragMaxScrollX = isWordWrapEnabled ? -1f : getMaxScrollXForClamp();
+        scrollManager.dragMaxScrollX = isWordWrapEnabled ? -1f : getMaxScrollXForClamp();
 
         showScrollBar();
-        if (scrollBarEnabled) {
+        if (scrollManager.scrollBarEnabled) {
           float maxScroll = getMaxScrollYForClamp();
-          if (maxScroll > 0f && scrollBarThumbRect.contains(ex, ey)) {
-            draggingScrollBar = true;
-            scrollBarDragOffset = ey - scrollBarThumbRect.top;
+          if (maxScroll > 0f && scrollManager.scrollBarThumbRect.contains(ex, ey)) {
+            scrollManager.draggingScrollBar = true;
+            scrollManager.scrollBarDragOffset = ey - scrollManager.scrollBarThumbRect.top;
             showScrollBar();
             return true;
           }
@@ -16408,11 +15188,11 @@ public class SodiumEditorView extends View {
           }
         }
 
-        if (!scroller.isFinished()) {
-          scroller.computeScrollOffset();
-          float targetX = scroller.getCurrX();
-          float targetY = scroller.getCurrY();
-          scroller.abortAnimation();
+        if (!scrollManager.scroller.isFinished()) {
+          scrollManager.scroller.computeScrollOffset();
+          float targetX = scrollManager.scroller.getCurrX();
+          float targetY = scrollManager.scroller.getCurrY();
+          scrollManager.scroller.abortAnimation();
           startFlingStopAnimation(targetX, targetY);
         } else {
           cancelFlingStopAnimation();
@@ -16421,7 +15201,7 @@ public class SodiumEditorView extends View {
         // FIX: Use getTextStartX() to correctly calculate touch coordinates relative to the text
         // area.
         float gx = ex + getEffectiveScrollX() - getTextStartX();
-        float gy = ey + scrollY - getHitTestBaseY();
+        float gy = ey + scrollManager.scrollY - scrollManager.getHitTestBaseY();
         if (hasSelection && leftHandleRect.contains(gx, gy)) {
           draggingHandle = 1;
           return true;
@@ -16441,18 +15221,18 @@ public class SodiumEditorView extends View {
         if (Math.abs(ex - downX) > touchSlop || Math.abs(ey - downY) > touchSlop)
           movedSinceDown = true;
 
-        if (draggingScrollBar) {
+        if (scrollManager.draggingScrollBar) {
           float maxScroll = getMaxScrollYForClamp();
           if (maxScroll > 0f) {
             float h = getHeight();
             float trackHeight = h;
             float contentHeight = maxScroll + h;
             float thumbHeight = (trackHeight * trackHeight) / Math.max(1f, contentHeight);
-            if (thumbHeight < scrollBarMinThumbPx) thumbHeight = scrollBarMinThumbPx;
+            if (thumbHeight < scrollManager.scrollBarMinThumbPx) thumbHeight = scrollManager.scrollBarMinThumbPx;
             if (thumbHeight > trackHeight) thumbHeight = trackHeight;
             float thumbRange = Math.max(1f, trackHeight - thumbHeight);
-            float targetTop = Math.max(0f, Math.min(trackHeight - thumbHeight, ey - scrollBarDragOffset));
-            scrollY = (targetTop / thumbRange) * maxScroll;
+            float targetTop = Math.max(0f, Math.min(trackHeight - thumbHeight, ey - scrollManager.scrollBarDragOffset));
+            scrollManager.scrollY = (targetTop / thumbRange) * maxScroll;
             clampScrollY();
             invalidate();
           }
@@ -16470,7 +15250,7 @@ public class SodiumEditorView extends View {
         }
 
         if (isLineNumberSelecting) {
-          float y = ey + scrollY;
+          float y = ey + scrollManager.scrollY;
           int line = getGlobalLineForY(y);
           updateLineNumberSelection(line);
           return true;
@@ -16482,19 +15262,19 @@ public class SodiumEditorView extends View {
 
           float scrollMargin = lineHeight * 2f;
           float scrollSpeed = Math.max(4f, lineHeight * 0.35f);
-          autoScrollY = 0;
-          autoScrollX = 0;
-          if (ey < scrollMargin) autoScrollY = -scrollSpeed;
-          else if (ey > (getHeight() - keyboardHeight) - scrollMargin) autoScrollY = scrollSpeed;
-          if (ex < scrollMargin) autoScrollX = -scrollSpeed;
-          else if (ex > getWidth() - scrollMargin) autoScrollX = scrollSpeed;
-          if (isRtl && !isWordWrapEnabled) autoScrollX = -autoScrollX;
+          scrollManager.autoScrollY = 0;
+          scrollManager.autoScrollX = 0;
+          if (ey < scrollMargin) scrollManager.autoScrollY = -scrollSpeed;
+          else if (ey > (getHeight() - keyboardHeight) - scrollMargin) scrollManager.autoScrollY = scrollSpeed;
+          if (ex < scrollMargin) scrollManager.autoScrollX = -scrollSpeed;
+          else if (ex > getWidth() - scrollMargin) scrollManager.autoScrollX = scrollSpeed;
+          if (isRtl && !isWordWrapEnabled) scrollManager.autoScrollX = -scrollManager.autoScrollX;
 
           // Prevent horizontal auto-scroll when the handle is already at the line boundary.
-          if (autoScrollX > 0 && lastDragAtLineEnd) autoScrollX = 0;
-          if (autoScrollX < 0 && lastDragAtLineStart) autoScrollX = 0;
+          if (scrollManager.autoScrollX > 0 && lastDragAtLineEnd) scrollManager.autoScrollX = 0;
+          if (scrollManager.autoScrollX < 0 && lastDragAtLineStart) scrollManager.autoScrollX = 0;
 
-          if (autoScrollX != 0 || autoScrollY != 0) mainHandler.post(autoScrollRunnable);
+          if (scrollManager.autoScrollX != 0 || scrollManager.autoScrollY != 0) mainHandler.post(autoScrollRunnable);
           else mainHandler.removeCallbacks(autoScrollRunnable);
 
           invalidate();
@@ -16506,10 +15286,10 @@ public class SodiumEditorView extends View {
 
       case MotionEvent.ACTION_UP:
         mainHandler.removeCallbacks(autoScrollRunnable);
-        dragMaxScrollX = -1f;
+        scrollManager.dragMaxScrollX = -1f;
 
-        if (draggingScrollBar) {
-          draggingScrollBar = false;
+        if (scrollManager.draggingScrollBar) {
+          scrollManager.draggingScrollBar = false;
           showScrollBar();
           return true;
         }
@@ -16615,7 +15395,7 @@ public class SodiumEditorView extends View {
           return true;
         }
 
-        if (movedSinceDown && scroller.isFinished()) { // Just finished a scroll/drag
+        if (movedSinceDown && scrollManager.scroller.isFinished()) { // Just finished a scroll/drag
           if (hasSelection) showPopupAtSelection();
           restartInput(); // Sync IME state
           Log.d("SodiumEditorView", "onTouchEvent.ACTION_UP: Scroll/Zoom ended, restarted input.");
@@ -16642,10 +15422,10 @@ public class SodiumEditorView extends View {
         popupPressedAction = 0;
         cancelPopupRipple();
         clearActiveSuggestion(); // Clear suggestion on touch cancel
-        dragMaxScrollX = -1f;
-        draggingScrollBar = false;
-        if (scrollBarFadeEnabled) {
-          mainHandler.removeCallbacks(scrollBarHideRunnable);
+        scrollManager.dragMaxScrollX = -1f;
+        scrollManager.draggingScrollBar = false;
+        if (scrollManager.scrollBarFadeEnabled) {
+          mainHandler.removeCallbacks(scrollManager.scrollBarHideRunnable);
         }
         Log.d("SodiumEditorView", "onTouchEvent.ACTION_CANCEL: Passing to GestureDetector.");
         gestureDetector.onTouchEvent(event);
@@ -16674,7 +15454,7 @@ public class SodiumEditorView extends View {
       if (line > lastValidLine) line = lastValidLine;
     }
 
-    ensureLineInWindow(line, true);
+    scrollManager.ensureLineInWindow(line, true);
     String ln = getLineTextForRender(line);
     int clamped = Math.max(0, Math.min(target.ch, ln.length()));
     lastDragAtLineStart = clamped == 0;
@@ -16699,7 +15479,7 @@ public class SodiumEditorView extends View {
     } else if (draggingHandle == 3) {
       cursorLine = line;
       cursorChar = clamped;
-      keepCursorVisibleHorizontally();
+      scrollManager.keepCursorVisibleHorizontally();
     }
   }
 
@@ -16836,7 +15616,7 @@ public class SodiumEditorView extends View {
     hidePopup();
     resetCursorBlink();
     invalidate();
-    keepCursorVisibleHorizontally();
+    scrollManager.keepCursorVisibleHorizontally();
     updateSuggestion(); // Update suggestion after cursor move
   }
 
@@ -16867,7 +15647,7 @@ public class SodiumEditorView extends View {
     hidePopup();
     resetCursorBlink();
     invalidate();
-    keepCursorVisibleHorizontally();
+    scrollManager.keepCursorVisibleHorizontally();
     updateSuggestion(); // Update suggestion after cursor move
   }
 
@@ -16893,7 +15673,7 @@ public class SodiumEditorView extends View {
     hidePopup();
     resetCursorBlink();
     invalidate();
-    keepCursorVisibleHorizontally();
+    scrollManager.keepCursorVisibleHorizontally();
     updateSuggestion(); // Update suggestion after cursor move
   }
 
@@ -16920,7 +15700,7 @@ public class SodiumEditorView extends View {
     hidePopup();
     resetCursorBlink();
     invalidate();
-    keepCursorVisibleHorizontally();
+    scrollManager.keepCursorVisibleHorizontally();
     updateSuggestion(); // Update suggestion after cursor move
   }
 
@@ -16949,7 +15729,7 @@ public class SodiumEditorView extends View {
       return;
     }
     int idx = isCodeFoldingEnabled ? getVisibleIndexForGlobalLine(globalLine) : globalLine;
-    float top = (idx * lineHeight) - scrollY;
+    float top = (idx * lineHeight) - scrollManager.scrollY;
     invalidate(0, (int) Math.floor(top), getWidth(), (int) Math.ceil(top + lineHeight));
   }
 
@@ -17053,14 +15833,14 @@ public class SodiumEditorView extends View {
     return hidden;
   }
 
-  private int getVisibleLineCount() {
+  int getVisibleLineCount() {
     int total = getLinesCount();
     if (total <= 0) total = windowStartLine + linesWindow.size();
     int visible = Math.max(1, total - getHiddenLineCount());
     return visible;
   }
 
-  private int getVisualIndexForLineAndChar(int line, int ch) {
+  int getVisualIndexForLineAndChar(int line, int ch) {
     if (!isWrapMetricsUsableForLine(line)) {
       if (isCodeFoldingEnabled) return getVisibleIndexForGlobalLine(line);
       return Math.max(0, line);
@@ -17088,7 +15868,7 @@ public class SodiumEditorView extends View {
     return Math.max(0, Math.min(global, total - 1));
   }
 
-  private int getVisibleIndexForGlobalLine(int globalLine) {
+  int getVisibleIndexForGlobalLine(int globalLine) {
     if (!isCodeFoldingEnabled) return globalLine;
     rebuildFoldIntervalsIfNeeded();
     int visible = globalLine;
@@ -17100,7 +15880,7 @@ public class SodiumEditorView extends View {
     return Math.max(0, visible);
   }
 
-  private int getGlobalLineForY(float y) {
+  int getGlobalLineForY(float y) {
     int idx = Math.max(0, (int) (y / lineHeight));
     if (isWordWrapEnabled) {
       return getVisualPositionForIndex(idx).line;
@@ -17455,131 +16235,27 @@ public class SodiumEditorView extends View {
   }
 
   private float getMaxScrollXForClamp() {
-    if (isWordWrapEnabled) return 0f;
-    float rawMaxWidth = getMaxLineWidthInWindow();
-    if (rawMaxWidth > maxLineWidthForScroll) {
-      maxLineWidthForScroll = rawMaxWidth;
-    }
-    float textStartX = getTextStartX();
-    if (textStartX > maxTextStartXForScroll) {
-      maxTextStartXForScroll = textStartX;
-    }
-    float effectiveTextStartX = Math.max(textStartX, maxTextStartXForScroll);
-    float candidateMax = Math.max(0f, maxLineWidthForScroll - (getWidth() - effectiveTextStartX));
-    if (candidateMax > maxScrollXForScroll) {
-      maxScrollXForScroll = candidateMax;
-    }
-    return maxScrollXForScroll;
+    return scrollManager.getMaxScrollXForClamp();
   }
 
   private void clampScrollX() {
-    if (isWordWrapEnabled) {
-      scrollX = 0f;
-      return;
-    }
-    float max = (pointerDown && dragMaxScrollX >= 0f) ? dragMaxScrollX : getMaxScrollXForClamp();
-    boolean allowFlingOverscroll = flingBounceEnabled && scrollerIsScrolling;
-    if (allowFlingOverscroll) {
-      int over = getFlingOverScrollX();
-      if (scrollX < -over) scrollX = -over;
-      if (scrollX > max + over) scrollX = max + over;
-      return;
-    }
-    if (scrollX < 0) scrollX = 0;
-    if (scrollX > max) scrollX = max;
+    scrollManager.clampScrollX();
   }
 
   private void drawScrollBar(Canvas canvas) {
-    if (!scrollBarEnabled) return;
-    if (scrollBarFadeEnabled && scrollBarAlpha <= 0f) return;
-    int w = getWidth();
-    int h = getHeight();
-    if (w <= 0 || h <= 0) return;
-    float maxScroll = getMaxScrollYForClamp();
-    if (maxScroll <= 0f) return;
-
-    float trackHeight = h;
-    float contentHeight = maxScroll + h;
-    float thumbHeight = (trackHeight * trackHeight) / Math.max(1f, contentHeight);
-    if (thumbHeight < scrollBarMinThumbPx) thumbHeight = scrollBarMinThumbPx;
-    if (thumbHeight > trackHeight) thumbHeight = trackHeight;
-    float thumbRange = Math.max(1f, trackHeight - thumbHeight);
-    float thumbTop = (scrollY / maxScroll) * thumbRange;
-
-    float right = w - scrollBarMarginPx;
-    float left = right - scrollBarWidthPx;
-    scrollBarThumbRect.set(left, thumbTop, right, thumbTop + thumbHeight);
-    int baseColor = scrollBarColor;
-    int alpha = (int) (Math.min(1f, scrollBarAlpha) * 255);
-    int color = (baseColor & 0x00FFFFFF) | (alpha << 24);
-    scrollBarPaint.setColor(color);
-    if (draggingScrollBar) {
-      int haloAlpha = (int) (alpha * 0.6f);
-      int haloColor = (scrollBarHaloColor & 0x00FFFFFF) | (haloAlpha << 24);
-      scrollBarHaloPaint.setColor(haloColor);
-      float inset = Math.max(0f, scrollBarHaloSizePx);
-      RectF halo = new RectF(
-          scrollBarThumbRect.left - inset,
-          scrollBarThumbRect.top - inset,
-          scrollBarThumbRect.right + inset,
-          scrollBarThumbRect.bottom + inset);
-      float haloRadius = scrollBarCornerRadiusPx + inset;
-      canvas.drawRoundRect(halo, haloRadius, haloRadius, scrollBarHaloPaint);
-    }
-    canvas.drawRoundRect(
-        scrollBarThumbRect,
-        scrollBarCornerRadiusPx,
-        scrollBarCornerRadiusPx,
-        scrollBarPaint);
+    scrollManager.drawScrollBar(canvas);
   }
 
   private void showScrollBar() {
-    if (!scrollBarEnabled) return;
-    if (!scrollBarFadeEnabled) {
-      scrollBarAlpha = 1f;
-      return;
-    }
-    cancelScrollBarFade();
-    scrollBarAlpha = 1f;
-    invalidate();
-    mainHandler.removeCallbacks(scrollBarHideRunnable);
-    mainHandler.postDelayed(scrollBarHideRunnable, scrollBarFadeDelayMs);
+    scrollManager.showScrollBar();
   }
 
   private void startScrollBarFadeOut() {
-    if (!scrollBarFadeEnabled || draggingScrollBar) return;
-    cancelScrollBarFade();
-    final float start = scrollBarAlpha;
-    if (start <= 0f) return;
-    scrollBarFadeAnimator = ValueAnimator.ofFloat(0f, 1f);
-    scrollBarFadeAnimator.setDuration(scrollBarFadeDurationMs);
-    scrollBarFadeAnimator.setInterpolator(new DecelerateInterpolator());
-    scrollBarFadeAnimator.addUpdateListener(
-        a -> {
-          float t = (float) a.getAnimatedValue();
-          scrollBarAlpha = Math.max(0f, start * (1f - t));
-          invalidate();
-        });
-    scrollBarFadeAnimator.addListener(
-        new AnimatorListenerAdapter() {
-          @Override
-          public void onAnimationEnd(Animator animation) {
-            scrollBarFadeAnimator = null;
-          }
-
-          @Override
-          public void onAnimationCancel(Animator animation) {
-            scrollBarFadeAnimator = null;
-          }
-        });
-    scrollBarFadeAnimator.start();
+    scrollManager.startScrollBarFadeOut();
   }
 
   private void cancelScrollBarFade() {
-    if (scrollBarFadeAnimator != null) {
-      scrollBarFadeAnimator.cancel();
-      scrollBarFadeAnimator = null;
-    }
+    scrollManager.cancelScrollBarFade();
   }
 
   private void recalculateMaxLineWidth() {
@@ -17594,7 +16270,7 @@ public class SodiumEditorView extends View {
     globalMaxLineWidth = Math.max(globalMaxLineWidth, currentMaxWindowLineWidth);
   }
 
-  private float getMaxLineWidthInWindow() {
+  float getMaxLineWidthInWindow() {
     // This is the core fix for horizontal scrolling. The scroll range must be based on the
     // longest line seen anywhere in the file, not just the current visible window.
     return globalMaxLineWidth;
@@ -17617,7 +16293,7 @@ public class SodiumEditorView extends View {
     return end;
   }
 
-  private float getBottomBarrierPadding() {
+  float getBottomBarrierPadding() {
     float base = BOTTOM_SCROLL_OFFSET;
     float minSpace = MIN_BOTTOM_VISIBLE_SPACE;
     if (lineHeight > 0f) {
@@ -17627,74 +16303,12 @@ public class SodiumEditorView extends View {
     return Math.max(base, minSpace);
   }
 
-  private float getKeyboardBarrierPadding() {
+  float getKeyboardBarrierPadding() {
     if (keyboardHeight <= 0) return 0f;
     float minPad = (lineHeight > 0f) ? lineHeight * 2f : MIN_BOTTOM_VISIBLE_SPACE;
     float maxPad = (lineHeight > 0f) ? lineHeight * 3.5f : BOTTOM_SCROLL_OFFSET;
     float kbPad = keyboardHeight * 0.4f;
     return Math.max(minPad, Math.min(maxPad, kbPad));
-  }
-
-  private void keepCursorVisibleHorizontally() {
-    if (scaleGestureDetector != null
-        && (isScaling || scaleGestureDetector.isInProgress() || multiTouchActive)) {
-      return;
-    }
-    int cursorVisualIndex = getVisualIndexForLineAndChar(cursorLine, cursorChar);
-    float cursorYTop = cursorVisualIndex * lineHeight;
-    float cursorYBottom = cursorYTop + lineHeight;
-    int viewHeight = getHeight() - keyboardHeight;
-    if (viewHeight <= 0) viewHeight = getHeight();
-
-    float bottomPadding =
-        (keyboardHeight > 0) ? getKeyboardBarrierPadding() : getBottomBarrierPadding();
-    float effectiveVisibleHeight = Math.max(0f, viewHeight - bottomPadding);
-    float visibleTop = scrollY;
-    float visibleBottom = scrollY + effectiveVisibleHeight;
-
-    if (cursorYBottom > visibleBottom) scrollY = cursorYBottom - (viewHeight - bottomPadding);
-    else if (cursorYTop < visibleTop) scrollY = cursorYTop;
-
-    if (keyboardHeight > 0) {
-      float keyboardTop = getHeight() - keyboardHeight;
-      // Keep caret/handles above the keyboard with a stable cushion
-      float paddingAboveKeyboard = getKeyboardBarrierPadding();
-      float currentCursorViewY = cursorYBottom - scrollY;
-      if (currentCursorViewY >= keyboardTop - paddingAboveKeyboard) {
-        scrollY = cursorYBottom - (getHeight() - keyboardHeight - paddingAboveKeyboard);
-      }
-    }
-    clampScrollY();
-
-    if (!isWordWrapEnabled) {
-      String line = getLineTextForRender(cursorLine);
-      int safeChar = Math.min(cursorChar, getLogicalLineLength(cursorLine, line));
-      float cursorX = getCaretXForLine(line, cursorLine, safeChar);
-
-      float viewLeft = isRtl ? 0f : lineNumbersGutterWidth;
-      float viewRight = isRtl ? (getWidth() - lineNumbersGutterWidth) : getWidth();
-      float scrollMargin = 50f;
-      float effectiveScrollX = getEffectiveScrollX();
-      float cursorViewX = getTextStartX() + cursorX - effectiveScrollX;
-      float minView = viewLeft + scrollMargin;
-      float maxView = viewRight - scrollMargin;
-      if (cursorViewX < minView) {
-        effectiveScrollX = getTextStartX() + cursorX - minView;
-      } else if (cursorViewX > maxView) {
-        effectiveScrollX = getTextStartX() + cursorX - maxView;
-      }
-      float max = getMaxScrollXForClamp();
-      float minEffective = isRtl ? -max : 0f;
-      float maxEffective = isRtl ? 0f : max;
-      if (effectiveScrollX < minEffective) effectiveScrollX = minEffective;
-      if (effectiveScrollX > maxEffective) effectiveScrollX = maxEffective;
-      scrollX = isRtl ? -effectiveScrollX : effectiveScrollX;
-    } else {
-      scrollX = 0f;
-    }
-
-    clampScrollX();
-    invalidate();
   }
 
   private void drawAutoSuggestion(
@@ -17720,10 +16334,10 @@ public class SodiumEditorView extends View {
     // Calculate and store the tap area in VIEW coordinates
     float suggestionTextWidth = suggestionPaint.measureText(activeSuggestion);
 
-    // The canvas is translated by (getTextStartX() - effectiveScrollX, -scrollY)
+    // The canvas is translated by (getTextStartX() - effectiveScrollX, -scrollManager.scrollY)
     // To get view coordinates:
     // viewX = canvasX + (effectiveScrollX - getTextStartX())
-    // viewY = canvasY + scrollY
+    // viewY = canvasY + scrollManager.scrollY
 
     float left_view = suggestionStartX_canvas + getTextStartX() - getEffectiveScrollX();
     float right_view = left_view + suggestionTextWidth;
@@ -17732,8 +16346,8 @@ public class SodiumEditorView extends View {
       left_view += baseX;
       right_view += baseX;
     }
-    float top_view = globalLine * lineHeight - scrollY;
-    float bottom_view = (globalLine + 1) * lineHeight - scrollY;
+    float top_view = globalLine * lineHeight - scrollManager.scrollY;
+    float bottom_view = (globalLine + 1) * lineHeight - scrollManager.scrollY;
 
     activeSuggestionRect.set(left_view, top_view, right_view, bottom_view);
   }
@@ -17853,7 +16467,7 @@ public class SodiumEditorView extends View {
   }
 
   // Render-safe line getter (NO file random read here)
-  private String getLineTextForRender(int line) {
+  String getLineTextForRender(int line) {
     if (line < 0) return "";
     if (line >= windowStartLine && line < windowStartLine + linesWindow.size()) {
       String text = getLineFromWindowLocal(line - windowStartLine);
@@ -18039,7 +16653,7 @@ public class SodiumEditorView extends View {
     cursorDrawY = cursorAnimY;
   }
 
-  private void resetCursorBlink() {
+  void resetCursorBlink() {
     mainHandler.removeCallbacks(blinkRunnable);
     isCursorVisible = true;
     if (isFocused() && !hasSelection) {
