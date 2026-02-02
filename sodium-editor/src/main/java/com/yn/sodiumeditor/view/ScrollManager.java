@@ -163,8 +163,8 @@ public final class ScrollManager {
   }
 
   boolean onFling(float velocityX, float velocityY) {
-    if (view.isScaling || view.scaleGestureDetector.isInProgress()) return true;
-    if (view.mJustFinishedScale) return true;
+    if (view.getZoomManager().isScaling() || view.getZoomManager().isScaleInProgress()) return true;
+    if (view.getZoomManager().isJustFinishedScale()) return true;
     if (view.isWordWrapEnabled && view.wrapPrefixBuilding) {
       view.cancelWrapPrefixRebuildForInteraction();
     }
@@ -237,8 +237,8 @@ public final class ScrollManager {
 
   boolean onScroll(MotionEvent e2, float distanceX, float distanceY) {
     if (e2.getPointerCount() > 1) return true;
-    if (view.isScaling || view.scaleGestureDetector.isInProgress()) return true;
-    if (view.mJustFinishedScale) return true;
+    if (view.getZoomManager().isScaling() || view.getZoomManager().isScaleInProgress()) return true;
+    if (view.getZoomManager().isJustFinishedScale()) return true;
     if (view.isWordWrapEnabled && view.wrapPrefixBuilding) {
       view.cancelWrapPrefixRebuildForInteraction();
     }
@@ -335,7 +335,9 @@ public final class ScrollManager {
   }
 
   float getMaxScrollYForClamp() {
-    if (view.isWordWrapEnabled && !view.wrapMetricsReady && (view.isScaling || view.mJustFinishedScale)) {
+    if (view.isWordWrapEnabled
+        && !view.wrapMetricsReady
+        && (view.getZoomManager().isScaling() || view.getZoomManager().isJustFinishedScale())) {
       return scrollY;
     }
 
@@ -512,8 +514,9 @@ public final class ScrollManager {
   }
 
   void keepCursorVisibleHorizontally() {
-    if (view.scaleGestureDetector != null
-        && (view.isScaling || view.scaleGestureDetector.isInProgress() || view.multiTouchActive)) {
+    if (view.getZoomManager().isScaleInProgress()
+        || view.getZoomManager().isScaling()
+        || view.getZoomManager().isMultiTouchActive()) {
       return;
     }
     int cursorVisualIndex = view.getVisualIndexForLineAndChar(view.cursorLine, view.cursorChar);

@@ -26,7 +26,6 @@ import android.util.SparseIntArray;
 import android.view.GestureDetector;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
-import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.animation.DecelerateInterpolator;
@@ -36,8 +35,6 @@ import android.view.inputmethod.InputMethodManager;
 import androidx.annotation.Nullable;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
-import org.json.JSONArray;
-import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -171,10 +168,10 @@ public class SodiumEditorView extends View {
   static final long FLING_STOP_ANIM_DURATION_MS = 90;
   private final IMEManager imeManager;
   private final ScrollManager scrollManager;
+  private final ZoomManager zoomManager;
+  private final UndoRedo undoRedo;
 
-  // --- Zoom State ---
-  private boolean isZoomEnabled = true;
-  private boolean hideDecorationsWhileZooming = true;
+  // --- Search State ---
   private String searchQuery = "";
   private boolean searchUseRegex = false;
   private boolean searchCaseSensitive = false;
@@ -190,51 +187,19 @@ public class SodiumEditorView extends View {
   private int mCurrentSearchMatchColor =
       0x9933B5E5; // A distinct default color for the current match
   private final Paint mCurrentSearchMatchPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  ScaleGestureDetector scaleGestureDetector;
-  boolean mJustFinishedScale = false;
-  boolean isScaling = false;
-  private float lastFocusX, lastFocusY;
-  private static final float MIN_TEXT_SIZE = 8f;
-  private static final float MAX_TEXT_SIZE = 56f;
-  private float minZoomTextSizePx = MIN_TEXT_SIZE;
-  private float maxZoomTextSizePx = MAX_TEXT_SIZE;
-  private float zoomStepClampSp = 0.2f;
-  // Performance: while pinching with word-wrap enabled, keep the current wrap layout and
-  // apply a temporary visual scale; commit the new text size + rebuild wrap once at the end.
-  private boolean deferWrapReflowDuringPinch = true;
-  private boolean pinchVisualZoomActive = false;
-  private float pinchVisualScale = 1f;
-  private float pinchStartTextSizePx = 0f;
-  private float pinchTargetTextSizePx = 0f;
-  private float pinchFocusX = 0f;
-  private float pinchFocusY = 0f;
-  private int pinchAnchorGlobalLineAtFocus = -1;
+  // --- Zoom State (moved to ZoomManager) ---
   @Nullable private int[] pendingWrapPrefixCounts = null;
   @Nullable private int[] pendingWrapPrefixPrefix = null;
   private int pendingWrapPrefixTotalVisualLines = 0;
   private int pendingWrapPrefixWidthPx = -1;
   private int pendingWrapPrefixValidUpToLine = -1;
   private boolean pendingApplyWrapPrefixUpdate = false;
-  // Zoom scroll adjustment for word wrap
-  private int pendingZoomScrollAdjustGlobalLine = -1;
-  private float pendingZoomScrollAdjustFocusY = -1f;
-
   boolean isZoomGestureActive() {
-    return isScaling
-        || pinchVisualZoomActive
-        || multiTouchActive
-        || (scaleGestureDetector != null && scaleGestureDetector.isInProgress());
+    return zoomManager.isZoomGestureActive();
   }
 
-  private float quantizeZoomSizePx(float sizePx) {
-    if (zoomStepClampSp <= 0f) return sizePx;
-    float stepPx = spToPx(zoomStepClampSp);
-    if (stepPx <= 0f) return sizePx;
-    return Math.round(sizePx / stepPx) * stepPx;
-  }
-
-  private boolean shouldDrawDecorations() {
-    return !(hideDecorationsWhileZooming && isZoomGestureActive());
+  ZoomManager getZoomManager() {
+    return zoomManager;
   }
 
   private void drawCurrentLineHighlightInGutter(Canvas canvas, float top, float bottom) {
@@ -277,7 +242,7 @@ public class SodiumEditorView extends View {
     if (!searchHighlightEnabled || !isSearchActive() || line == null || line.isEmpty())
       return new int[0];
 
-    int version = editVersion.get();
+    int version = undoRedo.getEditVersion();
     String key = getSearchCacheKey();
     if (searchCacheEditVersion != version
         || (searchCacheKey != null && !searchCacheKey.equals(key))) {
@@ -603,6 +568,10 @@ public class SodiumEditorView extends View {
     }
   }
 
+  void applyPendingWrapPrefixUpdateForZoom() {
+    applyPendingWrapPrefixUpdateIfAny();
+  }
+
   // caret
   int cursorLine = 0;
   int cursorChar = 0;
@@ -613,7 +582,7 @@ public class SodiumEditorView extends View {
   int composingStartLine = -1;
   int composingStartChar = 0;
   boolean composingStartActive = false;
-  @Nullable private EditOp composingPendingOp = null;
+  // composing pending op moved to UndoRedo.
 
   // selection
   boolean hasSelection = false;
@@ -635,8 +604,7 @@ public class SodiumEditorView extends View {
   boolean movedSinceDown = false;
   private float downX = 0f, downY = 0f;
   private final int touchSlop;
-  boolean multiTouchActive = false;
-  private boolean hadMultiTouch = false;
+  // Zoom multi-touch state moved to ZoomManager.
 
   // auto-scroll when dragging handles
   final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -945,17 +913,7 @@ public class SodiumEditorView extends View {
   private volatile long indexDisabledFileLength = -1L;
   private static final long MAX_INDEX_BYTES_HARD = 64L * 1024 * 1024;
 
-  // edit version (to ignore old rewrite results)
-  private final AtomicInteger editVersion = new AtomicInteger(0);
-  private static final int UNDO_STACK_LIMIT = 200;
-  private static final int UNDO_TEXT_LIMIT = 1_000_000;
-  private final java.util.ArrayDeque<EditOp> undoStack = new java.util.ArrayDeque<>();
-  private final java.util.ArrayDeque<EditOp> redoStack = new java.util.ArrayDeque<>();
-  private final java.util.ArrayDeque<EditOp> pendingEdits = new java.util.ArrayDeque<>();
-  private final java.util.ArrayDeque<EditOp> pendingRedo = new java.util.ArrayDeque<>();
-  private boolean isApplyingUndoRedo = false;
-  private volatile long lastEditTimestamp = 0L;
-  private int lineCountDelta = 0;
+  // edit version + undo/redo state moved to UndoRedo.
 
   // Large edit UI (brief busy indicator)
   private static final int LARGE_EDIT_LINES = 8000; // show spinner/disable for very large edits
@@ -1518,6 +1476,8 @@ public class SodiumEditorView extends View {
     touchSlop = ViewConfiguration.get(ctx).getScaledTouchSlop();
     imeManager = new IMEManager(this);
     scrollManager = new ScrollManager(this);
+    zoomManager = new ZoomManager(this, ctx);
+    undoRedo = new UndoRedo(this);
 
     gestureDetector =
         new GestureDetector(
@@ -1532,7 +1492,7 @@ public class SodiumEditorView extends View {
                   // DON'T return false; proceed with normal onDown logic
                 }
                 scrollManager.scrollLockAxis = 0;
-                mJustFinishedScale = false;
+                zoomManager.setJustFinishedScale(false);
                 commitComposing(false); // End any active composing when user touches view.
                 if (!scrollManager.scroller.isFinished()) {
                   scrollManager.scroller.computeScrollOffset();
@@ -1549,7 +1509,7 @@ public class SodiumEditorView extends View {
               @Override
               public void onLongPress(MotionEvent e) {
                 if (suggestionAcceptedThisTouch) return;
-                if (multiTouchActive || hadMultiTouch) return;
+                if (zoomManager.isMultiTouchActive() || zoomManager.hadMultiTouch()) return;
 
                 if (showPopup) {
                   int hitAction = getPopupActionAt(e.getX(), e.getY());
@@ -1594,7 +1554,7 @@ public class SodiumEditorView extends View {
               @Override
               public boolean onSingleTapUp(MotionEvent e) {
                 if (suggestionAcceptedThisTouch) return true;
-                if (multiTouchActive || hadMultiTouch) return true;
+                if (zoomManager.isMultiTouchActive() || zoomManager.hadMultiTouch()) return true;
 
                 if (hasSelection) {
                   hasSelection = false;
@@ -1727,189 +1687,6 @@ public class SodiumEditorView extends View {
                 showKeyboard();
                 restartInput();
                 return true;
-              }
-            });
-
-    scaleGestureDetector =
-        new ScaleGestureDetector(
-            ctx,
-            new ScaleGestureDetector.SimpleOnScaleGestureListener() {
-              @Override
-              public boolean onScaleBegin(ScaleGestureDetector detector) {
-                mJustFinishedScale = false;
-                isScaling = true;
-                lastFocusX = detector.getFocusX();
-                lastFocusY = detector.getFocusY();
-                if (!scrollManager.scroller.isFinished()) scrollManager.scroller.abortAnimation();
-                if (isWordWrapEnabled && deferWrapReflowDuringPinch) {
-                  pinchVisualZoomActive = true;
-                  pinchVisualScale = 1f;
-                  pinchStartTextSizePx = paint.getTextSize();
-                  pinchTargetTextSizePx = pinchStartTextSizePx;
-                  pinchFocusX = lastFocusX;
-                  pinchFocusY = lastFocusY;
-                  pinchAnchorGlobalLineAtFocus = getGlobalLineForY(scrollManager.scrollY + pinchFocusY);
-                } else {
-                  pinchVisualZoomActive = false;
-                  pinchVisualScale = 1f;
-                  pinchStartTextSizePx = 0f;
-                  pinchTargetTextSizePx = 0f;
-                  pinchAnchorGlobalLineAtFocus = -1;
-                }
-                return true;
-              }
-
-              @Override
-              public boolean onScale(ScaleGestureDetector detector) {
-                if (!isZoomEnabled) {
-                  return false;
-                }
-
-                float scale = detector.getScaleFactor();
-                float focusX = detector.getFocusX();
-                float focusY = detector.getFocusY();
-
-                if (pinchVisualZoomActive) {
-                  pinchFocusX = focusX;
-                  pinchFocusY = focusY;
-                  pinchAnchorGlobalLineAtFocus = getGlobalLineForY(scrollManager.scrollY + focusY);
-
-                  pinchVisualScale *= scale;
-                  float targetSize = pinchStartTextSizePx * pinchVisualScale;
-                  targetSize = Math.max(minZoomTextSizePx, Math.min(targetSize, maxZoomTextSizePx));
-                  targetSize = quantizeZoomSizePx(targetSize);
-                  pinchTargetTextSizePx = targetSize;
-                  pinchVisualScale =
-                      (pinchStartTextSizePx > 0f)
-                          ? (pinchTargetTextSizePx / pinchStartTextSizePx)
-                          : 1f;
-                  invalidate();
-                  return true;
-                }
-
-                int anchorGlobalLineAtFocus = -1;
-                if (isWordWrapEnabled) {
-                  // Capture the logical line currently under the focal point BEFORE we change text
-                  // size.
-                  anchorGlobalLineAtFocus = getGlobalLineForY(scrollManager.scrollY + focusY);
-                }
-
-                // Zoom
-                float oldLineHeight = paint.getFontSpacing();
-                float currentSize = paint.getTextSize();
-                float newSize = currentSize * scale;
-
-                newSize = Math.max(minZoomTextSizePx, Math.min(newSize, maxZoomTextSizePx));
-                newSize = quantizeZoomSizePx(newSize);
-
-                if (Math.abs(newSize - currentSize) > 0.1f) {
-                  applyTextSizePx(newSize);
-                  float newLineHeight = paint.getFontSpacing();
-                  float effectiveScaleY = (oldLineHeight > 0) ? newLineHeight / oldLineHeight : 1f;
-
-                  // Adjust scroll to make zoom appear centered on the focal point.
-                  float effectiveScrollX = getEffectiveScrollX();
-                  effectiveScrollX =
-                      (effectiveScrollX + focusX - getTextStartX()) * scale
-                          - (focusX - getTextStartX());
-                  scrollManager.scrollX = isRtl ? -effectiveScrollX : effectiveScrollX;
-                  // Always adjust scrollManager.scrollY immediately so the view does not "jump" to earlier lines
-                  // while pinching.
-                  scrollManager.scrollY = (scrollManager.scrollY + focusY) * effectiveScaleY - focusY;
-                  if (isWordWrapEnabled) {
-                    // After wrap metrics rebuild, correct scrollManager.scrollY to keep the same logical line at
-                    // the focus.
-                    pendingZoomScrollAdjustGlobalLine = anchorGlobalLineAtFocus;
-                    pendingZoomScrollAdjustFocusY = focusY;
-                  }
-                }
-
-                lastFocusX = focusX;
-                lastFocusY = focusY;
-
-                clampScrollX();
-                clampScrollY();
-                invalidate();
-                return true;
-              }
-
-              @Override
-              public void onScaleEnd(ScaleGestureDetector detector) {
-                mJustFinishedScale = true;
-                isScaling = false;
-                if (pinchVisualZoomActive) {
-                  pinchVisualZoomActive = false;
-                  pinchVisualScale = 1f;
-
-                  float oldSize = paint.getTextSize();
-                  float oldLineHeight = paint.getFontSpacing();
-                  float targetSize = quantizeZoomSizePx(pinchTargetTextSizePx);
-                  float focusX = pinchFocusX;
-                  float focusY = pinchFocusY;
-                  int anchorLine = pinchAnchorGlobalLineAtFocus;
-
-                  // Commit the final zoom once, then rebuild wrap metrics.
-                  if (Math.abs(targetSize - oldSize) > 0.1f) {
-                    float scaleX = (oldSize > 0f) ? (targetSize / oldSize) : 1f;
-                    applyTextSizePx(targetSize, isWordWrapEnabled);
-                    float newLineHeight = paint.getFontSpacing();
-                    float effectiveScaleY =
-                        (oldLineHeight > 0) ? newLineHeight / oldLineHeight : 1f;
-
-                    float effectiveScrollX = getEffectiveScrollX();
-                    effectiveScrollX =
-                        (effectiveScrollX + focusX - getTextStartX()) * scaleX
-                            - (focusX - getTextStartX());
-                    scrollManager.scrollX = isRtl ? -effectiveScrollX : effectiveScrollX;
-                    scrollManager.scrollY = (scrollManager.scrollY + focusY) * effectiveScaleY - focusY;
-
-                    if (isWordWrapEnabled && anchorLine >= 0) {
-                      pendingZoomScrollAdjustGlobalLine = anchorLine;
-                      pendingZoomScrollAdjustFocusY = focusY;
-                    }
-                    clampScrollX();
-                    clampScrollY();
-                    invalidate();
-                  }
-                }
-                if (wrapPrefixRebuildPending) {
-                  wrapPrefixRebuildPending = false;
-                  scheduleWrapPrefixRebuildUpToWindow();
-                }
-
-                // If a wrap-prefix rebuild finished while pinching, apply it now (after we exit
-                // scaling)
-                // so it doesn't fight the zoom scroll math and cause a brief jump toward the caret.
-                applyPendingWrapPrefixUpdateIfAny();
-
-                // Perform delayed scrollManager.scrollY adjustment for word wrap after scaling, if pending.
-                if (isWordWrapEnabled && pendingZoomScrollAdjustGlobalLine != -1) {
-                  final int targetGlobalLine = pendingZoomScrollAdjustGlobalLine;
-                  final float targetFocusY = pendingZoomScrollAdjustFocusY;
-
-                  // Reset pending flags immediately to prevent multiple adjustments from
-                  // accumulating
-                  pendingZoomScrollAdjustGlobalLine = -1;
-                  pendingZoomScrollAdjustFocusY = -1f;
-
-                  mainHandler.post(
-                      new Runnable() {
-                        @Override
-                        public void run() {
-                          // Check if wrap metrics are ready. If not, repost with delay.
-                          if (wrapMetricsReady) {
-                            int visualIndex = getVisualIndexForLineAndChar(targetGlobalLine, 0);
-                            // Adjust scrollManager.scrollY to keep the top of the line at the original focusY
-                            scrollManager.scrollY = visualIndex * lineHeight - targetFocusY;
-                            clampScrollY();
-                            invalidate();
-                          } else {
-                            // Wrap metrics not ready yet, re-post for later execution
-                            mainHandler.postDelayed(this, 50); // Retry after 50ms
-                          }
-                        }
-                      });
-                }
               }
             });
 
@@ -2448,7 +2225,7 @@ public class SodiumEditorView extends View {
       return;
     }
     invalidatePendingIOForEdit();
-    editVersion.incrementAndGet();
+    undoRedo.incrementEditVersion();
 
     scrollManager.ensureLineInWindow(cursorLine, true);
     if (isWindowLoading
@@ -3703,6 +3480,10 @@ public class SodiumEditorView extends View {
     return sp * getResources().getDisplayMetrics().scaledDensity;
   }
 
+  float spToPxForZoom(float sp) {
+    return spToPx(sp);
+  }
+
   private float scaleByTextSize(float baseValue, float baseTextSizePx, float newTextSizePx) {
     if (baseTextSizePx <= 0f) return baseValue;
     return baseValue * (newTextSizePx / baseTextSizePx);
@@ -3781,6 +3562,22 @@ public class SodiumEditorView extends View {
     if (isWordWrapEnabled) invalidateWrapMetrics(true, !deferWrapRebuild);
     requestWrapPrefixRebuild();
     invalidate();
+  }
+
+  void applyZoomTextSizePx(float sizePx) {
+    applyTextSizePx(sizePx);
+  }
+
+  void applyZoomTextSizePx(float sizePx, boolean deferWrapRebuild) {
+    applyTextSizePx(sizePx, deferWrapRebuild);
+  }
+
+  float getPaintTextSizePxForZoom() {
+    return paint.getTextSize();
+  }
+
+  float getPaintFontSpacingPxForZoom() {
+    return paint.getFontSpacing();
   }
 
   private void applyTypeface(@Nullable Typeface typeface, int style) {
@@ -3981,7 +3778,7 @@ public class SodiumEditorView extends View {
   private void maybeEnsureHighlightCacheForRange(
       int startLine, int endLine, @Nullable java.util.HashMap<Integer, String> directLines) {
     if (startLine > endLine) return;
-    int v = editVersion.get();
+    int v = undoRedo.getEditVersion();
     if (startLine == lastHighlightEnsureStartLine
         && endLine == lastHighlightEnsureEndLine
         && v == lastHighlightEnsureEditVersion) {
@@ -4167,9 +3964,17 @@ public class SodiumEditorView extends View {
     }
   }
 
+  void invalidateWrapMetricsForUndo(boolean clearExisting) {
+    invalidateWrapMetrics(clearExisting);
+  }
+
+  void requestWrapPrefixRebuildForUndo() {
+    requestWrapPrefixRebuild();
+  }
+
   private void requestWrapPrefixRebuild() {
     if (!isWordWrapEnabled) return;
-    if (isScaling || (scaleGestureDetector != null && scaleGestureDetector.isInProgress())) {
+    if (zoomManager.isScaling() || zoomManager.isScaleInProgress()) {
       wrapPrefixRebuildPending = true;
       return;
     }
@@ -5430,7 +5235,7 @@ public class SodiumEditorView extends View {
       drawContentWrapped(canvas);
       return;
     }
-    final boolean drawDecorations = shouldDrawDecorations();
+    final boolean drawDecorations = zoomManager.shouldDrawDecorations();
 
     // Calculate visible line range
     int firstVisibleIndex = (int) (scrollManager.scrollY / lineHeight);
@@ -5518,10 +5323,10 @@ public class SodiumEditorView extends View {
       canvas.clipRect(lineNumbersGutterWidth, 0, getWidth(), getHeight());
     }
     canvas.translate(getTextStartX() - getEffectiveScrollX(), translateY);
-    if (pinchVisualZoomActive) {
-      float pivotX = pinchFocusX - (getTextStartX() - getEffectiveScrollX());
-      float pivotY = pinchFocusY - translateY;
-      canvas.scale(pinchVisualScale, pinchVisualScale, pivotX, pivotY);
+    if (zoomManager.isPinchVisualZoomActive()) {
+      float pivotX = zoomManager.getPinchFocusX() - (getTextStartX() - getEffectiveScrollX());
+      float pivotY = zoomManager.getPinchFocusY() - translateY;
+      canvas.scale(zoomManager.getPinchVisualScale(), zoomManager.getPinchVisualScale(), pivotX, pivotY);
     }
 
     // --- This is the original text, selection, and handle drawing logic ---
@@ -5560,7 +5365,7 @@ public class SodiumEditorView extends View {
 
     BracketMatch bracketMatch = null;
     if (isBracketMatchingEnabled) {
-      int v = editVersion.get();
+      int v = undoRedo.getEditVersion();
       if (cachedBracketMatch != null
           && cachedBracketMatchCursorLine == cursorLine
           && cachedBracketMatchCursorChar == cursorChar
@@ -6055,7 +5860,7 @@ public class SodiumEditorView extends View {
 
   private void drawContentWrapped(Canvas canvas) {
     int wrapWidthPx = Math.max(1, Math.round(getWrapWidth()));
-    final boolean drawDecorations = shouldDrawDecorations();
+    final boolean drawDecorations = zoomManager.shouldDrawDecorations();
     if (!isZoomGestureActive()) {
       applyPendingWrapPrefixUpdateIfAny();
     }
@@ -6185,10 +5990,10 @@ public class SodiumEditorView extends View {
       canvas.clipRect(lineNumbersGutterWidth, 0, getWidth(), getHeight());
     }
     canvas.translate(getTextStartX() - getEffectiveScrollX(), translateY);
-    if (pinchVisualZoomActive) {
-      float pivotX = pinchFocusX - (getTextStartX() - getEffectiveScrollX());
-      float pivotY = pinchFocusY - translateY;
-      canvas.scale(pinchVisualScale, pinchVisualScale, pivotX, pivotY);
+    if (zoomManager.isPinchVisualZoomActive()) {
+      float pivotX = zoomManager.getPinchFocusX() - (getTextStartX() - getEffectiveScrollX());
+      float pivotY = zoomManager.getPinchFocusY() - translateY;
+      canvas.scale(zoomManager.getPinchVisualScale(), zoomManager.getPinchVisualScale(), pivotX, pivotY);
     }
 
     Paint selPaint = null;
@@ -6412,7 +6217,7 @@ public class SodiumEditorView extends View {
   private void drawContentWrappedFallback(Canvas canvas, int wrapWidthPx) {
     int firstIndex = Math.max(0, (int) (scrollManager.scrollY / lineHeight));
     int lastIndex = firstIndex + (int) Math.ceil(getHeight() / lineHeight) + 5;
-    final boolean drawDecorations = shouldDrawDecorations();
+    final boolean drawDecorations = zoomManager.shouldDrawDecorations();
 
     int firstLine = firstIndex;
     int lastLine = lastIndex;
@@ -9848,7 +9653,7 @@ public class SodiumEditorView extends View {
       invalidateBracketGuideCache();
       return;
     }
-    int v = editVersion.get();
+    int v = undoRedo.getEditVersion();
     int cfg = getBracketGuideCacheConfigHash();
     if (start == bracketGuideCacheStartLine
         && end == bracketGuideCacheEndLine
@@ -10764,6 +10569,32 @@ public class SodiumEditorView extends View {
     scrollManager.clampScrollY();
   }
 
+  void clampScrollYForZoom() {
+    clampScrollY();
+  }
+
+  float getScrollXForZoom() {
+    return scrollManager.scrollX;
+  }
+
+  float getScrollYForZoom() {
+    return scrollManager.scrollY;
+  }
+
+  void setScrollXForZoom(float x) {
+    scrollManager.scrollX = x;
+  }
+
+  void setScrollYForZoom(float y) {
+    scrollManager.scrollY = y;
+  }
+
+  void abortScrollAnimationForZoom() {
+    if (!scrollManager.scroller.isFinished()) {
+      scrollManager.scroller.abortAnimation();
+    }
+  }
+
   void checkAndLoadWindow() {
     if (sourceFile == null || isFileCleared) return;
     if (getWidth() == 0 || getHeight() == 0) return;
@@ -11350,7 +11181,7 @@ public class SodiumEditorView extends View {
     isEof = false;
     scrollManager.scrollY = 0;
     scrollManager.scrollX = 0;
-    lineCountDelta = 0;
+    undoRedo.resetLineCountDelta();
 
     loadWindowAround(0, () -> finishInitialFileOpenWarmup(token), false);
     ioHandler.post(this::buildFileIndex);
@@ -11363,7 +11194,7 @@ public class SodiumEditorView extends View {
   }
 
   public int getEditVersionValue() {
-    return editVersion.get();
+    return undoRedo.getEditVersion();
   }
 
   public void refreshLineNumberCache() {
@@ -11378,26 +11209,21 @@ public class SodiumEditorView extends View {
   }
 
   public void setZoomEnabled(boolean enabled) {
-    this.isZoomEnabled = enabled;
+    zoomManager.setZoomEnabled(enabled);
   }
 
   // When enabled (default), pinch-zoom with word wrap avoids reflow during the gesture and
   // rebuilds wrapping once the user releases their fingers.
   public void setDeferWordWrapReflowDuringZoom(boolean enabled) {
-    this.deferWrapReflowDuringPinch = enabled;
+    zoomManager.setDeferWordWrapReflowDuringZoom(enabled);
   }
 
   public void setZoomTextSizeRange(float minSp, float maxSp) {
-    float minPx = spToPx(minSp);
-    float maxPx = spToPx(maxSp);
-    float min = Math.max(1f, Math.min(minPx, maxPx));
-    float max = Math.max(min, maxPx);
-    this.minZoomTextSizePx = min;
-    this.maxZoomTextSizePx = max;
+    zoomManager.setZoomTextSizeRange(minSp, maxSp);
   }
 
   public void setZoomStepClamp(float maxStep) {
-    zoomStepClampSp = Math.max(0f, maxStep);
+    zoomManager.setZoomStepClamp(maxStep);
   }
 
   public void setZoomFocusSmoothing(float alpha) {
@@ -11413,7 +11239,7 @@ public class SodiumEditorView extends View {
   }
 
   public void setHideDecorationsWhileZooming(boolean enabled) {
-    this.hideDecorationsWhileZooming = enabled;
+    zoomManager.setHideDecorationsWhileZooming(enabled);
     invalidate();
   }
 
@@ -11639,7 +11465,7 @@ public class SodiumEditorView extends View {
   public void insertCharAtCursor(char c) {
     if (isReadOnly) return;
     invalidatePendingIOForEdit();
-    editVersion.incrementAndGet();
+    undoRedo.incrementEditVersion();
 
     // FIX: لو فيه تحديد، لازم يكون استبدال ذري (خصوصاً خارج الشاشة)
     if (hasSelection) {
@@ -11694,7 +11520,7 @@ public class SodiumEditorView extends View {
         clearHighlightCaches();
         cursorLine++;
         cursorChar = 0;
-        lineCountDelta += 1;
+        undoRedo.addLineCountDelta(1);
 
         int newLineCount = getLinesCount();
         if (showLineNumbers
@@ -11721,7 +11547,7 @@ public class SodiumEditorView extends View {
     }
     updateSuggestion();
 
-    EditOp op = new EditOp();
+    UndoRedo.EditOp op = new UndoRedo.EditOp();
     op.startLine = beforeLine;
     op.startChar = beforeChar;
     op.endLine = beforeLine;
@@ -11899,7 +11725,7 @@ public class SodiumEditorView extends View {
   public void deleteCharAtCursor() {
     if (isReadOnly) return;
     invalidatePendingIOForEdit();
-    editVersion.incrementAndGet();
+    undoRedo.incrementEditVersion();
     clearActiveSuggestion(); // Clear suggestion on delete
 
     if (hasComposing) {
@@ -11943,7 +11769,7 @@ public class SodiumEditorView extends View {
           recalculateMaxLineWidthAsync();
         invalidateLineGlobal(cursorLine);
 
-        EditOp op = new EditOp();
+        UndoRedo.EditOp op = new UndoRedo.EditOp();
         op.startLine = beforeLine;
         op.startChar = safeStart;
         op.endLine = beforeLine;
@@ -11979,7 +11805,7 @@ public class SodiumEditorView extends View {
         cursorLine = prevGlobal;
         cursorChar = prev.length();
         computeWidthForLine(prevGlobal, merged);
-        lineCountDelta -= 1;
+        undoRedo.addLineCountDelta(-1);
 
         int newLineCount = getLinesCount();
         if (showLineNumbers
@@ -11989,7 +11815,7 @@ public class SodiumEditorView extends View {
         onLineCountChanged();
         invalidate();
 
-        EditOp op = new EditOp();
+        UndoRedo.EditOp op = new UndoRedo.EditOp();
         op.startLine = prevGlobal;
         op.startChar = prev.length();
         op.endLine = beforeLine;
@@ -12012,7 +11838,7 @@ public class SodiumEditorView extends View {
   public void deleteForwardAtCursor() {
     if (isReadOnly) return;
     invalidatePendingIOForEdit();
-    editVersion.incrementAndGet();
+    undoRedo.incrementEditVersion();
     clearActiveSuggestion(); // Clear suggestion on delete forward
 
     if (hasComposing) {
@@ -12051,7 +11877,7 @@ public class SodiumEditorView extends View {
           recalculateMaxLineWidthAsync();
         invalidateLineGlobal(cursorLine);
 
-        EditOp op = new EditOp();
+        UndoRedo.EditOp op = new UndoRedo.EditOp();
         op.startLine = beforeLine;
         op.startChar = beforeChar;
         op.endLine = beforeLine;
@@ -12083,9 +11909,9 @@ public class SodiumEditorView extends View {
           computeWidthForLine(cursorLine, merged);
           onLineCountChanged();
           invalidate();
-          lineCountDelta -= 1;
+          undoRedo.addLineCountDelta(-1);
 
-          EditOp op = new EditOp();
+          UndoRedo.EditOp op = new UndoRedo.EditOp();
           op.startLine = beforeLine;
           op.startChar = base.length();
           op.endLine = nextGlobal;
@@ -12111,7 +11937,7 @@ public class SodiumEditorView extends View {
     hasComposing = false;
     composingLength = 0;
     composingStartActive = false;
-    composingPendingOp = null;
+    undoRedo.clearComposingPendingOp();
     lastComposingTextForCharAnim = null;
     invalidate();
     updateSuggestion();
@@ -12120,7 +11946,7 @@ public class SodiumEditorView extends View {
   void replaceComposingWith(CharSequence textSeq) {
     if (isReadOnly) return;
     invalidatePendingIOForEdit();
-    editVersion.incrementAndGet();
+    undoRedo.incrementEditVersion();
 
     scrollManager.ensureLineInWindow(composingLine, true);
     if (isWindowLoading
@@ -12365,7 +12191,7 @@ public class SodiumEditorView extends View {
 
   public void pasteFromClipboard() {
     invalidatePendingIOForEdit();
-    editVersion.incrementAndGet();
+    undoRedo.incrementEditVersion();
     clearActiveSuggestion(); // Clear suggestion when pasting
 
     ClipboardManager cm =
@@ -12639,12 +12465,12 @@ public class SodiumEditorView extends View {
             return;
           }
 
-          final int ticket = editVersion.incrementAndGet();
+          final int ticket = undoRedo.incrementEditVersion();
           Runnable poll =
               new Runnable() {
                 @Override
                 public void run() {
-                  if (ticket != editVersion.get()) return;
+                  if (ticket != undoRedo.getEditVersion()) return;
 
                   // Important: if file became unavailable (e.g. cleared and switched to memory),
                   // stop waiting to avoid infinite spinner.
@@ -12696,158 +12522,18 @@ public class SodiumEditorView extends View {
     }
   }
 
-  private static final class EditOp {
-    int startLine;
-    int startChar;
-    int endLine;
-    int endChar;
-    int insertedEndLine;
-    int insertedEndChar;
-    String removedText;
-    String insertedText;
-    int cursorLineBefore;
-    int cursorCharBefore;
-    int cursorLineAfter;
-    int cursorCharAfter;
-    long timestamp;
-  }
-
-  private static JSONObject editOpToJson(EditOp op) throws Exception {
-    JSONObject obj = new JSONObject();
-    obj.put("startLine", op.startLine);
-    obj.put("startChar", op.startChar);
-    obj.put("endLine", op.endLine);
-    obj.put("endChar", op.endChar);
-    obj.put("insertedEndLine", op.insertedEndLine);
-    obj.put("insertedEndChar", op.insertedEndChar);
-    obj.put("removedText", op.removedText == null ? JSONObject.NULL : op.removedText);
-    obj.put("insertedText", op.insertedText == null ? JSONObject.NULL : op.insertedText);
-    obj.put("cursorLineBefore", op.cursorLineBefore);
-    obj.put("cursorCharBefore", op.cursorCharBefore);
-    obj.put("cursorLineAfter", op.cursorLineAfter);
-    obj.put("cursorCharAfter", op.cursorCharAfter);
-    obj.put("timestamp", op.timestamp);
-    return obj;
-  }
-
-  private static EditOp editOpFromJson(JSONObject obj) throws Exception {
-    EditOp op = new EditOp();
-    op.startLine = obj.optInt("startLine", 0);
-    op.startChar = obj.optInt("startChar", 0);
-    op.endLine = obj.optInt("endLine", 0);
-    op.endChar = obj.optInt("endChar", 0);
-    op.insertedEndLine = obj.optInt("insertedEndLine", 0);
-    op.insertedEndChar = obj.optInt("insertedEndChar", 0);
-    op.removedText = obj.isNull("removedText") ? null : obj.optString("removedText", "");
-    op.insertedText = obj.isNull("insertedText") ? null : obj.optString("insertedText", "");
-    op.cursorLineBefore = obj.optInt("cursorLineBefore", 0);
-    op.cursorCharBefore = obj.optInt("cursorCharBefore", 0);
-    op.cursorLineAfter = obj.optInt("cursorLineAfter", 0);
-    op.cursorCharAfter = obj.optInt("cursorCharAfter", 0);
-    op.timestamp = obj.optLong("timestamp", 0L);
-    return op;
-  }
-
-  private static JSONArray editOpDequeToJson(java.util.ArrayDeque<EditOp> deque) throws Exception {
-    JSONArray arr = new JSONArray();
-    for (EditOp op : deque) {
-      arr.put(editOpToJson(op));
-    }
-    return arr;
-  }
-
-  private static java.util.ArrayList<EditOp> editOpListFromJson(JSONArray arr) throws Exception {
-    java.util.ArrayList<EditOp> list = new java.util.ArrayList<>();
-    if (arr == null) return list;
-    for (int i = 0; i < arr.length(); i++) {
-      Object item = arr.opt(i);
-      if (item instanceof JSONObject) {
-        list.add(editOpFromJson((JSONObject) item));
-      }
-    }
-    return list;
-  }
+  // Undo/redo helpers moved to UndoRedo.
 
   public String exportEditCacheJson() {
-    try {
-      JSONObject root = new JSONObject();
-      root.put("undo", editOpDequeToJson(undoStack));
-      root.put("redo", editOpDequeToJson(redoStack));
-      root.put("pending", editOpDequeToJson(pendingEdits));
-      root.put("pendingRedo", editOpDequeToJson(pendingRedo));
-      root.put("dirty", !pendingEdits.isEmpty());
-      root.put("cursorLine", cursorLine);
-      root.put("cursorChar", cursorChar);
-      root.put("selStartLine", selStartLine);
-      root.put("selStartChar", selStartChar);
-      root.put("selEndLine", selEndLine);
-      root.put("selEndChar", selEndChar);
-      root.put("hasSelection", hasSelection);
-      return root.toString();
-    } catch (Exception e) {
-      return "";
-    }
+    return undoRedo.exportEditCacheJson();
   }
 
   public boolean importEditCacheJson(String json, boolean applyPendingEdits) {
-    if (json == null || json.isEmpty()) return false;
-    try {
-      JSONObject root = new JSONObject(json);
-      java.util.ArrayList<EditOp> undo = editOpListFromJson(root.optJSONArray("undo"));
-      java.util.ArrayList<EditOp> redo = editOpListFromJson(root.optJSONArray("redo"));
-      java.util.ArrayList<EditOp> pending = editOpListFromJson(root.optJSONArray("pending"));
-      java.util.ArrayList<EditOp> pendingRedoList =
-          editOpListFromJson(root.optJSONArray("pendingRedo"));
-
-      if (applyPendingEdits) {
-        isApplyingUndoRedo = true;
-        for (EditOp op : pending) {
-          applyEditForUndoRedo(
-              op.startLine,
-              op.startChar,
-              op.endLine,
-              op.endChar,
-              op.insertedText == null ? "" : op.insertedText,
-              op.cursorLineAfter,
-              op.cursorCharAfter);
-        }
-        isApplyingUndoRedo = false;
-      }
-
-      undoStack.clear();
-      redoStack.clear();
-      pendingEdits.clear();
-      pendingRedo.clear();
-      for (EditOp op : undo) undoStack.addLast(op);
-      for (EditOp op : redo) redoStack.addLast(op);
-      for (EditOp op : pending) pendingEdits.addLast(op);
-      for (EditOp op : pendingRedoList) pendingRedo.addLast(op);
-
-      if (root.has("cursorLine") && root.has("cursorChar")) {
-        int cLine = root.optInt("cursorLine", cursorLine);
-        int cChar = root.optInt("cursorChar", cursorChar);
-        if (root.optBoolean("hasSelection", false)) {
-          int sL = root.optInt("selStartLine", cLine);
-          int sC = root.optInt("selStartChar", cChar);
-          int eL = root.optInt("selEndLine", cLine);
-          int eC = root.optInt("selEndChar", cChar);
-          restoreSelection(sL, sC, eL, eC, cLine, cChar);
-        } else {
-          setCursorPosition(cLine, cChar);
-        }
-      }
-
-      editVersion.incrementAndGet();
-      invalidateLineNumberCache();
-      invalidate();
-      return true;
-    } catch (Exception e) {
-      return false;
-    }
+    return undoRedo.importEditCacheJson(json, applyPendingEdits);
   }
 
   public boolean hasPendingEdits() {
-    return !pendingEdits.isEmpty();
+    return undoRedo.hasPendingEdits();
   }
 
   private CursorTarget computeCursorAfterInsert(int baseLine, int baseChar, String insertText) {
@@ -12874,290 +12560,50 @@ public class SodiumEditorView extends View {
     return count;
   }
 
+  CursorTarget computeCursorAfterInsertForUndo(int baseLine, int baseChar, String insertText) {
+    return computeCursorAfterInsert(baseLine, baseChar, insertText);
+  }
+
+  int countNewlinesForUndo(@Nullable String text) {
+    return countNewlines(text);
+  }
+
   public boolean canUndo() {
-    return !undoStack.isEmpty();
+    return undoRedo.canUndo();
   }
 
   public boolean canRedo() {
-    return !redoStack.isEmpty();
+    return undoRedo.canRedo();
   }
 
   public int getUndoStackSize() {
-    return undoStack.size();
+    return undoRedo.getUndoStackSize();
   }
 
   public int getPendingEditsCount() {
-    return pendingEdits.size();
+    return undoRedo.getPendingEditsCount();
   }
 
   public void clearUndoRedoHistory() {
-    undoStack.clear();
-    redoStack.clear();
-    pendingEdits.clear();
-    pendingRedo.clear();
+    undoRedo.clearUndoRedoHistory();
   }
 
   public long getLastEditTimestamp() {
-    return lastEditTimestamp;
+    return undoRedo.getLastEditTimestamp();
   }
 
   public void applyPendingEditsToFileAsync(@Nullable Runnable onComplete) {
-    if (sourceFile == null) {
-      if (onComplete != null) post(onComplete);
-      return;
-    }
-    if (hasComposing) {
-      Log.d("SodiumEditorViewSave", "commitComposing before save");
-      commitComposing(true);
-    }
-    final java.util.ArrayList<EditOp> ops = new java.util.ArrayList<>();
-    synchronized (pendingEdits) {
-      Log.d("SodiumEditorViewSave", "pendingEdits.size=" + pendingEdits.size());
-      ops.addAll(pendingEdits);
-      pendingEdits.clear();
-      pendingRedo.clear();
-    }
-    if (ops.isEmpty()) {
-      if (onComplete != null) post(onComplete);
-      return;
-    }
-    Log.d("SodiumEditorViewSave", "Saving pending ops=" + ops.size());
-    ioHandler.post(
-        () -> {
-          boolean ok = true;
-          for (EditOp op : ops) {
-            Log.d(
-                "SodiumEditorViewSave",
-                "Op s="
-                    + op.startLine
-                    + ":"
-                    + op.startChar
-                    + " e="
-                    + op.endLine
-                    + ":"
-                    + op.endChar
-                    + " insertLen="
-                    + (op.insertedText == null ? 0 : op.insertedText.length())
-                    + " removeLen="
-                    + (op.removedText == null ? 0 : op.removedText.length()));
-            if (!rewriteReplaceRangeBlocking(
-                sourceFile, op.startLine, op.startChar, op.endLine, op.endChar, op.insertedText)) {
-              ok = false;
-              break;
-            }
-          }
-          final boolean success = ok;
-          post(
-              () -> {
-                if (!success) {
-                  // If save failed, mark dirty so user can retry.
-                  Log.d("SodiumEditorViewSave", "Save failed");
-                  pendingEdits.addAll(ops);
-                } else {
-                  Log.d("SodiumEditorViewSave", "Save success");
-                  synchronized (modifiedLines) {
-                    modifiedLines.clear();
-                  }
-                  lineCountDelta = 0;
-                  invalidateLineNumberCache();
-                  requestLayout();
-                  invalidate();
-                }
-                if (onComplete != null) onComplete.run();
-              });
-        });
+    undoRedo.applyPendingEditsToFileAsync(onComplete);
   }
 
-  private boolean rewriteReplaceRangeBlocking(
-      File inFile, int sL, int sC, int eL, int eC, @Nullable String insertText) {
-    if (inFile == null || !inFile.exists()) return false;
-    try {
-      RangeBytes range = computeByteRangeFastOrScan(inFile, sL, sC, eL, eC);
-      if (range == null) return false;
-      byte[] insertBytes =
-          (insertText == null) ? new byte[0] : insertText.getBytes(StandardCharsets.UTF_8);
-      final int BUF_SIZE = 1024 * 1024;
+  // rewriteReplaceRangeBlocking moved to UndoRedo.
 
-      try (RandomAccessFile raf = new RandomAccessFile(inFile, "rw");
-          FileChannel ch = raf.getChannel()) {
-
-        long fileLen = ch.size();
-        long startByte = Math.max(0, Math.min(range.startByte, fileLen));
-        long endByte = Math.max(0, Math.min(range.endByte, fileLen));
-        if (endByte < startByte) {
-          long t = startByte;
-          startByte = endByte;
-          endByte = t;
-        }
-
-        long removeLen = endByte - startByte;
-        long diff = (long) insertBytes.length - removeLen;
-
-        if (diff > 0) {
-          raf.setLength(fileLen + diff);
-          ByteBuffer buf = ByteBuffer.allocate(BUF_SIZE);
-          for (long pos = fileLen; pos > endByte; ) {
-            long readPos = Math.max(endByte, pos - BUF_SIZE);
-            int size = (int) (pos - readPos);
-            buf.clear();
-            buf.limit(size);
-            ch.read(buf, readPos);
-            buf.flip();
-            ch.write(buf, readPos + diff);
-            pos = readPos;
-          }
-        } else if (diff < 0) {
-          ByteBuffer buf = ByteBuffer.allocate(BUF_SIZE);
-          for (long pos = endByte; pos < fileLen; ) {
-            int size = (int) Math.min(BUF_SIZE, fileLen - pos);
-            buf.clear();
-            buf.limit(size);
-            ch.read(buf, pos);
-            buf.flip();
-            ch.write(buf, pos + diff);
-            pos += size;
-          }
-          raf.setLength(fileLen + diff);
-        }
-
-        if (insertBytes.length > 0) {
-          ch.write(ByteBuffer.wrap(insertBytes), startByte);
-        }
-        ch.force(true);
-      }
-
-      sourceFile = inFile;
-      synchronized (lineOffsetsLock) {
-        lineOffsets = new long[0];
-      }
-      isIndexReady = false;
-      isIndexBuilding = false;
-      isIndexDisabled = false;
-      indexDisabledPath = null;
-      indexDisabledFileLength = -1L;
-      ioHandler.post(this::buildFileIndex);
-      return true;
-    } catch (Exception e) {
-      return false;
-    }
+  private void recordEdit(UndoRedo.EditOp op) {
+    undoRedo.recordEdit(op);
   }
 
-  private void recordEdit(EditOp op) {
-    if (isApplyingUndoRedo) return;
-    if (op == null) return;
-    boolean tooLarge =
-        (op.removedText != null && op.removedText.length() > UNDO_TEXT_LIMIT)
-            || (op.insertedText != null && op.insertedText.length() > UNDO_TEXT_LIMIT);
-    if (tooLarge) {
-      recordEditNoUndo(op);
-      return;
-    }
-
-    boolean insertOnly =
-        (op.removedText == null || op.removedText.isEmpty())
-            && op.insertedText != null
-            && !op.insertedText.isEmpty();
-
-    if (insertOnly) {
-      EditOp lastPending = pendingEdits.peekLast();
-      if (lastPending != null
-          && (lastPending.removedText == null || lastPending.removedText.isEmpty())
-          && lastPending.insertedText != null
-          && !lastPending.insertedText.isEmpty()
-          && lastPending.insertedEndLine == op.startLine
-          && lastPending.insertedEndChar == op.startChar) {
-        Log.d(
-            "SodiumEditorViewEdit",
-            "merge insert start="
-                + op.startLine
-                + ":"
-                + op.startChar
-                + " addLen="
-                + op.insertedText.length());
-        String beforeText = lastPending.insertedText;
-        lastPending.insertedText = lastPending.insertedText + op.insertedText;
-        CursorTarget newEnd =
-            computeCursorAfterInsert(
-                lastPending.startLine, lastPending.startChar, lastPending.insertedText);
-        lastPending.insertedEndLine = newEnd.line;
-        lastPending.insertedEndChar = newEnd.ch;
-        lastPending.cursorLineAfter = op.cursorLineAfter;
-        lastPending.cursorCharAfter = op.cursorCharAfter;
-        lastPending.timestamp = op.timestamp;
-
-        EditOp lastUndo = undoStack.peekLast();
-        if (lastUndo != null
-            && lastUndo.startLine == lastPending.startLine
-            && lastUndo.startChar == lastPending.startChar
-            && lastUndo.endLine == lastPending.endLine
-            && lastUndo.endChar == lastPending.endChar
-            && lastUndo.insertedText != null
-            && lastUndo.insertedText.equals(beforeText)) {
-          lastUndo.insertedText = lastPending.insertedText;
-          lastUndo.insertedEndLine = lastPending.insertedEndLine;
-          lastUndo.insertedEndChar = lastPending.insertedEndChar;
-          lastUndo.cursorLineAfter = lastPending.cursorLineAfter;
-          lastUndo.cursorCharAfter = lastPending.cursorCharAfter;
-          lastUndo.timestamp = lastPending.timestamp;
-        }
-
-        redoStack.clear();
-        pendingRedo.clear();
-        lastEditTimestamp = op.timestamp;
-        return;
-      }
-    }
-
-    undoStack.addLast(op);
-    while (undoStack.size() > UNDO_STACK_LIMIT) {
-      undoStack.removeFirst();
-    }
-    redoStack.clear();
-    pendingEdits.addLast(op);
-    pendingRedo.clear();
-    lastEditTimestamp = op.timestamp;
-    Log.d(
-        "SodiumEditorViewEdit",
-        "record op s="
-            + op.startLine
-            + ":"
-            + op.startChar
-            + " e="
-            + op.endLine
-            + ":"
-            + op.endChar
-            + " insertLen="
-            + (op.insertedText == null ? 0 : op.insertedText.length())
-            + " removeLen="
-            + (op.removedText == null ? 0 : op.removedText.length())
-            + " pending="
-            + pendingEdits.size());
-  }
-
-  private void recordEditNoUndo(EditOp op) {
-    if (isApplyingUndoRedo) return;
-    if (op == null) return;
-    // Save-only record for very large edits or unknown removed text.
-    pendingEdits.addLast(op);
-    pendingRedo.clear();
-    redoStack.clear();
-    lastEditTimestamp = op.timestamp;
-    Log.d(
-        "SodiumEditorViewEdit",
-        "record save-only op s="
-            + op.startLine
-            + ":"
-            + op.startChar
-            + " e="
-            + op.endLine
-            + ":"
-            + op.endChar
-            + " insertLen="
-            + (op.insertedText == null ? 0 : op.insertedText.length())
-            + " removeLen="
-            + (op.removedText == null ? 0 : op.removedText.length())
-            + " pending="
-            + pendingEdits.size());
+  private void recordEditNoUndo(UndoRedo.EditOp op) {
+    undoRedo.recordEditNoUndo(op);
   }
 
   private void recordReplaceSelectionEdit(
@@ -13169,101 +12615,16 @@ public class SodiumEditorView extends View {
       @Nullable String insertText,
       int beforeLine,
       int beforeChar) {
-    String insert = (insertText == null) ? "" : insertText;
-    if (removedText == null) {
-      EditOp op = new EditOp();
-      op.startLine = sL;
-      op.startChar = sC;
-      op.endLine = eL;
-      op.endChar = eC;
-      op.removedText = null;
-      op.insertedText = insert;
-      CursorTarget insertedEnd = computeCursorAfterInsert(sL, sC, insert);
-      op.insertedEndLine = insertedEnd.line;
-      op.insertedEndChar = insertedEnd.ch;
-      op.cursorLineBefore = beforeLine;
-      op.cursorCharBefore = beforeChar;
-      op.cursorLineAfter = cursorLine;
-      op.cursorCharAfter = cursorChar;
-      op.timestamp = System.currentTimeMillis();
-      recordEditNoUndo(op);
-      return;
-    }
-    if (removedText.length() > UNDO_TEXT_LIMIT || insert.length() > UNDO_TEXT_LIMIT) {
-      EditOp op = new EditOp();
-      op.startLine = sL;
-      op.startChar = sC;
-      op.endLine = eL;
-      op.endChar = eC;
-      op.removedText = null;
-      op.insertedText = insert;
-      CursorTarget insertedEnd = computeCursorAfterInsert(sL, sC, insert);
-      op.insertedEndLine = insertedEnd.line;
-      op.insertedEndChar = insertedEnd.ch;
-      op.cursorLineBefore = beforeLine;
-      op.cursorCharBefore = beforeChar;
-      op.cursorLineAfter = cursorLine;
-      op.cursorCharAfter = cursorChar;
-      op.timestamp = System.currentTimeMillis();
-      recordEditNoUndo(op);
-      return;
-    }
-    EditOp op = new EditOp();
-    op.startLine = sL;
-    op.startChar = sC;
-    op.endLine = eL;
-    op.endChar = eC;
-    op.removedText = removedText;
-    op.insertedText = insert;
-    CursorTarget insertedEnd = computeCursorAfterInsert(sL, sC, insert);
-    op.insertedEndLine = insertedEnd.line;
-    op.insertedEndChar = insertedEnd.ch;
-    op.cursorLineBefore = beforeLine;
-    op.cursorCharBefore = beforeChar;
-    op.cursorLineAfter = cursorLine;
-    op.cursorCharAfter = cursorChar;
-    op.timestamp = System.currentTimeMillis();
-    recordEdit(op);
+    undoRedo.recordReplaceSelectionEdit(
+        sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
   }
 
   public void undo() {
-    if (undoStack.isEmpty()) return;
-    EditOp op = undoStack.removeLast();
-    redoStack.addLast(op);
-    if (!pendingEdits.isEmpty()) {
-      pendingEdits.removeLast();
-      pendingRedo.addLast(op);
-    }
-    isApplyingUndoRedo = true;
-    applyEditForUndoRedo(
-        op.startLine,
-        op.startChar,
-        op.insertedEndLine,
-        op.insertedEndChar,
-        op.removedText == null ? "" : op.removedText,
-        op.cursorLineBefore,
-        op.cursorCharBefore);
-    isApplyingUndoRedo = false;
+    undoRedo.undo();
   }
 
   public void redo() {
-    if (redoStack.isEmpty()) return;
-    EditOp op = redoStack.removeLast();
-    undoStack.addLast(op);
-    if (!pendingRedo.isEmpty()) {
-      pendingRedo.removeLast();
-      pendingEdits.addLast(op);
-    }
-    isApplyingUndoRedo = true;
-    applyEditForUndoRedo(
-        op.startLine,
-        op.startChar,
-        op.endLine,
-        op.endChar,
-        op.insertedText == null ? "" : op.insertedText,
-        op.cursorLineAfter,
-        op.cursorCharAfter);
-    isApplyingUndoRedo = false;
+    undoRedo.redo();
   }
 
   private void applyEditForUndoRedo(
@@ -13300,69 +12661,7 @@ public class SodiumEditorView extends View {
   }
 
   void updateComposingPendingOp(@Nullable String text, int beforeLine, int beforeChar) {
-    if (!hasComposing) return;
-    if (text == null) text = "";
-    if (text.length() > UNDO_TEXT_LIMIT) return;
-
-    int startLine = composingStartActive ? composingStartLine : composingLine;
-    int startChar = composingStartActive ? composingStartChar : composingOffset;
-
-    if (composingPendingOp == null) {
-      if (text.isEmpty()) return;
-      EditOp op = new EditOp();
-      op.startLine = startLine;
-      op.startChar = startChar;
-      op.endLine = startLine;
-      op.endChar = startChar;
-      op.removedText = "";
-      op.insertedText = text;
-      CursorTarget insertedEnd = computeCursorAfterInsert(startLine, startChar, text);
-      op.insertedEndLine = insertedEnd.line;
-      op.insertedEndChar = insertedEnd.ch;
-      op.cursorLineBefore = beforeLine;
-      op.cursorCharBefore = beforeChar;
-      op.cursorLineAfter = cursorLine;
-      op.cursorCharAfter = cursorChar;
-      op.timestamp = System.currentTimeMillis();
-      lineCountDelta += countNewlines(text);
-      composingPendingOp = op;
-      undoStack.addLast(op);
-      while (undoStack.size() > UNDO_STACK_LIMIT) {
-        undoStack.removeFirst();
-      }
-      redoStack.clear();
-      pendingEdits.addLast(op);
-      pendingRedo.clear();
-      lastEditTimestamp = op.timestamp;
-      Log.d(
-          "SodiumEditorViewCompose",
-          "start composing op s=" + startLine + ":" + startChar + " textLen=" + text.length());
-      return;
-    }
-
-    String prev = composingPendingOp.insertedText == null ? "" : composingPendingOp.insertedText;
-    int prevNewlines = countNewlines(prev);
-    int newNewlines = countNewlines(text);
-    lineCountDelta += (newNewlines - prevNewlines);
-
-    composingPendingOp.insertedText = text;
-    CursorTarget insertedEnd = computeCursorAfterInsert(startLine, startChar, text);
-    composingPendingOp.insertedEndLine = insertedEnd.line;
-    composingPendingOp.insertedEndChar = insertedEnd.ch;
-    composingPendingOp.cursorLineAfter = cursorLine;
-    composingPendingOp.cursorCharAfter = cursorChar;
-    composingPendingOp.timestamp = System.currentTimeMillis();
-    lastEditTimestamp = composingPendingOp.timestamp;
-
-    Log.d("SodiumEditorViewCompose", "update composing op textLen=" + text.length());
-
-    if (text.isEmpty()) {
-      // Remove it from pending/history because composing ended with empty.
-      pendingEdits.remove(composingPendingOp);
-      undoStack.remove(composingPendingOp);
-      composingPendingOp = null;
-      Log.d("SodiumEditorViewCompose", "remove composing op (empty)");
-    }
+    undoRedo.updateComposingPendingOp(text, beforeLine, beforeChar);
   }
 
   private String readRangeText(int sL, int sC, int eL, int eC) {
@@ -13413,7 +12712,7 @@ public class SodiumEditorView extends View {
   void replaceSelectionWithText(String insertText) {
     if (isReadOnly) return;
     invalidatePendingIOForEdit();
-    final int opToken = editVersion.incrementAndGet();
+    final int opToken = undoRedo.incrementEditVersion();
     clearActiveSuggestion(); // Clear suggestion when replacing selection
 
     if (insertText == null) insertText = "";
@@ -13439,7 +12738,7 @@ public class SodiumEditorView extends View {
     String removedText = null;
     if (Math.abs(eL - sL) <= 5000) {
       removedText = readRangeText(sL, sC, eL, eC);
-      if (removedText != null && removedText.length() > UNDO_TEXT_LIMIT) {
+      if (removedText != null && removedText.length() > undoRedo.getUndoTextLimit()) {
         removedText = null;
       }
     }
@@ -13517,7 +12816,7 @@ public class SodiumEditorView extends View {
       scrollManager.keepCursorVisibleHorizontally();
       requestLayout(); // Request layout to update gutter width after content cleared
       updateSuggestion();
-      lineCountDelta += (insertedNewlines - removedNewlines);
+      undoRedo.addLineCountDelta((insertedNewlines - removedNewlines));
       recordReplaceSelectionEdit(sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
       return;
     }
@@ -13562,7 +12861,7 @@ public class SodiumEditorView extends View {
       scrollManager.keepCursorVisibleHorizontally();
       endLargeEditUi(false);
       updateSuggestion();
-      lineCountDelta += (insertedNewlines - removedNewlines);
+      undoRedo.addLineCountDelta((insertedNewlines - removedNewlines));
       recordReplaceSelectionEdit(sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
       return;
     }
@@ -13590,7 +12889,7 @@ public class SodiumEditorView extends View {
         applyMultiLineReplaceInWindowNow(sL, sC, eL, eC, insertText, target);
       }
       updateSuggestion();
-      lineCountDelta += (insertedNewlines - removedNewlines);
+      undoRedo.addLineCountDelta((insertedNewlines - removedNewlines));
       recordReplaceSelectionEdit(sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
       return;
     }
@@ -13599,7 +12898,7 @@ public class SodiumEditorView extends View {
     // ابدأ إعادة كتابة الملف في الخلفية بدون تعطيل الواجهة وبدون دائرة تحميل.
     rewriteReplaceRangeAsync(opToken, inFile, sL, sC, eL, eC, insertText, target, false);
     updateSuggestion();
-    lineCountDelta += (insertedNewlines - removedNewlines);
+    undoRedo.addLineCountDelta((insertedNewlines - removedNewlines));
     recordReplaceSelectionEdit(sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
   }
 
@@ -13717,7 +13016,7 @@ public class SodiumEditorView extends View {
 
             post(
                 () -> {
-                  if (opToken != editVersion.get()) return;
+                  if (opToken != undoRedo.getEditVersion()) return;
 
                   invalidatePendingIO();
 
@@ -13750,7 +13049,7 @@ public class SodiumEditorView extends View {
                   scrollManager.maxLineWidthForScroll = 0f;
                   scrollManager.maxTextStartXForScroll = 0f;
                   scrollManager.maxScrollXForScroll = 0f;
-                  lineCountDelta = 0;
+                  undoRedo.resetLineCountDelta();
 
                   synchronized (lineOffsetsLock) {
                     lineOffsets = new long[0];
@@ -13835,6 +13134,27 @@ public class SodiumEditorView extends View {
     return computeByteRangeByScanning(file, sL, sC, eL, eC);
   }
 
+  RangeBytes computeByteRangeFastOrScanForUndo(File file, int sL, int sC, int eL, int eC) {
+    return computeByteRangeFastOrScan(file, sL, sC, eL, eC);
+  }
+
+  Handler getIoHandlerForUndo() {
+    return ioHandler;
+  }
+
+  void onUndoRedoRewriteSuccess(File inFile) {
+    sourceFile = inFile;
+    synchronized (lineOffsetsLock) {
+      lineOffsets = new long[0];
+    }
+    isIndexReady = false;
+    isIndexBuilding = false;
+    isIndexDisabled = false;
+    indexDisabledPath = null;
+    indexDisabledFileLength = -1L;
+    ioHandler.post(this::buildFileIndex);
+  }
+
   private RangeBytes computeByteRangeUsingIndex(File file, int sL, int sC, int eL, int eC) {
     try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
       long startLineByte, endLineByte;
@@ -13908,7 +13228,7 @@ public class SodiumEditorView extends View {
     resetCursorBlink();
   }
 
-  private static final class RangeBytes {
+  static final class RangeBytes {
     final long startByte, endByte;
 
     RangeBytes(long s, long e) {
@@ -14604,7 +13924,7 @@ public class SodiumEditorView extends View {
   void insertTextAtCursor(String text) {
     if (isReadOnly) return;
     invalidatePendingIOForEdit();
-    final int opToken = editVersion.incrementAndGet();
+    final int opToken = undoRedo.incrementEditVersion();
 
     if (text == null) return;
     if (text.isEmpty() && !hasSelection) return;
@@ -14643,9 +13963,9 @@ public class SodiumEditorView extends View {
       rewriteReplaceRangeAsync(
           opToken, inFile, cursorLine, cursorChar, cursorLine, cursorChar, text, target, true);
       updateSuggestion();
-      lineCountDelta += countNewlines(text);
-      if (text.length() <= UNDO_TEXT_LIMIT) {
-        EditOp op = new EditOp();
+      undoRedo.addLineCountDelta(countNewlines(text));
+      if (text.length() <= undoRedo.getUndoTextLimit()) {
+        UndoRedo.EditOp op = new UndoRedo.EditOp();
         op.startLine = beforeLine;
         op.startChar = beforeChar;
         op.endLine = beforeLine;
@@ -14715,7 +14035,7 @@ public class SodiumEditorView extends View {
 
         cursorLine += (parts.length - 1);
         cursorChar = lastPart.length();
-        lineCountDelta += (parts.length - 1);
+        undoRedo.addLineCountDelta((parts.length - 1));
       }
 
       int newLineCount = getLinesCount();
@@ -14735,7 +14055,7 @@ public class SodiumEditorView extends View {
     }
     updateSuggestion();
 
-    EditOp op = new EditOp();
+    UndoRedo.EditOp op = new UndoRedo.EditOp();
     op.startLine = beforeLine;
     op.startChar = beforeChar;
     op.endLine = beforeLine;
@@ -15096,14 +14416,11 @@ public class SodiumEditorView extends View {
     int pointerCount = event.getPointerCount();
 
     if (action == MotionEvent.ACTION_DOWN) {
-      multiTouchActive = false;
-      hadMultiTouch = false;
+      zoomManager.resetMultiTouchState();
     }
 
     if (action == MotionEvent.ACTION_POINTER_DOWN) {
-      multiTouchActive = true;
-      hadMultiTouch = true;
-      mJustFinishedScale = true;
+      zoomManager.onPointerDown();
       pointerDown = false;
       movedSinceDown = false;
       draggingHandle = 0;
@@ -15122,27 +14439,23 @@ public class SodiumEditorView extends View {
     }
 
     if (action == MotionEvent.ACTION_POINTER_UP) {
-      if (pointerCount - 1 <= 1) {
-        multiTouchActive = false;
-        mJustFinishedScale = true;
-        scrollManager.dragMaxScrollX = -1f;
-      }
+      zoomManager.onPointerUp(pointerCount - 1);
+      if (pointerCount - 1 <= 1) scrollManager.dragMaxScrollX = -1f;
     }
 
-    if (isZoomEnabled) {
-      scaleGestureDetector.onTouchEvent(event);
-    }
+    zoomManager.onScaleTouchEvent(event);
 
-    if (scaleGestureDetector.isInProgress()
-        || multiTouchActive
+    if (zoomManager.isScaleInProgress()
+        || zoomManager.isMultiTouchActive()
         || pointerCount > 1
-        || isScaling
+        || zoomManager.isScaling()
         || action == MotionEvent.ACTION_POINTER_DOWN
         || action == MotionEvent.ACTION_POINTER_UP) {
       return true;
     }
 
-    if (hadMultiTouch && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL)) {
+    if (zoomManager.hadMultiTouch()
+        && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL)) {
       pointerDown = false;
       draggingHandle = 0;
       selecting = false;
@@ -15750,6 +15063,10 @@ public class SodiumEditorView extends View {
     lineNumberCacheCanvas = null;
   }
 
+  void invalidateLineNumberCacheForUndo() {
+    invalidateLineNumberCache();
+  }
+
   public int getLinesCount() {
     if (isFileCleared) {
       return Math.max(1, windowStartLine + linesWindow.size());
@@ -15760,10 +15077,10 @@ public class SodiumEditorView extends View {
       synchronized (modifiedLines) {
         hasEdits = !modifiedLines.isEmpty();
       }
-      if (!hasEdits && lineCountDelta == 0) {
+      if (!hasEdits && undoRedo.getLineCountDelta() == 0) {
         return lineOffsets.length;
       }
-      int count = lineOffsets.length + lineCountDelta;
+      int count = lineOffsets.length + undoRedo.getLineCountDelta();
       if (count < 1) count = 1;
       return Math.max(count, windowCount);
     }
@@ -16240,6 +15557,10 @@ public class SodiumEditorView extends View {
 
   private void clampScrollX() {
     scrollManager.clampScrollX();
+  }
+
+  void clampScrollXForZoom() {
+    clampScrollX();
   }
 
   private void drawScrollBar(Canvas canvas) {
