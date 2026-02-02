@@ -235,7 +235,7 @@ final class IMEManager {
         view.composingStartLine = view.composingLine;
         view.composingStartChar = view.composingOffset;
         view.composingStartActive = true;
-        view.lastComposingTextForCharAnim = null;
+        view.clearLastComposingTextForCharAnim();
         view.invalidate();
         view.updateSuggestion();
         return true;
@@ -244,8 +244,9 @@ final class IMEManager {
       @Override
       public boolean finishComposingText() {
         if (view.isDisabled || view.isReadOnly) return true;
-        if (view.lastComposingTextForCharAnim != null && !view.lastComposingTextForCharAnim.isEmpty()) {
-          markImeCommit(view.lastComposingTextForCharAnim);
+        if (view.getLastComposingTextForCharAnim() != null
+            && !view.getLastComposingTextForCharAnim().isEmpty()) {
+          markImeCommit(view.getLastComposingTextForCharAnim());
         }
         view.commitComposing(true);
         return true;
@@ -418,11 +419,13 @@ final class IMEManager {
         }
         String newText = text.toString();
         String oldText =
-            (view.lastComposingTextForCharAnim == null) ? "" : view.lastComposingTextForCharAnim;
+            (view.getLastComposingTextForCharAnim() == null)
+                ? ""
+                : view.getLastComposingTextForCharAnim();
         boolean shouldAnim = newText.length() >= oldText.length() && !newText.equals(oldText);
         view.replaceComposingWith(newText);
         view.updateComposingPendingOp(newText, view.composingStartLine, view.composingStartChar);
-        view.lastComposingTextForCharAnim = newText;
+        view.setLastComposingTextForCharAnim(newText);
         if (shouldAnim) view.startCharAnimationFromText(newText);
         view.updateSuggestion();
         return true;

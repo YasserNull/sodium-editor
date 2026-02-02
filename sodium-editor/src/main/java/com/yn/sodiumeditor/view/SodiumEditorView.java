@@ -150,19 +150,7 @@ public class SodiumEditorView extends View {
   private final int[] streamedSliceTmp = new int[2];
   private Charset fileCharset = StandardCharsets.UTF_8;
 
-  // --- Cursor Blinking State ---
-  private boolean isCursorVisible = true;
-  private final Runnable blinkRunnable =
-      new Runnable() {
-        @Override
-        public void run() {
-          if (isFocused() && !hasSelection) {
-            isCursorVisible = !isCursorVisible;
-            invalidateCursorArea();
-            mainHandler.postDelayed(this, 500);
-          }
-        }
-      };
+  // --- Cursor Animation State (moved to CursorAnimationManager) ---
   private final GestureDetector gestureDetector;
   @Nullable ValueAnimator flingStopAnimator;
   static final long FLING_STOP_ANIM_DURATION_MS = 90;
@@ -170,23 +158,11 @@ public class SodiumEditorView extends View {
   private final ScrollManager scrollManager;
   private final ZoomManager zoomManager;
   private final UndoRedo undoRedo;
+  private final SearchManager searchManager;
+  private final CursorAnimationManager cursorAnimationManager;
+  private final CharAnimationManager charAnimationManager;
 
-  // --- Search State ---
-  private String searchQuery = "";
-  private boolean searchUseRegex = false;
-  private boolean searchCaseSensitive = false;
-  private boolean searchWrap = true;
-  private boolean searchHighlightEnabled = true;
-  private int searchHighlightColor = 0x66FFD54F;
-  private Pattern searchPattern = null;
-  private String searchCacheKey = null;
-  private int searchCacheEditVersion = -1;
-  private final java.util.HashMap<Integer, int[]> searchMatchCache = new java.util.HashMap<>();
-  private final Paint searchHighlightPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  private boolean mHighlightCurrentSearchMatch = false;
-  private int mCurrentSearchMatchColor =
-      0x9933B5E5; // A distinct default color for the current match
-  private final Paint mCurrentSearchMatchPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+  // --- Search State (moved to SearchManager) ---
   // --- Zoom State (moved to ZoomManager) ---
   @Nullable private int[] pendingWrapPrefixCounts = null;
   @Nullable private int[] pendingWrapPrefixPrefix = null;
@@ -218,306 +194,7 @@ public class SodiumEditorView extends View {
     canvas.drawRect(left, top, right, bottom, currentLinePaint);
   }
 
-  private boolean isSearchActive() {
-    if (searchQuery == null || searchQuery.isEmpty()) return false;
-    if (searchUseRegex) return searchPattern != null;
-    return true;
-  }
-
-  private void clearSearchMatchCache() {
-    searchMatchCache.clear();
-    searchCacheEditVersion = -1;
-    searchCacheKey = null;
-  }
-
-  private String getSearchCacheKey() {
-    return searchQuery
-        + "|"
-        + (searchUseRegex ? "r" : "t")
-        + "|"
-        + (searchCaseSensitive ? "c" : "i");
-  }
-
-  private int[] getSearchMatchSpansForLine(String line, int globalLine) {
-    if (!searchHighlightEnabled || !isSearchActive() || line == null || line.isEmpty())
-      return new int[0];
-
-    int version = undoRedo.getEditVersion();
-    String key = getSearchCacheKey();
-    if (searchCacheEditVersion != version
-        || (searchCacheKey != null && !searchCacheKey.equals(key))) {
-      searchMatchCache.clear();
-      searchCacheEditVersion = version;
-      searchCacheKey = key;
-    }
-
-    int[] cached = searchMatchCache.get(globalLine);
-    if (cached != null) return cached;
-
-    ArrayList<Integer> tmp = null;
-    if (searchUseRegex && searchPattern != null) {
-      Matcher matcher = searchPattern.matcher(line);
-      while (matcher.find()) {
-        if (matcher.start() == matcher.end()) continue;
-        if (tmp == null) tmp = new ArrayList<>();
-        tmp.add(matcher.start());
-        tmp.add(matcher.end());
-      }
-    } else {
-      String haystack = searchCaseSensitive ? line : line.toLowerCase(java.util.Locale.ROOT);
-      String needle =
-          searchCaseSensitive ? searchQuery : searchQuery.toLowerCase(java.util.Locale.ROOT);
-      if (!needle.isEmpty()) {
-        int idx = haystack.indexOf(needle, 0);
-        while (idx >= 0) {
-          if (tmp == null) tmp = new ArrayList<>();
-          tmp.add(idx);
-          tmp.add(idx + needle.length());
-          idx = haystack.indexOf(needle, idx + Math.max(1, needle.length()));
-        }
-      }
-    }
-
-    int[] spans;
-    if (tmp == null || tmp.isEmpty()) {
-      spans = new int[0];
-    } else {
-      spans = new int[tmp.size()];
-      for (int i = 0; i < tmp.size(); i++) spans[i] = tmp.get(i);
-    }
-    searchMatchCache.put(globalLine, spans);
-    return spans;
-  }
-
-  private void drawSearchHighlightsForLine(
-      Canvas canvas, String line, int globalLine, float top, float bottom) {
-    int[] spans = getSearchMatchSpansForLine(line, globalLine);
-    if (spans.length == 0) return;
-    for (int i = 0; i + 1 < spans.length; i += 2) {
-      int start = spans[i];
-      int end = spans[i + 1];
-      if (end <= start) continue;
-      float left = measureText(line, start, globalLine);
-      float right = measureText(line, end, globalLine);
-
-      boolean isCurrentMatch =
-          mHighlightCurrentSearchMatch
-              && !hasSelection
-              && globalLine == cursorLine
-              && cursorChar >= start
-              && cursorChar <= end;
-
-      Paint paintToUse = isCurrentMatch ? mCurrentSearchMatchPaint : searchHighlightPaint;
-      canvas.drawRect(left, top, right, bottom, paintToUse);
-    }
-  }
-
-  private void drawSearchHighlightsForSegment(
-      Canvas canvas,
-      String line,
-      int globalLine,
-      int segStart,
-      int segEnd,
-      float top,
-      float bottom) {
-    int[] spans = getSearchMatchSpansForLine(line, globalLine);
-    if (spans.length == 0) return;
-    for (int i = 0; i + 1 < spans.length; i += 2) {
-      int start = spans[i];
-      int end = spans[i + 1];
-      if (end <= start) continue;
-      int s = Math.max(segStart, start);
-      int e = Math.min(segEnd, end);
-      if (e <= s) continue;
-      float left = measureTextWithVisualSpaces(line, segStart, s, paint);
-      float right = left + measureTextWithVisualSpaces(line, s, e, paint);
-
-      boolean isCurrentMatch =
-          mHighlightCurrentSearchMatch
-              && !hasSelection
-              && globalLine == cursorLine
-              && cursorChar >= start
-              && cursorChar <= end;
-
-      Paint paintToUse = isCurrentMatch ? mCurrentSearchMatchPaint : searchHighlightPaint;
-      canvas.drawRect(left, top, right, bottom, paintToUse);
-    }
-  }
-
-  private boolean goToSearchMatch(boolean forward) {
-    if (!isSearchActive()) return false;
-    int total = getLinesCount();
-    if (total <= 0) return false;
-
-    int startLine = Math.max(0, cursorLine);
-    int startChar = Math.max(0, cursorChar);
-
-    SearchMatch match =
-        forward
-            ? findNextSearchMatchFrom(startLine, startChar)
-            : findPrevSearchMatchFrom(startLine, startChar);
-    if (match == null) return false;
-
-    scrollManager.ensureLineInWindow(match.line, true);
-    setCursorPosition(match.line, match.start);
-    return true;
-  }
-
-  private SearchMatch findNextSearchMatchFrom(int line, int charIndex) {
-    int total = getLinesCount();
-    if (total <= 0) return null;
-
-    java.util.HashMap<Integer, String> direct = new java.util.HashMap<>();
-
-    SearchMatch m = findNextSearchMatchInRange(line, total - 1, charIndex + 1, null, direct);
-    if (m != null) return m;
-    if (searchWrap && line > 0) {
-      return findNextSearchMatchInRange(0, line, 0, charIndex, direct);
-    }
-    return null;
-  }
-
-  private SearchMatch findPrevSearchMatchFrom(int line, int charIndex) {
-    int total = getLinesCount();
-    if (total <= 0) return null;
-
-    java.util.HashMap<Integer, String> direct = new java.util.HashMap<>();
-
-    SearchMatch m = findPrevSearchMatchInRange(line, 0, charIndex - 1, null, direct);
-    if (m != null) return m;
-    if (searchWrap && line < total - 1) {
-      return findPrevSearchMatchInRange(total - 1, line, Integer.MAX_VALUE, charIndex - 1, direct);
-    }
-    return null;
-  }
-
-  private SearchMatch findNextSearchMatchInRange(
-      int startLine,
-      int endLine,
-      int startCharExclusive,
-      @Nullable Integer maxStartInclusive,
-      java.util.HashMap<Integer, String> direct) {
-    int step = (startLine <= endLine) ? 1 : -1;
-    int line = startLine;
-    int total = getLinesCount();
-    int chunkSize = 200;
-    while (true) {
-      if (line < 0 || line >= total) break;
-      if (line < windowStartLine || line >= windowStartLine + linesWindow.size()) {
-        if (isIndexReady && sourceFile != null && sourceFile.exists()) {
-          int rangeStart = Math.max(0, Math.min(line, line + (step * (chunkSize - 1))));
-          int rangeEnd = Math.min(total - 1, Math.max(line, line + (step * (chunkSize - 1))));
-          populateDirectLinesForRange(rangeStart, rangeEnd, direct);
-        }
-      }
-      String lineText = getLineTextForRenderWithDirect(line, direct);
-      if (lineText == null) lineText = "";
-      int from =
-          (line == startLine) ? Math.max(0, Math.min(startCharExclusive, lineText.length())) : 0;
-      Integer limit = (maxStartInclusive != null && line == endLine) ? maxStartInclusive : null;
-      SearchMatch m = findMatchForwardInLine(lineText, from, limit);
-      if (m != null) {
-        m.line = line;
-        return m;
-      }
-      if (line == endLine) break;
-      line += step;
-    }
-    return null;
-  }
-
-  private SearchMatch findPrevSearchMatchInRange(
-      int startLine,
-      int endLine,
-      int startCharExclusive,
-      @Nullable Integer minStartInclusive,
-      java.util.HashMap<Integer, String> direct) {
-    int step = (startLine >= endLine) ? -1 : 1;
-    int line = startLine;
-    int total = getLinesCount();
-    int chunkSize = 200;
-    while (true) {
-      if (line < 0 || line >= total) break;
-      if (line < windowStartLine || line >= windowStartLine + linesWindow.size()) {
-        if (isIndexReady && sourceFile != null && sourceFile.exists()) {
-          int rangeStart = Math.max(0, Math.min(line, line + (step * (chunkSize - 1))));
-          int rangeEnd = Math.min(total - 1, Math.max(line, line + (step * (chunkSize - 1))));
-          populateDirectLinesForRange(rangeStart, rangeEnd, direct);
-        }
-      }
-      String lineText = getLineTextForRenderWithDirect(line, direct);
-      if (lineText == null) lineText = "";
-      int from =
-          (line == startLine)
-              ? Math.max(0, Math.min(startCharExclusive, lineText.length()))
-              : lineText.length();
-      Integer limit = (minStartInclusive != null && line == endLine) ? minStartInclusive : null;
-      SearchMatch m = findMatchBackwardInLine(lineText, from, limit);
-      if (m != null) {
-        m.line = line;
-        return m;
-      }
-      if (line == endLine) break;
-      line += step;
-    }
-    return null;
-  }
-
-  private SearchMatch findMatchForwardInLine(
-      String line, int fromIndex, @Nullable Integer maxStartInclusive) {
-    if (line == null || line.isEmpty()) return null;
-    if (searchUseRegex && searchPattern != null) {
-      Matcher m = searchPattern.matcher(line);
-      if (m.find(fromIndex)) {
-        if (maxStartInclusive != null && m.start() > maxStartInclusive) return null;
-        return new SearchMatch(-1, m.start(), m.end());
-      }
-      return null;
-    }
-    String haystack = searchCaseSensitive ? line : line.toLowerCase(java.util.Locale.ROOT);
-    String needle =
-        searchCaseSensitive ? searchQuery : searchQuery.toLowerCase(java.util.Locale.ROOT);
-    if (needle.isEmpty()) return null;
-    int idx = haystack.indexOf(needle, fromIndex);
-    if (idx < 0) return null;
-    if (maxStartInclusive != null && idx > maxStartInclusive) return null;
-    return new SearchMatch(-1, idx, idx + needle.length());
-  }
-
-  private SearchMatch findMatchBackwardInLine(
-      String line, int fromIndex, @Nullable Integer minStartInclusive) {
-    if (line == null || line.isEmpty()) return null;
-    if (searchUseRegex && searchPattern != null) {
-      Matcher m = searchPattern.matcher(line);
-      SearchMatch last = null;
-      while (m.find()) {
-        if (m.start() > fromIndex) break;
-        if (minStartInclusive != null && m.start() < minStartInclusive) continue;
-        last = new SearchMatch(-1, m.start(), m.end());
-      }
-      return last;
-    }
-    String haystack = searchCaseSensitive ? line : line.toLowerCase(java.util.Locale.ROOT);
-    String needle =
-        searchCaseSensitive ? searchQuery : searchQuery.toLowerCase(java.util.Locale.ROOT);
-    if (needle.isEmpty()) return null;
-    int idx = haystack.lastIndexOf(needle, Math.min(fromIndex, haystack.length()));
-    if (idx < 0) return null;
-    if (minStartInclusive != null && idx < minStartInclusive) return null;
-    return new SearchMatch(-1, idx, idx + needle.length());
-  }
-
-  private static class SearchMatch {
-    int line;
-    int start;
-    int end;
-
-    SearchMatch(int line, int start, int end) {
-      this.line = line;
-      this.start = start;
-      this.end = end;
-    }
-  }
+  // Search logic moved to SearchManager.
 
   private void applyPendingWrapPrefixUpdateIfAny() {
     if (!pendingApplyWrapPrefixUpdate) return;
@@ -614,89 +291,12 @@ public class SodiumEditorView extends View {
   private final Rect visibleDisplayFrame = new Rect();
   int keyboardHeight = 0;
 
-  // typed-character fade animation (in-text, while drawing)
-  private boolean isCharAnimationEnabled = false;
-  private int charAnimationDurationMs = 200;
-  private int charAnimFastDurationMs = 60;
-  private long charAnimFastThresholdMs = 80;
-  private long lastCharAnimUptime = 0L;
-  @Nullable String lastComposingTextForCharAnim;
+  // typed-character and deleted-character animations moved to CharAnimationManager.
   boolean suppressNextCommitText = false;
   @Nullable String lastImeCommitText;
   long lastImeCommitUptime = 0L;
-  private int charAnimLine = -1;
-  private int charAnimStartChar = 0;
-  private int charAnimEndChar = 0;
-  private float charAnimAlpha = 0f;
-  @Nullable private ValueAnimator charAnimAnimator;
-  private final Paint charAnimTmpPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-  // deleted-character fade animation (ghost draw after removal)
-  private int delAnimLine = -1;
-  private int delAnimAtChar = 0;
-  @Nullable private String delAnimText;
-  @Nullable private Paint delAnimPaint;
-  private float delAnimAlpha = 0f;
-  @Nullable private ValueAnimator delAnimAnimator;
-
-  // caret movement animation
-  private boolean isCursorAnimationEnabled = false;
-  private float cursorAnimNormalTauMs = 80f;
-  private float cursorAnimFastTauMs = 35f;
-  private long cursorAnimFastThresholdMs = 85;
-  private int lastCursorAnimLine = -1;
-  private int lastCursorAnimChar = -1;
-  private long lastCursorMoveUptime = 0L;
-  private long cursorAnimLastFrameUptime = 0L;
-  private float cursorAnimX = 0f;
-  private float cursorAnimY = 0f;
-  private float cursorAnimTargetX = 0f;
-  private float cursorAnimTargetY = 0f;
-  private float cursorDrawX = 0f;
-  private float cursorDrawY = 0f;
-  private boolean cursorAnimValid = false;
-  private boolean cursorAnimRunning = false;
-  private final Runnable cursorAnimStep =
-      new Runnable() {
-        @Override
-        public void run() {
-          if (!isCursorAnimationEnabled) {
-            cursorAnimRunning = false;
-            return;
-          }
-          long now = SystemClock.uptimeMillis();
-          if (cursorAnimLastFrameUptime == 0L) cursorAnimLastFrameUptime = now;
-          long dtMs = Math.max(1, now - cursorAnimLastFrameUptime);
-          cursorAnimLastFrameUptime = now;
-
-          float dx = cursorAnimTargetX - cursorAnimX;
-          float dy = cursorAnimTargetY - cursorAnimY;
-          float dist = (float) Math.hypot(dx, dy);
-          if (dist <= 0.5f) {
-            cursorAnimX = cursorAnimTargetX;
-            cursorAnimY = cursorAnimTargetY;
-            cursorDrawX = cursorAnimX;
-            cursorDrawY = cursorAnimY;
-            cursorAnimRunning = false;
-            invalidateCursorArea();
-            return;
-          }
-
-          long moveDelta =
-              (lastCursorMoveUptime == 0L) ? Long.MAX_VALUE : (now - lastCursorMoveUptime);
-          float tau =
-              (moveDelta <= cursorAnimFastThresholdMs)
-                  ? cursorAnimFastTauMs
-                  : cursorAnimNormalTauMs;
-          float alpha = 1f - (float) Math.exp(-dtMs / Math.max(1f, tau));
-          cursorAnimX += dx * alpha;
-          cursorAnimY += dy * alpha;
-          cursorDrawX = cursorAnimX;
-          cursorDrawY = cursorAnimY;
-          invalidateCursorArea();
-          postOnAnimation(this);
-        }
-      };
+  // caret movement animation moved to CursorAnimationManager.
 
   // floating popup (custom)
   boolean showPopup = false;
@@ -1446,7 +1046,6 @@ public class SodiumEditorView extends View {
     gutterSeparatorWidth = 4 * density;
     gutterSeparatorPaint.setColor(0xFF555555);
     currentLinePaint.setColor(currentLineHighlightColor);
-    mCurrentSearchMatchPaint.setColor(mCurrentSearchMatchColor);
     foldPlaceholderCorner = 6f * density;
     foldPlaceholderPadX = 6f * density;
     foldPlaceholderPadY = 2f * density;
@@ -1478,6 +1077,9 @@ public class SodiumEditorView extends View {
     scrollManager = new ScrollManager(this);
     zoomManager = new ZoomManager(this, ctx);
     undoRedo = new UndoRedo(this);
+    searchManager = new SearchManager(this);
+    cursorAnimationManager = new CursorAnimationManager(this);
+    charAnimationManager = new CharAnimationManager(this);
 
     gestureDetector =
         new GestureDetector(
@@ -1786,18 +1388,11 @@ public class SodiumEditorView extends View {
   }
 
   public void setHighlightCurrentSearchMatchEnabled(boolean enabled) {
-    if (mHighlightCurrentSearchMatch == enabled) return;
-    mHighlightCurrentSearchMatch = enabled;
-    invalidate();
+    searchManager.setHighlightCurrentSearchMatchEnabled(enabled);
   }
 
   public void setCurrentSearchMatchColor(int color) {
-    if (mCurrentSearchMatchColor == color) return;
-    mCurrentSearchMatchColor = color;
-    mCurrentSearchMatchPaint.setColor(color);
-    if (mHighlightCurrentSearchMatch) {
-      invalidate();
-    }
+    searchManager.setCurrentSearchMatchColor(color);
   }
 
   public void setWordWrapEnabled(boolean enabled) {
@@ -1852,7 +1447,7 @@ public class SodiumEditorView extends View {
       setWordWrapIndicatorEnabled(false);
       setAutoCompletionEnabled(false);
       setAutoPathCompletionEnabled(false);
-      setCharAnimation(false, charAnimationDurationMs);
+      setCharAnimation(false, 0);
       setHighlightCurrentLine(false);
       setIndentationBlocksEnabled(false);
       setCodeFoldingEnabled(false);
@@ -2416,165 +2011,43 @@ public class SodiumEditorView extends View {
 
   public void setSearchQuery(
       String query, boolean useRegex, boolean caseSensitive, boolean wrapAround) {
-    String safe = (query == null) ? "" : query;
-    if (safe.equals(searchQuery)
-        && searchUseRegex == useRegex
-        && searchCaseSensitive == caseSensitive
-        && searchWrap == wrapAround) {
-      return;
-    }
-    searchQuery = safe;
-    searchUseRegex = useRegex;
-    searchCaseSensitive = caseSensitive;
-    searchWrap = wrapAround;
-    searchPattern = null;
-    if (searchUseRegex && !searchQuery.isEmpty()) {
-      int flags = Pattern.MULTILINE;
-      if (!searchCaseSensitive) flags |= (Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
-      try {
-        searchPattern = Pattern.compile(searchQuery, flags);
-      } catch (Exception ignored) {
-        searchPattern = null;
-      }
-    }
-    clearSearchMatchCache();
-    invalidate();
+    searchManager.setSearchQuery(query, useRegex, caseSensitive, wrapAround);
   }
 
   public void setSearchHighlightEnabled(boolean enabled) {
-    if (searchHighlightEnabled == enabled) return;
-    searchHighlightEnabled = enabled;
-    invalidate();
+    searchManager.setSearchHighlightEnabled(enabled);
   }
 
   public void setSearchHighlightColor(int color) {
-    searchHighlightColor = color;
-    searchHighlightPaint.setColor(color);
-    invalidate();
+    searchManager.setSearchHighlightColor(color);
   }
 
   public boolean goToNextSearchMatch() {
-    return goToSearchMatch(true);
+    return searchManager.goToNextSearchMatch();
   }
 
   public boolean goToPrevSearchMatch() {
-    return goToSearchMatch(false);
+    return searchManager.goToPrevSearchMatch();
   }
 
   public boolean selectNextSearchMatch() {
-    return selectSearchMatch(true);
+    return searchManager.selectNextSearchMatch();
   }
 
   public boolean selectPrevSearchMatch() {
-    return selectSearchMatch(false);
+    return searchManager.selectPrevSearchMatch();
   }
 
   public boolean selectNextSearchMatchInclusive() {
-    return selectSearchMatchInclusive(true);
+    return searchManager.selectNextSearchMatchInclusive();
   }
 
   public boolean selectPrevSearchMatchInclusive() {
-    return selectSearchMatchInclusive(false);
-  }
-
-  private boolean selectSearchMatch(boolean forward) {
-    if (!isSearchActive()) return false;
-    int total = getLinesCount();
-    if (total <= 0) return false;
-
-    int startLine = Math.max(0, cursorLine);
-    int startChar = Math.max(0, cursorChar);
-
-    SearchMatch match =
-        forward
-            ? findNextSearchMatchFrom(startLine, startChar)
-            : findPrevSearchMatchFrom(startLine, startChar);
-    if (match == null) return false;
-
-    scrollManager.ensureLineInWindow(match.line, true);
-    setSelectionInternal(match.line, match.start, match.line, match.end);
-    setCursorPositionNoClear(match.line, match.end);
-    return true;
-  }
-
-  private boolean selectSearchMatchInclusive(boolean forward) {
-    if (!isSearchActive()) return false;
-    int total = getLinesCount();
-    if (total <= 0) return false;
-
-    int startLine = Math.max(0, cursorLine);
-    int startChar = Math.max(0, cursorChar);
-    if (forward) {
-      startChar = Math.max(-1, startChar - 1);
-    } else {
-      startChar = startChar + 1;
-    }
-
-    SearchMatch match =
-        forward
-            ? findNextSearchMatchFrom(startLine, startChar)
-            : findPrevSearchMatchFrom(startLine, startChar);
-    if (match == null) return false;
-
-    scrollManager.ensureLineInWindow(match.line, true);
-    setSelectionInternal(match.line, match.start, match.line, match.end);
-    setCursorPositionNoClear(match.line, match.end);
-    return true;
+    return searchManager.selectPrevSearchMatchInclusive();
   }
 
   public boolean selectSearchMatchAtCursorOrNext() {
-    SearchMatch atCursor = findSearchMatchAtCursor();
-    if (atCursor != null) {
-      scrollManager.ensureLineInWindow(atCursor.line, true);
-      setSelectionInternal(atCursor.line, atCursor.start, atCursor.line, atCursor.end);
-      setCursorPositionNoClear(atCursor.line, atCursor.end);
-      return true;
-    }
-    return selectSearchMatchInclusive(true);
-  }
-
-  @Nullable
-  private SearchMatch findSearchMatchAtCursor() {
-    if (!isSearchActive()) return null;
-    int line = Math.max(0, cursorLine);
-    String lineText = getLineTextForRender(line);
-    if (lineText == null) lineText = "";
-    if (lineText.isEmpty()) return null;
-
-    if (searchUseRegex) {
-      if (searchPattern == null) return null;
-      try {
-        Matcher matcher = searchPattern.matcher(lineText);
-        while (matcher.find()) {
-          int s = matcher.start();
-          int e = matcher.end();
-          if (s <= cursorChar && cursorChar < e) {
-            return new SearchMatch(line, s, e);
-          }
-        }
-      } catch (Exception ignored) {
-        return null;
-      }
-      return null;
-    }
-
-    String needle = searchQuery == null ? "" : searchQuery;
-    if (needle.isEmpty()) return null;
-    String haystack = lineText;
-    if (!searchCaseSensitive) {
-      haystack = haystack.toLowerCase(java.util.Locale.ROOT);
-      needle = needle.toLowerCase(java.util.Locale.ROOT);
-    }
-    int idx = 0;
-    while (true) {
-      idx = haystack.indexOf(needle, idx);
-      if (idx < 0) return null;
-      int end = idx + needle.length();
-      if (idx <= cursorChar && cursorChar < end) {
-        return new SearchMatch(line, idx, end);
-      }
-      idx = idx + 1;
-    }
+    return searchManager.selectSearchMatchAtCursorOrNext();
   }
 
   private void setCursorPositionNoClear(int line, int col) {
@@ -2591,6 +2064,23 @@ public class SodiumEditorView extends View {
     scrollManager.keepCursorVisibleHorizontally();
     invalidate();
     updateImeSelection();
+  }
+
+  void setCursorPositionNoClearForSearch(int line, int col) {
+    setCursorPositionNoClear(line, col);
+  }
+
+  @Nullable
+  String getLastComposingTextForCharAnim() {
+    return charAnimationManager.getLastComposingTextForCharAnim();
+  }
+
+  void setLastComposingTextForCharAnim(@Nullable String text) {
+    charAnimationManager.setLastComposingTextForCharAnim(text);
+  }
+
+  void clearLastComposingTextForCharAnim() {
+    charAnimationManager.clearLastComposingTextForCharAnim();
   }
 
   public void replaceSelectionText(String text) {
@@ -3580,6 +3070,48 @@ public class SodiumEditorView extends View {
     return paint.getFontSpacing();
   }
 
+  int getEditVersionForSearch() {
+    return undoRedo.getEditVersion();
+  }
+
+  float measureTextForSearch(String line, int ch, int globalLine) {
+    return measureText(line, ch, globalLine);
+  }
+
+  float measureTextWithVisualSpacesForSearch(String line, int start, int end) {
+    return measureTextWithVisualSpaces(line, start, end, paint);
+  }
+
+  void ensureLineInWindowForSearch(int line, boolean immediate) {
+    scrollManager.ensureLineInWindow(line, immediate);
+  }
+
+  int getWindowStartLineForSearch() {
+    return windowStartLine;
+  }
+
+  int getWindowSizeForSearch() {
+    return linesWindow.size();
+  }
+
+  boolean isIndexReadyForSearch() {
+    return isIndexReady;
+  }
+
+  boolean getSourceFileForSearchExists() {
+    return sourceFile != null && sourceFile.exists();
+  }
+
+  void populateDirectLinesForRangeForSearch(
+      int startLine, int endLine, java.util.Map<Integer, String> direct) {
+    populateDirectLinesForRange(startLine, endLine, direct);
+  }
+
+  String getLineTextForRenderWithDirectForSearch(
+      int line, @Nullable java.util.Map<Integer, String> direct) {
+    return getLineTextForRenderWithDirect(line, direct);
+  }
+
   private void applyTypeface(@Nullable Typeface typeface, int style) {
     if (Looper.myLooper() != Looper.getMainLooper()) {
       final Typeface tf = typeface;
@@ -3654,8 +3186,6 @@ public class SodiumEditorView extends View {
     float dotSize = Math.max(1f, paint.getTextSize() / 7f);
     whitespaceGuideDotPaint.setStrokeWidth(dotSize);
 
-    searchHighlightPaint.setStyle(Paint.Style.FILL);
-    searchHighlightPaint.setColor(searchHighlightColor);
   }
 
   private int writeIntToChars(int value, char[] out) {
@@ -5565,7 +5095,7 @@ public class SodiumEditorView extends View {
 
         float lineTop = Math.round(scrollManager.getDrawLineTop(globalLine));
         float lineBottom = Math.round(scrollManager.getDrawLineBottom(globalLine));
-        drawSearchHighlightsForLine(canvas, line, globalLine, lineTop, lineBottom);
+        searchManager.drawSearchHighlightsForLine(canvas, line, globalLine, lineTop, lineBottom);
         drawHighlightedLine(canvas, line, globalLine, y);
         if (drawDecorations) {
           drawWhitespaceGuidesForLine(canvas, line, globalLine, y);
@@ -5738,7 +5268,7 @@ public class SodiumEditorView extends View {
 
         float lineTop = Math.round(scrollManager.getDrawLineTop(globalLine));
         float lineBottom = Math.round(scrollManager.getDrawLineBottom(globalLine));
-        drawSearchHighlightsForLine(canvas, line, globalLine, lineTop, lineBottom);
+        searchManager.drawSearchHighlightsForLine(canvas, line, globalLine, lineTop, lineBottom);
         drawHighlightedLine(canvas, line, globalLine, y);
         if (drawDecorations) {
           drawWhitespaceGuidesForLine(canvas, line, globalLine, y);
@@ -5770,9 +5300,9 @@ public class SodiumEditorView extends View {
       float cursorX = getCaretXForLine(cursorLineText, cursorLine, safeChar);
       float cursorY = scrollManager.getDrawLineTop(cursorLine);
       updateCursorDrawPosition(cursorX, cursorY);
-      float drawX = cursorDrawX;
-      float drawY = cursorDrawY;
-      if (isCursorVisible) {
+      float drawX = cursorAnimationManager.getCursorDrawX();
+      float drawY = cursorAnimationManager.getCursorDrawY();
+      if (cursorAnimationManager.isCursorVisible()) {
         caretPaint.setColor(caretColor);
         caretPaint.setStrokeWidth(cursorWidth);
         canvas.drawLine(drawX, drawY, drawX, drawY + lineHeight, caretPaint);
@@ -6088,7 +5618,7 @@ public class SodiumEditorView extends View {
       }
       canvas.save();
       if (segBaseX != 0f) canvas.translate(segBaseX, 0f);
-      drawSearchHighlightsForSegment(canvas, line, pos.line, segStart, segDrawEnd, top, bottom);
+      searchManager.drawSearchHighlightsForSegment(canvas, line, pos.line, segStart, segDrawEnd, top, bottom);
       drawHighlightedLineSegment(canvas, line, pos.line, segStart, segDrawEnd, y, top, bottom);
       drawErrorUnderlinesForSegment(canvas, line, pos.line, segStart, segDrawEnd, y, top, bottom);
       drawDeleteAnimationForSegment(canvas, line, pos.line, segStart, segDrawEnd, y);
@@ -6120,9 +5650,9 @@ public class SodiumEditorView extends View {
         float cursorX = getCaretXForSegment(cursorLineText, cursorLine, segStart, segEnd, safeChar);
         float cursorY = (cursorVisualIndex - firstVisualIndex) * lineHeight;
         updateCursorDrawPosition(cursorX, cursorY);
-        float drawX = cursorDrawX;
-        float drawY = cursorDrawY;
-        if (isCursorVisible) {
+        float drawX = cursorAnimationManager.getCursorDrawX();
+        float drawY = cursorAnimationManager.getCursorDrawY();
+        if (cursorAnimationManager.isCursorVisible()) {
           caretPaint.setColor(caretColor);
           caretPaint.setStrokeWidth(cursorWidth);
           canvas.drawLine(drawX, drawY, drawX, drawY + lineHeight, caretPaint);
@@ -6404,7 +5934,7 @@ public class SodiumEditorView extends View {
         }
         canvas.save();
         if (segBaseX != 0f) canvas.translate(segBaseX, 0f);
-        drawSearchHighlightsForSegment(canvas, text, line, segStart, segDrawEnd, top, bottom);
+        searchManager.drawSearchHighlightsForSegment(canvas, text, line, segStart, segDrawEnd, top, bottom);
         drawHighlightedLineSegment(canvas, text, line, segStart, segDrawEnd, y, top, bottom);
         drawErrorUnderlinesForSegment(canvas, text, line, segStart, segDrawEnd, y, top, bottom);
         drawDeleteAnimationForSegment(canvas, text, line, segStart, segDrawEnd, y);
@@ -6430,9 +5960,9 @@ public class SodiumEditorView extends View {
             float cursorX = getCaretXForSegment(text, line, segStart, segEnd, safeChar);
             float cursorY = top;
             updateCursorDrawPosition(cursorX, cursorY);
-            float drawX = cursorDrawX;
-            float drawY = cursorDrawY;
-            if (isCursorVisible) {
+            float drawX = cursorAnimationManager.getCursorDrawX();
+            float drawY = cursorAnimationManager.getCursorDrawY();
+            if (cursorAnimationManager.isCursorVisible()) {
               caretPaint.setColor(caretColor);
               caretPaint.setStrokeWidth(cursorWidth);
               canvas.drawLine(drawX, drawY, drawX, drawY + lineHeight, caretPaint);
@@ -6597,17 +6127,17 @@ public class SodiumEditorView extends View {
 
   private void drawHighlightedLine(Canvas canvas, String line, int globalLine, float y) {
     if (line.isEmpty()) {
-      if (isCharAnimationEnabled
-          && globalLine == delAnimLine
-          && delAnimText != null
-          && !delAnimText.isEmpty()
-          && delAnimAlpha > 0f) {
-        Paint ghostPaint = (delAnimPaint != null) ? delAnimPaint : paint;
-        charAnimTmpPaint.set(ghostPaint);
-        charAnimTmpPaint.setUnderlineText(false);
+      if (charAnimationManager.isEnabled()
+          && globalLine == charAnimationManager.getDelAnimLine()
+          && charAnimationManager.getDelAnimText() != null
+          && !charAnimationManager.getDelAnimText().isEmpty()
+          && charAnimationManager.getDelAnimAlpha() > 0f) {
+        Paint ghostPaint = (charAnimationManager.getDelAnimPaint() != null) ? charAnimationManager.getDelAnimPaint() : paint;
+        charAnimationManager.getTempPaint().set(ghostPaint);
+        charAnimationManager.getTempPaint().setUnderlineText(false);
         int baseAlpha = ghostPaint.getAlpha();
-        charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, delAnimAlpha))));
-        canvas.drawText(delAnimText, 0f, y, charAnimTmpPaint);
+        charAnimationManager.getTempPaint().setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, charAnimationManager.getDelAnimAlpha()))));
+        canvas.drawText(charAnimationManager.getDelAnimText(), 0f, y, charAnimationManager.getTempPaint());
       }
       return;
     }
@@ -6686,13 +6216,13 @@ public class SodiumEditorView extends View {
     int fadeStart = -1;
     int fadeEnd = -1;
     float fadeAlpha = 1f;
-    if (isCharAnimationEnabled
-        && globalLine == charAnimLine
-        && charAnimEndChar > charAnimStartChar
-        && charAnimAlpha < 1f) {
-      fadeStart = Math.max(0, Math.min(charAnimStartChar, line.length()));
-      fadeEnd = Math.max(0, Math.min(charAnimEndChar, line.length()));
-      fadeAlpha = Math.max(0f, Math.min(1f, charAnimAlpha));
+    if (charAnimationManager.isEnabled()
+        && globalLine == charAnimationManager.getCharAnimLine()
+        && charAnimationManager.getCharAnimEndChar() > charAnimationManager.getCharAnimStartChar()
+        && charAnimationManager.getCharAnimAlpha() < 1f) {
+      fadeStart = Math.max(0, Math.min(charAnimationManager.getCharAnimStartChar(), line.length()));
+      fadeEnd = Math.max(0, Math.min(charAnimationManager.getCharAnimEndChar(), line.length()));
+      fadeAlpha = Math.max(0f, Math.min(1f, charAnimationManager.getCharAnimAlpha()));
       if (fadeEnd <= fadeStart) {
         fadeStart = -1;
         fadeEnd = -1;
@@ -6717,19 +6247,19 @@ public class SodiumEditorView extends View {
           combinedUnderlines,
           lineTop,
           lineBottom);
-      if (isCharAnimationEnabled
-          && globalLine == delAnimLine
-          && delAnimText != null
-          && !delAnimText.isEmpty()
-          && delAnimAlpha > 0f) {
-        int at = Math.max(0, Math.min(delAnimAtChar, line.length()));
+      if (charAnimationManager.isEnabled()
+          && globalLine == charAnimationManager.getDelAnimLine()
+          && charAnimationManager.getDelAnimText() != null
+          && !charAnimationManager.getDelAnimText().isEmpty()
+          && charAnimationManager.getDelAnimAlpha() > 0f) {
+        int at = Math.max(0, Math.min(charAnimationManager.getDelAnimAtChar(), line.length()));
         float x = measureText(line, at, globalLine);
-        Paint ghostPaint = (delAnimPaint != null) ? delAnimPaint : paint;
-        charAnimTmpPaint.set(ghostPaint);
-        charAnimTmpPaint.setUnderlineText(false);
+        Paint ghostPaint = (charAnimationManager.getDelAnimPaint() != null) ? charAnimationManager.getDelAnimPaint() : paint;
+        charAnimationManager.getTempPaint().set(ghostPaint);
+        charAnimationManager.getTempPaint().setUnderlineText(false);
         int baseAlpha = ghostPaint.getAlpha();
-        charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, delAnimAlpha))));
-        canvas.drawText(delAnimText, x, y, charAnimTmpPaint);
+        charAnimationManager.getTempPaint().setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, charAnimationManager.getDelAnimAlpha()))));
+        canvas.drawText(charAnimationManager.getDelAnimText(), x, y, charAnimationManager.getTempPaint());
       }
       drawErrorUnderlinesForLine(canvas, line, globalLine, y, lineTop, lineBottom);
       return;
@@ -6756,19 +6286,19 @@ public class SodiumEditorView extends View {
           combinedUnderlines,
           lineTop,
           lineBottom);
-      if (isCharAnimationEnabled
-          && globalLine == delAnimLine
-          && delAnimText != null
-          && !delAnimText.isEmpty()
-          && delAnimAlpha > 0f) {
-        int at = Math.max(0, Math.min(delAnimAtChar, line.length()));
+      if (charAnimationManager.isEnabled()
+          && globalLine == charAnimationManager.getDelAnimLine()
+          && charAnimationManager.getDelAnimText() != null
+          && !charAnimationManager.getDelAnimText().isEmpty()
+          && charAnimationManager.getDelAnimAlpha() > 0f) {
+        int at = Math.max(0, Math.min(charAnimationManager.getDelAnimAtChar(), line.length()));
         float x = measureText(line, at, globalLine);
-        Paint ghostPaint = (delAnimPaint != null) ? delAnimPaint : paint;
-        charAnimTmpPaint.set(ghostPaint);
-        charAnimTmpPaint.setUnderlineText(false);
+        Paint ghostPaint = (charAnimationManager.getDelAnimPaint() != null) ? charAnimationManager.getDelAnimPaint() : paint;
+        charAnimationManager.getTempPaint().set(ghostPaint);
+        charAnimationManager.getTempPaint().setUnderlineText(false);
         int baseAlpha = ghostPaint.getAlpha();
-        charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, delAnimAlpha))));
-        canvas.drawText(delAnimText, x, y, charAnimTmpPaint);
+        charAnimationManager.getTempPaint().setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, charAnimationManager.getDelAnimAlpha()))));
+        canvas.drawText(charAnimationManager.getDelAnimText(), x, y, charAnimationManager.getTempPaint());
       }
       drawErrorUnderlinesForLine(canvas, line, globalLine, y, lineTop, lineBottom);
       return;
@@ -6836,19 +6366,19 @@ public class SodiumEditorView extends View {
           lineBottom);
     }
 
-    if (isCharAnimationEnabled
-        && globalLine == delAnimLine
-        && delAnimText != null
-        && !delAnimText.isEmpty()
-        && delAnimAlpha > 0f) {
-      int at = Math.max(0, Math.min(delAnimAtChar, line.length()));
+    if (charAnimationManager.isEnabled()
+        && globalLine == charAnimationManager.getDelAnimLine()
+        && charAnimationManager.getDelAnimText() != null
+        && !charAnimationManager.getDelAnimText().isEmpty()
+        && charAnimationManager.getDelAnimAlpha() > 0f) {
+      int at = Math.max(0, Math.min(charAnimationManager.getDelAnimAtChar(), line.length()));
       float x = measureText(line, at, globalLine);
-      Paint ghostPaint = (delAnimPaint != null) ? delAnimPaint : paint;
-      charAnimTmpPaint.set(ghostPaint);
-      charAnimTmpPaint.setUnderlineText(false);
+      Paint ghostPaint = (charAnimationManager.getDelAnimPaint() != null) ? charAnimationManager.getDelAnimPaint() : paint;
+      charAnimationManager.getTempPaint().set(ghostPaint);
+      charAnimationManager.getTempPaint().setUnderlineText(false);
       int baseAlpha = ghostPaint.getAlpha();
-      charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, delAnimAlpha))));
-      canvas.drawText(delAnimText, x, y, charAnimTmpPaint);
+      charAnimationManager.getTempPaint().setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, charAnimationManager.getDelAnimAlpha()))));
+      canvas.drawText(charAnimationManager.getDelAnimText(), x, y, charAnimationManager.getTempPaint());
     }
     drawErrorUnderlinesForLine(canvas, line, globalLine, y, lineTop, lineBottom);
   }
@@ -6905,13 +6435,13 @@ public class SodiumEditorView extends View {
     int fadeStart = -1;
     int fadeEnd = -1;
     float fadeAlpha = 1f;
-    if (isCharAnimationEnabled
-        && globalLine == charAnimLine
-        && charAnimEndChar > charAnimStartChar
-        && charAnimAlpha < 1f) {
-      fadeStart = Math.max(0, Math.min(charAnimStartChar, line.length()));
-      fadeEnd = Math.max(0, Math.min(charAnimEndChar, line.length()));
-      fadeAlpha = Math.max(0f, Math.min(1f, charAnimAlpha));
+    if (charAnimationManager.isEnabled()
+        && globalLine == charAnimationManager.getCharAnimLine()
+        && charAnimationManager.getCharAnimEndChar() > charAnimationManager.getCharAnimStartChar()
+        && charAnimationManager.getCharAnimAlpha() < 1f) {
+      fadeStart = Math.max(0, Math.min(charAnimationManager.getCharAnimStartChar(), line.length()));
+      fadeEnd = Math.max(0, Math.min(charAnimationManager.getCharAnimEndChar(), line.length()));
+      fadeAlpha = Math.max(0f, Math.min(1f, charAnimationManager.getCharAnimAlpha()));
       if (fadeEnd <= fadeStart) {
         fadeStart = -1;
         fadeEnd = -1;
@@ -7005,20 +6535,20 @@ public class SodiumEditorView extends View {
       }
     }
 
-    if (isCharAnimationEnabled
-        && globalLine == delAnimLine
-        && delAnimText != null
-        && !delAnimText.isEmpty()
-        && delAnimAlpha > 0f) {
-      int at = Math.max(0, Math.min(delAnimAtChar, line.length()));
+    if (charAnimationManager.isEnabled()
+        && globalLine == charAnimationManager.getDelAnimLine()
+        && charAnimationManager.getDelAnimText() != null
+        && !charAnimationManager.getDelAnimText().isEmpty()
+        && charAnimationManager.getDelAnimAlpha() > 0f) {
+      int at = Math.max(0, Math.min(charAnimationManager.getDelAnimAtChar(), line.length()));
       if (at >= start && at <= end) {
         float x = measureText(line, at, globalLine);
-        Paint ghostPaint = (delAnimPaint != null) ? delAnimPaint : paint;
-        charAnimTmpPaint.set(ghostPaint);
-        charAnimTmpPaint.setUnderlineText(false);
+        Paint ghostPaint = (charAnimationManager.getDelAnimPaint() != null) ? charAnimationManager.getDelAnimPaint() : paint;
+        charAnimationManager.getTempPaint().set(ghostPaint);
+        charAnimationManager.getTempPaint().setUnderlineText(false);
         int baseAlpha = ghostPaint.getAlpha();
-        charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, delAnimAlpha))));
-        canvas.drawText(delAnimText, x, y, charAnimTmpPaint);
+        charAnimationManager.getTempPaint().setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, charAnimationManager.getDelAnimAlpha()))));
+        canvas.drawText(charAnimationManager.getDelAnimText(), x, y, charAnimationManager.getTempPaint());
       }
     }
     drawErrorUnderlinesForLineRange(canvas, line, globalLine, start, end, y, lineTop, lineBottom);
@@ -7517,13 +7047,13 @@ public class SodiumEditorView extends View {
     int fadeStart = -1;
     int fadeEnd = -1;
     float fadeAlpha = 1f;
-    if (isCharAnimationEnabled
-        && globalLine == charAnimLine
-        && charAnimEndChar > charAnimStartChar
-        && charAnimAlpha < 1f) {
-      fadeStart = Math.max(0, Math.min(charAnimStartChar, line.length()));
-      fadeEnd = Math.max(0, Math.min(charAnimEndChar, line.length()));
-      fadeAlpha = Math.max(0f, Math.min(1f, charAnimAlpha));
+    if (charAnimationManager.isEnabled()
+        && globalLine == charAnimationManager.getCharAnimLine()
+        && charAnimationManager.getCharAnimEndChar() > charAnimationManager.getCharAnimStartChar()
+        && charAnimationManager.getCharAnimAlpha() < 1f) {
+      fadeStart = Math.max(0, Math.min(charAnimationManager.getCharAnimStartChar(), line.length()));
+      fadeEnd = Math.max(0, Math.min(charAnimationManager.getCharAnimEndChar(), line.length()));
+      fadeAlpha = Math.max(0f, Math.min(1f, charAnimationManager.getCharAnimAlpha()));
       if (fadeEnd <= fadeStart) {
         fadeStart = -1;
         fadeEnd = -1;
@@ -7625,21 +7155,21 @@ public class SodiumEditorView extends View {
 
   private void drawDeleteAnimationForSegment(
       Canvas canvas, String line, int globalLine, int segStart, int segEnd, float y) {
-    if (!isCharAnimationEnabled) return;
-    if (globalLine != delAnimLine
-        || delAnimText == null
-        || delAnimText.isEmpty()
-        || delAnimAlpha <= 0f) return;
+    if (!charAnimationManager.isEnabled()) return;
+    if (globalLine != charAnimationManager.getDelAnimLine()
+        || charAnimationManager.getDelAnimText() == null
+        || charAnimationManager.getDelAnimText().isEmpty()
+        || charAnimationManager.getDelAnimAlpha() <= 0f) return;
     if (line == null) line = "";
-    int at = Math.max(0, Math.min(delAnimAtChar, line.length()));
+    int at = Math.max(0, Math.min(charAnimationManager.getDelAnimAtChar(), line.length()));
     if (at < segStart || at > segEnd) return;
     float x = measureTextWithVisualSpaces(line, segStart, at, paint);
-    Paint ghostPaint = (delAnimPaint != null) ? delAnimPaint : paint;
-    charAnimTmpPaint.set(ghostPaint);
-    charAnimTmpPaint.setUnderlineText(false);
+    Paint ghostPaint = (charAnimationManager.getDelAnimPaint() != null) ? charAnimationManager.getDelAnimPaint() : paint;
+    charAnimationManager.getTempPaint().set(ghostPaint);
+    charAnimationManager.getTempPaint().setUnderlineText(false);
     int baseAlpha = ghostPaint.getAlpha();
-    charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, delAnimAlpha))));
-    canvas.drawText(delAnimText, x, y, charAnimTmpPaint);
+    charAnimationManager.getTempPaint().setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, charAnimationManager.getDelAnimAlpha()))));
+    canvas.drawText(charAnimationManager.getDelAnimText(), x, y, charAnimationManager.getTempPaint());
   }
 
   private void drawWhitespaceGuidesForSegment(
@@ -8016,10 +7546,10 @@ public class SodiumEditorView extends View {
     int fadeSegStart = Math.max(start, fadeStart);
     int fadeSegEnd = Math.min(end, fadeEnd);
     if (fadeSegStart < fadeSegEnd) {
-      charAnimTmpPaint.set(segmentPaint);
+      charAnimationManager.getTempPaint().set(segmentPaint);
       int baseAlpha = segmentPaint.getAlpha();
-      charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))));
-      canvas.drawText(line, fadeSegStart, fadeSegEnd, currentX, y, charAnimTmpPaint);
+      charAnimationManager.getTempPaint().setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))));
+      canvas.drawText(line, fadeSegStart, fadeSegEnd, currentX, y, charAnimationManager.getTempPaint());
       currentX += segmentPaint.measureText(line, fadeSegStart, fadeSegEnd);
     }
 
@@ -8468,10 +7998,10 @@ public class SodiumEditorView extends View {
 
     Paint drawPaint = segmentPaint;
     if (alphaMultiplier < 1f) {
-      charAnimTmpPaint.set(segmentPaint);
+      charAnimationManager.getTempPaint().set(segmentPaint);
       int baseAlpha = segmentPaint.getAlpha();
-      charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, alphaMultiplier))));
-      drawPaint = charAnimTmpPaint;
+      charAnimationManager.getTempPaint().setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, alphaMultiplier))));
+      drawPaint = charAnimationManager.getTempPaint();
     }
 
     int len = end - start;
@@ -11755,7 +11285,7 @@ public class SodiumEditorView extends View {
         int safeStart = Math.max(0, cursorChar - 1);
         String removed = base.substring(safeStart, Math.min(cursorChar, base.length()));
         boolean atLineEnd = cursorChar >= base.length();
-        if (isCharAnimationEnabled && atLineEnd) {
+        if (charAnimationManager.isEnabled() && atLineEnd) {
           Paint p = getPaintForChar(cursorLine, safeStart, base);
           startDeleteAnimation(cursorLine, safeStart, removed, p);
         }
@@ -11865,7 +11395,7 @@ public class SodiumEditorView extends View {
         Float oldWidth = lineWidthCache.get(cursorLine);
         String removed = base.substring(cursorChar, Math.min(cursorChar + 1, base.length()));
         boolean atLineEnd = cursorChar == base.length() - 1;
-        if (isCharAnimationEnabled && atLineEnd) {
+        if (charAnimationManager.isEnabled() && atLineEnd) {
           Paint p = getPaintForChar(cursorLine, cursorChar, base);
           startDeleteAnimation(cursorLine, cursorChar, removed, p);
         }
@@ -11938,7 +11468,7 @@ public class SodiumEditorView extends View {
     composingLength = 0;
     composingStartActive = false;
     undoRedo.clearComposingPendingOp();
-    lastComposingTextForCharAnim = null;
+    charAnimationManager.clearLastComposingTextForCharAnim();
     invalidate();
     updateSuggestion();
   }
@@ -11961,7 +11491,7 @@ public class SodiumEditorView extends View {
       if (base == null) base = "";
       int start = Math.max(0, Math.min(composingOffset, base.length()));
       int end = Math.max(0, Math.min(composingOffset + composingLength, base.length()));
-      if (isCharAnimationEnabled) {
+      if (charAnimationManager.isEnabled()) {
         String oldComposing = base.substring(start, end);
         String newComposing = (textSeq == null) ? "" : textSeq.toString();
         if (newComposing.length() < oldComposing.length()) {
@@ -12000,7 +11530,7 @@ public class SodiumEditorView extends View {
     hasComposing = false;
     composingLength = 0;
     composingStartActive = false;
-    lastComposingTextForCharAnim = null;
+    charAnimationManager.clearLastComposingTextForCharAnim();
   }
 
   int comparePos(int lineA, int charA, int lineB, int charB) {
@@ -14210,160 +13740,16 @@ public class SodiumEditorView extends View {
   }
 
   public void setCharAnimation(boolean enabled, int durationMs) {
-    isCharAnimationEnabled = enabled;
-    if (durationMs > 0) charAnimationDurationMs = durationMs;
-    if (!enabled) {
-      if (charAnimAnimator != null) charAnimAnimator.cancel();
-      charAnimAnimator = null;
-      charAnimAlpha = 0f;
-      charAnimLine = -1;
-      charAnimStartChar = 0;
-      charAnimEndChar = 0;
-      lastComposingTextForCharAnim = null;
-      if (delAnimAnimator != null) delAnimAnimator.cancel();
-      delAnimAnimator = null;
-      delAnimAlpha = 0f;
-      delAnimLine = -1;
-      delAnimAtChar = 0;
-      delAnimText = null;
-      invalidate();
-    }
+    charAnimationManager.setEnabled(enabled, durationMs);
   }
 
   void startCharAnimationFromText(CharSequence committedText) {
-    if (!isCharAnimationEnabled) return;
-    if (committedText == null) return;
-
-    final int targetLine = cursorLine;
-    final int targetEndChar = cursorChar;
-
-    int extractedCodePoint = -1;
-    int extractedCharCount = 0;
-    int i = committedText.length();
-    while (i > 0) {
-      int codePoint = Character.codePointBefore(committedText, i);
-      i -= Character.charCount(codePoint);
-
-      if (codePoint == '\n' || codePoint == '\r') continue;
-      if (Character.isWhitespace(codePoint)) continue;
-
-      extractedCodePoint = codePoint;
-      extractedCharCount = Character.charCount(codePoint);
-      break;
-    }
-    if (extractedCodePoint == -1) return;
-
-    final int finalCharCount = extractedCharCount;
-    long now = SystemClock.uptimeMillis();
-    long delta = (lastCharAnimUptime == 0L) ? Long.MAX_VALUE : (now - lastCharAnimUptime);
-    lastCharAnimUptime = now;
-    final int animDuration =
-        (delta <= charAnimFastThresholdMs)
-            ? Math.max(1, Math.min(charAnimationDurationMs, charAnimFastDurationMs))
-            : Math.max(1, charAnimationDurationMs);
-    Runnable start =
-        () -> {
-          if (delAnimAnimator != null) delAnimAnimator.cancel();
-          if (charAnimAnimator != null) charAnimAnimator.cancel();
-          charAnimLine = targetLine;
-          charAnimEndChar = Math.max(0, targetEndChar);
-          charAnimStartChar = Math.max(0, charAnimEndChar - finalCharCount);
-          charAnimAlpha = 0.2f;
-          invalidateLineGlobal(charAnimLine); // draw immediately
-
-          charAnimAnimator = ValueAnimator.ofFloat(0.2f, 1f);
-          charAnimAnimator.setDuration(animDuration);
-          charAnimAnimator.addUpdateListener(
-              a -> {
-                Object v = a.getAnimatedValue();
-                charAnimAlpha = (v instanceof Float) ? (Float) v : 0f;
-                invalidateLineGlobal(charAnimLine);
-              });
-          charAnimAnimator.addListener(
-              new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                  charAnimAlpha = 0f;
-                  charAnimLine = -1;
-                  invalidate();
-                }
-
-                @Override
-                public void onAnimationCancel(Animator animation) {
-                  charAnimAlpha = 0f;
-                  charAnimLine = -1;
-                  invalidate();
-                }
-              });
-          charAnimAnimator.start();
-        };
-    if (Looper.myLooper() == Looper.getMainLooper()) start.run();
-    else post(start);
+    charAnimationManager.startCharAnimationFromText(committedText);
   }
 
   private void startDeleteAnimation(
       int targetLine, int atChar, @Nullable String removedText, @Nullable Paint paintToUse) {
-    if (!isCharAnimationEnabled) return;
-    if (removedText == null || removedText.isEmpty()) return;
-
-    final int lineForAnim = targetLine;
-    final int atForAnim = Math.max(0, atChar);
-    final String textForAnim = removedText;
-    final Paint p = (paintToUse != null) ? paintToUse : paint;
-    long now = SystemClock.uptimeMillis();
-    long delta = (lastCharAnimUptime == 0L) ? Long.MAX_VALUE : (now - lastCharAnimUptime);
-    lastCharAnimUptime = now;
-    final int animDuration =
-        (delta <= charAnimFastThresholdMs)
-            ? Math.max(1, Math.min(charAnimationDurationMs, charAnimFastDurationMs))
-            : Math.max(1, charAnimationDurationMs);
-
-    Runnable start =
-        () -> {
-          if (charAnimAnimator != null) charAnimAnimator.cancel();
-          if (delAnimAnimator != null) delAnimAnimator.cancel();
-          delAnimLine = lineForAnim;
-          delAnimAtChar = atForAnim;
-          delAnimText = textForAnim;
-          delAnimPaint = p;
-          delAnimAlpha = 1f;
-          invalidateLineGlobal(lineForAnim);
-
-          delAnimAnimator = ValueAnimator.ofFloat(1f, 0f);
-          delAnimAnimator.setDuration(animDuration);
-          delAnimAnimator.addUpdateListener(
-              a -> {
-                Object v = a.getAnimatedValue();
-                delAnimAlpha = (v instanceof Float) ? (Float) v : 0f;
-                invalidateLineGlobal(lineForAnim);
-              });
-          delAnimAnimator.addListener(
-              new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                  delAnimAlpha = 0f;
-                  delAnimLine = -1;
-                  delAnimAtChar = 0;
-                  delAnimText = null;
-                  delAnimPaint = null;
-                  invalidate();
-                }
-
-                @Override
-                public void onAnimationCancel(Animator animation) {
-                  delAnimAlpha = 0f;
-                  delAnimLine = -1;
-                  delAnimAtChar = 0;
-                  delAnimText = null;
-                  delAnimPaint = null;
-                  invalidate();
-                }
-              });
-          delAnimAnimator.start();
-        };
-
-    if (Looper.myLooper() == Looper.getMainLooper()) start.run();
-    else post(start);
+    charAnimationManager.startDeleteAnimation(targetLine, atChar, removedText, paintToUse);
   }
 
   void handleAutoPairing(String text) {
@@ -15025,11 +14411,10 @@ public class SodiumEditorView extends View {
         (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
     if (focused) {
       if (imm != null) imm.restartInput(this);
-      resetCursorBlink();
+      cursorAnimationManager.onFocusChanged(true);
     } else {
       if (hideKeyboardOnFocusLoss && imm != null) imm.hideSoftInputFromWindow(getWindowToken(), 0);
-      mainHandler.removeCallbacks(blinkRunnable);
-      isCursorVisible = true; // Make sure it's visible when not focused
+      cursorAnimationManager.onFocusChanged(false);
       hasComposing = false;
       hasSelection = false;
       hidePopup();
@@ -15046,12 +14431,24 @@ public class SodiumEditorView extends View {
     invalidate(0, (int) Math.floor(top), getWidth(), (int) Math.ceil(top + lineHeight));
   }
 
+  void invalidateLineGlobalForCharAnim(int globalLine) {
+    invalidateLineGlobal(globalLine);
+  }
+
+  Paint getPaintForCharAnim() {
+    return paint;
+  }
+
   private void invalidateCursorArea() {
     if (isWordWrapEnabled) {
       invalidate();
       return;
     }
     invalidateLineGlobal(cursorLine);
+  }
+
+  void invalidateCursorAreaForCursor() {
+    invalidateCursorArea();
   }
 
   private boolean isHeavyDrawSuppressed() {
@@ -15896,98 +15293,21 @@ public class SodiumEditorView extends View {
   }
 
   public void setCursorAnimationEnabled(boolean enabled) {
-    if (this.isCursorAnimationEnabled == enabled) return;
-    this.isCursorAnimationEnabled = enabled;
-    if (!enabled) {
-      removeCallbacks(cursorAnimStep);
-      cursorAnimRunning = false;
-      cursorAnimValid = false;
-    }
-    invalidate();
+    cursorAnimationManager.setCursorAnimationEnabled(enabled);
   }
 
   private void updateCursorDrawPosition(float targetX, float targetY) {
-    if (!isCursorAnimationEnabled) {
-      removeCallbacks(cursorAnimStep);
-      cursorAnimRunning = false;
-      cursorAnimValid = true;
-      cursorAnimX = targetX;
-      cursorAnimY = targetY;
-      cursorAnimTargetX = targetX;
-      cursorAnimTargetY = targetY;
-      cursorDrawX = targetX;
-      cursorDrawY = targetY;
-      return;
-    }
-
-    boolean cursorMoved = (cursorLine != lastCursorAnimLine || cursorChar != lastCursorAnimChar);
-    if (cursorMoved) {
-      lastCursorAnimLine = cursorLine;
-      lastCursorAnimChar = cursorChar;
-      lastCursorMoveUptime = SystemClock.uptimeMillis();
-    } else if (Math.abs(targetX - cursorAnimTargetX) > 0.5f
-        || Math.abs(targetY - cursorAnimTargetY) > 0.5f) {
-      // Layout/zoom changed while caret stayed; snap to the new target.
-      removeCallbacks(cursorAnimStep);
-      cursorAnimRunning = false;
-      cursorAnimX = targetX;
-      cursorAnimY = targetY;
-      cursorAnimTargetX = targetX;
-      cursorAnimTargetY = targetY;
-      cursorAnimValid = true;
-      cursorDrawX = targetX;
-      cursorDrawY = targetY;
-      return;
-    }
-
-    if (!cursorAnimValid) {
-      cursorAnimX = targetX;
-      cursorAnimY = targetY;
-      cursorAnimValid = true;
-    }
-
-    cursorAnimTargetX = targetX;
-    cursorAnimTargetY = targetY;
-
-    float dx = cursorAnimTargetX - cursorAnimX;
-    float dy = cursorAnimTargetY - cursorAnimY;
-    float distance = (float) Math.hypot(dx, dy);
-    if (distance > lineHeight * 6f) {
-      removeCallbacks(cursorAnimStep);
-      cursorAnimRunning = false;
-      cursorAnimX = targetX;
-      cursorAnimY = targetY;
-      cursorAnimTargetX = targetX;
-      cursorAnimTargetY = targetY;
-      cursorDrawX = targetX;
-      cursorDrawY = targetY;
-      return;
-    }
-
-    if (!cursorAnimRunning && distance > 0.5f) {
-      cursorAnimLastFrameUptime = 0L;
-      cursorAnimRunning = true;
-      postOnAnimation(cursorAnimStep);
-    }
-
-    cursorDrawX = cursorAnimX;
-    cursorDrawY = cursorAnimY;
+    cursorAnimationManager.updateCursorDrawPosition(targetX, targetY);
   }
 
   void resetCursorBlink() {
-    mainHandler.removeCallbacks(blinkRunnable);
-    isCursorVisible = true;
-    if (isFocused() && !hasSelection) {
-      invalidate(); // Ensure it's drawn immediately
-      mainHandler.postDelayed(blinkRunnable, 500);
-    }
+    cursorAnimationManager.resetCursorBlink();
   }
 
   public void release() {
     cancelAndCloseReader();
-    if (charAnimAnimator != null) charAnimAnimator.cancel();
-    if (delAnimAnimator != null) delAnimAnimator.cancel();
-    removeCallbacks(cursorAnimStep);
+    charAnimationManager.release();
+    cursorAnimationManager.release();
     ioThread.quitSafely();
   }
 }
