@@ -316,7 +316,7 @@ public final class ScrollManager {
       view.postDelayed(view.delayedWindowCheck, 60);
     }
 
-    if (view.showPopup) view.hidePopup();
+    if (view.isPopupVisibleForScroll()) view.hidePopup();
     view.resetCursorBlink();
     view.invalidate();
     return true;

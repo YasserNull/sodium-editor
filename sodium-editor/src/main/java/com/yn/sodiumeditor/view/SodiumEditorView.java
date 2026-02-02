@@ -161,6 +161,7 @@ public class SodiumEditorView extends View {
   private final SearchManager searchManager;
   private final CursorAnimationManager cursorAnimationManager;
   private final CharAnimationManager charAnimationManager;
+  private final PopupMenuManager popupMenuManager;
 
   // --- Search State (moved to SearchManager) ---
   // --- Zoom State (moved to ZoomManager) ---
@@ -298,56 +299,7 @@ public class SodiumEditorView extends View {
 
   // caret movement animation moved to CursorAnimationManager.
 
-  // floating popup (custom)
-  boolean showPopup = false;
-  private boolean isMinimalPopup = false;
-  private RectF popupRect = new RectF();
-  private RectF btnCopyRect = new RectF();
-  private RectF btnCutRect = new RectF();
-  private RectF btnPasteRect = new RectF();
-  private RectF btnDeleteRect = new RectF();
-  private RectF btnSelectAllRect = new RectF();
-  public float popupPaddingDp = 5f;
-  public float popupCornerDp = 60f;
-  public float btnSpacingDp = 5f;
-  public float btnHeightDp = 30f;
-  public float btnWidthDp = 55f;
-  public float popupLabelPaddingDp = 5f;
-  public float popupTextSizeSp = 12f;
-  public int popupTextColor = 0xFFFFFFFF;
-  public int popupBackgroundColor = 0xFF424242;
-  public boolean popupFitToLabel = true;
-  private float popupPadding = 0f;
-  private float popupCorner = 0f;
-  private float btnSpacing = 0f;
-  private float btnHeight = 0f;
-  private float btnWidth = 0f;
-  private float popupLabelPadding = 0f;
-  private static final int POPUP_ACTION_COPY = 1;
-  private static final int POPUP_ACTION_CUT = 2;
-  private static final int POPUP_ACTION_PASTE = 3;
-  private static final int POPUP_ACTION_DELETE = 4;
-  private static final int POPUP_ACTION_SELECT_ALL = 5;
-  private boolean popupTextFollowsEditorTypeface = true;
-  private String popupLabelCopy = "Copy";
-  private String popupLabelCut = "Cut";
-  private String popupLabelPaste = "Paste";
-  private String popupLabelDelete = "Delete";
-  private String popupLabelSelectAll = "Select All";
-  private float popupAlpha = 0f;
-  @Nullable private ValueAnimator popupFadeAnimator;
-  private static final long POPUP_FADE_IN_MS = 140;
-  private static final long POPUP_FADE_OUT_MS = 110;
-  private int popupPressedAction = 0;
-  private boolean popupRippleActive = false;
-  private RectF popupRippleRect = new RectF();
-  private float popupRippleX = 0f;
-  private float popupRippleY = 0f;
-  private float popupRippleRadius = 0f;
-  private float popupRippleMaxRadius = 0f;
-  private float popupRippleAlpha = 0f;
-  private boolean popupRippleHoldActive = false;
-  @Nullable private ValueAnimator popupRippleAnimator;
+  // popup menu moved to PopupMenuManager.
 
   // selection handles
   private RectF leftHandleRect = new RectF();
@@ -1052,10 +1004,7 @@ public class SodiumEditorView extends View {
     foldMarkerSpacing = foldMarkerSpacing * density;
     foldMarkerEdgePadding = foldMarkerEdgePadding * density;
 
-    popupTextPaint.setTextAlign(Paint.Align.LEFT);
-    popupTextPaint.setTypeface(paint.getTypeface());
-    popupRipplePaint.setColor(0xFFFFFFFF);
-    applyPopupConfig();
+    popupMenuManager = new PopupMenuManager(this);
 
     foldPlaceholderPaint.setColor(0xFFE0E0E0);
     foldPlaceholderPaint.setStyle(Paint.Style.FILL);
@@ -1113,10 +1062,10 @@ public class SodiumEditorView extends View {
                 if (suggestionAcceptedThisTouch) return;
                 if (zoomManager.isMultiTouchActive() || zoomManager.hadMultiTouch()) return;
 
-                if (showPopup) {
+                if (popupMenuManager.isPopupVisible()) {
                   int hitAction = getPopupActionAt(e.getX(), e.getY());
                   if (hitAction != 0) {
-                    popupPressedAction = hitAction;
+                    popupMenuManager.setPressedAction(hitAction);
                     startPopupRippleHold(hitAction, e.getX(), e.getY());
                     return;
                   }
@@ -1145,7 +1094,6 @@ public class SodiumEditorView extends View {
                   return;
                 }
 
-                isMinimalPopup = false;
                 showPopupAtSelection();
                 resetCursorBlink();
                 invalidate();
@@ -2761,65 +2709,36 @@ public class SodiumEditorView extends View {
   }
 
   public void setPopupBackgroundColor(int color) {
-    popupBackgroundColor = color;
-    popupBgPaint.setColor(color);
-    if (showPopup) invalidate();
+    popupMenuManager.setPopupBackgroundColor(color);
   }
 
   public void setPopupTextColor(int color) {
-    popupTextColor = color;
-    popupTextPaint.setColor(color);
-    if (showPopup) invalidate();
+    popupMenuManager.setPopupTextColor(color);
   }
 
   public void setPopupTextSize(float sp) {
-    popupTextSizeSp = sp;
-    popupTextPaint.setTextSize(spToPx(sp));
-    if (showPopup) invalidate();
+    popupMenuManager.setPopupTextSize(sp);
   }
 
   public void setPopupTextSizePx(float sizePx) {
-    float scaledDensity = getResources().getDisplayMetrics().scaledDensity;
-    popupTextSizeSp = (scaledDensity > 0f) ? (sizePx / scaledDensity) : popupTextSizeSp;
-    popupTextPaint.setTextSize(sizePx);
-    if (showPopup) invalidate();
+    popupMenuManager.setPopupTextSizePx(sizePx);
   }
 
   private void applyPopupConfig() {
-    float density = getResources().getDisplayMetrics().density;
-    popupPadding = popupPaddingDp * density;
-    popupCorner = popupCornerDp * density;
-    btnSpacing = btnSpacingDp * density;
-    btnHeight = btnHeightDp * density;
-    btnWidth = btnWidthDp * density;
-    popupLabelPadding = popupLabelPaddingDp * density;
-    popupBgPaint.setColor(popupBackgroundColor);
-    popupTextPaint.setColor(popupTextColor);
-    popupTextPaint.setTextSize(spToPx(popupTextSizeSp));
+    popupMenuManager.applyPopupConfig();
   }
 
   public void setPopupTextFollowsEditorTypeface(boolean follow) {
-    popupTextFollowsEditorTypeface = follow;
-    if (follow) {
-      popupTextPaint.setTypeface(paint.getTypeface());
-    }
-    if (showPopup) invalidate();
+    popupMenuManager.setPopupTextFollowsEditorTypeface(follow);
   }
 
   public void setPopupTextTypeface(@Nullable Typeface typeface) {
-    popupTextFollowsEditorTypeface = false;
-    popupTextPaint.setTypeface((typeface != null) ? typeface : Typeface.DEFAULT);
-    if (showPopup) invalidate();
+    popupMenuManager.setPopupTextTypeface(typeface);
   }
 
   public void setPopupLabels(
       String copy, String cut, String paste, String delete, String selectAll) {
-    popupLabelCopy = copy;
-    popupLabelCut = cut;
-    popupLabelPaste = paste;
-    popupLabelDelete = delete;
-    popupLabelSelectAll = selectAll;
-    if (showPopup) invalidate();
+    popupMenuManager.setPopupLabels(copy, cut, paste, delete, selectAll);
   }
 
   public void setFontFromAssets(String assetPath, int style) {
@@ -3112,6 +3031,31 @@ public class SodiumEditorView extends View {
     return getLineTextForRenderWithDirect(line, direct);
   }
 
+  float spToPxForPopup(float sp) {
+    return spToPx(sp);
+  }
+
+  @Nullable
+  Typeface getEditorTypefaceForPopup() {
+    return paint.getTypeface();
+  }
+
+  boolean shouldHideCopyCutForPopup() {
+    return shouldHideCopyCutForSelection();
+  }
+
+  float getViewXForPopup(String lineText, int line, int ch) {
+    return getViewXForLineChar(lineText, line, ch);
+  }
+
+  float getViewYTopForPopup(int line, int ch) {
+    return getViewYTopForLineChar(line, ch);
+  }
+
+  boolean isPopupVisibleForScroll() {
+    return popupMenuManager.isPopupVisible();
+  }
+
   private void applyTypeface(@Nullable Typeface typeface, int style) {
     if (Looper.myLooper() != Looper.getMainLooper()) {
       final Typeface tf = typeface;
@@ -3143,9 +3087,7 @@ public class SodiumEditorView extends View {
     foldMarkerPaint.setTypeface(finalTypeface);
     wordWrapIndicatorPaint.setTypeface(finalTypeface);
     whitespaceGuidePaint.setTypeface(finalTypeface);
-    if (popupTextFollowsEditorTypeface) {
-      popupTextPaint.setTypeface(finalTypeface);
-    }
+    popupMenuManager.onEditorTypefaceChanged(finalTypeface);
     if (whitespaceStringRule != null) whitespaceStringRule.updateTypeface(safeBase);
     if (whitespaceCommentRule != null) whitespaceCommentRule.updateTypeface(safeBase);
     if (lineCommentHighlightRule != null) lineCommentHighlightRule.updateTypeface(safeBase);
@@ -5368,7 +5310,7 @@ public class SodiumEditorView extends View {
     // --- End of main text content drawing ---
 
     // --- 4. Draw overlays (popups, loading circle, etc.) ---
-    if (showPopup) drawPopup(canvas);
+    if (popupMenuManager.isPopupVisible()) popupMenuManager.drawPopup(canvas);
 
     if (showLoadingCircle) {
 
@@ -5725,7 +5667,7 @@ public class SodiumEditorView extends View {
 
     canvas.restore();
 
-    if (showPopup) drawPopup(canvas);
+    if (popupMenuManager.isPopupVisible()) popupMenuManager.drawPopup(canvas);
 
     if (showLoadingCircle) {
       loadingCirclePaint.setColor(loadingCircleColor);
@@ -6041,7 +5983,7 @@ public class SodiumEditorView extends View {
       }
     }
 
-    if (showPopup) drawPopup(canvas);
+    if (popupMenuManager.isPopupVisible()) popupMenuManager.drawPopup(canvas);
 
     if (showLoadingCircle) {
       loadingCirclePaint.setColor(loadingCircleColor);
@@ -9678,171 +9620,7 @@ public class SodiumEditorView extends View {
   }
 
   private void drawPopup(Canvas canvas) {
-    if (popupAlpha <= 0f) return;
-    applyPopupConfig();
-    Paint bgPaint = popupBgPaint;
-
-    // reset rects (so .contains() is safe when buttons are hidden)
-    btnCopyRect.setEmpty();
-    btnCutRect.setEmpty();
-    btnPasteRect.setEmpty();
-    btnDeleteRect.setEmpty();
-    btnSelectAllRect.setEmpty();
-
-    // Buttons order
-    final List<Integer> actions = new ArrayList<>();
-    if (isMinimalPopup) {
-      actions.add(POPUP_ACTION_SELECT_ALL);
-      if (!isReadOnly) {
-        actions.add(POPUP_ACTION_PASTE);
-      }
-    } else {
-      final boolean hideCopyCut = shouldHideCopyCutForSelection();
-      actions.add(POPUP_ACTION_SELECT_ALL);
-      if (!hideCopyCut) {
-        if (!isReadOnly) {
-          actions.add(POPUP_ACTION_CUT);
-        }
-        actions.add(POPUP_ACTION_COPY);
-      }
-      if (!isReadOnly) {
-        actions.add(POPUP_ACTION_PASTE);
-        actions.add(POPUP_ACTION_DELETE);
-      }
-    }
-
-    if (actions.isEmpty()) {
-      hidePopup();
-      return;
-    }
-
-    final int btnCount = actions.size();
-    float density = getResources().getDisplayMetrics().density;
-    float labelPad = popupLabelPadding;
-    float[] btnWidths = new float[btnCount];
-    float totalBtnWidths = 0f;
-    for (int i = 0; i < btnCount; i++) {
-      int action = actions.get(i);
-      String label = getPopupLabelForAction(action);
-      float labelWidth = popupTextPaint.measureText(label);
-      float w = popupFitToLabel ? (labelWidth + labelPad) : btnWidth;
-      btnWidths[i] = Math.max(0f, w);
-      totalBtnWidths += btnWidths[i];
-    }
-    float localBtnHeight = btnHeight;
-    float localBtnSpacing = btnSpacing;
-    float localPopupPadding = popupPadding;
-
-    float totalWidth =
-        totalBtnWidths + (localBtnSpacing * (btnCount - 1)) + (localPopupPadding * 2);
-    float totalHeight = localBtnHeight + (localPopupPadding * 2);
-    float availableWidth = getWidth() - (localPopupPadding * 2);
-    if (availableWidth > 0f && totalWidth > availableWidth) {
-      float availableForButtons = availableWidth - (localBtnSpacing * (btnCount - 1));
-      if (availableForButtons < 0f) {
-        localBtnSpacing = 0f;
-        availableForButtons = availableWidth;
-      }
-      float scale = (totalBtnWidths > 0f) ? (availableForButtons / totalBtnWidths) : 1f;
-      if (scale < 1f) {
-        totalBtnWidths = 0f;
-        for (int i = 0; i < btnCount; i++) {
-          btnWidths[i] = Math.max(0f, btnWidths[i] * scale);
-          totalBtnWidths += btnWidths[i];
-        }
-      }
-      totalWidth = totalBtnWidths + (localBtnSpacing * (btnCount - 1)) + (localPopupPadding * 2);
-    }
-
-    // --- POPUP POSITIONING LOGIC ---
-
-    float anchorX, anchorY_top, anchorY_bottom;
-
-    if (isMinimalPopup || !hasSelection) {
-      // Anchor to cursor
-      String cursorLineText = getLineTextForRender(cursorLine);
-      anchorX = getViewXForLineChar(cursorLineText, cursorLine, cursorChar);
-      anchorY_top = getViewYTopForLineChar(cursorLine, cursorChar);
-      anchorY_bottom = anchorY_top + lineHeight;
-    } else {
-      // Anchor to selection (existing logic)
-      int nStartLine, nEndLine, nEndChar;
-      String endLineText;
-      if (comparePos(selStartLine, selStartChar, selEndLine, selEndChar) <= 0) {
-        nStartLine = selStartLine;
-        nEndLine = selEndLine;
-        nEndChar = selEndChar;
-        endLineText = getLineTextForRender(nEndLine);
-      } else {
-        nStartLine = selEndLine;
-        nEndLine = selStartLine;
-        nEndChar = selStartChar;
-        endLineText = getLineTextForRender(nEndLine);
-      }
-
-      anchorY_top = getViewYTopForLineChar(nStartLine, 0);
-      anchorY_bottom = getViewYTopForLineChar(nEndLine, nEndChar) + lineHeight;
-      anchorX = getViewXForLineChar(endLineText, nEndLine, nEndChar);
-    }
-
-    float proposedLeft = anchorX - totalWidth / 2f;
-    if (proposedLeft < 0) proposedLeft = 0;
-    if (proposedLeft + totalWidth > getWidth()) proposedLeft = getWidth() - totalWidth;
-    if (proposedLeft < 0) proposedLeft = 0;
-
-    final float popupVerticalPadding = lineHeight * 0.75f;
-
-    float topAbove = anchorY_top - totalHeight - popupVerticalPadding;
-    float topBelow = anchorY_bottom + popupVerticalPadding;
-
-    float finalTop;
-    float visibleBottomBound = getHeight() - keyboardHeight;
-
-    if (topAbove >= 0) {
-      finalTop = topAbove;
-    } else if (topBelow + totalHeight <= visibleBottomBound) {
-      finalTop = topBelow;
-    } else {
-      finalTop = Math.max(0, visibleBottomBound - totalHeight - popupPadding);
-    }
-
-    popupRect.set(proposedLeft, finalTop, proposedLeft + totalWidth, finalTop + totalHeight);
-    int bgBaseAlpha = bgPaint.getAlpha();
-    int textBaseAlpha = popupTextPaint.getAlpha();
-    bgPaint.setAlpha((int) (bgBaseAlpha * popupAlpha));
-    popupTextPaint.setAlpha((int) (textBaseAlpha * popupAlpha));
-    canvas.drawRoundRect(popupRect, popupCorner, popupCorner, bgPaint);
-
-    float bx = popupRect.left + localPopupPadding;
-    float by = popupRect.top + localPopupPadding;
-
-    if (popupRippleActive && popupRippleAlpha > 0f && !popupRippleRect.isEmpty()) {
-      int rippleAlpha = (int) (255f * Math.max(0f, Math.min(1f, popupRippleAlpha * popupAlpha)));
-      int base = popupRipplePaint.getColor();
-      popupRipplePaint.setColor((base & 0x00FFFFFF) | (rippleAlpha << 24));
-      canvas.save();
-      float rippleCorner = Math.min(popupCorner, localBtnHeight * 0.5f);
-      popupRippleClipPath.reset();
-      popupRippleClipPath.addRoundRect(
-          popupRippleRect, rippleCorner, rippleCorner, Path.Direction.CW);
-      canvas.clipPath(popupRippleClipPath);
-      canvas.drawCircle(popupRippleX, popupRippleY, popupRippleRadius, popupRipplePaint);
-      canvas.restore();
-      popupRipplePaint.setColor(base);
-    }
-
-    for (int i = 0; i < btnCount; i++) {
-      int action = actions.get(i);
-      RectF r = getPopupRectForAction(action);
-      float localBtnWidth = btnWidths[i];
-      r.set(bx, by, bx + localBtnWidth, by + localBtnHeight);
-      String label = getPopupLabelForAction(action);
-      float maxTextWidth = Math.max(0f, localBtnWidth - labelPad);
-      drawButton(canvas, r, label, popupTextPaint, maxTextWidth);
-      bx += localBtnWidth + localBtnSpacing;
-    }
-    bgPaint.setAlpha(bgBaseAlpha);
-    popupTextPaint.setAlpha(textBaseAlpha);
+    popupMenuManager.drawPopup(canvas);
   }
 
   private boolean shouldHideCopyCutForSelection() {
@@ -9883,42 +9661,15 @@ public class SodiumEditorView extends View {
   }
 
   private RectF getPopupRectForAction(int action) {
-    switch (action) {
-      case POPUP_ACTION_COPY:
-        return btnCopyRect;
-      case POPUP_ACTION_CUT:
-        return btnCutRect;
-      case POPUP_ACTION_PASTE:
-        return btnPasteRect;
-      case POPUP_ACTION_DELETE:
-        return btnDeleteRect;
-      default:
-        return btnSelectAllRect;
-    }
+    return popupMenuManager.getPopupRectForAction(action);
   }
 
   private String getPopupLabelForAction(int action) {
-    switch (action) {
-      case POPUP_ACTION_COPY:
-        return popupLabelCopy;
-      case POPUP_ACTION_CUT:
-        return popupLabelCut;
-      case POPUP_ACTION_PASTE:
-        return popupLabelPaste;
-      case POPUP_ACTION_DELETE:
-        return popupLabelDelete;
-      default:
-        return popupLabelSelectAll;
-    }
+    return popupMenuManager.getPopupLabelForAction(action);
   }
 
   private int getPopupActionAt(float x, float y) {
-    if (btnCopyRect.contains(x, y)) return POPUP_ACTION_COPY;
-    if (btnCutRect.contains(x, y)) return POPUP_ACTION_CUT;
-    if (btnPasteRect.contains(x, y)) return POPUP_ACTION_PASTE;
-    if (btnDeleteRect.contains(x, y)) return POPUP_ACTION_DELETE;
-    if (btnSelectAllRect.contains(x, y)) return POPUP_ACTION_SELECT_ALL;
-    return 0;
+    return popupMenuManager.getPopupActionAt(x, y);
   }
 
   private void drawButton(
@@ -9938,135 +9689,29 @@ public class SodiumEditorView extends View {
   }
 
   private void startPopupRipple(int action, float x, float y) {
-    RectF r = getPopupRectForAction(action);
-    if (r.isEmpty()) return;
-    popupRippleHoldActive = false;
-    popupRippleRect.set(r);
-    popupRippleX = Math.max(r.left, Math.min(x, r.right));
-    popupRippleY = Math.max(r.top, Math.min(y, r.bottom));
-    popupRippleRadius = 0f;
-    popupRippleMaxRadius = (float) Math.hypot(r.width(), r.height());
-    popupRippleAlpha = 0.22f;
-    popupRippleActive = true;
-    if (popupRippleAnimator != null) popupRippleAnimator.cancel();
-    popupRippleAnimator = ValueAnimator.ofFloat(0f, 1f);
-    popupRippleAnimator.setDuration(220);
-    popupRippleAnimator.setInterpolator(new DecelerateInterpolator());
-    popupRippleAnimator.addUpdateListener(
-        a -> {
-          float t = (a.getAnimatedValue() instanceof Float) ? (Float) a.getAnimatedValue() : 1f;
-          popupRippleRadius = popupRippleMaxRadius * t;
-          popupRippleAlpha = 0.22f * (1f - t);
-          invalidate();
-        });
-    popupRippleAnimator.addListener(
-        new AnimatorListenerAdapter() {
-          @Override
-          public void onAnimationEnd(Animator animation) {
-            popupRippleActive = false;
-            popupRippleAlpha = 0f;
-            popupRippleRect.setEmpty();
-            invalidate();
-          }
-
-          @Override
-          public void onAnimationCancel(Animator animation) {
-            popupRippleActive = false;
-            popupRippleAlpha = 0f;
-            popupRippleRect.setEmpty();
-            invalidate();
-          }
-        });
-    popupRippleAnimator.start();
+    popupMenuManager.startPopupRipple(action, x, y);
   }
 
   private void startPopupRippleHold(int action, float x, float y) {
-    RectF r = getPopupRectForAction(action);
-    if (r.isEmpty()) return;
-    popupRippleHoldActive = true;
-    popupRippleRect.set(r);
-    popupRippleX = Math.max(r.left, Math.min(x, r.right));
-    popupRippleY = Math.max(r.top, Math.min(y, r.bottom));
-    popupRippleMaxRadius = (float) Math.hypot(r.width(), r.height());
-    popupRippleRadius = popupRippleMaxRadius;
-    popupRippleAlpha = 0.22f;
-    popupRippleActive = true;
-    if (popupRippleAnimator != null) popupRippleAnimator.cancel();
-    invalidate();
+    popupMenuManager.startPopupRippleHold(action, x, y);
   }
 
   private void cancelPopupRipple() {
-    if (popupRippleAnimator != null) popupRippleAnimator.cancel();
-    popupRippleHoldActive = false;
-    popupRippleActive = false;
-    popupRippleAlpha = 0f;
-    popupRippleRect.setEmpty();
-    invalidate();
+    popupMenuManager.cancelPopupRipple();
   }
 
   private void showMinimalPopupAtCursor() {
     if (hasSelection) return;
-    isMinimalPopup = true;
-    showPopupAnimated();
+    popupMenuManager.showMinimalPopupAtCursor();
   }
 
   void showPopupAtSelection() {
     if (!hasSelection) return;
-    isMinimalPopup = false;
-    showPopupAnimated();
+    popupMenuManager.showPopupAtSelection();
   }
 
   void hidePopup() {
-    hidePopupAnimated();
-  }
-
-  private void showPopupAnimated() {
-    if (!showPopup) {
-      showPopup = true;
-    }
-    startPopupFade(1f);
-  }
-
-  private void hidePopupAnimated() {
-    popupPressedAction = 0;
-    cancelPopupRipple();
-    startPopupFade(0f);
-  }
-
-  private void startPopupFade(float targetAlpha) {
-    if (popupFadeAnimator != null) popupFadeAnimator.cancel();
-    float startAlpha = popupAlpha;
-    long duration = (targetAlpha > startAlpha) ? POPUP_FADE_IN_MS : POPUP_FADE_OUT_MS;
-    popupFadeAnimator = ValueAnimator.ofFloat(startAlpha, targetAlpha);
-    popupFadeAnimator.setDuration(duration);
-    popupFadeAnimator.setInterpolator(new DecelerateInterpolator());
-    popupFadeAnimator.addUpdateListener(
-        a -> {
-          Object v = a.getAnimatedValue();
-          popupAlpha = (v instanceof Float) ? (Float) v : targetAlpha;
-          invalidate();
-        });
-    popupFadeAnimator.addListener(
-        new AnimatorListenerAdapter() {
-          @Override
-          public void onAnimationEnd(Animator animation) {
-            if (popupAlpha <= 0f) {
-              showPopup = false;
-              isMinimalPopup = false;
-            }
-            invalidate();
-          }
-
-          @Override
-          public void onAnimationCancel(Animator animation) {
-            if (popupAlpha <= 0f) {
-              showPopup = false;
-              isMinimalPopup = false;
-            }
-            invalidate();
-          }
-        });
-    popupFadeAnimator.start();
+    popupMenuManager.hidePopup();
   }
 
   private void startFlingStopAnimation(float targetX, float targetY) {
@@ -13878,10 +13523,10 @@ public class SodiumEditorView extends View {
           }
         }
 
-        if (showPopup) {
+        if (popupMenuManager.isPopupVisible()) {
           int hitAction = getPopupActionAt(ex, ey);
           if (hitAction != 0) {
-            popupPressedAction = hitAction;
+            popupMenuManager.setPressedAction(hitAction);
             startPopupRipple(hitAction, ex, ey);
             return true;
           }
@@ -13939,10 +13584,11 @@ public class SodiumEditorView extends View {
           return true;
         }
 
-        if (popupPressedAction != 0) {
-          RectF r = getPopupRectForAction(popupPressedAction);
+        if (popupMenuManager.getPressedAction() != 0) {
+          int pressed = popupMenuManager.getPressedAction();
+          RectF r = getPopupRectForAction(pressed);
           if (!r.contains(ex, ey)) {
-            popupPressedAction = 0;
+            popupMenuManager.clearPressedAction();
             cancelPopupRipple();
           }
           return true;
@@ -13993,38 +13639,34 @@ public class SodiumEditorView extends View {
           return true;
         }
 
-        if (popupPressedAction != 0) {
-          int actionForTap = popupPressedAction;
-          popupPressedAction = 0;
+        if (popupMenuManager.getPressedAction() != 0) {
+          int actionForTap = popupMenuManager.getPressedAction();
+          popupMenuManager.clearPressedAction();
           RectF r = getPopupRectForAction(actionForTap);
-          if (showPopup && r.contains(ex, ey)) {
+          if (popupMenuManager.isPopupVisible() && r.contains(ex, ey)) {
             if (isReadOnly
-                && (actionForTap == POPUP_ACTION_CUT
-                    || actionForTap == POPUP_ACTION_PASTE
-                    || actionForTap == POPUP_ACTION_DELETE)) {
+                && (actionForTap == PopupMenuManager.POPUP_ACTION_CUT
+                    || actionForTap == PopupMenuManager.POPUP_ACTION_PASTE
+                    || actionForTap == PopupMenuManager.POPUP_ACTION_DELETE)) {
               hidePopup();
               return true;
             }
-            if (actionForTap == POPUP_ACTION_COPY) {
+            if (actionForTap == PopupMenuManager.POPUP_ACTION_COPY) {
               copySelectionToClipboard();
               hasSelection = false;
               isSelectAllActive = false;
               hidePopup();
               invalidate();
-            } else if (actionForTap == POPUP_ACTION_CUT) {
-              cutSelectionToClipboard();
-            } else if (actionForTap == POPUP_ACTION_PASTE) {
-              pasteFromClipboard();
-            } else if (actionForTap == POPUP_ACTION_DELETE) {
-              deleteSelection();
-            } else if (actionForTap == POPUP_ACTION_SELECT_ALL) {
+            } else if (actionForTap == PopupMenuManager.POPUP_ACTION_SELECT_ALL) {
               if (!isSelectAllActive) selectAll();
               else hidePopup();
+            } else {
+              popupMenuManager.performPopupAction(actionForTap);
             }
           } else {
             cancelPopupRipple();
           }
-          if (popupRippleHoldActive) {
+          if (popupMenuManager.isPopupRippleHoldActive()) {
             cancelPopupRipple();
           }
           return true;
@@ -14106,7 +13748,7 @@ public class SodiumEditorView extends View {
 
         Log.d("SodiumEditorView", "onTouchEvent.ACTION_UP: Passing to GestureDetector.ACTION_UP.");
         gestureDetector.onTouchEvent(event);
-        if (hasSelection && !showPopup) {
+        if (hasSelection && !popupMenuManager.isPopupVisible()) {
           showPopupAtSelection();
         }
         return true;
@@ -14118,7 +13760,7 @@ public class SodiumEditorView extends View {
         selecting = false;
         isLineNumberSelecting = false;
         lineNumberSelectAnchorLine = -1;
-        popupPressedAction = 0;
+        popupMenuManager.clearPressedAction();
         cancelPopupRipple();
         clearActiveSuggestion(); // Clear suggestion on touch cancel
         scrollManager.dragMaxScrollX = -1f;
