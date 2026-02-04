@@ -58,12 +58,12 @@ final class IMEManager {
 
     ImeContext ctx = buildImeContext(imeExtractedBeforeChars, imeExtractedAfterChars);
 
-    int sLine = view.cursorLine, sChar = view.cursorChar, eLine = view.cursorLine, eChar = view.cursorChar;
-    if (view.hasSelection) {
-      sLine = view.selStartLine;
-      sChar = view.selStartChar;
-      eLine = view.selEndLine;
-      eChar = view.selEndChar;
+    int sLine = view.getCursorLine(), sChar = view.getCursorChar(), eLine = view.getCursorLine(), eChar = view.getCursorChar();
+    if (view.hasSelectionValue()) {
+      sLine = view.getSelectionStartLineValue();
+      sChar = view.getSelectionStartCharValue();
+      eLine = view.getSelectionEndLineValue();
+      eChar = view.getSelectionEndCharValue();
       if (view.comparePos(sLine, sChar, eLine, eChar) > 0) {
         int tL = sLine, tC = sChar;
         sLine = eLine;
@@ -156,12 +156,12 @@ final class IMEManager {
         int before = Math.max(0, beforeLength);
         int after = Math.max(0, afterLength);
         ImeContext ctx = buildImeContext(before, after);
-        int sLine = view.cursorLine, sChar = view.cursorChar, eLine = view.cursorLine, eChar = view.cursorChar;
-        if (view.hasSelection) {
-          sLine = view.selStartLine;
-          sChar = view.selStartChar;
-          eLine = view.selEndLine;
-          eChar = view.selEndChar;
+        int sLine = view.getCursorLine(), sChar = view.getCursorChar(), eLine = view.getCursorLine(), eChar = view.getCursorChar();
+        if (view.hasSelectionValue()) {
+          sLine = view.getSelectionStartLineValue();
+          sChar = view.getSelectionStartCharValue();
+          eLine = view.getSelectionEndLineValue();
+          eChar = view.getSelectionEndCharValue();
           if (view.comparePos(sLine, sChar, eLine, eChar) > 0) {
             int tL = sLine, tC = sChar;
             sLine = eLine;
@@ -190,14 +190,14 @@ final class IMEManager {
         int textLen = ctx.text.length();
         int sOff = Math.max(0, Math.min(start, textLen));
         int eOff = Math.max(0, Math.min(end, textLen));
-        int cursorOff = lineCharToOffsetInContext(ctx, view.cursorLine, view.cursorChar);
-        if (sOff == eOff && sOff == cursorOff && !view.hasSelection) return true;
-        if (sOff == 0 && eOff == 0 && cursorOff > 0 && !view.hasSelection) return true;
+        int cursorOff = lineCharToOffsetInContext(ctx, view.getCursorLine(), view.getCursorChar());
+        if (sOff == eOff && sOff == cursorOff && !view.hasSelectionValue()) return true;
+        if (sOff == 0 && eOff == 0 && cursorOff > 0 && !view.hasSelectionValue()) return true;
         SodiumEditorView.CursorTarget s = offsetToLineCharInContext(ctx, sOff);
         SodiumEditorView.CursorTarget e = offsetToLineCharInContext(ctx, eOff);
         view.setSelectionInternal(s.line, s.ch, e.line, e.ch);
-        view.cursorLine = e.line;
-        view.cursorChar = e.ch;
+        view.setCursorLine(e.line);
+        view.setCursorChar(e.ch);
         view.resetCursorBlink();
         view.invalidate();
         view.updateSuggestion();
@@ -221,8 +221,8 @@ final class IMEManager {
         SodiumEditorView.CursorTarget e = offsetToLineCharInContext(ctx, eOff);
         if (s.line != e.line) {
           view.setSelectionInternal(s.line, s.ch, e.line, e.ch);
-          view.cursorLine = e.line;
-          view.cursorChar = e.ch;
+          view.setCursorLine(e.line);
+          view.setCursorChar(e.ch);
           view.resetCursorBlink();
           view.invalidate();
           view.updateSuggestion();
@@ -256,7 +256,7 @@ final class IMEManager {
       public boolean commitCompletion(android.view.inputmethod.CompletionInfo text) {
         if (view.isDisabled || view.isReadOnly) return true;
         if (text == null || text.getText() == null) return true;
-        if (!view.hasComposing && !view.hasSelection && replaceWordAtCursorWith(text.getText())) {
+        if (!view.hasComposing && !view.hasSelectionValue() && replaceWordAtCursorWith(text.getText())) {
           markImeCommit(text.getText());
           return true;
         }
@@ -268,7 +268,7 @@ final class IMEManager {
         if (view.isDisabled || view.isReadOnly) return true;
         if (correctionInfo == null || correctionInfo.getNewText() == null) return true;
         if (!view.hasComposing
-            && !view.hasSelection
+            && !view.hasSelectionValue()
             && replaceWordAtCursorWith(correctionInfo.getNewText())) {
           markImeCommit(correctionInfo.getNewText());
           return true;
@@ -296,17 +296,17 @@ final class IMEManager {
           return true;
         }
 
-        if (!view.hasComposing && !view.hasSelection && view.lastImeCommitText != null) {
+        if (!view.hasComposing && !view.hasSelectionValue() && view.lastImeCommitText != null) {
           long now = SystemClock.uptimeMillis();
           if (now - view.lastImeCommitUptime < 700 && str.trim().isEmpty()) {
             int[] bounds = getWordBoundsAtCursor();
             if (bounds != null) {
-              String line = view.getLineTextForRender(view.cursorLine);
+              String line = view.getLineTextForRender(view.getCursorLine());
               if (line != null && bounds[0] < bounds[1] && bounds[1] <= line.length()) {
                 String word = line.substring(bounds[0], bounds[1]);
                 if (!word.isEmpty() && view.lastImeCommitText.startsWith(word)) {
                   if (!word.equals(view.lastImeCommitText)) {
-                    view.setSelectionInternal(view.cursorLine, bounds[0], view.cursorLine, bounds[1]);
+                    view.setSelectionInternal(view.getCursorLine(), bounds[0], view.getCursorLine(), bounds[1]);
                     view.replaceSelectionWithText(view.lastImeCommitText);
                   }
                   view.insertTextAtCursor(str);
@@ -318,7 +318,7 @@ final class IMEManager {
           }
         }
 
-        if (!view.hasComposing && !view.hasSelection) {
+        if (!view.hasComposing && !view.hasSelectionValue()) {
           long now = SystemClock.uptimeMillis();
           boolean recentIme =
               view.suppressNextCommitText
@@ -363,7 +363,7 @@ final class IMEManager {
           }
         }
 
-        if (view.hasSelection) {
+        if (view.hasSelectionValue()) {
           view.replaceSelectionWithText(str);
           view.commitComposing(true);
           view.startCharAnimationFromText(text);
@@ -400,17 +400,17 @@ final class IMEManager {
         if (view.isZoomGestureActive()) return true;
         if (text == null) return true;
 
-        if (view.hasSelection) {
+        if (view.hasSelectionValue()) {
           view.replaceSelectionWithText(text.toString());
           view.startCharAnimationFromText(text);
           view.updateSuggestion();
           return true;
         }
 
-        view.getScrollManager().ensureLineInWindow(view.cursorLine, true);
+        view.getScrollManager().ensureLineInWindow(view.getCursorLine(), true);
         if (!view.hasComposing) {
-          view.composingLine = view.cursorLine;
-          view.composingOffset = view.cursorChar;
+          view.composingLine = view.getCursorLine();
+          view.composingOffset = view.getCursorChar();
           view.composingLength = 0;
           view.hasComposing = true;
           view.composingStartLine = view.composingLine;
@@ -436,7 +436,7 @@ final class IMEManager {
         if (view.isDisabled || view.isReadOnly) return true;
         if (view.isZoomGestureActive()) return true;
 
-        if (view.hasSelection) {
+        if (view.hasSelectionValue()) {
           view.replaceSelectionWithText("");
           view.updateSuggestion();
           return true;
@@ -595,9 +595,9 @@ final class IMEManager {
     RandomAccessFile raf = openImeRandomAccessFile();
     try {
       SodiumEditorView.CursorTarget start =
-          moveCursorByCharsForIme(view.cursorLine, view.cursorChar, -before, raf);
+          moveCursorByCharsForIme(view.getCursorLine(), view.getCursorChar(), -before, raf);
       SodiumEditorView.CursorTarget end =
-          moveCursorByCharsForIme(view.cursorLine, view.cursorChar, after, raf);
+          moveCursorByCharsForIme(view.getCursorLine(), view.getCursorChar(), after, raf);
       String text = buildRangeTextForIme(start, end, raf);
       return new ImeContext(start.line, start.ch, text);
     } finally {
@@ -617,12 +617,12 @@ final class IMEManager {
     et.partialStartOffset = -1;
     et.partialEndOffset = -1;
 
-    int sLine = view.cursorLine, sChar = view.cursorChar, eLine = view.cursorLine, eChar = view.cursorChar;
-    if (view.hasSelection) {
-      sLine = view.selStartLine;
-      sChar = view.selStartChar;
-      eLine = view.selEndLine;
-      eChar = view.selEndChar;
+    int sLine = view.getCursorLine(), sChar = view.getCursorChar(), eLine = view.getCursorLine(), eChar = view.getCursorChar();
+    if (view.hasSelectionValue()) {
+      sLine = view.getSelectionStartLineValue();
+      sChar = view.getSelectionStartCharValue();
+      eLine = view.getSelectionEndLineValue();
+      eChar = view.getSelectionEndCharValue();
       if (view.comparePos(sLine, sChar, eLine, eChar) > 0) {
         int tL = sLine, tC = sChar;
         sLine = eLine;
@@ -678,8 +678,8 @@ final class IMEManager {
     RandomAccessFile raf = openImeRandomAccessFile();
     try {
       SodiumEditorView.CursorTarget start =
-          moveCursorByCharsForIme(view.cursorLine, view.cursorChar, -length, raf);
-      return buildRangeTextForIme(start, new SodiumEditorView.CursorTarget(view.cursorLine, view.cursorChar), raf);
+          moveCursorByCharsForIme(view.getCursorLine(), view.getCursorChar(), -length, raf);
+      return buildRangeTextForIme(start, new SodiumEditorView.CursorTarget(view.getCursorLine(), view.getCursorChar()), raf);
     } finally {
       if (raf != null) {
         try {
@@ -695,8 +695,8 @@ final class IMEManager {
     RandomAccessFile raf = openImeRandomAccessFile();
     try {
       SodiumEditorView.CursorTarget end =
-          moveCursorByCharsForIme(view.cursorLine, view.cursorChar, length, raf);
-      return buildRangeTextForIme(new SodiumEditorView.CursorTarget(view.cursorLine, view.cursorChar), end, raf);
+          moveCursorByCharsForIme(view.getCursorLine(), view.getCursorChar(), length, raf);
+      return buildRangeTextForIme(new SodiumEditorView.CursorTarget(view.getCursorLine(), view.getCursorChar()), end, raf);
     } finally {
       if (raf != null) {
         try {
@@ -711,23 +711,23 @@ final class IMEManager {
     if (textSeq == null) return false;
     String insert = textSeq.toString();
     if (insert.isEmpty()) return false;
-    if (view.hasSelection) {
+    if (view.hasSelectionValue()) {
       view.replaceSelectionWithText(insert);
       return true;
     }
-    String line = view.getLineTextForRender(view.cursorLine);
+    String line = view.getLineTextForRender(view.getCursorLine());
     if (line == null || line.isEmpty()) return false;
-    int pos = Math.max(0, Math.min(view.cursorChar, line.length()));
+    int pos = Math.max(0, Math.min(view.getCursorChar(), line.length()));
     if (pos == line.length()) pos = Math.max(0, pos - 1);
     int[] bounds = view.computeWordBounds(line, pos);
     if (bounds[0] == bounds[1]) return false;
-    view.setSelectionInternal(view.cursorLine, bounds[0], view.cursorLine, bounds[1]);
+    view.setSelectionInternal(view.getCursorLine(), bounds[0], view.getCursorLine(), bounds[1]);
     view.replaceSelectionWithText(insert);
     return true;
   }
 
   private boolean tryReplaceWordFromImeCommit(String insert) {
-    if (view.hasSelection || view.hasComposing) return false;
+    if (view.hasSelectionValue() || view.hasComposing) return false;
     if (insert == null || insert.isEmpty()) return false;
     if (insert.length() <= 1) return false;
     int end = insert.length();
@@ -740,11 +740,11 @@ final class IMEManager {
     }
     int[] bounds = getWordBoundsAtCursor();
     if (bounds == null) return false;
-    String line = view.getLineTextForRender(view.cursorLine);
+    String line = view.getLineTextForRender(view.getCursorLine());
     if (line == null || bounds[0] >= bounds[1] || bounds[1] > line.length()) return false;
     String word = line.substring(bounds[0], bounds[1]);
     if (word.isEmpty() || word.equals(core)) return false;
-    view.setSelectionInternal(view.cursorLine, bounds[0], view.cursorLine, bounds[1]);
+    view.setSelectionInternal(view.getCursorLine(), bounds[0], view.getCursorLine(), bounds[1]);
     view.replaceSelectionWithText(core);
     if (!trailing.isEmpty()) view.insertTextAtCursor(trailing);
     markImeCommit(insert);
@@ -754,9 +754,9 @@ final class IMEManager {
 
   @Nullable
   private int[] getWordBoundsAtCursor() {
-    String line = view.getLineTextForRender(view.cursorLine);
+    String line = view.getLineTextForRender(view.getCursorLine());
     if (line == null || line.isEmpty()) return null;
-    int pos = Math.max(0, Math.min(view.cursorChar, line.length()));
+    int pos = Math.max(0, Math.min(view.getCursorChar(), line.length()));
     if (pos == line.length() && pos > 0) pos--;
     if (pos < 0 || pos >= line.length()) return null;
     if (Character.isWhitespace(line.charAt(pos))) return null;

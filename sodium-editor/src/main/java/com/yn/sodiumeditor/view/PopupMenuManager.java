@@ -228,24 +228,24 @@ final class PopupMenuManager {
     }
 
     float anchorX, anchorYTop, anchorYBottom;
-    if (isMinimalPopup || !view.hasSelection) {
-      String cursorLineText = view.getLineTextForRender(view.cursorLine);
-      anchorX = view.getViewXForPopup(cursorLineText, view.cursorLine, view.cursorChar);
-      anchorYTop = view.getViewYTopForPopup(view.cursorLine, view.cursorChar);
+    if (isMinimalPopup || !view.hasSelectionValue()) {
+      String cursorLineText = view.getLineTextForRender(view.getCursorLine());
+      anchorX = view.getViewXForPopup(cursorLineText, view.getCursorLine(), view.getCursorChar());
+      anchorYTop = view.getViewYTopForPopup(view.getCursorLine(), view.getCursorChar());
       anchorYBottom = anchorYTop + view.lineHeight;
     } else {
       int nStartLine, nEndLine, nEndChar;
       String endLineText;
-      if (view.comparePos(view.selStartLine, view.selStartChar, view.selEndLine, view.selEndChar)
+      if (view.comparePos(view.getSelectionStartLineValue(), view.getSelectionStartCharValue(), view.getSelectionEndLineValue(), view.getSelectionEndCharValue())
           <= 0) {
-        nStartLine = view.selStartLine;
-        nEndLine = view.selEndLine;
-        nEndChar = view.selEndChar;
+        nStartLine = view.getSelectionStartLineValue();
+        nEndLine = view.getSelectionEndLineValue();
+        nEndChar = view.getSelectionEndCharValue();
         endLineText = view.getLineTextForRender(nEndLine);
       } else {
-        nStartLine = view.selEndLine;
-        nEndLine = view.selStartLine;
-        nEndChar = view.selStartChar;
+        nStartLine = view.getSelectionEndLineValue();
+        nEndLine = view.getSelectionStartLineValue();
+        nEndChar = view.getSelectionStartCharValue();
         endLineText = view.getLineTextForRender(nEndLine);
       }
 
@@ -391,13 +391,13 @@ final class PopupMenuManager {
   }
 
   void showMinimalPopupAtCursor() {
-    if (view.hasSelection) return;
+    if (view.hasSelectionValue()) return;
     isMinimalPopup = true;
     showPopupAnimated();
   }
 
   void showPopupAtSelection() {
-    if (!view.hasSelection) return;
+    if (!view.hasSelectionValue()) return;
     isMinimalPopup = false;
     showPopupAnimated();
   }

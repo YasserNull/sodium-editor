@@ -157,7 +157,7 @@ public final class ScrollManager {
           view.wrapPrefixRebuildPending = false;
           view.scheduleWrapPrefixRebuildUpToWindow();
         }
-        if (view.hasSelection) view.showPopupAtSelection();
+        if (view.hasSelectionValue()) view.showPopupAtSelection();
       }
     }
   }
@@ -348,8 +348,8 @@ public final class ScrollManager {
             : (view.isCodeFoldingEnabled
                 ? view.getVisibleLineCount()
                 : Math.max(1, view.getLinesCount()));
-    if (view.isWordWrapEnabled && (view.isSelectAllActive || view.isEntireFileSelected)) {
-      lineCount = Math.max(lineCount, view.selEndLine + 1);
+    if (view.isWordWrapEnabled && (view.isSelectAllActiveValue() || view.isEntireFileSelectedValue())) {
+      lineCount = Math.max(lineCount, view.getSelectionEndLineValue() + 1);
     }
     if (view.isEof) {
       float paddingToUse =
@@ -519,7 +519,7 @@ public final class ScrollManager {
         || view.getZoomManager().isMultiTouchActive()) {
       return;
     }
-    int cursorVisualIndex = view.getVisualIndexForLineAndChar(view.cursorLine, view.cursorChar);
+    int cursorVisualIndex = view.getVisualIndexForLineAndChar(view.getCursorLine(), view.getCursorChar());
     float cursorYTop = cursorVisualIndex * view.lineHeight;
     float cursorYBottom = cursorYTop + view.lineHeight;
     int viewHeight = view.getHeight() - view.keyboardHeight;
@@ -546,10 +546,10 @@ public final class ScrollManager {
     clampScrollY();
 
     if (!view.isWordWrapEnabled) {
-      String line = view.getLineTextForRender(view.cursorLine);
+      String line = view.getLineTextForRender(view.getCursorLine());
       int safeChar =
-          Math.min(view.cursorChar, view.getLogicalLineLength(view.cursorLine, line));
-      float cursorX = view.getCaretXForLine(line, view.cursorLine, safeChar);
+          Math.min(view.getCursorChar(), view.getLogicalLineLength(view.getCursorLine(), line));
+      float cursorX = view.getCaretXForLine(line, view.getCursorLine(), safeChar);
 
       float viewLeft = view.isRtl ? 0f : view.lineNumbersGutterWidth;
       float viewRight =

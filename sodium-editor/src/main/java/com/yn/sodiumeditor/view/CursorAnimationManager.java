@@ -28,7 +28,7 @@ final class CursorAnimationManager {
       new Runnable() {
         @Override
         public void run() {
-          if (view.isFocused() && !view.hasSelection) {
+          if (view.isFocused() && !view.hasSelectionValue()) {
             isCursorVisible = !isCursorVisible;
             view.invalidateCursorAreaForCursor();
             view.mainHandler.postDelayed(this, 500);
@@ -119,10 +119,10 @@ final class CursorAnimationManager {
       return;
     }
 
-    boolean cursorMoved = (view.cursorLine != lastCursorAnimLine || view.cursorChar != lastCursorAnimChar);
+    boolean cursorMoved = (view.getCursorLine() != lastCursorAnimLine || view.getCursorChar() != lastCursorAnimChar);
     if (cursorMoved) {
-      lastCursorAnimLine = view.cursorLine;
-      lastCursorAnimChar = view.cursorChar;
+      lastCursorAnimLine = view.getCursorLine();
+      lastCursorAnimChar = view.getCursorChar();
       lastCursorMoveUptime = SystemClock.uptimeMillis();
     } else if (Math.abs(targetX - cursorAnimTargetX) > 0.5f
         || Math.abs(targetY - cursorAnimTargetY) > 0.5f) {
@@ -175,7 +175,7 @@ final class CursorAnimationManager {
   void resetCursorBlink() {
     view.mainHandler.removeCallbacks(blinkRunnable);
     isCursorVisible = true;
-    if (view.isFocused() && !view.hasSelection) {
+    if (view.isFocused() && !view.hasSelectionValue()) {
       view.invalidate();
       view.mainHandler.postDelayed(blinkRunnable, 500);
     }

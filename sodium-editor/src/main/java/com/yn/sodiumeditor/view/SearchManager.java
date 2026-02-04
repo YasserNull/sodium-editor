@@ -118,10 +118,10 @@ final class SearchManager {
 
       boolean isCurrentMatch =
           highlightCurrentSearchMatch
-              && !view.hasSelection
-              && globalLine == view.cursorLine
-              && view.cursorChar >= start
-              && view.cursorChar <= end;
+              && !view.hasSelectionValue()
+              && globalLine == view.getCursorLine()
+              && view.getCursorChar() >= start
+              && view.getCursorChar() <= end;
 
       Paint paintToUse = isCurrentMatch ? currentSearchMatchPaint : searchHighlightPaint;
       canvas.drawRect(left, top, right, bottom, paintToUse);
@@ -150,10 +150,10 @@ final class SearchManager {
 
       boolean isCurrentMatch =
           highlightCurrentSearchMatch
-              && !view.hasSelection
-              && globalLine == view.cursorLine
-              && view.cursorChar >= start
-              && view.cursorChar <= end;
+              && !view.hasSelectionValue()
+              && globalLine == view.getCursorLine()
+              && view.getCursorChar() >= start
+              && view.getCursorChar() <= end;
 
       Paint paintToUse = isCurrentMatch ? currentSearchMatchPaint : searchHighlightPaint;
       canvas.drawRect(left, top, right, bottom, paintToUse);
@@ -165,8 +165,8 @@ final class SearchManager {
     int total = view.getLinesCount();
     if (total <= 0) return false;
 
-    int startLine = Math.max(0, view.cursorLine);
-    int startChar = Math.max(0, view.cursorChar);
+    int startLine = Math.max(0, view.getCursorLine());
+    int startChar = Math.max(0, view.getCursorChar());
 
     SearchMatch match =
         forward
@@ -330,8 +330,8 @@ final class SearchManager {
     int total = view.getLinesCount();
     if (total <= 0) return false;
 
-    int startLine = Math.max(0, view.cursorLine);
-    int startChar = Math.max(0, view.cursorChar);
+    int startLine = Math.max(0, view.getCursorLine());
+    int startChar = Math.max(0, view.getCursorChar());
 
     SearchMatch match =
         forward
@@ -350,8 +350,8 @@ final class SearchManager {
     int total = view.getLinesCount();
     if (total <= 0) return false;
 
-    int startLine = Math.max(0, view.cursorLine);
-    int startChar = Math.max(0, view.cursorChar);
+    int startLine = Math.max(0, view.getCursorLine());
+    int startChar = Math.max(0, view.getCursorChar());
     if (forward) {
       startChar = Math.max(-1, startChar - 1);
     } else {
@@ -387,8 +387,8 @@ final class SearchManager {
 
   private SearchMatch findSearchMatchAtCursor() {
     if (!isSearchActive()) return null;
-    int line = view.cursorLine;
-    int ch = view.cursorChar;
+    int line = view.getCursorLine();
+    int ch = view.getCursorChar();
     String lineText = view.getLineTextForRender(line);
     if (lineText == null) lineText = "";
 
