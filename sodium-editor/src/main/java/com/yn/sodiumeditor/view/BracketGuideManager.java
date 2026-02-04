@@ -397,7 +397,8 @@ final class BracketGuideManager {
     if (line == null || line.isEmpty()) return true;
     if (x <= 0f) return Character.isWhitespace(line.charAt(0));
 
-    List<HighlightSpan> spans = view.getHighlightSpansForBracket(globalLine);
+    List<SodiumEditorView.HighlightSpan> spans =
+        view.getHighlightSpansForBracket(globalLine);
     if (spans == null) {
       spans = view.calculateSpansForLineForBracket(line, globalLine);
       view.putHighlightSpansForBracket(globalLine, spans);
@@ -410,7 +411,7 @@ final class BracketGuideManager {
 
     int pos = 0;
     if (spans != null && !spans.isEmpty()) {
-      for (HighlightSpan span : spans) {
+      for (SodiumEditorView.HighlightSpan span : spans) {
         if (pos >= len) break;
         if (span.end <= pos) continue;
         if (span.start > pos) {

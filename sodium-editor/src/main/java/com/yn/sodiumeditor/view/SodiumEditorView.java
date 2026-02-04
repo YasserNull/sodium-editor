@@ -78,28 +78,6 @@ public class SodiumEditorView extends View {
   // --- Line Number State ---
   private boolean showLineNumbers = false;
   private boolean highlightCurrentLineInGutter = true;
-  private boolean lineNumberSelectionEnabled = true;
-  float lineNumbersGutterWidth = 0f;
-  private final Paint lineNumbersPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  private final Paint gutterPaint = new Paint();
-  private final Paint gutterSeparatorPaint = new Paint();
-  private Bitmap lineNumberCacheBitmap;
-  private Canvas lineNumberCacheCanvas;
-  private int lineNumberCacheWidth = 0;
-  private int lineNumberCacheHeight = 0;
-  private int lineNumberCacheFirstIndex = -1;
-  private int lineNumberCacheLastIndex = -1;
-  private float lineNumberCacheBaseScrollY = 0f;
-  private float lineNumberCacheTextSize = -1f;
-  @Nullable private Typeface lineNumberCacheTypeface;
-  private boolean lineNumberCacheRtl = false;
-  private boolean lineNumberCacheWrapped = false;
-  private boolean lineNumberCacheCodeFolding = false;
-  private float lineNumberCacheGutterWidth = 0f;
-  private float lineNumberCacheFoldMarkerWidth = 0f;
-  private float lineNumberCacheLineHeight = 0f;
-  private int lineNumberCacheColor = 0;
-  private float gutterSeparatorWidth;
   boolean isRtl = false;
   private final Rect textBounds = new Rect();
   private final int[] tmpLocationInWindow = new int[2];
@@ -179,10 +157,10 @@ public class SodiumEditorView extends View {
   }
 
   private void drawCurrentLineHighlightInGutter(Canvas canvas, float top, float bottom) {
-    if (!showLineNumbers || !highlightCurrentLineInGutter || lineNumbersGutterWidth <= 0f) return;
+    if (!showLineNumbers || !highlightCurrentLineInGutter || lineNumberManager.lineNumbersGutterWidth <= 0f) return;
     float left = getGutterStartX();
-    float right = left + lineNumbersGutterWidth;
-    float sep = gutterSeparatorWidth;
+    float right = left + lineNumberManager.lineNumbersGutterWidth;
+    float sep = lineNumberManager.gutterSeparatorWidth;
     if (sep > 0f) {
       if (isRtl) {
         left = Math.min(right, left + sep);
@@ -293,16 +271,6 @@ public class SodiumEditorView extends View {
   private float baseHandleTextSizePx = 0f;
   private float baseCursorTextSizePx = 0f;
   private int selectionHighlightColor = 0x8033B5E5;
-  private boolean isBracketMatchingEnabled = false;
-  private final Paint bracketMatchPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  private float bracketMatchStrokeWidth = 2f;
-  private float baseBracketMatchStrokeWidth = bracketMatchStrokeWidth;
-  private float baseBracketMatchTextSizePx = 0f;
-  private final RectF bracketMatchRect = new RectF();
-  @Nullable private BracketMatch cachedBracketMatch = null;
-  private int cachedBracketMatchCursorLine = -1;
-  private int cachedBracketMatchCursorChar = -1;
-  private int cachedBracketMatchEditVersion = -1;
   private boolean isIndentGuidesEnabled = false;
   private final Paint indentGuidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   private float indentGuideStrokeWidth = 2f;
@@ -332,10 +300,11 @@ public class SodiumEditorView extends View {
   private final HandlesManager handlesManager = new HandlesManager();
   private final CursorManager cursorManager = new CursorManager();
   private final SelectionManager selectionManager = new SelectionManager();
+  private final LineNumberManager lineNumberManager = new LineNumberManager(this);
   private final BracketGuideManager bracketGuideManager = new BracketGuideManager(this);
+  private final BracketMatchManager bracketMatchManager = new BracketMatchManager(this);
   private final Paint loadingCirclePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   private final RectF loadingCircleRect = new RectF();
-  private final char[] lineNumberChars = new char[16];
   private final java.util.HashMap<Integer, String> directLinesTmp = new java.util.HashMap<>();
   private final Path teardropPath = new Path();
   private final Paint popupBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -668,7 +637,7 @@ public class SodiumEditorView extends View {
     }
   }
 
-  private static class HighlightSpan {
+  static class HighlightSpan {
     final int start;
     final int end;
     final Paint paint;
@@ -714,27 +683,13 @@ public class SodiumEditorView extends View {
     }
   }
 
-  private static class HighlightLineState {
+  static class HighlightLineState {
     final boolean inBlockComment;
     final int stringState;
 
     HighlightLineState(boolean inBlockComment, int stringState) {
       this.inBlockComment = inBlockComment;
       this.stringState = stringState;
-    }
-  }
-
-  private static class BracketMatch {
-    final int openLine;
-    final int openChar;
-    final int closeLine;
-    final int closeChar;
-
-    BracketMatch(int openLine, int openChar, int closeLine, int closeChar) {
-      this.openLine = openLine;
-      this.openChar = openChar;
-      this.closeLine = closeLine;
-      this.closeChar = closeChar;
     }
   }
 
@@ -765,19 +720,6 @@ public class SodiumEditorView extends View {
       this.isIndentFold = isIndentFold;
       this.collapsed = false;
     }
-  }
-
-  private static class BracketToken {
-    final int line;
-    final int ch;
-    final char bracket;
-
-    BracketToken(int line, int ch, char bracket) {
-      this.line = line;
-      this.ch = ch;
-      this.bracket = bracket;
-    }
-  }
   }
 
   private enum HighlightRuleType {
@@ -890,12 +832,9 @@ public class SodiumEditorView extends View {
     lineHeight = paint.getFontSpacing();
     baseHandleTextSizePx = paint.getTextSize();
     baseCursorTextSizePx = paint.getTextSize();
-    baseBracketMatchTextSizePx = paint.getTextSize();
-    bracketGuideManager.setBaseTextSizePx(paint.getTextSize());
     baseIndentGuideTextSizePx = paint.getTextSize();
-    bracketMatchPaint.setColor(handlesManager.getCursorAndHandlesColor());
-    bracketMatchPaint.setStyle(Paint.Style.STROKE);
-    bracketMatchPaint.setStrokeWidth(bracketMatchStrokeWidth);
+    bracketMatchManager.setColor(handlesManager.getCursorAndHandlesColor());
+    bracketMatchManager.setBaseTextSizePx(paint.getTextSize());
     bracketGuideManager.setBaseTextSizePx(paint.getTextSize());
     indentGuidePaint.setColor(0xFF555555);
     indentGuidePaint.setStyle(Paint.Style.STROKE);
@@ -934,15 +873,15 @@ public class SodiumEditorView extends View {
     loadingCirclePaint.setStrokeCap(Paint.Cap.ROUND);
 
     // Initialization for line numbers
-    lineNumbersPaint.setTextAlign(Paint.Align.RIGHT);
-    lineNumbersPaint.setColor(0xFF888888); // Default gray color
-    lineNumbersPaint.setTextSize(paint.getTextSize());
-    lineNumbersPaint.setTypeface(paint.getTypeface());
-    gutterPaint.setColor(0xFFFAFAFA); // Default light gray background
+    lineNumberManager.lineNumbersPaint.setTextAlign(Paint.Align.RIGHT);
+    lineNumberManager.lineNumbersPaint.setColor(0xFF888888); // Default gray color
+    lineNumberManager.lineNumbersPaint.setTextSize(paint.getTextSize());
+    lineNumberManager.lineNumbersPaint.setTypeface(paint.getTypeface());
+    lineNumberManager.gutterPaint.setColor(0xFFFAFAFA); // Default light gray background
 
     float density = getContext().getResources().getDisplayMetrics().density;
-    gutterSeparatorWidth = 4 * density;
-    gutterSeparatorPaint.setColor(0xFF555555);
+    lineNumberManager.gutterSeparatorWidth = 4 * density;
+    lineNumberManager.gutterSeparatorPaint.setColor(0xFF555555);
     currentLinePaint.setColor(currentLineHighlightColor);
     foldPlaceholderCorner = 6f * density;
     foldPlaceholderPadX = 6f * density;
@@ -1579,8 +1518,8 @@ public class SodiumEditorView extends View {
   }
 
   public void setLineNumberColor(int color) {
-    lineNumbersPaint.setColor(color);
-    lineNumberCacheColor = color;
+    lineNumberManager.lineNumbersPaint.setColor(color);
+    lineNumberManager.lineNumberCacheColor = color;
     invalidateLineNumberCache();
     if (showLineNumbers) invalidate();
   }
@@ -1592,8 +1531,8 @@ public class SodiumEditorView extends View {
   }
 
   public void setLineNumberSelectionEnabled(boolean enabled) {
-    if (lineNumberSelectionEnabled == enabled) return;
-    lineNumberSelectionEnabled = enabled;
+    if (lineNumberManager.lineNumberSelectionEnabled == enabled) return;
+    lineNumberManager.lineNumberSelectionEnabled = enabled;
     if (!enabled && selectionManager.isLineNumberSelecting) {
       selectionManager.isLineNumberSelecting = false;
       selectionManager.lineNumberSelectAnchorLine = -1;
@@ -1601,7 +1540,7 @@ public class SodiumEditorView extends View {
   }
 
   public void setGutterBackgroundColor(int color) {
-    gutterPaint.setColor(color);
+    lineNumberManager.gutterPaint.setColor(color);
     if (showLineNumbers) invalidate();
   }
 
@@ -1773,26 +1712,17 @@ public class SodiumEditorView extends View {
   }
 
   public void setBracketMatchingEnabled(boolean enabled) {
-    if (this.isBracketMatchingEnabled == enabled) return;
-    this.isBracketMatchingEnabled = enabled;
-    if (!enabled) {
-      cachedBracketMatch = null;
-      cachedBracketMatchCursorLine = -1;
-      cachedBracketMatchCursorChar = -1;
-      cachedBracketMatchEditVersion = -1;
-    }
+    bracketMatchManager.setEnabled(enabled);
     invalidate();
   }
 
   public void setBracketMatchColor(int color) {
-    bracketMatchPaint.setColor(color);
+    bracketMatchManager.setColor(color);
     invalidate();
   }
 
   public void setBracketMatchStrokeWidth(float width) {
-    if (this.bracketMatchStrokeWidth == width) return;
-    this.baseBracketMatchStrokeWidth = width;
-    this.baseBracketMatchTextSizePx = paint.getTextSize();
+    bracketMatchManager.setStrokeWidth(width);
     updateTextSizeDependentMetrics();
     invalidate();
   }
@@ -2109,7 +2039,7 @@ public class SodiumEditorView extends View {
   }
 
   public void setGutterSeparatorColor(int color) {
-    gutterSeparatorPaint.setColor(color);
+    lineNumberManager.gutterSeparatorPaint.setColor(color);
     if (showLineNumbers) {
       invalidate();
     }
@@ -2117,8 +2047,8 @@ public class SodiumEditorView extends View {
 
   public void setGutterSeparatorWidth(float width) {
     float safe = Math.max(0f, width);
-    if (gutterSeparatorWidth == safe) return;
-    gutterSeparatorWidth = safe;
+    if (lineNumberManager.gutterSeparatorWidth == safe) return;
+    lineNumberManager.gutterSeparatorWidth = safe;
     requestLayout();
     if (isWordWrapEnabled) invalidateWrapMetrics(true);
     if (showLineNumbers) invalidate();
@@ -2429,7 +2359,7 @@ public class SodiumEditorView extends View {
   public void setLayoutDirection(boolean isRtl) {
     if (this.isRtl == isRtl) return;
     this.isRtl = isRtl;
-    lineNumbersPaint.setTextAlign(isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
+    lineNumberManager.lineNumbersPaint.setTextAlign(isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
     foldMarkerPaint.setTextAlign(isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
     invalidateLineNumberCache();
     requestLayout();
@@ -2674,10 +2604,8 @@ public class SodiumEditorView extends View {
     handlesManager.setCursorWidth(
         Math.max(1f, scaleByTextSize(handlesManager.getBaseCursorWidthPx(), baseCursorTextSizePx, sizePx)));
 
-    bracketMatchStrokeWidth =
-        Math.max(
-            1f, scaleByTextSize(baseBracketMatchStrokeWidth, baseBracketMatchTextSizePx, sizePx));
-    bracketMatchPaint.setStrokeWidth(bracketMatchStrokeWidth);
+    bracketMatchManager.applyScaledStrokeWidth(
+        Math.max(1f, scaleByTextSize(bracketMatchManager.getBaseStrokeWidth(), bracketMatchManager.getBaseTextSizePx(), sizePx)));
 
     bracketGuideManager.applyScaledStrokeWidth(
         Math.max(1f, scaleByTextSize(bracketGuideManager.getBaseStrokeWidth(), bracketGuideManager.getBaseTextSizePx(), sizePx)));
@@ -2701,7 +2629,7 @@ public class SodiumEditorView extends View {
       suggestionTextSizeScale = 1f;
     }
     suggestionPaint.setTextSize(sizePx * suggestionTextSizeScale);
-    lineNumbersPaint.setTextSize(sizePx);
+    lineNumberManager.lineNumbersPaint.setTextSize(sizePx);
     foldMarkerPaint.setTextSize(sizePx * foldMarkerTextScale);
     wordWrapIndicatorPaint.setTextSize(sizePx * wordWrapIndicatorTextScale);
     wordWrapIndicatorPaint.setTypeface(paint.getTypeface());
@@ -2841,6 +2769,103 @@ public class SodiumEditorView extends View {
 
   HighlightLineState getLineStateAtStartForBracket(int line) {
     return getLineStateAtStart(line);
+  }
+
+  HighlightLineState getLineStateAtStartForMatch(int line) {
+    return getLineStateAtStart(line);
+  }
+
+  String getLineTextForRenderWithDirectForMatch(
+      int line, @Nullable java.util.Map<Integer, String> direct) {
+    return getLineTextForRenderWithDirect(line, direct);
+  }
+
+  int getEditVersionForMatch() {
+    return undoRedo.getEditVersion();
+  }
+
+  boolean isBlockCommentsEnabledForMatch() {
+    return isBlockCommentsEnabled;
+  }
+
+  boolean isMultiLineStringsEnabledForMatch() {
+    return isMultiLineStringsEnabled;
+  }
+
+  boolean isBacktickStringsEnabledForMatch() {
+    return isBacktickStringsEnabled;
+  }
+
+  boolean isTripleQuoteStringsEnabledForMatch() {
+    return isTripleQuoteStringsEnabled;
+  }
+
+  int getStringStateTripleForMatch() {
+    return STRING_STATE_TRIPLE;
+  }
+
+  int getStringStateBacktickForMatch() {
+    return STRING_STATE_BACKTICK;
+  }
+
+  boolean isLineCommentStartForMatch(String line, int index) {
+    return isLineCommentStart(line, index);
+  }
+
+  boolean isTokenEscapedForMatch(String line, int index) {
+    return isTokenEscaped(line, index);
+  }
+
+  boolean isEscapedForMatch(String line, int index) {
+    return isEscaped(line, index);
+  }
+
+  boolean isTripleQuoteStartForMatch(String line, int index) {
+    return isTripleQuoteStart(line, index);
+  }
+
+  boolean isStringDelimiterForMatch(char c) {
+    return isStringDelimiter(c);
+  }
+
+  int findBlockCommentEndForMatch(String line, int start) {
+    return findBlockCommentEnd(line, start);
+  }
+
+  int findTripleQuoteEndForMatch(String line, int start) {
+    return findTripleQuoteEnd(line, start);
+  }
+
+  StringEndResult findStringEndForStateForMatch(String line, int start, int state) {
+    return findStringEndForState(line, start, state);
+  }
+
+  int findStringEndForMatch(String line, int start, char delimiter) {
+    return findStringEnd(line, start, delimiter);
+  }
+
+  int getStringStateForDelimiterForMatch(char delimiter) {
+    return getStringStateForDelimiter(delimiter);
+  }
+
+  float measureTextForMatch(String line, int index, int globalLine) {
+    return measureText(line, index, globalLine);
+  }
+
+  float measureTextWithVisualSpacesForMatch(String line, int start, int end) {
+    return measureTextWithVisualSpaces(line, start, end, paint);
+  }
+
+  float getDrawLineTopForMatch(int globalLine) {
+    return scrollManager.getDrawLineTop(globalLine);
+  }
+
+  float getLineHeightForMatch() {
+    return lineHeight;
+  }
+
+  float getPaintTextSizeForMatch() {
+    return paint.getTextSize();
   }
 
   String getLineTextForRenderWithDirectForBracket(
@@ -3032,7 +3057,7 @@ public class SodiumEditorView extends View {
   }
 
   boolean isLineNumberSelectionEnabledForInput() {
-    return lineNumberSelectionEnabled;
+    return lineNumberManager.lineNumberSelectionEnabled;
   }
 
   boolean isInLineNumberGutterForInput(float x) {
@@ -3211,7 +3236,7 @@ public class SodiumEditorView extends View {
     Typeface finalTypeface = Typeface.create(safeBase, typefaceStyle);
     paint.setTypeface(finalTypeface);
     suggestionPaint.setTypeface(finalTypeface);
-    lineNumbersPaint.setTypeface(finalTypeface);
+    lineNumberManager.lineNumbersPaint.setTypeface(finalTypeface);
     foldMarkerPaint.setTypeface(finalTypeface);
     wordWrapIndicatorPaint.setTypeface(finalTypeface);
     whitespaceGuidePaint.setTypeface(finalTypeface);
@@ -3256,21 +3281,6 @@ public class SodiumEditorView extends View {
     float dotSize = Math.max(1f, paint.getTextSize() / 7f);
     whitespaceGuideDotPaint.setStrokeWidth(dotSize);
 
-  }
-
-  private int writeIntToChars(int value, char[] out) {
-    int v = value;
-    int pos = out.length;
-    if (v == 0) {
-      out[--pos] = '0';
-      return pos;
-    }
-    while (v > 0 && pos > 0) {
-      int digit = v % 10;
-      out[--pos] = (char) ('0' + digit);
-      v /= 10;
-    }
-    return pos;
   }
 
   private void ensureHighlightCacheForVisibleRange(
@@ -3401,7 +3411,7 @@ public class SodiumEditorView extends View {
   @Override
   protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
     super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-    float oldGutterWidth = lineNumbersGutterWidth;
+    float oldGutterWidth = lineNumberManager.lineNumbersGutterWidth;
     if (showLineNumbers) {
       int maxLines = 0;
       if (isIndexReady) {
@@ -3412,23 +3422,23 @@ public class SodiumEditorView extends View {
         maxLines = 999999; // Wider fallback for width calculation until index is ready
       }
       String maxLineNum = String.valueOf(maxLines);
-      float baseWidth = lineNumbersPaint.measureText(maxLineNum) + (GUTTER_TEXT_PADDING * 2);
+      float baseWidth = lineNumberManager.lineNumbersPaint.measureText(maxLineNum) + (GUTTER_TEXT_PADDING * 2);
       if (isCodeFoldingEnabled) {
         foldMarkerGutterWidth =
             foldMarkerPaint.measureText("v") + foldMarkerSpacing + foldMarkerEdgePadding;
       } else {
         foldMarkerGutterWidth = 0f;
       }
-      lineNumbersGutterWidth = baseWidth + foldMarkerGutterWidth + gutterSeparatorWidth;
+      lineNumberManager.lineNumbersGutterWidth = baseWidth + foldMarkerGutterWidth + lineNumberManager.gutterSeparatorWidth;
     } else {
-      lineNumbersGutterWidth = 0f;
+      lineNumberManager.lineNumbersGutterWidth = 0f;
     }
 
-    if (isWordWrapEnabled && Math.abs(lineNumbersGutterWidth - oldGutterWidth) > 0.1f) {
+    if (isWordWrapEnabled && Math.abs(lineNumberManager.lineNumbersGutterWidth - oldGutterWidth) > 0.1f) {
       invalidateWrapMetrics(true);
       requestWrapPrefixRebuild();
     }
-    if (Math.abs(lineNumbersGutterWidth - oldGutterWidth) > 0.1f) {
+    if (Math.abs(lineNumberManager.lineNumbersGutterWidth - oldGutterWidth) > 0.1f) {
       invalidateLineNumberCache();
     }
   }
@@ -3455,7 +3465,7 @@ public class SodiumEditorView extends View {
   }
 
   float getTextStartX() {
-    return isRtl ? paddingLeft : paddingLeft + lineNumbersGutterWidth;
+    return isRtl ? paddingLeft : paddingLeft + lineNumberManager.lineNumbersGutterWidth;
   }
 
   float getEffectiveScrollX() {
@@ -3467,7 +3477,7 @@ public class SodiumEditorView extends View {
   }
 
   private float getTextAreaWidth() {
-    return Math.max(0f, getWidth() - lineNumbersGutterWidth - paddingLeft);
+    return Math.max(0f, getWidth() - lineNumberManager.lineNumbersGutterWidth - paddingLeft);
   }
 
   private float getRtlLineBaseX(@Nullable String line, int globalLine) {
@@ -4303,7 +4313,7 @@ public class SodiumEditorView extends View {
     return wrapLinePrefix[e + 1] - wrapLinePrefix[s];
   }
 
-  private static final class VisualLinePosition {
+  static final class VisualLinePosition {
     final int line;
     final int segment;
 
@@ -4450,13 +4460,13 @@ public class SodiumEditorView extends View {
   }
 
   private float getGutterStartX() {
-    return isRtl ? getWidth() - lineNumbersGutterWidth : 0;
+    return isRtl ? getWidth() - lineNumberManager.lineNumbersGutterWidth : 0;
   }
 
   private boolean isInLineNumberGutter(float x) {
-    if (!showLineNumbers || lineNumbersGutterWidth <= 0f) return false;
+    if (!showLineNumbers || lineNumberManager.lineNumbersGutterWidth <= 0f) return false;
     float start = getGutterStartX();
-    return x >= start && x <= start + lineNumbersGutterWidth;
+    return x >= start && x <= start + lineNumberManager.lineNumbersGutterWidth;
   }
 
   private int clampLineForSelection(int line) {
@@ -4874,9 +4884,9 @@ public class SodiumEditorView extends View {
       canvas.drawRect(
           getGutterStartX(),
           0,
-          getGutterStartX() + lineNumbersGutterWidth,
+          getGutterStartX() + lineNumberManager.lineNumbersGutterWidth,
           getHeight(),
-          gutterPaint);
+          lineNumberManager.gutterPaint);
 
       // Draw separator line
       float separatorLeft;
@@ -4885,14 +4895,14 @@ public class SodiumEditorView extends View {
         separatorLeft = getGutterStartX();
       } else {
         // Separator is on the right side of the gutter (inner edge)
-        separatorLeft = getGutterStartX() + lineNumbersGutterWidth - gutterSeparatorWidth;
+        separatorLeft = getGutterStartX() + lineNumberManager.lineNumbersGutterWidth - lineNumberManager.gutterSeparatorWidth;
       }
       canvas.drawRect(
           separatorLeft,
           0,
-          separatorLeft + gutterSeparatorWidth,
+          separatorLeft + lineNumberManager.gutterSeparatorWidth,
           getHeight(),
-          gutterSeparatorPaint);
+          lineNumberManager.gutterSeparatorPaint);
     }
 
     if (highlightCurrentLineInGutter
@@ -4907,7 +4917,7 @@ public class SodiumEditorView extends View {
 
     // --- 2. Draw line numbers (vertically scrolled) ---
     if (showLineNumbers) {
-      drawLineNumbersCachedUnwrapped(
+      lineNumberManager.drawLineNumbersCachedUnwrapped(
           canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine);
       if (isCodeFoldingEnabled && drawDecorations) {
         drawFoldMarkersForVisibleLines(canvas, firstVisibleIndex, lastVisibleIndex);
@@ -4918,9 +4928,9 @@ public class SodiumEditorView extends View {
     canvas.save();
     // Clip the text area so it doesn't draw over the gutter
     if (isRtl) {
-      canvas.clipRect(0, 0, getWidth() - lineNumbersGutterWidth, getHeight());
+      canvas.clipRect(0, 0, getWidth() - lineNumberManager.lineNumbersGutterWidth, getHeight());
     } else {
-      canvas.clipRect(lineNumbersGutterWidth, 0, getWidth(), getHeight());
+      canvas.clipRect(lineNumberManager.lineNumbersGutterWidth, 0, getWidth(), getHeight());
     }
     canvas.translate(getTextStartX() - getEffectiveScrollX(), translateY);
     if (zoomManager.isPinchVisualZoomActive()) {
@@ -4963,24 +4973,8 @@ public class SodiumEditorView extends View {
       }
     }
 
-    BracketMatch bracketMatch = null;
-    if (isBracketMatchingEnabled) {
-      int v = undoRedo.getEditVersion();
-      if (cachedBracketMatch != null
-          && cachedBracketMatchCursorLine == cursorManager.cursorLine
-          && cachedBracketMatchCursorChar == cursorManager.cursorChar
-          && cachedBracketMatchEditVersion == v) {
-        bracketMatch = cachedBracketMatch;
-      } else {
-        bracketMatch = findBracketMatchInVisible(firstVisibleLine, lastVisibleLine, directLines);
-        if (bracketMatch != null) {
-          cachedBracketMatch = bracketMatch;
-          cachedBracketMatchCursorLine = cursorManager.cursorLine;
-          cachedBracketMatchCursorChar = cursorManager.cursorChar;
-          cachedBracketMatchEditVersion = v;
-        }
-      }
-    }
+    BracketMatchManager.BracketMatch bracketMatch =
+        bracketMatchManager.getMatch(firstVisibleLine, lastVisibleLine, directLines);
 
     int winEnd;
     synchronized (linesWindow) {
@@ -5013,8 +5007,8 @@ public class SodiumEditorView extends View {
         if (highlightCurrentLine && globalLine == cursorManager.cursorLine && !selectionManager.hasSelection) {
           float top = Math.round(scrollManager.getDrawLineTop(globalLine));
           float bottom = Math.round(scrollManager.getDrawLineBottom(globalLine));
-          float viewLeft = isRtl ? 0f : lineNumbersGutterWidth;
-          float viewRight = isRtl ? (getWidth() - lineNumbersGutterWidth) : getWidth();
+          float viewLeft = isRtl ? 0f : lineNumberManager.lineNumbersGutterWidth;
+          float viewRight = isRtl ? (getWidth() - lineNumberManager.lineNumbersGutterWidth) : getWidth();
           float left = viewLeft + getEffectiveScrollX() - getTextStartX();
           float right = viewRight + getEffectiveScrollX() - getTextStartX();
           canvas.drawRect(left, top, right, bottom, currentLinePaint);
@@ -5181,7 +5175,7 @@ public class SodiumEditorView extends View {
         }
 
         if (drawDecorations) {
-          drawBracketMatchForLine(canvas, line, globalLine, bracketMatch);
+          bracketMatchManager.drawMatchForLine(canvas, line, globalLine, bracketMatch);
         }
         canvas.restore();
       }
@@ -5200,8 +5194,8 @@ public class SodiumEditorView extends View {
         if (highlightCurrentLine && globalLine == cursorManager.cursorLine && !selectionManager.hasSelection) {
           float top = Math.round(scrollManager.getDrawLineTop(globalLine));
           float bottom = Math.round(scrollManager.getDrawLineBottom(globalLine));
-          float viewLeft = isRtl ? 0f : lineNumbersGutterWidth;
-          float viewRight = isRtl ? (getWidth() - lineNumbersGutterWidth) : getWidth();
+          float viewLeft = isRtl ? 0f : lineNumberManager.lineNumbersGutterWidth;
+          float viewRight = isRtl ? (getWidth() - lineNumberManager.lineNumbersGutterWidth) : getWidth();
           float left = viewLeft + getEffectiveScrollX() - getTextStartX();
           float right = viewRight + getEffectiveScrollX() - getTextStartX();
           canvas.drawRect(left, top, right, bottom, currentLinePaint);
@@ -5354,7 +5348,7 @@ public class SodiumEditorView extends View {
         }
 
         if (drawDecorations) {
-          drawBracketMatchForLine(canvas, line, globalLine, bracketMatch);
+          bracketMatchManager.drawMatchForLine(canvas, line, globalLine, bracketMatch);
         }
         canvas.restore();
       }
@@ -5543,22 +5537,22 @@ public class SodiumEditorView extends View {
       canvas.drawRect(
           getGutterStartX(),
           0,
-          getGutterStartX() + lineNumbersGutterWidth,
+          getGutterStartX() + lineNumberManager.lineNumbersGutterWidth,
           getHeight(),
-          gutterPaint);
+          lineNumberManager.gutterPaint);
 
       float separatorLeft;
       if (isRtl) {
         separatorLeft = getGutterStartX();
       } else {
-        separatorLeft = getGutterStartX() + lineNumbersGutterWidth - gutterSeparatorWidth;
+        separatorLeft = getGutterStartX() + lineNumberManager.lineNumbersGutterWidth - lineNumberManager.gutterSeparatorWidth;
       }
       canvas.drawRect(
           separatorLeft,
           0,
-          separatorLeft + gutterSeparatorWidth,
+          separatorLeft + lineNumberManager.gutterSeparatorWidth,
           getHeight(),
-          gutterSeparatorPaint);
+          lineNumberManager.gutterSeparatorPaint);
     }
 
     if (highlightCurrentLineInGutter
@@ -5579,15 +5573,15 @@ public class SodiumEditorView extends View {
 
     // --- 2. Draw line numbers (vertically scrolled) ---
     if (showLineNumbers) {
-      drawLineNumbersCachedWrapped(canvas, firstVisualIndex, lastVisualIndex);
+      lineNumberManager.drawLineNumbersCachedWrapped(canvas, firstVisualIndex, lastVisualIndex);
     }
 
     // --- 3. Draw main text content (scrolled) ---
     canvas.save();
     if (isRtl) {
-      canvas.clipRect(0, 0, getWidth() - lineNumbersGutterWidth, getHeight());
+      canvas.clipRect(0, 0, getWidth() - lineNumberManager.lineNumbersGutterWidth, getHeight());
     } else {
-      canvas.clipRect(lineNumbersGutterWidth, 0, getWidth(), getHeight());
+      canvas.clipRect(lineNumberManager.lineNumbersGutterWidth, 0, getWidth(), getHeight());
     }
     canvas.translate(getTextStartX() - getEffectiveScrollX(), translateY);
     if (zoomManager.isPinchVisualZoomActive()) {
@@ -5847,19 +5841,19 @@ public class SodiumEditorView extends View {
       canvas.drawRect(
           getGutterStartX(),
           0,
-          getGutterStartX() + lineNumbersGutterWidth,
+          getGutterStartX() + lineNumberManager.lineNumbersGutterWidth,
           getHeight(),
-          gutterPaint);
+          lineNumberManager.gutterPaint);
       float separatorLeft =
           isRtl
               ? getGutterStartX()
-              : getGutterStartX() + lineNumbersGutterWidth - gutterSeparatorWidth;
+              : getGutterStartX() + lineNumberManager.lineNumbersGutterWidth - lineNumberManager.gutterSeparatorWidth;
       canvas.drawRect(
           separatorLeft,
           0,
-          separatorLeft + gutterSeparatorWidth,
+          separatorLeft + lineNumberManager.gutterSeparatorWidth,
           getHeight(),
-          gutterSeparatorPaint);
+          lineNumberManager.gutterSeparatorPaint);
     }
 
     if (highlightCurrentLineInGutter
@@ -5887,15 +5881,15 @@ public class SodiumEditorView extends View {
       lineNumX =
           isRtl
               ? getGutterStartX() + GUTTER_TEXT_PADDING
-              : getGutterStartX() + lineNumbersGutterWidth - GUTTER_TEXT_PADDING;
+              : getGutterStartX() + lineNumberManager.lineNumbersGutterWidth - GUTTER_TEXT_PADDING;
     }
 
     // Prepare text clipping
     int saveCount = canvas.save();
     if (isRtl) {
-      canvas.clipRect(0, 0, getWidth() - lineNumbersGutterWidth, getHeight());
+      canvas.clipRect(0, 0, getWidth() - lineNumberManager.lineNumbersGutterWidth, getHeight());
     } else {
-      canvas.clipRect(lineNumbersGutterWidth, 0, getWidth(), getHeight());
+      canvas.clipRect(lineNumberManager.lineNumbersGutterWidth, 0, getWidth(), getHeight());
     }
     canvas.translate(getTextStartX() - getEffectiveScrollX(), 0); // already translated by translateY
 
@@ -5939,21 +5933,13 @@ public class SodiumEditorView extends View {
         // Draw line number ONLY for the first segment of the wrapped line
         if (showLineNumbers && seg == 0 && !useLineNumberCache) {
           canvas.restore(); // Exit text clip
-          int start = writeIntToChars(line + 1, lineNumberChars);
-          int count = lineNumberChars.length - start;
-          if (line == cursorManager.cursorLine) {
-            int originalColor = lineNumbersPaint.getColor();
-            lineNumbersPaint.setColor(currentLineNumberColor);
-            canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
-            lineNumbersPaint.setColor(originalColor);
-          } else {
-            canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
-          }
+          lineNumberManager.drawLineNumber(
+              canvas, line, lineNumX, y, currentLineNumberColor, line == cursorManager.cursorLine);
           canvas.save(); // Re-enter text clip
           if (isRtl) {
-            canvas.clipRect(0, 0, getWidth() - lineNumbersGutterWidth, getHeight());
+            canvas.clipRect(0, 0, getWidth() - lineNumberManager.lineNumbersGutterWidth, getHeight());
           } else {
-            canvas.clipRect(lineNumbersGutterWidth, 0, getWidth(), getHeight());
+            canvas.clipRect(lineNumberManager.lineNumbersGutterWidth, 0, getWidth(), getHeight());
           }
           canvas.translate(getTextStartX() - getEffectiveScrollX(), 0);
         }
@@ -6641,8 +6627,8 @@ public class SodiumEditorView extends View {
       out[1] = len;
       return;
     }
-    float viewLeft = isRtl ? 0f : lineNumbersGutterWidth;
-    float viewRight = isRtl ? (getWidth() - lineNumbersGutterWidth) : getWidth();
+    float viewLeft = isRtl ? 0f : lineNumberManager.lineNumbersGutterWidth;
+    float viewRight = isRtl ? (getWidth() - lineNumberManager.lineNumbersGutterWidth) : getWidth();
     float leftX = viewLeft + getEffectiveScrollX() - getTextStartX();
     float rightX = viewRight + getEffectiveScrollX() - getTextStartX();
 
@@ -6675,8 +6661,8 @@ public class SodiumEditorView extends View {
       out[1] = Math.min(len, Math.max(0, prefetchCols));
       return;
     }
-    float viewLeft = isRtl ? 0f : lineNumbersGutterWidth;
-    float viewRight = isRtl ? (getWidth() - lineNumbersGutterWidth) : getWidth();
+    float viewLeft = isRtl ? 0f : lineNumberManager.lineNumbersGutterWidth;
+    float viewRight = isRtl ? (getWidth() - lineNumberManager.lineNumbersGutterWidth) : getWidth();
     float leftX = viewLeft + getEffectiveScrollX() - getTextStartX();
     float rightX = viewRight + getEffectiveScrollX() - getTextStartX();
     if (isRtl) {
@@ -6712,8 +6698,8 @@ public class SodiumEditorView extends View {
     }
     float avg = getAverageCharWidthForLine((lineText == null) ? "" : lineText, globalLine);
     if (avg <= 0f) avg = paint.measureText(" ");
-    float viewLeft = isRtl ? 0f : lineNumbersGutterWidth;
-    float viewRight = isRtl ? (getWidth() - lineNumbersGutterWidth) : getWidth();
+    float viewLeft = isRtl ? 0f : lineNumberManager.lineNumbersGutterWidth;
+    float viewRight = isRtl ? (getWidth() - lineNumberManager.lineNumbersGutterWidth) : getWidth();
     float leftX = viewLeft + getEffectiveScrollX() - getTextStartX();
     float rightX = viewRight + getEffectiveScrollX() - getTextStartX();
     if (isRtl) {
@@ -6749,337 +6735,16 @@ public class SodiumEditorView extends View {
     return Math.max(base, pad);
   }
 
-  private boolean shouldUseLineNumberCache() {
-    return showLineNumbers && lineNumbersGutterWidth > 0f && getHeight() > 0;
-  }
-
-  private void ensureLineNumberCacheBitmap(int width, int height) {
-    if (lineNumberCacheBitmap != null
-        && lineNumberCacheWidth == width
-        && lineNumberCacheHeight == height) {
-      return;
-    }
-    lineNumberCacheBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-    lineNumberCacheCanvas = new Canvas(lineNumberCacheBitmap);
-    lineNumberCacheWidth = width;
-    lineNumberCacheHeight = height;
-  }
-
-  private void drawLineNumbersCachedUnwrapped(
-      Canvas canvas,
-      int firstVisibleIndex,
-      int lastVisibleIndex,
-      int firstVisibleLine,
-      int lastVisibleLine) {
-    if (!shouldUseLineNumberCache()) {
-      drawLineNumbersDirectUnwrapped(
-          canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine);
-      return;
-    }
-
-    int drawLastIndex = lastVisibleIndex;
-    int drawLastLine = lastVisibleLine;
-    if (isCodeFoldingEnabled) {
-      int visibleCount = getVisibleLineCount();
-      if (visibleCount > 0) {
-        drawLastIndex = Math.min(lastVisibleIndex + 1, visibleCount - 1);
-      }
-    } else {
-      int total = getLinesCount();
-      if (total > 0) {
-        drawLastLine = Math.min(lastVisibleLine + 1, total - 1);
-      }
-    }
-
-    int gutterWidth = Math.max(1, Math.round(lineNumbersGutterWidth));
-    float padPx = lineHeight;
-    int height = getHeight() + Math.round(padPx * 2f);
-    float baseScrollY = (float) Math.floor(scrollManager.scrollY / lineHeight) * lineHeight - padPx;
-
-    boolean needsRebuild =
-        lineNumberCacheBitmap == null
-            || lineNumberCacheWidth != gutterWidth
-            || lineNumberCacheHeight != height
-            || lineNumberCacheFirstIndex != firstVisibleIndex
-            || lineNumberCacheLastIndex != drawLastIndex
-            || Math.abs(lineNumberCacheBaseScrollY - baseScrollY) > 0.1f
-            || lineNumberCacheTextSize != lineNumbersPaint.getTextSize()
-            || lineNumberCacheTypeface != lineNumbersPaint.getTypeface()
-            || lineNumberCacheRtl != isRtl
-            || lineNumberCacheWrapped
-            || lineNumberCacheCodeFolding != isCodeFoldingEnabled
-            || Math.abs(lineNumberCacheGutterWidth - lineNumbersGutterWidth) > 0.1f
-            || Math.abs(lineNumberCacheFoldMarkerWidth - foldMarkerGutterWidth) > 0.1f
-            || Math.abs(lineNumberCacheLineHeight - lineHeight) > 0.1f
-            || lineNumberCacheColor != lineNumbersPaint.getColor();
-
-    if (needsRebuild) {
-      ensureLineNumberCacheBitmap(gutterWidth, height);
-      lineNumberCacheBitmap.eraseColor(0);
-
-      float lineNumX =
-          isRtl
-              ? getGutterStartX()
-                  + GUTTER_TEXT_PADDING
-                  + (isCodeFoldingEnabled ? foldMarkerGutterWidth : 0f)
-              : getGutterStartX()
-                  + lineNumbersGutterWidth
-                  - (isCodeFoldingEnabled ? foldMarkerGutterWidth : 0f)
-                  - GUTTER_TEXT_PADDING;
-      float lineNumXLocal = lineNumX - getGutterStartX();
-
-      if (isCodeFoldingEnabled) {
-        for (int v = firstVisibleIndex; v <= drawLastIndex; v++) {
-          int i = mapVisibleIndexToGlobal(v);
-          int start = writeIntToChars(i + 1, lineNumberChars);
-          int count = lineNumberChars.length - start;
-          float y = Math.round(v * lineHeight - baseScrollY + lineHeight - paint.descent());
-          lineNumberCacheCanvas.drawText(
-              lineNumberChars, start, count, lineNumXLocal, y, lineNumbersPaint);
-        }
-      } else {
-        for (int i = firstVisibleLine; i <= drawLastLine; i++) {
-          int start = writeIntToChars(i + 1, lineNumberChars);
-          int count = lineNumberChars.length - start;
-          float y = Math.round(i * lineHeight - baseScrollY + lineHeight - paint.descent());
-          lineNumberCacheCanvas.drawText(
-              lineNumberChars, start, count, lineNumXLocal, y, lineNumbersPaint);
-        }
-      }
-
-      lineNumberCacheFirstIndex = firstVisibleIndex;
-      lineNumberCacheLastIndex = drawLastIndex;
-      lineNumberCacheBaseScrollY = baseScrollY;
-      lineNumberCacheTextSize = lineNumbersPaint.getTextSize();
-      lineNumberCacheTypeface = lineNumbersPaint.getTypeface();
-      lineNumberCacheRtl = isRtl;
-      lineNumberCacheWrapped = false;
-      lineNumberCacheCodeFolding = isCodeFoldingEnabled;
-      lineNumberCacheGutterWidth = lineNumbersGutterWidth;
-      lineNumberCacheFoldMarkerWidth = foldMarkerGutterWidth;
-      lineNumberCacheLineHeight = lineHeight;
-      lineNumberCacheColor = lineNumbersPaint.getColor();
-    }
-
-    float offsetY = lineNumberCacheBaseScrollY - scrollManager.scrollY;
-    canvas.drawBitmap(lineNumberCacheBitmap, getGutterStartX(), offsetY, null);
-    drawCurrentLineNumberUnwrapped(canvas, firstVisibleIndex, lastVisibleIndex);
-  }
-
-  private void drawLineNumbersCachedWrapped(
-      Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
-    if (!shouldUseLineNumberCache()) {
-      drawLineNumbersDirectWrapped(canvas, firstVisualIndex, lastVisualIndex);
-      return;
-    }
-
-    int drawLastIndex = lastVisualIndex;
-    int totalVisual = getTotalVisualLineCount();
-    if (totalVisual > 0) {
-      drawLastIndex = Math.min(lastVisualIndex + 1, totalVisual - 1);
-    }
-
-    int gutterWidth = Math.max(1, Math.round(lineNumbersGutterWidth));
-    float padPx = lineHeight;
-    int height = getHeight() + Math.round(padPx * 2f);
-    float baseScrollY = (float) Math.floor(scrollManager.scrollY / lineHeight) * lineHeight - padPx;
-
-    boolean needsRebuild =
-        lineNumberCacheBitmap == null
-            || lineNumberCacheWidth != gutterWidth
-            || lineNumberCacheHeight != height
-            || lineNumberCacheFirstIndex != firstVisualIndex
-            || lineNumberCacheLastIndex != drawLastIndex
-            || Math.abs(lineNumberCacheBaseScrollY - baseScrollY) > 0.1f
-            || lineNumberCacheTextSize != lineNumbersPaint.getTextSize()
-            || lineNumberCacheTypeface != lineNumbersPaint.getTypeface()
-            || lineNumberCacheRtl != isRtl
-            || !lineNumberCacheWrapped
-            || lineNumberCacheCodeFolding != isCodeFoldingEnabled
-            || Math.abs(lineNumberCacheGutterWidth - lineNumbersGutterWidth) > 0.1f
-            || Math.abs(lineNumberCacheLineHeight - lineHeight) > 0.1f
-            || lineNumberCacheColor != lineNumbersPaint.getColor();
-
-    if (needsRebuild) {
-      ensureLineNumberCacheBitmap(gutterWidth, height);
-      lineNumberCacheBitmap.eraseColor(0);
-
-      float lineNumX =
-          isRtl
-              ? getGutterStartX() + GUTTER_TEXT_PADDING
-              : getGutterStartX() + lineNumbersGutterWidth - GUTTER_TEXT_PADDING;
-      float lineNumXLocal = lineNumX - getGutterStartX();
-
-      for (int v = firstVisualIndex; v <= drawLastIndex; v++) {
-        VisualLinePosition pos = getVisualPositionForIndex(v);
-        if (pos.segment != 0) continue;
-        int start = writeIntToChars(pos.line + 1, lineNumberChars);
-        int count = lineNumberChars.length - start;
-        float y = Math.round(v * lineHeight - baseScrollY + lineHeight - paint.descent());
-        lineNumberCacheCanvas.drawText(
-            lineNumberChars, start, count, lineNumXLocal, y, lineNumbersPaint);
-      }
-
-      lineNumberCacheFirstIndex = firstVisualIndex;
-      lineNumberCacheLastIndex = drawLastIndex;
-      lineNumberCacheBaseScrollY = baseScrollY;
-      lineNumberCacheTextSize = lineNumbersPaint.getTextSize();
-      lineNumberCacheTypeface = lineNumbersPaint.getTypeface();
-      lineNumberCacheRtl = isRtl;
-      lineNumberCacheWrapped = true;
-      lineNumberCacheCodeFolding = isCodeFoldingEnabled;
-      lineNumberCacheGutterWidth = lineNumbersGutterWidth;
-      lineNumberCacheFoldMarkerWidth = foldMarkerGutterWidth;
-      lineNumberCacheLineHeight = lineHeight;
-      lineNumberCacheColor = lineNumbersPaint.getColor();
-    }
-
-    float offsetY = lineNumberCacheBaseScrollY - scrollManager.scrollY;
-    canvas.drawBitmap(lineNumberCacheBitmap, getGutterStartX(), offsetY, null);
-    drawCurrentLineNumberWrapped(canvas, firstVisualIndex, lastVisualIndex);
-  }
-
-  private void drawLineNumbersDirectUnwrapped(
-      Canvas canvas,
-      int firstVisibleIndex,
-      int lastVisibleIndex,
-      int firstVisibleLine,
-      int lastVisibleLine) {
-    int drawLastIndex = lastVisibleIndex;
-    int drawLastLine = lastVisibleLine;
-    if (isCodeFoldingEnabled) {
-      int visibleCount = getVisibleLineCount();
-      if (visibleCount > 0) drawLastIndex = Math.min(lastVisibleIndex + 1, visibleCount - 1);
-    } else {
-      int total = getLinesCount();
-      if (total > 0) drawLastLine = Math.min(lastVisibleLine + 1, total - 1);
-    }
-
-    float lineNumX =
-        isRtl
-            ? getGutterStartX()
-                + GUTTER_TEXT_PADDING
-                + (isCodeFoldingEnabled ? foldMarkerGutterWidth : 0f)
-            : getGutterStartX()
-                + lineNumbersGutterWidth
-                - (isCodeFoldingEnabled ? foldMarkerGutterWidth : 0f)
-                - GUTTER_TEXT_PADDING;
-
-    if (isCodeFoldingEnabled) {
-      for (int v = firstVisibleIndex; v <= drawLastIndex; v++) {
-        int i = mapVisibleIndexToGlobal(v);
-        int start = writeIntToChars(i + 1, lineNumberChars);
-        int count = lineNumberChars.length - start;
-        float y = Math.round(v * lineHeight - scrollManager.scrollY + lineHeight - paint.descent());
-        if (i == cursorManager.cursorLine) {
-          int originalColor = lineNumbersPaint.getColor();
-          lineNumbersPaint.setColor(currentLineNumberColor);
-          canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
-          lineNumbersPaint.setColor(originalColor);
-        } else {
-          canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
-        }
-      }
-    } else {
-      for (int i = firstVisibleLine; i <= drawLastLine; i++) {
-        int start = writeIntToChars(i + 1, lineNumberChars);
-        int count = lineNumberChars.length - start;
-        float y = Math.round(i * lineHeight - scrollManager.scrollY + lineHeight - paint.descent());
-        if (i == cursorManager.cursorLine) {
-          int originalColor = lineNumbersPaint.getColor();
-          lineNumbersPaint.setColor(currentLineNumberColor);
-          canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
-          lineNumbersPaint.setColor(originalColor);
-        } else {
-          canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
-        }
-      }
-    }
-  }
-
-  private void drawLineNumbersDirectWrapped(
-      Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
-    float lineNumX =
-        isRtl
-            ? getGutterStartX() + GUTTER_TEXT_PADDING
-            : getGutterStartX() + lineNumbersGutterWidth - GUTTER_TEXT_PADDING;
-
-    int drawLastIndex = lastVisualIndex;
-    int totalVisual = getTotalVisualLineCount();
-    if (totalVisual > 0) drawLastIndex = Math.min(lastVisualIndex + 1, totalVisual - 1);
-
-    for (int v = firstVisualIndex; v <= drawLastIndex; v++) {
-      VisualLinePosition pos = getVisualPositionForIndex(v);
-      if (pos.segment != 0) continue;
-      int start = writeIntToChars(pos.line + 1, lineNumberChars);
-      int count = lineNumberChars.length - start;
-      float y = Math.round(v * lineHeight - scrollManager.scrollY + lineHeight - paint.descent());
-      if (pos.line == cursorManager.cursorLine) {
-        int originalColor = lineNumbersPaint.getColor();
-        lineNumbersPaint.setColor(currentLineNumberColor);
-        canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
-        lineNumbersPaint.setColor(originalColor);
-      } else {
-        canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
-      }
-    }
-  }
-
-  private void drawCurrentLineNumberUnwrapped(
-      Canvas canvas, int firstVisibleIndex, int lastVisibleIndex) {
-    if (!showLineNumbers) return;
-    if (isCodeFoldingEnabled && isLineHiddenByFold(cursorManager.cursorLine)) return;
-
-    int visibleIndex = isCodeFoldingEnabled ? getVisibleIndexForGlobalLine(cursorManager.cursorLine) : cursorManager.cursorLine;
-    if (visibleIndex < firstVisibleIndex || visibleIndex > lastVisibleIndex) return;
-
-    float lineNumX =
-        isRtl
-            ? getGutterStartX()
-                + GUTTER_TEXT_PADDING
-                + (isCodeFoldingEnabled ? foldMarkerGutterWidth : 0f)
-            : getGutterStartX()
-                + lineNumbersGutterWidth
-                - (isCodeFoldingEnabled ? foldMarkerGutterWidth : 0f)
-                - GUTTER_TEXT_PADDING;
-    int start = writeIntToChars(cursorManager.cursorLine + 1, lineNumberChars);
-    int count = lineNumberChars.length - start;
-    float y = Math.round(visibleIndex * lineHeight - scrollManager.scrollY + lineHeight - paint.descent());
-    int originalColor = lineNumbersPaint.getColor();
-    lineNumbersPaint.setColor(currentLineNumberColor);
-    canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
-    lineNumbersPaint.setColor(originalColor);
-  }
-
-  private void drawCurrentLineNumberWrapped(
-      Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
-    if (!showLineNumbers) return;
-    int visualIndex = getVisualIndexForLineAndChar(cursorManager.cursorLine, 0);
-    if (visualIndex < firstVisualIndex || visualIndex > lastVisualIndex) return;
-
-    float lineNumX =
-        isRtl
-            ? getGutterStartX() + GUTTER_TEXT_PADDING
-            : getGutterStartX() + lineNumbersGutterWidth - GUTTER_TEXT_PADDING;
-    int start = writeIntToChars(cursorManager.cursorLine + 1, lineNumberChars);
-    int count = lineNumberChars.length - start;
-    float y = Math.round(visualIndex * lineHeight - scrollManager.scrollY + lineHeight - paint.descent());
-    int originalColor = lineNumbersPaint.getColor();
-    lineNumbersPaint.setColor(currentLineNumberColor);
-    canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
-    lineNumbersPaint.setColor(originalColor);
-  }
-
   private void drawFoldMarkersForVisibleLines(
       Canvas canvas, int firstVisibleIndex, int lastVisibleIndex) {
     if (!isCodeFoldingEnabled) return;
 
     float markerX =
         isRtl
-            ? (getGutterStartX() + gutterSeparatorWidth + foldMarkerEdgePadding)
+            ? (getGutterStartX() + lineNumberManager.gutterSeparatorWidth + foldMarkerEdgePadding)
             : (getGutterStartX()
-                + lineNumbersGutterWidth
-                - gutterSeparatorWidth
+                + lineNumberManager.lineNumbersGutterWidth
+                - lineNumberManager.gutterSeparatorWidth
                 - foldMarkerEdgePadding);
 
     for (int v = firstVisibleIndex; v <= lastVisibleIndex; v++) {
@@ -7328,7 +6993,7 @@ public class SodiumEditorView extends View {
           hasSyntaxSpans,
           whitespaceDrawState,
           rtlWidth);
-  }
+    }
   }
 
   private void drawAutoSuggestionWrapped(
@@ -8611,37 +8276,6 @@ public class SodiumEditorView extends View {
     return -1;
   }
 
-  private static boolean isBracketChar(char c) {
-    return c == '(' || c == ')' || c == '[' || c == ']' || c == '{' || c == '}';
-  }
-
-  private static boolean isOpeningBracket(char c) {
-    return c == '(' || c == '[' || c == '{';
-  }
-
-  private static boolean isClosingBracket(char c) {
-    return c == ')' || c == ']' || c == '}';
-  }
-
-  private static char matchingBracket(char c) {
-    switch (c) {
-      case '(':
-        return ')';
-      case ')':
-        return '(';
-      case '[':
-        return ']';
-      case ']':
-        return '[';
-      case '{':
-        return '}';
-      case '}':
-        return '{';
-      default:
-        return 0;
-    }
-  }
-
   private boolean isLineCommentStart(String line, int index) {
     if (index < 0 || index >= line.length()) return false;
     if (lineCommentDelimiters.isEmpty()) return false;
@@ -8663,217 +8297,19 @@ public class SodiumEditorView extends View {
     return false;
   }
 
-  private BracketMatch findBracketMatchInVisible(
-      int firstVisibleLine, int lastVisibleLine, java.util.HashMap<Integer, String> directLines) {
-    if (!isBracketMatchingEnabled) return null;
-    if (cursorManager.cursorLine < firstVisibleLine || cursorManager.cursorLine > lastVisibleLine) return null;
+  private boolean isWhitespaceAtX(String line, int globalLine, float x) {
+    if (line == null || line.isEmpty()) return true;
+    if (x <= 0f) return Character.isWhitespace(line.charAt(0));
 
-    String cursorLineText = getLineTextForRenderWithDirect(cursorManager.cursorLine, directLines);
-    if (cursorLineText == null) return null;
-
-    int targetIndex = -1;
-    char targetChar = 0;
-    if (cursorManager.cursorChar > 0 && cursorManager.cursorChar - 1 < cursorLineText.length()) {
-      char c = cursorLineText.charAt(cursorManager.cursorChar - 1);
-      if (isBracketChar(c)) {
-        targetIndex = cursorManager.cursorChar - 1;
-        targetChar = c;
-      }
+    List<HighlightSpan> spans = highlightCache.get(globalLine);
+    if (spans == null) {
+      spans = calculateSpansForLine(line, globalLine);
+      highlightCache.put(globalLine, spans);
     }
-    if (targetIndex < 0 && cursorManager.cursorChar < cursorLineText.length()) {
-      char c = cursorLineText.charAt(cursorManager.cursorChar);
-      if (isBracketChar(c)) {
-        targetIndex = cursorManager.cursorChar;
-        targetChar = c;
-      }
-    }
-    if (targetIndex < 0) return null;
-
-    HighlightLineState startState = getLineStateAtStart(firstVisibleLine);
-    boolean inBlockComment = startState.inBlockComment && isBlockCommentsEnabled;
-    int stringState = startState.stringState;
-    if (!isBlockCommentsEnabled) inBlockComment = false;
-    if (!isMultiLineStringsEnabled && stringState != STRING_STATE_TRIPLE) stringState = 0;
-    if (!isBacktickStringsEnabled && stringState == STRING_STATE_BACKTICK) stringState = 0;
-    if (!isTripleQuoteStringsEnabled && stringState == STRING_STATE_TRIPLE) stringState = 0;
-
-    java.util.ArrayDeque<BracketToken> stack = new java.util.ArrayDeque<>();
-
-    for (int line = firstVisibleLine; line <= lastVisibleLine; line++) {
-      String text = getLineTextForRenderWithDirect(line, directLines);
-      if (text == null) text = "";
-      int len = text.length();
-      int i = 0;
-      boolean inLineComment = false;
-
-      while (i < len) {
-        if (inLineComment) break;
-
-        if (inBlockComment) {
-          int end = findBlockCommentEnd(text, i);
-          int endPos = (end < 0) ? len : end + 2;
-          if (line == cursorManager.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
-          if (end < 0) break;
-          i = end + 2;
-          inBlockComment = false;
-          continue;
-        }
-
-        if (stringState != 0) {
-          StringEndResult endResult = findStringEndForState(text, i, stringState);
-          int endPos = endResult.found ? endResult.endIndex : len;
-          if (line == cursorManager.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
-          if (!endResult.found) break;
-          i = endResult.endIndex;
-          stringState = 0;
-          continue;
-        }
-
-        if (isLineCommentStart(text, i)) {
-          if (line == cursorManager.cursorLine && targetIndex >= i) return null;
-          inLineComment = true;
-          break;
-        }
-
-        if (isBlockCommentsEnabled
-            && i + 1 < len
-            && text.charAt(i) == '/'
-            && text.charAt(i + 1) == '*'
-            && !isTokenEscaped(text, i)) {
-          int end = findBlockCommentEnd(text, i + 2);
-          int endPos = (end < 0) ? len : end + 2;
-          if (line == cursorManager.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
-          if (end < 0) {
-            inBlockComment = true;
-            break;
-          }
-          i = end + 2;
-          continue;
-        }
-
-        if (isTripleQuoteStart(text, i) && !isEscaped(text, i)) {
-          int end = findTripleQuoteEnd(text, i + 3);
-          int endPos = end >= 0 ? end + 3 : len;
-          if (line == cursorManager.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
-          if (end < 0) {
-            if (isTripleQuoteStringsEnabled) {
-              stringState = STRING_STATE_TRIPLE;
-            }
-            break;
-          }
-          i = end + 3;
-          continue;
-        }
-
-        char c = text.charAt(i);
-        if (isStringDelimiter(c) && !isEscaped(text, i)) {
-          int end = findStringEnd(text, i + 1, c);
-          int endPos = end >= 0 ? end + 1 : len;
-          if (line == cursorManager.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
-          if (end < 0) {
-            if (isMultiLineStringsEnabled) {
-              stringState = getStringStateForDelimiter(c);
-            }
-            break;
-          }
-          i = end + 1;
-          continue;
-        }
-
-        if (isBracketChar(c) && !isEscaped(text, i)) {
-          BracketToken token = new BracketToken(line, i, c);
-          if (isOpeningBracket(c)) {
-            stack.push(token);
-          } else if (isClosingBracket(c)) {
-            if (!stack.isEmpty() && stack.peek().bracket == matchingBracket(c)) {
-              BracketToken open = stack.pop();
-              if (line == cursorManager.cursorLine && i == targetIndex) {
-                return new BracketMatch(open.line, open.ch, line, i);
-              }
-              if (open.line == cursorManager.cursorLine && open.ch == targetIndex) {
-                return new BracketMatch(open.line, open.ch, line, i);
-              }
-            }
-          }
-        }
-
-        i++;
-      }
-    }
-    return new BracketMatch(cursorManager.cursorLine, targetIndex, cursorManager.cursorLine, targetIndex);
-  }
-
-  private void drawBracketMatchForLine(
-      Canvas canvas, String line, int globalLine, BracketMatch match) {
-    if (match == null) return;
-    if (globalLine != match.openLine && globalLine != match.closeLine) return;
-    if (line == null || line.isEmpty()) return;
-
-    if (match.openLine == match.closeLine) {
-      if (match.openChar == match.closeChar) {
-        drawBracketBox(canvas, line, globalLine, match.openChar);
-        return;
-      }
-
-      // If the matching brackets are adjacent (e.g. "{}" or "[]"), draw a single box to avoid
-      // the seam line in the middle.
-      if (Math.abs(match.openChar - match.closeChar) == 1) {
-        int leftIndex = Math.min(match.openChar, match.closeChar);
-        int rightIndex = Math.max(match.openChar, match.closeChar);
-        drawBracketBoxRange(canvas, line, globalLine, leftIndex, rightIndex);
-      } else {
-        drawBracketBox(canvas, line, globalLine, match.openChar);
-        drawBracketBox(canvas, line, globalLine, match.closeChar);
-      }
-      return;
-    }
-
-    int index = (globalLine == match.openLine) ? match.openChar : match.closeChar;
-    drawBracketBox(canvas, line, globalLine, index);
-  }
-
-  private void drawBracketBox(Canvas canvas, String line, int globalLine, int index) {
-    if (index < 0 || index >= line.length()) return;
-
-    float left = measureText(line, index, globalLine);
-    float right = measureText(line, index + 1, globalLine);
-    if (right <= left) right = left + measureTextWithVisualSpaces(line, index, index + 1, paint);
-
-    drawBracketBoxRect(canvas, globalLine, left, right);
-  }
-
-  private void drawBracketBoxRange(
-      Canvas canvas, String line, int globalLine, int startIndex, int endIndex) {
-    if (startIndex < 0 || endIndex < 0) return;
-    if (startIndex >= line.length()) return;
-    if (endIndex >= line.length()) endIndex = line.length() - 1;
-    if (endIndex < startIndex) return;
-
-    float left = measureText(line, startIndex, globalLine);
-    float right = measureText(line, endIndex + 1, globalLine);
-    if (right <= left)
-      right = left + measureTextWithVisualSpaces(line, startIndex, endIndex + 1, paint);
-    drawBracketBoxRect(canvas, globalLine, left, right);
-  }
-
-  private void drawBracketBoxRect(Canvas canvas, int globalLine, float left, float right) {
-    final float padding = 1f;
-    final float top = scrollManager.getDrawLineTop(globalLine) + padding;
-    final float bottom = top + lineHeight - (padding * 2f);
-
-    float l = left - padding;
-    float r = right + padding;
-    if (r <= l) return;
-
-    bracketMatchRect.set(l, top, r, bottom);
-    float radius = Math.max(2f, bracketMatchStrokeWidth + 1f);
-    canvas.drawRoundRect(bracketMatchRect, radius, radius, bracketMatchPaint);
-  }
 
     final int len = line.length();
     float currentX = 0f;
-    boolean prevWhitespace = false;
-    final float eps = 0.25f; // boundary tolerance (px)
+    final float eps = 0.25f;
 
     int pos = 0;
     if (spans != null && !spans.isEmpty()) {
@@ -8881,130 +8317,152 @@ public class SodiumEditorView extends View {
         if (pos >= len) break;
         if (span.end <= pos) continue;
         if (span.start > pos) {
-          if (hitTestWhitespaceSegment(
-              line,
-              pos,
-              Math.min(span.start, len),
-              globalLine,
-              x,
-              paint,
-              eps,
-              currentX,
-              prevWhitespace)) {
-            if (isGuideHitOnWhitespaceBoundary(line, x)) return false;
-            return true;
+          for (int i = pos; i < Math.min(span.start, len); i++) {
+            float adv = measureTextWithVisualSpaces(line, i, i + 1, paint);
+            if (x >= currentX - eps && x <= currentX + adv + eps) {
+              return Character.isWhitespace(line.charAt(i));
+            }
+            currentX += adv;
           }
-          HitAdvance a = lastHitAdvance;
-          if (a.hit) return a.isWhitespace;
-          currentX = a.x;
-          prevWhitespace = a.prevWhitespace;
-          pos = a.pos;
         }
-        int segStart = Math.max(pos, span.start);
-        int segEnd = Math.min(len, span.end);
-        if (segEnd > segStart) {
-          if (hitTestWhitespaceSegment(
-              line, segStart, segEnd, globalLine, x, span.paint, eps, currentX, prevWhitespace)) {
-            if (isGuideHitOnWhitespaceBoundary(line, x)) return false;
-            return true;
+        int start = Math.max(pos, span.start);
+        int end = Math.min(len, span.end);
+        for (int i = start; i < end; i++) {
+          float adv = measureTextWithVisualSpaces(line, i, i + 1, paint);
+          if (x >= currentX - eps && x <= currentX + adv + eps) {
+            return Character.isWhitespace(line.charAt(i));
           }
-          HitAdvance a = lastHitAdvance;
-          if (a.hit) return a.isWhitespace;
-          currentX = a.x;
-          prevWhitespace = a.prevWhitespace;
-          pos = a.pos;
+          currentX += adv;
         }
+        pos = Math.max(pos, end);
       }
     }
 
     if (pos < len) {
-      if (hitTestWhitespaceSegment(
-          line, pos, len, globalLine, x, paint, eps, currentX, prevWhitespace)) {
-        if (isGuideHitOnWhitespaceBoundary(line, x)) return false;
-        return true;
+      for (int i = pos; i < len; i++) {
+        float adv = measureTextWithVisualSpaces(line, i, i + 1, paint);
+        if (x >= currentX - eps && x <= currentX + adv + eps) {
+          return Character.isWhitespace(line.charAt(i));
+        }
+        currentX += adv;
       }
-      HitAdvance a = lastHitAdvance;
-      if (a.hit) return a.isWhitespace;
     }
 
-    // Beyond the end of text is treated as whitespace.
     return true;
   }
 
-  private boolean isGuideHitOnWhitespaceBoundary(String line, float x) {
-    if (!lastHitAdvance.hit || !lastHitAdvance.isWhitespace) return false;
-    // If we're right at the end of a whitespace run and next char is text,
-    // treat as non-whitespace so guides don't cut through letters.
-    final float boundaryEps = 0.6f;
-    if (lastHitAdvance.hitCharEndX - x > boundaryEps) return false;
-    int next = lastHitAdvance.pos + 1;
-    if (next >= line.length()) return false;
-    return !Character.isWhitespace(line.charAt(next));
-  }
+private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine) {
+    if (!isIndentGuidesEnabled || !isIndentationBlocksEnabled || isHeavyDrawSuppressed()) return;
+    if (!isLineInIndentBlock(globalLine)) return;
+    if (line == null || line.isEmpty()) return;
+    int unitSpaces = INDENT_BLOCK_UNIT.length();
+    if (unitSpaces <= 0) return;
 
-  private static final class HitAdvance {
-    boolean hit;
-    boolean isWhitespace;
-    float x;
-    float hitCharEndX;
-    int pos;
-    boolean prevWhitespace;
-  }
+    float top = scrollManager.getDrawLineTop(globalLine);
+    float bottom = top + lineHeight;
+    int columns = 0;
+    int nextGuide = unitSpaces;
+    float x = 0f;
 
-  private final HitAdvance lastHitAdvance = new HitAdvance();
-
-  private boolean hitTestWhitespaceSegment(
-      String line,
-      int start,
-      int end,
-      int globalLine,
-      float x,
-      Paint p,
-      float eps,
-      float startX,
-      boolean prevWhitespace) {
-    lastHitAdvance.hit = false;
-    lastHitAdvance.isWhitespace = false;
-    lastHitAdvance.x = startX;
-    lastHitAdvance.pos = start;
-    lastHitAdvance.prevWhitespace = prevWhitespace;
-
-    if (start >= end) return false;
-
-    int segLen = end - start;
-    if (measureWidthBuffer == null || measureWidthBuffer.length < segLen) {
-      measureWidthBuffer = new float[Math.max(segLen, 64)];
-    }
-    p.getTextWidths(line, start, end, measureWidthBuffer);
-
-    float currentX = startX;
-    boolean prevWs = prevWhitespace;
-    for (int i = 0; i < segLen; i++) {
-      int idx = start + i;
-      char c = line.charAt(idx);
-      float adv = getCharAdvanceWidth(c, measureWidthBuffer[i], p);
-      float nextX = currentX + adv;
-
-      if (x <= nextX + eps) {
-        // Treat boundary-at-start as part of the current glyph to avoid drawing guides through
-        // text.
-        boolean ws = Character.isWhitespace(c);
-        lastHitAdvance.hit = true;
-        lastHitAdvance.isWhitespace = ws;
-        lastHitAdvance.x = currentX;
-        lastHitAdvance.hitCharEndX = nextX;
-        lastHitAdvance.pos = idx;
-        lastHitAdvance.prevWhitespace = prevWs;
-        return ws;
+    for (int i = 0; i < line.length(); i++) {
+      char c = line.charAt(i);
+      if (c != ' ' && c != '\t') break;
+      float adv = measureTextWithVisualSpaces(line, i, i + 1, paint);
+      if (c == '\t') {
+        columns += DEFAULT_TAB_SIZE_SPACES;
+      } else {
+        columns += 1;
       }
-      currentX = nextX;
-      prevWs = Character.isWhitespace(c);
+      x += adv;
+      while (columns >= nextGuide) {
+        if (isWhitespaceAtX(line, globalLine, x)) {
+          canvas.drawLine(x, top, x, bottom, indentGuidePaint);
+        }
+        nextGuide += unitSpaces;
+      }
     }
+  }
 
-    lastHitAdvance.x = currentX;
-    lastHitAdvance.pos = end;
-    lastHitAdvance.prevWhitespace = prevWs;
+  private boolean isLineInIndentBlock(int globalLine) {
+    if (!isIndentationBlocksEnabled) return false;
+    rebuildIndentGuideIntervalsIfNeeded();
+    if (indentGuideIntervals.isEmpty()) return false;
+    int lo = 0;
+    int hi = indentGuideIntervals.size() - 1;
+    while (lo <= hi) {
+      int mid = (lo + hi) >>> 1;
+      int[] interval = indentGuideIntervals.get(mid);
+      if (globalLine < interval[0]) {
+        hi = mid - 1;
+      } else if (globalLine > interval[1]) {
+        lo = mid + 1;
+      } else {
+        return true;
+      }
+    }
     return false;
+  }
+
+  private void rebuildIndentGuideIntervalsIfNeeded() {
+    if (!indentGuideIntervalsDirty) return;
+    indentGuideIntervalsDirty = false;
+    indentGuideIntervals.clear();
+    if (!isIndentationBlocksEnabled || foldRanges.isEmpty()) return;
+    for (FoldRange range : foldRanges.values()) {
+      if (!range.isIndentFold) continue;
+      int start = range.startLine + 1;
+      int end = range.endLine;
+      if (end < start) continue;
+      indentGuideIntervals.add(new int[] {start, end});
+    }
+    if (indentGuideIntervals.isEmpty()) return;
+    java.util.Collections.sort(indentGuideIntervals, (a, b) -> Integer.compare(a[0], b[0]));
+    int write = 0;
+    int[] cur = indentGuideIntervals.get(0);
+    for (int i = 1; i < indentGuideIntervals.size(); i++) {
+      int[] nxt = indentGuideIntervals.get(i);
+      if (nxt[0] <= cur[1] + 1) {
+        cur[1] = Math.max(cur[1], nxt[1]);
+      } else {
+        indentGuideIntervals.set(write++, cur);
+        cur = nxt;
+      }
+    }
+    indentGuideIntervals.set(write++, cur);
+    while (indentGuideIntervals.size() > write)
+      indentGuideIntervals.remove(indentGuideIntervals.size() - 1);
+  }
+
+  private static int getFirstNonSpaceIndex(String line) {
+    for (int i = 0; i < line.length(); i++) {
+      if (!Character.isWhitespace(line.charAt(i))) return i;
+    }
+    return -1;
+  }
+
+  private int getBraceGuideColumnForLine(
+      String line, int globalLine, int braceIndex, int firstNonSpace) {
+    int column = (firstNonSpace >= 0) ? firstNonSpace : braceIndex;
+    if (firstNonSpace >= 0 && braceIndex > firstNonSpace) {
+      char first = line.charAt(firstNonSpace);
+      if (first == ')' || first == ']') {
+        int prevIndent = getPreviousNonEmptyIndentColumn(globalLine - 1);
+        if (prevIndent >= 0) {
+          column = prevIndent;
+        }
+      }
+    }
+    return column;
+  }
+
+  private int getPreviousNonEmptyIndentColumn(int line) {
+    for (int l = line; l >= 0; l--) {
+      String prev = getLineTextForRender(l);
+      if (prev == null) continue;
+      int idx = getFirstNonSpaceIndex(prev);
+      if (idx >= 0) return idx;
+    }
+    return -1;
   }
 
   private void drawColorCodeBackgrounds(Canvas canvas, String line, int globalLine) {
@@ -13784,12 +13242,92 @@ public class SodiumEditorView extends View {
   }
 
   private void invalidateLineNumberCache() {
-    lineNumberCacheBitmap = null;
-    lineNumberCacheCanvas = null;
+    lineNumberManager.lineNumberCacheBitmap = null;
+    lineNumberManager.lineNumberCacheCanvas = null;
   }
 
   void invalidateLineNumberCacheForUndo() {
     invalidateLineNumberCache();
+  }
+
+  boolean isShowLineNumbersForLineNumbers() {
+    return showLineNumbers;
+  }
+
+  boolean isCodeFoldingEnabledForLineNumbers() {
+    return isCodeFoldingEnabled;
+  }
+
+  int getVisibleLineCountForLineNumbers() {
+    return getVisibleLineCount();
+  }
+
+  int getLinesCountForLineNumbers() {
+    return getLinesCount();
+  }
+
+  float getLineHeightForLineNumbers() {
+    return lineHeight;
+  }
+
+  float getScrollYForLineNumbers() {
+    return scrollManager.scrollY;
+  }
+
+  boolean isRtlForLineNumbers() {
+    return isRtl;
+  }
+
+  float getFoldMarkerGutterWidthForLineNumbers() {
+    return foldMarkerGutterWidth;
+  }
+
+  float getLineNumbersGutterWidthForScroll() {
+    return lineNumberManager.lineNumbersGutterWidth;
+  }
+
+  float getGutterStartXForLineNumbers() {
+    return getGutterStartX();
+  }
+
+  float getGutterTextPaddingForLineNumbers() {
+    return GUTTER_TEXT_PADDING;
+  }
+
+  float getTextPaintDescentForLineNumbers() {
+    return paint.descent();
+  }
+
+  int mapVisibleIndexToGlobalForLineNumbers(int visibleIndex) {
+    return mapVisibleIndexToGlobal(visibleIndex);
+  }
+
+  int getTotalVisualLineCountForLineNumbers() {
+    return getTotalVisualLineCount();
+  }
+
+  VisualLinePosition getVisualPositionForIndexForLineNumbers(int visualIndex) {
+    return getVisualPositionForIndex(visualIndex);
+  }
+
+  int getCursorLineForLineNumbers() {
+    return cursorManager.cursorLine;
+  }
+
+  int getCurrentLineNumberColorForLineNumbers() {
+    return currentLineNumberColor;
+  }
+
+  boolean isLineHiddenByFoldForLineNumbers(int line) {
+    return isLineHiddenByFold(line);
+  }
+
+  int getVisibleIndexForGlobalLineForLineNumbers(int line) {
+    return getVisibleIndexForGlobalLine(line);
+  }
+
+  int getVisualIndexForLineAndCharForLineNumbers(int line, int ch) {
+    return getVisualIndexForLineAndChar(line, ch);
   }
 
   public int getLinesCount() {
@@ -14638,4 +14176,31 @@ public class SodiumEditorView extends View {
     cursorAnimationManager.release();
     ioThread.quitSafely();
   }
+  private static boolean isOpeningBracket(char c) {
+    return c == '(' || c == '[' || c == '{';
+  }
+
+  private static boolean isClosingBracket(char c) {
+    return c == ')' || c == ']' || c == '}';
+  }
+
+  private static char matchingBracket(char c) {
+    switch (c) {
+      case '(':
+        return ')';
+      case ')':
+        return '(';
+      case '[':
+        return ']';
+      case ']':
+        return '[';
+      case '{':
+        return '}';
+      case '}':
+        return '{';
+      default:
+        return 0;
+    }
+  }
+
 }
