@@ -452,4 +452,9 @@ final class LineNumberManager {
       canvas.drawText(lineNumberChars, start, count, x, y, lineNumbersPaint);
     }
   }
+
+  void invalidateCache() {
+    lineNumberCacheBitmap = null;
+    lineNumberCacheCanvas = null;
+  }
 }

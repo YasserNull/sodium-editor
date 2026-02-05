@@ -170,8 +170,8 @@ final class ZoomManager {
                     view.invalidate();
                   }
                 }
-                if (view.wrapPrefixRebuildPending) {
-                  view.wrapPrefixRebuildPending = false;
+                if (view.isWrapPrefixRebuildPendingForScroll()) {
+                  view.clearWrapPrefixRebuildPendingForScroll();
                   view.scheduleWrapPrefixRebuildUpToWindow();
                 }
 
@@ -188,7 +188,7 @@ final class ZoomManager {
                       new Runnable() {
                         @Override
                         public void run() {
-                          if (view.wrapMetricsReady) {
+                          if (view.isWrapMetricsReadyForScroll()) {
                             int visualIndex = view.getVisualIndexForLineAndChar(targetGlobalLine, 0);
                             view.setScrollYForZoom(visualIndex * view.lineHeight - targetFocusY);
                             view.clampScrollYForZoom();

@@ -153,8 +153,10 @@ public final class ScrollManager {
           }
         }
         view.checkAndLoadWindow();
-        if (view.isWordWrapEnabled && view.wrapPrefixRebuildPending && !view.wrapPrefixBuilding) {
-          view.wrapPrefixRebuildPending = false;
+        if (view.isWordWrapEnabled
+            && view.isWrapPrefixRebuildPendingForScroll()
+            && !view.isWrapPrefixBuildingForScroll()) {
+          view.clearWrapPrefixRebuildPendingForScroll();
           view.scheduleWrapPrefixRebuildUpToWindow();
         }
         if (view.hasSelectionValue()) view.showPopupAtSelection();
@@ -165,7 +167,7 @@ public final class ScrollManager {
   boolean onFling(float velocityX, float velocityY) {
     if (view.getZoomManager().isScaling() || view.getZoomManager().isScaleInProgress()) return true;
     if (view.getZoomManager().isJustFinishedScale()) return true;
-    if (view.isWordWrapEnabled && view.wrapPrefixBuilding) {
+    if (view.isWordWrapEnabled && view.isWrapPrefixBuildingForScroll()) {
       view.cancelWrapPrefixRebuildForInteraction();
     }
     if (view.suggestionAcceptedThisTouch) return false;
@@ -239,7 +241,7 @@ public final class ScrollManager {
     if (e2.getPointerCount() > 1) return true;
     if (view.getZoomManager().isScaling() || view.getZoomManager().isScaleInProgress()) return true;
     if (view.getZoomManager().isJustFinishedScale()) return true;
-    if (view.isWordWrapEnabled && view.wrapPrefixBuilding) {
+    if (view.isWordWrapEnabled && view.isWrapPrefixBuildingForScroll()) {
       view.cancelWrapPrefixRebuildForInteraction();
     }
     if (view.suggestionAcceptedThisTouch) return false;
@@ -336,7 +338,7 @@ public final class ScrollManager {
 
   float getMaxScrollYForClamp() {
     if (view.isWordWrapEnabled
-        && !view.wrapMetricsReady
+        && !view.isWrapMetricsReadyForScroll()
         && (view.getZoomManager().isScaling() || view.getZoomManager().isJustFinishedScale())) {
       return scrollY;
     }
@@ -579,7 +581,8 @@ public final class ScrollManager {
   }
 
   void scrollToLineFastForSelectAll(int line, int ch) {
-    if (view.isWordWrapEnabled && (!view.wrapMetricsReady || view.wrapLinePrefix == null)) {
+    if (view.isWordWrapEnabled
+        && (!view.isWrapMetricsReadyForScroll() || view.getWrapLinePrefixForScroll() == null)) {
       scrollY = Math.max(0f, (line - 5) * view.lineHeight);
     } else {
       int targetVisual = view.getVisualIndexForLineAndChar(line, ch);
