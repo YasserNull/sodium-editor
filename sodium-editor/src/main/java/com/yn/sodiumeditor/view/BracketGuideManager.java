@@ -99,7 +99,7 @@ final class BracketGuideManager {
       return;
     }
 
-    SodiumEditorView.HighlightLineState guideStart = view.getLineStateAtStartForBracket(start);
+    BracketGuideLineState guideStart = view.getBracketGuideLineStateForBracket(start);
     boolean guideBlock = guideStart.inBlockComment && view.isBlockCommentsEnabledForBracket();
     int guideString = guideStart.stringState;
     if (!view.isBlockCommentsEnabledForBracket()) guideBlock = false;
@@ -474,6 +474,16 @@ final class BracketGuideManager {
     BracketGuideToken(int column, float x) {
       this.column = column;
       this.x = x;
+    }
+  }
+
+  static final class BracketGuideLineState {
+    final boolean inBlockComment;
+    final int stringState;
+
+    BracketGuideLineState(boolean inBlockComment, int stringState) {
+      this.inBlockComment = inBlockComment;
+      this.stringState = stringState;
     }
   }
 }

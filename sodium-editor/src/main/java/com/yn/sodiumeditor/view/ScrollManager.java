@@ -553,9 +553,8 @@ public final class ScrollManager {
           Math.min(view.getCursorChar(), view.getLogicalLineLength(view.getCursorLine(), line));
       float cursorX = view.getCaretXForLine(line, view.getCursorLine(), safeChar);
 
-      float viewLeft = view.isRtl ? 0f : view.getLineNumbersGutterWidthForScroll();
-      float viewRight =
-          view.isRtl ? (view.getWidth() - view.getLineNumbersGutterWidthForScroll()) : view.getWidth();
+      float viewLeft = view.lineNumberManager.getContentViewLeft(view.isRtl);
+      float viewRight = view.lineNumberManager.getContentViewRight(view.getWidth(), view.isRtl);
       float scrollMargin = 50f;
       float effectiveScrollX = view.getEffectiveScrollX();
       float cursorViewX = view.getTextStartX() + cursorX - effectiveScrollX;

@@ -149,7 +149,7 @@ final class BracketMatchManager {
     }
     if (targetIndex < 0) return null;
 
-    SodiumEditorView.HighlightLineState startState = view.getLineStateAtStartForMatch(firstVisibleLine);
+    BracketMatchLineState startState = view.getBracketMatchLineStateForMatch(firstVisibleLine);
     boolean inBlockComment = startState.inBlockComment && view.isBlockCommentsEnabledForMatch();
     int stringState = startState.stringState;
     if (!view.isBlockCommentsEnabledForMatch()) inBlockComment = false;
@@ -360,6 +360,16 @@ final class BracketMatchManager {
       this.openChar = openChar;
       this.closeLine = closeLine;
       this.closeChar = closeChar;
+    }
+  }
+
+  static final class BracketMatchLineState {
+    final boolean inBlockComment;
+    final int stringState;
+
+    BracketMatchLineState(boolean inBlockComment, int stringState) {
+      this.inBlockComment = inBlockComment;
+      this.stringState = stringState;
     }
   }
 }
