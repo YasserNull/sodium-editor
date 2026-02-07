@@ -275,18 +275,7 @@ public class SodiumEditorView extends View {
   private final Paint popupTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   private final Paint popupRipplePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   private final Path popupRippleClipPath = new Path();
-  private final Paint foldPlaceholderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  private final Paint foldMarkerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  private final Paint foldRipplePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  float foldMarkerGutterWidth = 0f;
-  private float foldMarkerTextScale = 1f;
-  private float foldMarkerSpacing = 0f;
-  private float foldMarkerEdgePadding = 4f;
-  private ValueAnimator foldRippleAnimator;
-  private int foldRippleLine = -1;
-  private float foldRippleRadius = 0f;
-  private float foldRippleAlpha = 0f;
-  private float foldRippleMaxRadius = 0f;
+  final FoldManager foldManager = new FoldManager(this);
 
   // editor background
   private boolean hasEditorBackgroundColor = false;
@@ -298,7 +287,6 @@ public class SodiumEditorView extends View {
   private final RectF selectionRectTmp = new RectF();
   private final Path selectionPathTmp = new Path();
   private final float[] selectionRadiiTmp = new float[8];
-  private final RectF foldPlaceholderRect = new RectF();
 
   // handle dragging edge flags (to prevent horizontal autoscroll beyond line bounds)
   private boolean lastDragAtLineStart = false;
@@ -320,12 +308,6 @@ public class SodiumEditorView extends View {
   private static final String FOLD_PLACEHOLDER_TEXT = "<—>";
   private static final String INDENT_BLOCK_UNIT = "  ";
   private static final int INDENT_FOLD_SCAN_LIMIT = 2000;
-  private float foldPlaceholderCorner = 3f;
-  private float foldPlaceholderPadX = 3f;
-  private float foldPlaceholderPadY = 2f;
-  private final java.util.HashMap<Integer, FoldRange> foldRanges = new java.util.HashMap<>();
-  private final java.util.ArrayList<int[]> foldIntervals = new java.util.ArrayList<>();
-  private boolean foldIntervalsDirty = true;
 
   // --- Current Line Highlight State ---
   private boolean highlightCurrentLine = true;
@@ -335,7 +317,6 @@ public class SodiumEditorView extends View {
   private boolean isAutoBracketNewlineIndentEnabled = false;
   private boolean isAutoIndentAfterClosingBracketEnabled = false;
   private boolean isIndentationBlocksEnabled = false;
-  boolean isCodeFoldingEnabled = false;
   private int currentLineHighlightColor = 0x202196F3; // Default: translucent gray (more visible)
   // current line number color moved to LineNumberManager
   private final Paint currentLinePaint = new Paint();
@@ -630,35 +611,6 @@ public class SodiumEditorView extends View {
     }
   }
 
-  private static final class FoldRange {
-    final int startLine;
-    final int endLine;
-    final int openCharIndex;
-    final char openChar;
-    final char closeChar;
-    final boolean isBlockComment;
-    final boolean isIndentFold;
-    boolean collapsed;
-
-    FoldRange(
-        int startLine,
-        int endLine,
-        int openCharIndex,
-        char openChar,
-        char closeChar,
-        boolean isBlockComment,
-        boolean isIndentFold) {
-      this.startLine = startLine;
-      this.endLine = endLine;
-      this.openCharIndex = openCharIndex;
-      this.openChar = openChar;
-      this.closeChar = closeChar;
-      this.isBlockComment = isBlockComment;
-      this.isIndentFold = isIndentFold;
-      this.collapsed = false;
-    }
-  }
-
   enum HighlightRuleType {
     REGEX,
     STRING,
@@ -791,20 +743,20 @@ public class SodiumEditorView extends View {
     float density = getContext().getResources().getDisplayMetrics().density;
     lineNumberManager.initDefaults(paint, density);
     currentLinePaint.setColor(currentLineHighlightColor);
-    foldPlaceholderCorner = 6f * density;
-    foldPlaceholderPadX = 6f * density;
-    foldPlaceholderPadY = 2f * density;
-    foldMarkerSpacing = foldMarkerSpacing * density;
-    foldMarkerEdgePadding = foldMarkerEdgePadding * density;
+    foldManager.foldPlaceholderCorner = 6f * density;
+    foldManager.foldPlaceholderPadX = 6f * density;
+    foldManager.foldPlaceholderPadY = 2f * density;
+    foldManager.foldMarkerSpacing = foldManager.foldMarkerSpacing * density;
+    foldManager.foldMarkerEdgePadding = foldManager.foldMarkerEdgePadding * density;
 
     popupMenuManager = new PopupMenuManager(this);
 
-    foldPlaceholderPaint.setColor(0xFFE0E0E0);
-    foldPlaceholderPaint.setStyle(Paint.Style.FILL);
-    foldMarkerPaint.setColor(0xFF888888);
-    foldMarkerPaint.setTextAlign(isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
-    foldMarkerPaint.setTextSize(paint.getTextSize());
-    foldRipplePaint.setStyle(Paint.Style.FILL);
+    foldManager.foldPlaceholderPaint.setColor(0xFFE0E0E0);
+    foldManager.foldPlaceholderPaint.setStyle(Paint.Style.FILL);
+    foldManager.foldMarkerPaint.setColor(0xFF888888);
+    foldManager.foldMarkerPaint.setTextAlign(isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
+    foldManager.foldMarkerPaint.setTextSize(paint.getTextSize());
+    foldManager.foldRipplePaint.setStyle(Paint.Style.FILL);
 
     wordWrapManager.initIndicatorPaint(paint, density, WORD_WRAP_INDICATOR_TEXT);
 
@@ -1078,7 +1030,7 @@ public class SodiumEditorView extends View {
   }
 
   private void updateSuggestionInternal() {
-    String line = getLineTextForRender(cursorManager.cursorLine);
+    String line = getLineTextForRender(cursorManager.getLine());
     if (line == null) {
       clearActiveSuggestion();
       return;
@@ -1090,13 +1042,13 @@ public class SodiumEditorView extends View {
     }
 
     // Do not show suggestions if the cursor is in the middle of a word
-    if (cursorManager.cursorChar < line.length() && Character.isLetterOrDigit(line.charAt(cursorManager.cursorChar))) {
+    if (cursorManager.getChar() < line.length() && Character.isLetterOrDigit(line.charAt(cursorManager.getChar()))) {
       clearActiveSuggestion();
       return;
     }
 
     // Do not show suggestions if there is non-whitespace text after the cursor
-    if (cursorManager.cursorChar < line.length() && !line.substring(cursorManager.cursorChar).trim().isEmpty()) {
+    if (cursorManager.getChar() < line.length() && !line.substring(cursorManager.getChar()).trim().isEmpty()) {
       clearActiveSuggestion();
       return;
     }
@@ -1115,13 +1067,13 @@ public class SodiumEditorView extends View {
     }
 
     // Prevent suggestions inside syntax highlighting (expensive).
-    List<HighlightSpan> spans = highlightCache.get(cursorManager.cursorLine);
+    List<HighlightSpan> spans = highlightCache.get(cursorManager.getLine());
     if (spans == null) {
-      spans = calculateSpansForLine(line, cursorManager.cursorLine);
-      highlightCache.put(cursorManager.cursorLine, spans);
+      spans = calculateSpansForLine(line, cursorManager.getLine());
+      highlightCache.put(cursorManager.getLine(), spans);
     }
     for (HighlightSpan span : spans) {
-      if (cursorManager.cursorChar > span.start && cursorManager.cursorChar <= span.end) {
+      if (cursorManager.getChar() > span.start && cursorManager.getChar() <= span.end) {
         clearActiveSuggestion();
         return;
       }
@@ -1131,8 +1083,8 @@ public class SodiumEditorView extends View {
       String suggestion = findPathSuggestion(pathFragment);
       if (suggestion != null && suggestion.length() > pathFragment.length()) {
         activeSuggestion = suggestion.substring(pathFragment.length());
-        activeSuggestionLine = cursorManager.cursorLine;
-        activeSuggestionCharStart = cursorManager.cursorChar - pathFragment.length();
+        activeSuggestionLine = cursorManager.getLine();
+        activeSuggestionCharStart = cursorManager.getChar() - pathFragment.length();
         activeSuggestionWordFragment = pathFragment;
         activeSuggestionIsPath = true;
       } else {
@@ -1150,8 +1102,8 @@ public class SodiumEditorView extends View {
     String suggestion = suggestionTrie.findFirstSuggestion(wordFragment);
     if (suggestion != null && suggestion.length() > wordFragment.length()) {
       activeSuggestion = suggestion.substring(wordFragment.length());
-      activeSuggestionLine = cursorManager.cursorLine;
-      activeSuggestionCharStart = cursorManager.cursorChar - wordFragment.length();
+      activeSuggestionLine = cursorManager.getLine();
+      activeSuggestionCharStart = cursorManager.getChar() - wordFragment.length();
       activeSuggestionWordFragment = wordFragment;
       activeSuggestionIsPath = false;
     } else {
@@ -1161,28 +1113,28 @@ public class SodiumEditorView extends View {
   }
 
   private String getCurrentWordFragment() {
-    String line = getLineTextForRender(cursorManager.cursorLine);
-    if (cursorManager.cursorChar == 0 || cursorManager.cursorChar > line.length()) {
+    String line = getLineTextForRender(cursorManager.getLine());
+    if (cursorManager.getChar() == 0 || cursorManager.getChar() > line.length()) {
       return "";
     }
-    int start = cursorManager.cursorChar;
+    int start = cursorManager.getChar();
     // A word character is a letter or a digit.
     while (start > 0 && Character.isLetterOrDigit(line.charAt(start - 1))) {
       start--;
     }
-    return line.substring(start, cursorManager.cursorChar);
+    return line.substring(start, cursorManager.getChar());
   }
 
   private String getCurrentPathFragment() {
-    String line = getLineTextForRender(cursorManager.cursorLine);
-    if (cursorManager.cursorChar == 0 || cursorManager.cursorChar > line.length()) {
+    String line = getLineTextForRender(cursorManager.getLine());
+    if (cursorManager.getChar() == 0 || cursorManager.getChar() > line.length()) {
       return "";
     }
-    int start = cursorManager.cursorChar;
+    int start = cursorManager.getChar();
     while (start > 0 && isPathChar(line.charAt(start - 1))) {
       start--;
     }
-    String fragment = line.substring(start, cursorManager.cursorChar);
+    String fragment = line.substring(start, cursorManager.getChar());
     if (fragment.isEmpty()) return "";
     if (fragment.startsWith("/")
         || fragment.startsWith("~")
@@ -1342,24 +1294,24 @@ public class SodiumEditorView extends View {
     invalidatePendingIOForEdit();
     undoRedo.incrementEditVersion();
 
-    scrollManager.ensureLineInWindow(cursorManager.cursorLine, true);
+    scrollManager.ensureLineInWindow(cursorManager.getLine(), true);
     if (isWindowLoading
-        && (cursorManager.cursorLine < windowStartLine || cursorManager.cursorLine >= windowStartLine + linesWindow.size())) {
+        && (cursorManager.getLine() < windowStartLine || cursorManager.getLine() >= windowStartLine + linesWindow.size())) {
       post(() -> insertStringAtCursor(text));
       return;
     }
 
-    int localIdx = cursorManager.cursorLine - windowStartLine;
+    int localIdx = cursorManager.getLine() - windowStartLine;
     synchronized (linesWindow) {
       String base = getLineFromWindowLocal(localIdx);
       if (base == null) base = "";
-      int pos = Math.max(0, Math.min(cursorManager.cursorChar, base.length()));
+      int pos = Math.max(0, Math.min(cursorManager.getChar(), base.length()));
       String modified = base.substring(0, pos) + text + base.substring(pos);
       updateLocalLine(localIdx, modified);
-      modifiedLines.put(cursorManager.cursorLine, modified);
-      invalidateHighlightCacheForLine(cursorManager.cursorLine);
-      cursorManager.cursorChar += text.length();
-      computeWidthForLine(cursorManager.cursorLine, modified);
+      modifiedLines.put(cursorManager.getLine(), modified);
+      invalidateHighlightCacheForLine(cursorManager.getLine());
+      cursorManager.setChar(cursorManager.getChar() + text.length());
+      computeWidthForLine(cursorManager.getLine(), modified);
       recalculateMaxLineWidth();
       scrollManager.keepCursorVisibleHorizontally();
       invalidate();
@@ -1888,44 +1840,166 @@ public class SodiumEditorView extends View {
     if (this.isIndentationBlocksEnabled == enabled) return;
     this.isIndentationBlocksEnabled = enabled;
     if (!enabled) {
-      foldRanges.entrySet().removeIf(e -> e.getValue().isIndentFold);
+      foldManager.removeIndentFolds();
     }
     indentGuideIntervalsDirty = true;
-    foldIntervalsDirty = true;
+    foldManager.markIntervalsDirty();
     invalidate();
   }
 
   public void setCodeFoldingEnabled(boolean enabled) {
-    if (this.isCodeFoldingEnabled == enabled) return;
-    this.isCodeFoldingEnabled = enabled;
-    invalidateLineNumberCache();
-    if (!enabled) {
-      foldRanges.clear();
-      clearFoldRipple();
-    }
-    indentGuideIntervalsDirty = true;
-    foldIntervalsDirty = true;
-    invalidate();
+    foldManager.setCodeFoldingEnabled(enabled);
   }
 
   public void setFoldPlaceholderColor(int color) {
-    foldPlaceholderPaint.setColor(color);
-    if (isCodeFoldingEnabled) invalidate();
+    foldManager.setFoldPlaceholderColor(color);
   }
 
   public void setFoldMarkerColor(int color) {
-    foldMarkerPaint.setColor(color);
-    if (isCodeFoldingEnabled) invalidate();
+    foldManager.setFoldMarkerColor(color);
   }
 
   public void setFoldMarkerTextSize(float size) {
-    float base = paint.getTextSize();
-    if (base <= 0f) return;
-    foldMarkerTextScale = size / base;
-    foldMarkerPaint.setTextSize(base * foldMarkerTextScale);
-    requestLayout();
-    if (isWordWrapEnabled) invalidateWrapMetrics(true);
-    invalidate();
+    foldManager.setFoldMarkerTextSize(size);
+  }
+
+  public void setCursorAnimationEnabled(boolean enabled) {
+    cursorAnimationManager.setCursorAnimationEnabled(enabled);
+  }
+
+  void invalidateLineNumberCacheForFold() {
+    invalidateLineNumberCache();
+  }
+
+  void markIndentGuideIntervalsDirtyForFold() {
+    indentGuideIntervalsDirty = true;
+  }
+
+  void invalidateWrapMetricsForFold(boolean async) {
+    invalidateWrapMetrics(async);
+  }
+
+  HighlightLineState getLineStateAtStartForFold(int line) {
+    return getLineStateAtStart(line);
+  }
+
+  int findBlockCommentEndForFold(String line, int from) {
+    return findBlockCommentEnd(line, from);
+  }
+
+  StringEndResult findStringEndForStateForFold(String line, int index, int stringState) {
+    return findStringEndForState(line, index, stringState);
+  }
+
+  boolean isLineCommentStartForFold(String line, int index) {
+    return isLineCommentStart(line, index);
+  }
+
+  boolean isTokenEscapedForFold(String line, int index) {
+    return isTokenEscaped(line, index);
+  }
+
+  boolean isTripleQuoteStartForFold(String line, int index) {
+    return isTripleQuoteStart(line, index);
+  }
+
+  int findTripleQuoteEndForFold(String line, int startIndex) {
+    return findTripleQuoteEnd(line, startIndex);
+  }
+
+  boolean isStringDelimiterForFold(char c) {
+    return isStringDelimiter(c);
+  }
+
+  int findStringEndForFold(String line, int startIndex, char quote) {
+    return findStringEnd(line, startIndex, quote);
+  }
+
+  boolean isEscapedForFold(String line, int index) {
+    return isEscaped(line, index);
+  }
+
+  boolean isOpeningBracketForFold(char c) {
+    return isOpeningBracket(c);
+  }
+
+  char matchingBracketForFold(char c) {
+    return matchingBracket(c);
+  }
+
+  int getIndentWidthForFold(String line) {
+    return getIndentWidth(line);
+  }
+
+  boolean isIndentationBlocksEnabledForFold() {
+    return isIndentationBlocksEnabled;
+  }
+
+  boolean isBlockCommentsEnabledForFold() {
+    return isBlockCommentsEnabled;
+  }
+
+  boolean isMultiLineStringsEnabledForFold() {
+    return isMultiLineStringsEnabled;
+  }
+
+  boolean isBacktickStringsEnabledForFold() {
+    return isBacktickStringsEnabled;
+  }
+
+  boolean isTripleQuoteStringsEnabledForFold() {
+    return isTripleQuoteStringsEnabled;
+  }
+
+  int getStringStateTripleForFold() {
+    return STRING_STATE_TRIPLE;
+  }
+
+  int getStringStateBacktickForFold() {
+    return STRING_STATE_BACKTICK;
+  }
+
+  int getIndentFoldScanLimitForFold() {
+    return INDENT_FOLD_SCAN_LIMIT;
+  }
+
+  boolean isIndexReadyForFold() {
+    return isIndexReady;
+  }
+
+  File getSourceFileForFold() {
+    return sourceFile;
+  }
+
+  int getWindowStartLineForFold() {
+    return windowStartLine;
+  }
+
+  int getLinesWindowSizeForFold() {
+    return linesWindow.size();
+  }
+
+  String getLineTextForFoldScanInternal(int line, @Nullable RandomAccessFile raf) {
+    if (line < 0) return null;
+    String mod = modifiedLines.get(line);
+    if (mod != null) return mod;
+    if (line >= windowStartLine && line < windowStartLine + linesWindow.size()) {
+      String text = getLineFromWindowLocal(line - windowStartLine);
+      return (text != null) ? text : "";
+    }
+    if (raf != null && isIndexReady) {
+      long offset;
+      synchronized (lineOffsetsLock) {
+        if (line < 0 || line >= lineOffsets.length) return null;
+        offset = lineOffsets[line];
+      }
+      try {
+        return readLineUtf8AtByte(raf, offset);
+      } catch (Exception ignored) {
+        return null;
+      }
+    }
+    return null;
   }
 
   public void setCurrentLineHighlightColor(int color) {
@@ -2256,7 +2330,7 @@ public class SodiumEditorView extends View {
     if (this.isRtl == isRtl) return;
     this.isRtl = isRtl;
     lineNumberManager.setTextAlign(isRtl);
-    foldMarkerPaint.setTextAlign(isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
+    foldManager.foldMarkerPaint.setTextAlign(isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
     invalidateLineNumberCache();
     requestLayout();
     if (isWordWrapEnabled) invalidateWrapMetrics(true);
@@ -2398,18 +2472,7 @@ public class SodiumEditorView extends View {
 
   public void restoreSelection(int sL, int sC, int eL, int eC, int cursorLine, int cursorChar) {
     setSelectionInternal(sL, sC, eL, eC);
-    int targetLine = Math.max(0, cursorLine);
-    int targetChar = Math.max(0, cursorChar);
-    this.cursorManager.cursorLine = targetLine;
-    if (this.cursorManager.cursorLine >= windowStartLine
-        && this.cursorManager.cursorLine < windowStartLine + linesWindow.size()) {
-      String lineText = getLineTextForRender(this.cursorManager.cursorLine);
-      this.cursorManager.cursorChar = Math.max(0, Math.min(targetChar, lineText.length()));
-    } else {
-      this.cursorManager.cursorChar = targetChar;
-    }
-    resetCursorBlink();
-    invalidate();
+    cursorManager.setPositionNoClear(cursorLine, cursorChar);
   }
 
   public void showSelectionPopup() {
@@ -2420,15 +2483,15 @@ public class SodiumEditorView extends View {
 
   // --- Convenience cursor/line accessors ---
   public int getCurrentLineNumber() {
-    return cursorManager.cursorLine;
+    return cursorManager.getLine();
   }
 
   public int getCurrentColumn() {
-    return cursorManager.cursorChar;
+    return cursorManager.getChar();
   }
 
   public String getCurrentLineText() {
-    return getLineTextForRender(cursorManager.cursorLine);
+    return getLineTextForRender(cursorManager.getLine());
   }
 
   public void insertTextAt(int line, int col, String text) {
@@ -2508,7 +2571,7 @@ public class SodiumEditorView extends View {
     }
     suggestionPaint.setTextSize(sizePx * suggestionTextSizeScale);
     lineNumberManager.setTextSize(sizePx);
-    foldMarkerPaint.setTextSize(sizePx * foldMarkerTextScale);
+    foldManager.foldMarkerPaint.setTextSize(sizePx * foldManager.foldMarkerTextScale);
     wordWrapManager.updateIndicatorPaintForTextSize(sizePx, paint, WORD_WRAP_INDICATOR_TEXT);
     lineHeight = paint.getFontSpacing();
     updateTextSizeDependentMetrics();
@@ -2986,7 +3049,7 @@ public class SodiumEditorView extends View {
   }
 
   boolean isCodeFoldingEnabledForInput() {
-    return isCodeFoldingEnabled;
+    return foldManager.isCodeFoldingEnabled;
   }
 
   boolean toggleFoldAtLineForInput(int line) {
@@ -3054,8 +3117,8 @@ public class SodiumEditorView extends View {
   }
 
   void setCursorPositionForInput(int line, int ch) {
-    cursorManager.cursorLine = line;
-    cursorManager.cursorChar = ch;
+    cursorManager.setLine(line);
+    cursorManager.setChar(ch);
   }
 
   void insertTextAtCursorForInput(String text) {
@@ -3122,7 +3185,7 @@ public class SodiumEditorView extends View {
     paint.setTypeface(finalTypeface);
     suggestionPaint.setTypeface(finalTypeface);
     lineNumberManager.setTypeface(finalTypeface);
-    foldMarkerPaint.setTypeface(finalTypeface);
+    foldManager.foldMarkerPaint.setTypeface(finalTypeface);
     wordWrapManager.updateIndicatorTypeface(paint, WORD_WRAP_INDICATOR_TEXT);
     whitespaceGuideManager.updateTypeface(paint);
     popupMenuManager.onEditorTypefaceChanged(finalTypeface);
@@ -3295,15 +3358,15 @@ public class SodiumEditorView extends View {
       } else {
         maxLines = 999999; // Wider fallback for width calculation until index is ready
       }
-      if (isCodeFoldingEnabled) {
-        foldMarkerGutterWidth =
-            foldMarkerPaint.measureText("v") + foldMarkerSpacing + foldMarkerEdgePadding;
+      if (foldManager.isCodeFoldingEnabled) {
+        foldManager.foldMarkerGutterWidth =
+            foldManager.foldMarkerPaint.measureText("v") + foldManager.foldMarkerSpacing + foldManager.foldMarkerEdgePadding;
       } else {
-        foldMarkerGutterWidth = 0f;
+        foldManager.foldMarkerGutterWidth = 0f;
       }
       lineNumberManager.setGutterWidth(
           lineNumberManager.computeGutterWidth(
-              maxLines, isCodeFoldingEnabled, foldMarkerGutterWidth, GUTTER_TEXT_PADDING));
+              maxLines, foldManager.isCodeFoldingEnabled, foldManager.foldMarkerGutterWidth, GUTTER_TEXT_PADDING));
     } else {
       lineNumberManager.setGutterWidth(0f);
     }
@@ -3790,8 +3853,8 @@ public class SodiumEditorView extends View {
     selectionManager.selStartChar = 0;
     selectionManager.selEndLine = clamped;
     selectionManager.selEndChar = lineText.length();
-    cursorManager.cursorLine = clamped;
-    cursorManager.cursorChar = selectionManager.selEndChar;
+    cursorManager.setLine(clamped);
+    cursorManager.setChar(selectionManager.selEndChar);
     hidePopup();
     resetCursorBlink();
     invalidate();
@@ -3809,8 +3872,8 @@ public class SodiumEditorView extends View {
     selectionManager.selStartChar = 0;
     selectionManager.selEndLine = endLine;
     selectionManager.selEndChar = endLineText.length();
-    cursorManager.cursorLine = endLine;
-    cursorManager.cursorChar = selectionManager.selEndChar;
+    cursorManager.setLine(endLine);
+    cursorManager.setChar(selectionManager.selEndChar);
     selectionManager.hasSelection = true;
     selectionManager.selecting = true;
     hidePopup();
@@ -3848,7 +3911,11 @@ public class SodiumEditorView extends View {
         }
       };
 
-  private String buildFoldDisplayLine(String line, FoldRange range, int[] placeholderBoundsOut) {
+  private String buildFoldDisplayLine(String line, FoldManager.FoldRange range, int[] placeholderBoundsOut) {
+    return foldManager.buildFoldDisplayLine(line, range, placeholderBoundsOut);
+  }
+
+  String buildFoldDisplayLineInternal(String line, FoldManager.FoldRange range, int[] placeholderBoundsOut) {
     if (line == null) line = "";
     int placeholderStart = 0;
     int placeholderEnd = 0;
@@ -3881,13 +3948,15 @@ public class SodiumEditorView extends View {
   }
 
   private void drawFoldedLine(Canvas canvas, String line, int globalLine) {
-    FoldRange range = foldRanges.get(globalLine);
-    if (range == null) return;
+    foldManager.drawFoldedLine(canvas, line, globalLine);
+  }
+
+  void drawFoldedLineForFoldManager(Canvas canvas, String line, int globalLine, FoldManager.FoldRange range) {
 
     float y = Math.round(scrollManager.getDrawLineTop(globalLine) + lineHeight - paint.descent());
     paint.getTextBounds(FOLD_PLACEHOLDER_TEXT, 0, FOLD_PLACEHOLDER_TEXT.length(), textBounds);
-    float top = Math.round(y + textBounds.top - foldPlaceholderPadY);
-    float bottom = Math.round(y + textBounds.bottom + foldPlaceholderPadY);
+    float top = Math.round(y + textBounds.top - foldManager.foldPlaceholderPadY);
+    float bottom = Math.round(y + textBounds.bottom + foldManager.foldPlaceholderPadY);
 
     int prefixEnd;
     if (range.isBlockComment) {
@@ -3900,9 +3969,9 @@ public class SodiumEditorView extends View {
 
     float xStart = measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
     float placeholderWidth = Math.max(0f, paint.measureText(FOLD_PLACEHOLDER_TEXT));
-    foldPlaceholderRect.set(xStart, top, xStart + placeholderWidth, bottom);
+    foldManager.foldPlaceholderRect.set(xStart, top, xStart + placeholderWidth, bottom);
     canvas.drawRoundRect(
-        foldPlaceholderRect, foldPlaceholderCorner, foldPlaceholderCorner, foldPlaceholderPaint);
+        foldManager.foldPlaceholderRect, foldManager.foldPlaceholderCorner, foldManager.foldPlaceholderCorner, foldManager.foldPlaceholderPaint);
 
     drawHighlightedSegment(canvas, line, globalLine, 0, prefixEnd, 0f, y);
 
@@ -3921,9 +3990,11 @@ public class SodiumEditorView extends View {
   }
 
   private boolean isFoldPlaceholderHit(int globalLine, @Nullable String line, float localX) {
-    if (!isCodeFoldingEnabled) return false;
-    FoldRange range = foldRanges.get(globalLine);
-    if (range == null || !range.collapsed) return false;
+    return foldManager.isFoldPlaceholderHit(globalLine, line, localX);
+  }
+
+  boolean isFoldPlaceholderHitForFoldManager(
+      int globalLine, @Nullable String line, float localX, FoldManager.FoldRange range) {
     if (line == null) line = "";
 
     int prefixEnd;
@@ -3936,7 +4007,7 @@ public class SodiumEditorView extends View {
     }
     float xStart = measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
     float placeholderWidth = Math.max(0f, paint.measureText(FOLD_PLACEHOLDER_TEXT));
-    float pad = Math.max(0f, foldPlaceholderPadX);
+    float pad = Math.max(0f, foldManager.foldPlaceholderPadX);
     float left = xStart - pad;
     float right = xStart + placeholderWidth + pad;
     return localX >= left && localX <= right;
@@ -4043,91 +4114,27 @@ public class SodiumEditorView extends View {
   }
 
   private String getFoldMarkerForLine(int line, @Nullable String lineText) {
-    if (!isCodeFoldingEnabled) return null;
-    FoldRange range = foldRanges.get(line);
-    if (range != null) return range.collapsed ? ">" : "v";
-    if (lineText == null) return null;
-    boolean isIndentCandidate = isIndentationBlocksEnabled && isIndentFoldCandidate(lineText);
-    if (!isIndentCandidate && !shouldShowFoldMarkerFromLine(lineText)) return null;
-    FoldRange found = findFoldRangeForLine(line);
-    if (found == null) return null;
-    foldRanges.put(found.startLine, found);
-    if (found.isIndentFold) indentGuideIntervalsDirty = true;
-    foldIntervalsDirty = true;
-    return "v";
+    return foldManager.getFoldMarkerForLine(line, lineText);
+  }
+
+  String getFoldMarkerForLineInternal(int line, @Nullable String lineText) {
+    return foldManager.getFoldMarkerForLine(line, lineText);
   }
 
   private boolean isIndentFoldCandidate(String line) {
-    if (line == null || line.isEmpty()) return false;
-    String trimmed = rstripWhitespace(line);
-    return !trimmed.isEmpty() && trimmed.endsWith(":");
+    return foldManager.isIndentFoldCandidate(line);
   }
 
   private void startFoldMarkerRipple(int line) {
-    if (!isCodeFoldingEnabled || !lineNumberManager.isShowLineNumbers()) return;
-    foldRippleLine = line;
-    float gutterWidth = foldMarkerGutterWidth;
-    if (gutterWidth <= 0f) {
-      gutterWidth = foldMarkerPaint.measureText("v") + foldMarkerSpacing + foldMarkerEdgePadding;
-    }
-    foldRippleMaxRadius =
-        Math.max(lineHeight * 0.35f, Math.min(lineHeight * 0.6f, gutterWidth * 0.6f));
-    if (foldRippleAnimator != null) foldRippleAnimator.cancel();
-    foldRippleAnimator = ValueAnimator.ofFloat(0f, 1f);
-    foldRippleAnimator.setDuration(220);
-    foldRippleAnimator.addUpdateListener(
-        a -> {
-          float t = (float) a.getAnimatedValue();
-          foldRippleRadius = foldRippleMaxRadius * t;
-          foldRippleAlpha = 0.35f * (1f - t);
-          invalidate();
-        });
-    foldRippleAnimator.addListener(
-        new AnimatorListenerAdapter() {
-          @Override
-          public void onAnimationEnd(Animator animation) {
-            foldRippleAlpha = 0f;
-            foldRippleRadius = 0f;
-            foldRippleLine = -1;
-            invalidate();
-          }
-
-          @Override
-          public void onAnimationCancel(Animator animation) {
-            foldRippleAlpha = 0f;
-            foldRippleRadius = 0f;
-            foldRippleLine = -1;
-            invalidate();
-          }
-        });
-    foldRippleAnimator.start();
+    foldManager.startFoldMarkerRipple(line);
   }
 
   private void clearFoldRipple() {
-    if (foldRippleAnimator != null) {
-      foldRippleAnimator.cancel();
-      foldRippleAnimator = null;
-    }
-    foldRippleAlpha = 0f;
-    foldRippleRadius = 0f;
-    foldRippleLine = -1;
+    foldManager.clearFoldRipple();
   }
 
   private boolean shouldShowFoldMarkerFromLine(String line) {
-    if (line == null || line.isEmpty()) return false;
-    int blockStart = line.indexOf("/*");
-    if (blockStart >= 0) {
-      int blockEnd = line.indexOf("*/", blockStart + 2);
-      if (blockEnd < 0) return true;
-    }
-
-    int idx = line.indexOf('{');
-    if (idx >= 0 && line.indexOf('}', idx + 1) < 0) return true;
-    idx = line.indexOf('(');
-    if (idx >= 0 && line.indexOf(')', idx + 1) < 0) return true;
-    idx = line.indexOf('[');
-    if (idx >= 0 && line.indexOf(']', idx + 1) < 0) return true;
-    return false;
+    return foldManager.shouldShowFoldMarkerFromLine(line);
   }
 
   private void drawContent(Canvas canvas) {
@@ -4144,7 +4151,7 @@ public class SodiumEditorView extends View {
 
     int firstVisibleLine = firstVisibleIndex;
     int lastVisibleLine = lastVisibleIndex;
-    if (isCodeFoldingEnabled) {
+    if (foldManager.isCodeFoldingEnabled) {
       int visibleCount = getVisibleLineCount();
       if (visibleCount <= 0) visibleCount = 1;
       firstVisibleIndex = Math.max(0, Math.min(firstVisibleIndex, visibleCount - 1));
@@ -4196,10 +4203,10 @@ public class SodiumEditorView extends View {
     }
 
     if (lineNumberManager.isHighlightCurrentLineInGutter()
-        && cursorManager.cursorLine >= firstVisibleLine
-        && cursorManager.cursorLine <= lastVisibleLine
-        && (!isCodeFoldingEnabled || !isLineHiddenByFold(cursorManager.cursorLine))) {
-      int drawIndex = isCodeFoldingEnabled ? getVisibleIndexForGlobalLine(cursorManager.cursorLine) : cursorManager.cursorLine;
+        && cursorManager.getLine() >= firstVisibleLine
+        && cursorManager.getLine() <= lastVisibleLine
+        && (!foldManager.isCodeFoldingEnabled || !isLineHiddenByFold(cursorManager.getLine()))) {
+      int drawIndex = foldManager.isCodeFoldingEnabled ? getVisibleIndexForGlobalLine(cursorManager.getLine()) : cursorManager.getLine();
       float top = Math.round(drawIndex * lineHeight - scrollManager.scrollY);
       float bottom = top + lineHeight;
       lineNumberManager.drawCurrentLineHighlightInGutter(canvas, top, bottom, currentLinePaint);
@@ -4209,7 +4216,7 @@ public class SodiumEditorView extends View {
     if (lineNumberManager.isShowLineNumbers()) {
       lineNumberManager.drawLineNumbersCachedUnwrapped(
           canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine);
-      if (isCodeFoldingEnabled && drawDecorations) {
+      if (foldManager.isCodeFoldingEnabled && drawDecorations) {
         drawFoldMarkersForVisibleLines(canvas, firstVisibleIndex, lastVisibleIndex);
       }
     }
@@ -4284,12 +4291,12 @@ public class SodiumEditorView extends View {
       bracketGuideManager.ensureCacheForWindow(directLines);
     }
 
-    if (isCodeFoldingEnabled) {
+    if (foldManager.isCodeFoldingEnabled) {
       if (indentGuideIntervalsDirty) rebuildIndentGuideIntervalsIfNeeded();
       for (int v = firstVisibleIndex; v <= lastVisibleIndex; v++) {
         int globalLine = mapVisibleIndexToGlobal(v);
         String line = getLineTextForRenderWithDirect(globalLine, directLines);
-        FoldRange foldRange = getFoldRangeAtStart(globalLine);
+        FoldManager.FoldRange foldRange = getFoldRangeAtStart(globalLine);
         boolean isFoldStart = (foldRange != null);
         float lineBaseX = isRtl ? getRtlLineBaseX(line, globalLine) : 0f;
         float lineWidth =
@@ -4299,7 +4306,7 @@ public class SodiumEditorView extends View {
                 : 0f;
 
         // Highlight the current line, only if there is no selection
-        if (highlightCurrentLine && globalLine == cursorManager.cursorLine && !selectionManager.hasSelection) {
+        if (highlightCurrentLine && globalLine == cursorManager.getLine() && !selectionManager.hasSelection) {
           float top = Math.round(scrollManager.getDrawLineTop(globalLine));
           float bottom = Math.round(scrollManager.getDrawLineBottom(globalLine));
           float viewLeft = lineNumberManager.getContentViewLeft(isRtl);
@@ -4486,7 +4493,7 @@ public class SodiumEditorView extends View {
                 : 0f;
 
         // Highlight the current line, only if there is no selection
-        if (highlightCurrentLine && globalLine == cursorManager.cursorLine && !selectionManager.hasSelection) {
+        if (highlightCurrentLine && globalLine == cursorManager.getLine() && !selectionManager.hasSelection) {
           float top = Math.round(scrollManager.getDrawLineTop(globalLine));
           float bottom = Math.round(scrollManager.getDrawLineBottom(globalLine));
           float viewLeft = lineNumberManager.getContentViewLeft(isRtl);
@@ -4651,13 +4658,13 @@ public class SodiumEditorView extends View {
     if (isFocused()
         && !isReadOnly
         && !selectionManager.hasSelection
-        && cursorManager.cursorLine >= firstVisibleLine
-        && cursorManager.cursorLine <= lastVisibleLine
-        && (!isCodeFoldingEnabled || !isLineHiddenByFold(cursorManager.cursorLine))) {
-      String cursorLineText = getLineTextForRender(cursorManager.cursorLine);
-      int safeChar = Math.min(cursorManager.cursorChar, getLogicalLineLength(cursorManager.cursorLine, cursorLineText));
-      float cursorX = getCaretXForLine(cursorLineText, cursorManager.cursorLine, safeChar);
-      float cursorY = scrollManager.getDrawLineTop(cursorManager.cursorLine);
+        && cursorManager.getLine() >= firstVisibleLine
+        && cursorManager.getLine() <= lastVisibleLine
+        && (!foldManager.isCodeFoldingEnabled || !isLineHiddenByFold(cursorManager.getLine()))) {
+      String cursorLineText = getLineTextForRender(cursorManager.getLine());
+      int safeChar = Math.min(cursorManager.getChar(), getLogicalLineLength(cursorManager.getLine(), cursorLineText));
+      float cursorX = getCaretXForLine(cursorLineText, cursorManager.getLine(), safeChar);
+      float cursorY = scrollManager.getDrawLineTop(cursorManager.getLine());
       updateCursorDrawPosition(cursorX, cursorY);
       float drawX = cursorAnimationManager.getCursorDrawX();
       float drawY = cursorAnimationManager.getCursorDrawY();
@@ -4679,7 +4686,7 @@ public class SodiumEditorView extends View {
       handlePaint.setColor(handlesManager.getSelectionHandleColor());
       if (selectionManager.selStartLine >= firstVisibleLine
           && selectionManager.selStartLine <= lastVisibleLine
-          && (!isCodeFoldingEnabled || !isLineHiddenByFold(selectionManager.selStartLine))) {
+          && (!foldManager.isCodeFoldingEnabled || !isLineHiddenByFold(selectionManager.selStartLine))) {
         String startLineText = getLineTextForRender(selectionManager.selStartLine);
         float startX =
             getCaretXForLine(
@@ -4701,7 +4708,7 @@ public class SodiumEditorView extends View {
       }
       if (selectionManager.selEndLine >= firstVisibleLine
           && selectionManager.selEndLine <= lastVisibleLine
-          && (!isCodeFoldingEnabled || !isLineHiddenByFold(selectionManager.selEndLine))) {
+          && (!foldManager.isCodeFoldingEnabled || !isLineHiddenByFold(selectionManager.selEndLine))) {
         String endLineText = getLineTextForRender(selectionManager.selEndLine);
         float endX =
             getCaretXForLine(
@@ -4851,10 +4858,10 @@ public class SodiumEditorView extends View {
     }
 
     if (lineNumberManager.isHighlightCurrentLineInGutter()
-        && (!isCodeFoldingEnabled || !isLineHiddenByFold(cursorManager.cursorLine))) {
-      int currentVisualIndex = getVisualIndexForLineAndChar(cursorManager.cursorLine, 0);
-      String cursorLineText = getLineTextForRender(cursorManager.cursorLine);
-      int[] starts = getWrapStartsForLine(cursorManager.cursorLine, cursorLineText);
+        && (!foldManager.isCodeFoldingEnabled || !isLineHiddenByFold(cursorManager.getLine()))) {
+      int currentVisualIndex = getVisualIndexForLineAndChar(cursorManager.getLine(), 0);
+      String cursorLineText = getLineTextForRender(cursorManager.getLine());
+      int[] starts = getWrapStartsForLine(cursorManager.getLine(), cursorLineText);
       int segCount = Math.max(1, starts.length);
       int lastVisualIndexForLine = currentVisualIndex + segCount - 1;
       int drawFrom = Math.max(firstVisualIndex, currentVisualIndex);
@@ -4923,7 +4930,7 @@ public class SodiumEditorView extends View {
       float bottom = top + lineHeight;
       float y = Math.round(top + lineHeight - paint.descent());
 
-      if (highlightCurrentLine && pos.line == cursorManager.cursorLine && !selectionManager.hasSelection) {
+      if (highlightCurrentLine && pos.line == cursorManager.getLine() && !selectionManager.hasSelection) {
         canvas.drawRect(
             -paddingLeft, top, Math.max(getWrapWidth(), getWidth()), bottom, currentLinePaint);
       }
@@ -5003,15 +5010,15 @@ public class SodiumEditorView extends View {
     }
 
     if (isFocused() && !isReadOnly && !selectionManager.hasSelection) {
-      int cursorVisualIndex = getVisualIndexForLineAndChar(cursorManager.cursorLine, cursorManager.cursorChar);
+      int cursorVisualIndex = getVisualIndexForLineAndChar(cursorManager.getLine(), cursorManager.getChar());
       if (cursorVisualIndex >= firstVisualIndex && cursorVisualIndex <= lastVisualIndex) {
-        String cursorLineText = getLineTextForRenderWithDirect(cursorManager.cursorLine, directLines);
-        int[] starts = getWrapStartsForLine(cursorManager.cursorLine, cursorLineText);
-        int seg = getWrapSegmentIndexForChar(starts, cursorManager.cursorChar);
+        String cursorLineText = getLineTextForRenderWithDirect(cursorManager.getLine(), directLines);
+        int[] starts = getWrapStartsForLine(cursorManager.getLine(), cursorLineText);
+        int seg = getWrapSegmentIndexForChar(starts, cursorManager.getChar());
         int segStart = getWrapSegmentStart(starts, seg);
         int segEnd = getWrapSegmentEnd(starts, seg, cursorLineText.length());
-        int safeChar = Math.min(cursorManager.cursorChar, cursorLineText.length());
-        float cursorX = getCaretXForSegment(cursorLineText, cursorManager.cursorLine, segStart, segEnd, safeChar);
+        int safeChar = Math.min(cursorManager.getChar(), cursorLineText.length());
+        float cursorX = getCaretXForSegment(cursorLineText, cursorManager.getLine(), segStart, segEnd, safeChar);
         float cursorY = (cursorVisualIndex - firstVisualIndex) * lineHeight;
         updateCursorDrawPosition(cursorX, cursorY);
         float drawX = cursorAnimationManager.getCursorDrawX();
@@ -5115,7 +5122,7 @@ public class SodiumEditorView extends View {
 
     int firstLine = firstIndex;
     int lastLine = lastIndex;
-    if (isCodeFoldingEnabled) {
+    if (foldManager.isCodeFoldingEnabled) {
       int visibleCount = getVisibleLineCount();
       if (visibleCount <= 0) visibleCount = 1;
       firstIndex = Math.max(0, Math.min(firstIndex, visibleCount - 1));
@@ -5157,8 +5164,8 @@ public class SodiumEditorView extends View {
     }
 
     if (lineNumberManager.isHighlightCurrentLineInGutter()
-        && (!isCodeFoldingEnabled || !isLineHiddenByFold(cursorManager.cursorLine))) {
-      int currentVisualIndex = getVisualIndexForLineAndChar(cursorManager.cursorLine, 0);
+        && (!foldManager.isCodeFoldingEnabled || !isLineHiddenByFold(cursorManager.getLine()))) {
+      int currentVisualIndex = getVisualIndexForLineAndChar(cursorManager.getLine(), 0);
       if (currentVisualIndex >= firstIndex && currentVisualIndex <= lastIndex) {
         float top = Math.round(currentVisualIndex * lineHeight - scrollManager.scrollY);
         float bottom = top + lineHeight;
@@ -5244,7 +5251,7 @@ public class SodiumEditorView extends View {
               lineNumX,
               y,
               lineNumberManager.getCurrentLineNumberColor(),
-              line == cursorManager.cursorLine);
+              line == cursorManager.getLine());
           canvas.save(); // Re-enter text clip
           if (isRtl) {
             canvas.clipRect(
@@ -5259,7 +5266,7 @@ public class SodiumEditorView extends View {
           canvas.translate(getTextStartX() - getEffectiveScrollX(), 0);
         }
 
-        if (highlightCurrentLine && line == cursorManager.cursorLine && !selectionManager.hasSelection) {
+        if (highlightCurrentLine && line == cursorManager.getLine() && !selectionManager.hasSelection) {
           canvas.drawRect(
               -paddingLeft, top, Math.max(getWrapWidth(), getWidth()), bottom, currentLinePaint);
         }
@@ -5324,10 +5331,10 @@ public class SodiumEditorView extends View {
         }
         canvas.restore();
 
-        if (!cursorDrawn && isFocused() && !selectionManager.hasSelection && line == cursorManager.cursorLine) {
-          int cursorSeg = getWrapSegmentIndexForChar(starts, cursorManager.cursorChar);
+        if (!cursorDrawn && isFocused() && !selectionManager.hasSelection && line == cursorManager.getLine()) {
+          int cursorSeg = getWrapSegmentIndexForChar(starts, cursorManager.getChar());
           if (cursorSeg == seg) {
-            int safeChar = Math.min(cursorManager.cursorChar, text.length());
+            int safeChar = Math.min(cursorManager.getChar(), text.length());
             float cursorX = getCaretXForSegment(text, line, segStart, segEnd, safeChar);
             float cursorY = top;
             updateCursorDrawPosition(cursorX, cursorY);
@@ -6052,29 +6059,7 @@ public class SodiumEditorView extends View {
 
   private void drawFoldMarkersForVisibleLines(
       Canvas canvas, int firstVisibleIndex, int lastVisibleIndex) {
-    if (!isCodeFoldingEnabled) return;
-
-    float markerX =
-        isRtl
-            ? (getGutterStartX()
-                + lineNumberManager.getGutterSeparatorWidth()
-                + foldMarkerEdgePadding)
-            : (lineNumberManager.getSeparatorLeft(getGutterStartX()) - foldMarkerEdgePadding);
-
-    for (int v = firstVisibleIndex; v <= lastVisibleIndex; v++) {
-      int line = mapVisibleIndexToGlobal(v);
-      String marker = getFoldMarkerForLine(line, getLineTextForRender(line));
-      if (marker == null) continue;
-      float y = Math.round(v * lineHeight - scrollManager.scrollY + lineHeight - paint.descent());
-      if (line == foldRippleLine && foldRippleAlpha > 0f) {
-        int base = foldMarkerPaint.getColor();
-        int alpha = Math.min(255, Math.max(0, (int) (255f * foldRippleAlpha)));
-        foldRipplePaint.setColor((base & 0x00FFFFFF) | (alpha << 24));
-        float centerY = Math.round(v * lineHeight - scrollManager.scrollY + lineHeight * 0.5f);
-        canvas.drawCircle(markerX, centerY, foldRippleRadius, foldRipplePaint);
-      }
-      canvas.drawText(marker, markerX, y, foldMarkerPaint);
-    }
+    foldManager.drawFoldMarkersForVisibleLines(canvas, firstVisibleIndex, lastVisibleIndex);
   }
 
   private void drawHighlightedLineSegment(
@@ -6221,6 +6206,32 @@ public class SodiumEditorView extends View {
     canvas.drawText(charAnimationManager.getDelAnimText(), x, y, charAnimationManager.getTempPaint());
   }
 
+
+
+  private void drawAutoSuggestion(Canvas canvas, String lineContent, int globalLine, float textBaselineY) {
+    boolean allowSuggestion =
+        activeSuggestionIsPath ? isAutoPathCompletionEnabled : isAutoCompletionEnabled;
+    if (!allowSuggestion || activeSuggestion == null || globalLine != activeSuggestionLine) {
+      return;
+    }
+    if (lineContent == null) lineContent = "";
+
+    int cursorPositionInLine = activeSuggestionCharStart + activeSuggestionWordFragment.length();
+    if (cursorPositionInLine < 0 || cursorPositionInLine > lineContent.length()) return;
+
+    float suggestionStartX =
+        whitespaceGuideManager.measureTextWithVisualSpaces(
+            this, lineContent, 0, cursorPositionInLine, paint);
+    canvas.drawText(activeSuggestion, suggestionStartX, textBaselineY, suggestionPaint);
+
+    float suggestionTextWidth = suggestionPaint.measureText(activeSuggestion);
+    float leftView = suggestionStartX + getTextStartX() - getEffectiveScrollX();
+    float rightView = leftView + suggestionTextWidth;
+    float topView = scrollManager.getDrawLineTop(globalLine);
+    float bottomView = topView + lineHeight;
+
+    activeSuggestionRect.set(leftView, topView, rightView, bottomView);
+  }
 
   private void drawAutoSuggestionWrapped(
       Canvas canvas,
@@ -7340,8 +7351,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     if (!indentGuideIntervalsDirty) return;
     indentGuideIntervalsDirty = false;
     indentGuideIntervals.clear();
-    if (!isIndentationBlocksEnabled || foldRanges.isEmpty()) return;
-    for (FoldRange range : foldRanges.values()) {
+    if (!isIndentationBlocksEnabled || !foldManager.hasFoldRanges()) return;
+    for (FoldManager.FoldRange range : foldManager.getFoldRanges()) {
       if (!range.isIndentFold) continue;
       int start = range.startLine + 1;
       int end = range.endLine;
@@ -8205,6 +8216,10 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     }
   }
 
+  private void recalculateMaxLineWidth() {
+    recalculateMaxLineWidthAsync();
+  }
+
   private void recalculateMaxLineWidthAsync() {
     final int token = ++maxWidthRecalcToken;
     final int startLine;
@@ -8299,9 +8314,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     ioHandler.removeCallbacksAndMessages(null);
     clearHighlightCaches();
     if (isWordWrapEnabled) invalidateWrapMetrics();
-    if (isCodeFoldingEnabled) {
-      foldRanges.clear();
-      foldIntervalsDirty = true;
+    if (foldManager.isCodeFoldingEnabled) {
+      foldManager.clearAllFolds();
     }
   }
 
@@ -8309,9 +8323,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     ioTaskVersion.incrementAndGet();
     ioHandler.removeCallbacksAndMessages(null);
     clearHighlightCaches();
-    if (isCodeFoldingEnabled) {
-      foldRanges.clear();
-      foldIntervalsDirty = true;
+    if (foldManager.isCodeFoldingEnabled) {
+      foldManager.clearAllFolds();
       indentGuideIntervalsDirty = true;
     }
   }
@@ -8352,8 +8365,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     scrollManager.maxTextStartXForScroll = 0f;
     scrollManager.maxScrollXForScroll = 0f;
 
-    cursorManager.cursorLine = 0;
-    cursorManager.cursorChar = 0;
+    cursorManager.setLine(0);
+    cursorManager.setChar(0);
     isEof = true;
     scrollManager.scrollY = 0;
     scrollManager.scrollX = 0;
@@ -8420,8 +8433,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     indexDisabledPath = null;
     indexDisabledFileLength = -1L;
 
-    cursorManager.cursorLine = 0;
-    cursorManager.cursorChar = 0;
+    cursorManager.setLine(0);
+    cursorManager.setChar(0);
     isEof = false;
     scrollManager.scrollY = 0;
     scrollManager.scrollX = 0;
@@ -8664,19 +8677,19 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         () -> {
           if (currentGoToLineVersion != goToLineVersion.get()) return;
 
-          cursorManager.cursorLine = targetLine;
+          cursorManager.setLine(targetLine);
 
-          if (cursorManager.cursorLine >= windowStartLine
-              && cursorManager.cursorLine < windowStartLine + linesWindow.size()) {
-            String lineText = getLineTextForRender(cursorManager.cursorLine);
-            cursorManager.cursorChar = Math.max(0, Math.min(targetCol, lineText.length()));
+          if (cursorManager.getLine() >= windowStartLine
+              && cursorManager.getLine() < windowStartLine + linesWindow.size()) {
+            String lineText = getLineTextForRender(cursorManager.getLine());
+            cursorManager.setChar(Math.max(0, Math.min(targetCol, lineText.length())));
           } else if (isEof) {
             int lastLineInDoc = windowStartLine + linesWindow.size() - 1;
-            if (cursorManager.cursorLine > lastLineInDoc) cursorManager.cursorLine = Math.max(0, lastLineInDoc);
-            String lineText = getLineTextForRender(cursorManager.cursorLine);
-            cursorManager.cursorChar = Math.max(0, Math.min(targetCol, lineText.length()));
+            if (cursorManager.getLine() > lastLineInDoc) cursorManager.setLine(Math.max(0, lastLineInDoc));
+            String lineText = getLineTextForRender(cursorManager.getLine());
+            cursorManager.setChar(Math.max(0, Math.min(targetCol, lineText.length())));
           } else {
-            cursorManager.cursorChar = 0;
+            cursorManager.setChar(0);
           }
 
           scrollManager.keepCursorVisibleHorizontally();
@@ -8722,17 +8735,17 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       composingLength = 0;
     }
 
-    final int beforeLine = cursorManager.cursorLine;
-    final int beforeChar = cursorManager.cursorChar;
+    final int beforeLine = cursorManager.getLine();
+    final int beforeChar = cursorManager.getChar();
 
-    scrollManager.ensureLineInWindow(cursorManager.cursorLine, true);
+    scrollManager.ensureLineInWindow(cursorManager.getLine(), true);
     if (isWindowLoading
-        && (cursorManager.cursorLine < windowStartLine || cursorManager.cursorLine >= windowStartLine + linesWindow.size())) {
+        && (cursorManager.getLine() < windowStartLine || cursorManager.getLine() >= windowStartLine + linesWindow.size())) {
       post(() -> insertCharAtCursor(c));
       return;
     }
 
-    int localIdx = cursorManager.cursorLine - windowStartLine;
+    int localIdx = cursorManager.getLine() - windowStartLine;
     if (localIdx < 0 || localIdx >= linesWindow.size()) {
       synchronized (linesWindow) {
         if (linesWindow.isEmpty()) linesWindow.add("");
@@ -8746,24 +8759,24 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
 
       if (c == '\n') {
         int oldLineCount = getLinesCount();
-        String before = base.substring(0, Math.min(cursorManager.cursorChar, base.length()));
-        String after = base.substring(Math.min(cursorManager.cursorChar, base.length()));
-        Float oldWidth = lineWidthCache.get(cursorManager.cursorLine);
+        String before = base.substring(0, Math.min(cursorManager.getChar(), base.length()));
+        String after = base.substring(Math.min(cursorManager.getChar(), base.length()));
+        Float oldWidth = lineWidthCache.get(cursorManager.getLine());
 
         updateLocalLine(localIdx, before);
         linesWindow.add(localIdx + 1, after);
 
-        modifiedLines.put(cursorManager.cursorLine, before);
-        modifiedLines.put(cursorManager.cursorLine + 1, after);
+        modifiedLines.put(cursorManager.getLine(), before);
+        modifiedLines.put(cursorManager.getLine() + 1, after);
 
-        computeWidthForLine(cursorManager.cursorLine, before);
-        computeWidthForLine(cursorManager.cursorLine + 1, after);
+        computeWidthForLine(cursorManager.getLine(), before);
+        computeWidthForLine(cursorManager.getLine() + 1, after);
 
         if (oldWidth != null && oldWidth >= currentMaxWindowLineWidth)
           recalculateMaxLineWidthAsync();
         clearHighlightCaches();
-        cursorManager.cursorLine++;
-        cursorManager.cursorChar = 0;
+        cursorManager.setLine(cursorManager.getLine() + 1);
+        cursorManager.setChar(0);
         undoRedo.addLineCountDelta(1);
 
         int newLineCount = getLinesCount();
@@ -8773,17 +8786,17 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         }
         onLineCountChanged();
       } else {
-        int pos = Math.max(0, Math.min(cursorManager.cursorChar, base.length()));
+        int pos = Math.max(0, Math.min(cursorManager.getChar(), base.length()));
         String modified = base.substring(0, pos) + c + base.substring(pos);
         updateLocalLine(localIdx, modified);
-        modifiedLines.put(cursorManager.cursorLine, modified);
-        invalidateHighlightCacheForLine(cursorManager.cursorLine);
-        cursorManager.cursorChar++;
+        modifiedLines.put(cursorManager.getLine(), modified);
+        invalidateHighlightCacheForLine(cursorManager.getLine());
+        cursorManager.setChar(cursorManager.getChar() + 1);
         float newWidth =
             whitespaceGuideManager.measureTextWithVisualSpaces(
                 this, modified, 0, modified.length(), paint);
         synchronized (lineWidthCache) {
-          lineWidthCache.put(cursorManager.cursorLine, newWidth);
+          lineWidthCache.put(cursorManager.getLine(), newWidth);
         }
         currentMaxWindowLineWidth = Math.max(currentMaxWindowLineWidth, newWidth);
         globalMaxLineWidth = Math.max(globalMaxLineWidth, currentMaxWindowLineWidth);
@@ -8805,8 +8818,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     op.insertedEndChar = insertedEnd.ch;
     op.cursorLineBefore = beforeLine;
     op.cursorCharBefore = beforeChar;
-    op.cursorLineAfter = cursorManager.cursorLine;
-    op.cursorCharAfter = cursorManager.cursorChar;
+    op.cursorLineAfter = cursorManager.getLine();
+    op.cursorCharAfter = cursorManager.getChar();
     op.timestamp = System.currentTimeMillis();
     recordEdit(op);
   }
@@ -8823,19 +8836,19 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       String baseIndent = "";
       String innerIndent = "";
       if (isAutoBracketNewlineIndentEnabled) {
-        baseIndent = getLineLeadingWhitespace(cursorManager.cursorLine);
+        baseIndent = getLineLeadingWhitespace(cursorManager.getLine());
         innerIndent = baseIndent + "  ";
       }
 
       String closeIndent = (pairType == BracketPairType.CURLY) ? baseIndent : innerIndent;
       String insertText = "\n" + innerIndent + "\n" + closeIndent;
 
-      int targetLine = cursorManager.cursorLine + 1;
+      int targetLine = cursorManager.getLine() + 1;
       int targetChar = innerIndent.length();
       insertTextAtCursor(insertText);
 
-      cursorManager.cursorLine = targetLine;
-      cursorManager.cursorChar = targetChar;
+      cursorManager.setLine(targetLine);
+      cursorManager.setChar(targetChar);
       resetCursorBlink();
       scrollManager.keepCursorVisibleHorizontally();
       invalidate();
@@ -8844,15 +8857,15 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     }
 
     if (isAutoIndentAfterClosingBracketEnabled) {
-      String ln = getLineTextForRender(cursorManager.cursorLine);
+      String ln = getLineTextForRender(cursorManager.getLine());
       if (ln == null) ln = "";
-      int safeChar = Math.max(0, Math.min(cursorManager.cursorChar, ln.length()));
+      int safeChar = Math.max(0, Math.min(cursorManager.getChar(), ln.length()));
       String before = ln.substring(0, safeChar);
       int prevNonWs = findPrevNonWhitespaceIndex(before, before.length() - 1);
       if (prevNonWs >= 0) {
         char c = before.charAt(prevNonWs);
         if (c == '{' || c == '}') {
-          String baseIndent = getLineLeadingWhitespace(cursorManager.cursorLine);
+          String baseIndent = getLineLeadingWhitespace(cursorManager.getLine());
           int baseWidth = getIndentWidth(baseIndent);
           int unit = INDENT_BLOCK_UNIT.length();
           int targetWidth = baseWidth;
@@ -8874,19 +8887,19 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     }
 
     if (isIndentationBlocksEnabled) {
-      String ln = getLineTextForRender(cursorManager.cursorLine);
+      String ln = getLineTextForRender(cursorManager.getLine());
       if (ln == null) ln = "";
-      int safeChar = Math.max(0, Math.min(cursorManager.cursorChar, ln.length()));
+      int safeChar = Math.max(0, Math.min(cursorManager.getChar(), ln.length()));
       String before = ln.substring(0, safeChar);
       String trimmed = rstripWhitespace(before);
-      String baseIndent = getLineLeadingWhitespace(cursorManager.cursorLine);
+      String baseIndent = getLineLeadingWhitespace(cursorManager.getLine());
       String extraIndent = trimmed.endsWith(":") ? INDENT_BLOCK_UNIT : "";
       insertTextAtCursor("\n" + baseIndent + extraIndent);
       return;
     }
 
     if (isAutoBracketNewlineIndentEnabled) {
-      String baseIndent = getLineLeadingWhitespace(cursorManager.cursorLine);
+      String baseIndent = getLineLeadingWhitespace(cursorManager.getLine());
       insertTextAtCursor("\n" + baseIndent);
       return;
     }
@@ -8895,12 +8908,12 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
   }
 
   private BracketPairType getCursorBracketPairType() {
-    String ln = getLineTextForRender(cursorManager.cursorLine);
+    String ln = getLineTextForRender(cursorManager.getLine());
     if (ln == null) return BracketPairType.NONE;
-    if (cursorManager.cursorChar <= 0 || cursorManager.cursorChar >= ln.length()) return BracketPairType.NONE;
+    if (cursorManager.getChar() <= 0 || cursorManager.getChar() >= ln.length()) return BracketPairType.NONE;
 
-    char left = ln.charAt(cursorManager.cursorChar - 1);
-    char right = ln.charAt(cursorManager.cursorChar);
+    char left = ln.charAt(cursorManager.getChar() - 1);
+    char right = ln.charAt(cursorManager.getChar());
     if (left == '{' && right == '}') return BracketPairType.CURLY;
     if (left == '(' && right == ')') return BracketPairType.ROUND;
     if (left == '[' && right == ']') return BracketPairType.SQUARE;
@@ -8979,41 +8992,41 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       return;
     }
 
-    final int beforeLine = cursorManager.cursorLine;
-    final int beforeChar = cursorManager.cursorChar;
+    final int beforeLine = cursorManager.getLine();
+    final int beforeChar = cursorManager.getChar();
 
-    scrollManager.ensureLineInWindow(cursorManager.cursorLine, true);
+    scrollManager.ensureLineInWindow(cursorManager.getLine(), true);
     if (isWindowLoading
-        && (cursorManager.cursorLine < windowStartLine || cursorManager.cursorLine >= windowStartLine + linesWindow.size())) {
+        && (cursorManager.getLine() < windowStartLine || cursorManager.getLine() >= windowStartLine + linesWindow.size())) {
       post(this::deleteCharAtCursor);
       return;
     }
 
-    int localIdx = cursorManager.cursorLine - windowStartLine;
+    int localIdx = cursorManager.getLine() - windowStartLine;
     if (localIdx < 0 || localIdx >= linesWindow.size()) return;
 
     synchronized (linesWindow) {
       String base = getLineFromWindowLocal(localIdx);
       if (base == null) base = "";
 
-      if (cursorManager.cursorChar > 0) {
-        Float oldWidth = lineWidthCache.get(cursorManager.cursorLine);
-        int safeStart = Math.max(0, cursorManager.cursorChar - 1);
-        String removed = base.substring(safeStart, Math.min(cursorManager.cursorChar, base.length()));
-        boolean atLineEnd = cursorManager.cursorChar >= base.length();
+      if (cursorManager.getChar() > 0) {
+        Float oldWidth = lineWidthCache.get(cursorManager.getLine());
+        int safeStart = Math.max(0, cursorManager.getChar() - 1);
+        String removed = base.substring(safeStart, Math.min(cursorManager.getChar(), base.length()));
+        boolean atLineEnd = cursorManager.getChar() >= base.length();
         if (charAnimationManager.isEnabled() && atLineEnd) {
-          Paint p = getPaintForChar(cursorManager.cursorLine, safeStart, base);
-          startDeleteAnimation(cursorManager.cursorLine, safeStart, removed, p);
+          Paint p = getPaintForChar(cursorManager.getLine(), safeStart, base);
+          startDeleteAnimation(cursorManager.getLine(), safeStart, removed, p);
         }
-        String modified = base.substring(0, safeStart) + base.substring(cursorManager.cursorChar);
+        String modified = base.substring(0, safeStart) + base.substring(cursorManager.getChar());
         updateLocalLine(localIdx, modified);
-        modifiedLines.put(cursorManager.cursorLine, modified);
-        invalidateHighlightCacheForLine(cursorManager.cursorLine);
-        cursorManager.cursorChar = safeStart;
-        computeWidthForLine(cursorManager.cursorLine, modified);
+        modifiedLines.put(cursorManager.getLine(), modified);
+        invalidateHighlightCacheForLine(cursorManager.getLine());
+        cursorManager.setChar(safeStart);
+        computeWidthForLine(cursorManager.getLine(), modified);
         if (oldWidth != null && oldWidth >= currentMaxWindowLineWidth)
           recalculateMaxLineWidthAsync();
-        invalidateLineGlobal(cursorManager.cursorLine);
+        invalidateLineGlobal(cursorManager.getLine());
 
         UndoRedo.EditOp op = new UndoRedo.EditOp();
         op.startLine = beforeLine;
@@ -9026,13 +9039,13 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         op.insertedEndChar = safeStart;
         op.cursorLineBefore = beforeLine;
         op.cursorCharBefore = beforeChar;
-        op.cursorLineAfter = cursorManager.cursorLine;
-        op.cursorCharAfter = cursorManager.cursorChar;
+        op.cursorLineAfter = cursorManager.getLine();
+        op.cursorCharAfter = cursorManager.getChar();
         op.timestamp = System.currentTimeMillis();
         recordEdit(op);
-      } else if (cursorManager.cursorLine > 0) {
+      } else if (cursorManager.getLine() > 0) {
         int oldLineCount = getLinesCount();
-        int prevGlobal = cursorManager.cursorLine - 1;
+        int prevGlobal = cursorManager.getLine() - 1;
         scrollManager.ensureLineInWindow(prevGlobal, true);
         int prevLocal = prevGlobal - windowStartLine;
         if (prevLocal < 0 || prevLocal >= linesWindow.size()) return;
@@ -9048,8 +9061,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         if (localIdx < linesWindow.size()) linesWindow.remove(localIdx);
 
         recalculateMaxLineWidth();
-        cursorManager.cursorLine = prevGlobal;
-        cursorManager.cursorChar = prev.length();
+        cursorManager.setLine(prevGlobal);
+        cursorManager.setChar(prev.length());
         computeWidthForLine(prevGlobal, merged);
         undoRedo.addLineCountDelta(-1);
 
@@ -9072,8 +9085,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         op.insertedEndChar = prev.length();
         op.cursorLineBefore = beforeLine;
         op.cursorCharBefore = beforeChar;
-        op.cursorLineAfter = cursorManager.cursorLine;
-        op.cursorCharAfter = cursorManager.cursorChar;
+        op.cursorLineAfter = cursorManager.getLine();
+        op.cursorCharAfter = cursorManager.getChar();
         op.timestamp = System.currentTimeMillis();
         recordEdit(op);
       }
@@ -9092,36 +9105,36 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       return;
     }
 
-    final int beforeLine = cursorManager.cursorLine;
-    final int beforeChar = cursorManager.cursorChar;
+    final int beforeLine = cursorManager.getLine();
+    final int beforeChar = cursorManager.getChar();
 
-    scrollManager.ensureLineInWindow(cursorManager.cursorLine, true);
+    scrollManager.ensureLineInWindow(cursorManager.getLine(), true);
     if (isWindowLoading
-        && (cursorManager.cursorLine < windowStartLine || cursorManager.cursorLine >= windowStartLine + linesWindow.size())) {
+        && (cursorManager.getLine() < windowStartLine || cursorManager.getLine() >= windowStartLine + linesWindow.size())) {
       post(this::deleteForwardAtCursor);
       return;
     }
 
-    int localIdx = cursorManager.cursorLine - windowStartLine;
+    int localIdx = cursorManager.getLine() - windowStartLine;
     synchronized (linesWindow) {
       String base = getLineFromWindowLocal(localIdx);
       if (base == null) base = "";
 
-      if (cursorManager.cursorChar < base.length()) {
-        Float oldWidth = lineWidthCache.get(cursorManager.cursorLine);
-        String removed = base.substring(cursorManager.cursorChar, Math.min(cursorManager.cursorChar + 1, base.length()));
-        boolean atLineEnd = cursorManager.cursorChar == base.length() - 1;
+      if (cursorManager.getChar() < base.length()) {
+        Float oldWidth = lineWidthCache.get(cursorManager.getLine());
+        String removed = base.substring(cursorManager.getChar(), Math.min(cursorManager.getChar() + 1, base.length()));
+        boolean atLineEnd = cursorManager.getChar() == base.length() - 1;
         if (charAnimationManager.isEnabled() && atLineEnd) {
-          Paint p = getPaintForChar(cursorManager.cursorLine, cursorManager.cursorChar, base);
-          startDeleteAnimation(cursorManager.cursorLine, cursorManager.cursorChar, removed, p);
+          Paint p = getPaintForChar(cursorManager.getLine(), cursorManager.getChar(), base);
+          startDeleteAnimation(cursorManager.getLine(), cursorManager.getChar(), removed, p);
         }
-        String modified = base.substring(0, cursorManager.cursorChar) + base.substring(cursorManager.cursorChar + 1);
+        String modified = base.substring(0, cursorManager.getChar()) + base.substring(cursorManager.getChar() + 1);
         updateLocalLine(localIdx, modified);
-        modifiedLines.put(cursorManager.cursorLine, modified);
-        computeWidthForLine(cursorManager.cursorLine, modified);
+        modifiedLines.put(cursorManager.getLine(), modified);
+        computeWidthForLine(cursorManager.getLine(), modified);
         if (oldWidth != null && oldWidth >= currentMaxWindowLineWidth)
           recalculateMaxLineWidthAsync();
-        invalidateLineGlobal(cursorManager.cursorLine);
+        invalidateLineGlobal(cursorManager.getLine());
 
         UndoRedo.EditOp op = new UndoRedo.EditOp();
         op.startLine = beforeLine;
@@ -9134,12 +9147,12 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         op.insertedEndChar = beforeChar;
         op.cursorLineBefore = beforeLine;
         op.cursorCharBefore = beforeChar;
-        op.cursorLineAfter = cursorManager.cursorLine;
-        op.cursorCharAfter = cursorManager.cursorChar;
+        op.cursorLineAfter = cursorManager.getLine();
+        op.cursorCharAfter = cursorManager.getChar();
         op.timestamp = System.currentTimeMillis();
         recordEdit(op);
       } else {
-        int nextGlobal = cursorManager.cursorLine + 1;
+        int nextGlobal = cursorManager.getLine() + 1;
         if (isEof && nextGlobal >= windowStartLine + linesWindow.size()) return;
 
         scrollManager.ensureLineInWindow(nextGlobal, true);
@@ -9150,9 +9163,9 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
           String merged = base + next;
           updateLocalLine(localIdx, merged);
           linesWindow.remove(nextLocal);
-          modifiedLines.put(cursorManager.cursorLine, merged);
+          modifiedLines.put(cursorManager.getLine(), merged);
           recalculateMaxLineWidth();
-          computeWidthForLine(cursorManager.cursorLine, merged);
+          computeWidthForLine(cursorManager.getLine(), merged);
           onLineCountChanged();
           invalidate();
           undoRedo.addLineCountDelta(-1);
@@ -9168,8 +9181,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
           op.insertedEndChar = base.length();
           op.cursorLineBefore = beforeLine;
           op.cursorCharBefore = beforeChar;
-          op.cursorLineAfter = cursorManager.cursorLine;
-          op.cursorCharAfter = cursorManager.cursorChar;
+          op.cursorLineAfter = cursorManager.getLine();
+          op.cursorCharAfter = cursorManager.getChar();
           op.timestamp = System.currentTimeMillis();
           recordEdit(op);
         }
@@ -9231,8 +9244,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       updateLocalLine(local, newLine);
       modifiedLines.put(composingLine, newLine);
       composingLength = textSeq.length();
-      cursorManager.cursorLine = composingLine;
-      cursorManager.cursorChar = composingOffset + composingLength;
+      cursorManager.setLine(composingLine);
+      cursorManager.setChar(composingOffset + composingLength);
       computeWidthForLine(composingLine, newLine);
       recalculateMaxLineWidth();
       invalidate();
@@ -9530,8 +9543,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       selectionManager.selEndLine = Math.max(0, windowStartLine + linesWindow.size() - 1);
       String lastLineText = getLineTextForRender(selectionManager.selEndLine);
       selectionManager.selEndChar = lastLineText.length();
-      cursorManager.cursorLine = selectionManager.selEndLine;
-      cursorManager.cursorChar = selectionManager.selEndChar;
+      cursorManager.setLine(selectionManager.selEndLine);
+      cursorManager.setChar(selectionManager.selEndChar);
 
       scrollManager.scrollToLineFastForSelectAll(selectionManager.selEndLine, selectionManager.selEndChar);
 
@@ -9559,8 +9572,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       selectionManager.selEndLine = windowLast;
       String lastLineText = getLineTextForRender(windowLast);
       selectionManager.selEndChar = lastLineText.length();
-      cursorManager.cursorLine = windowLast;
-      cursorManager.cursorChar = selectionManager.selEndChar;
+      cursorManager.setLine(windowLast);
+      cursorManager.setChar(selectionManager.selEndChar);
 
       scrollManager.scrollToLineFastForSelectAll(windowLast, selectionManager.selEndChar);
 
@@ -9600,8 +9613,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
               selectionManager.selEndLine = windowLast;
               String lastLineText = getLineTextForRender(windowLast);
               selectionManager.selEndChar = lastLineText.length();
-              cursorManager.cursorLine = windowLast;
-              cursorManager.cursorChar = selectionManager.selEndChar;
+              cursorManager.setLine(windowLast);
+              cursorManager.setChar(selectionManager.selEndChar);
 
               scrollManager.scrollToLineFastForSelectAll(windowLast, selectionManager.selEndChar);
 
@@ -9635,8 +9648,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
                       () -> {
                         String lastLineText = getLineTextForRender(fileLastLine);
                         selectionManager.selEndChar = lastLineText.length();
-                        cursorManager.cursorLine = fileLastLine;
-                        cursorManager.cursorChar = selectionManager.selEndChar;
+                        cursorManager.setLine(fileLastLine);
+                        cursorManager.setChar(selectionManager.selEndChar);
 
                         scrollManager.scrollToLineFastForSelectAll(fileLastLine, selectionManager.selEndChar);
 
@@ -9682,8 +9695,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
                             () -> {
                               String lastLineText = getLineTextForRender(selectionManager.selEndLine);
                               selectionManager.selEndChar = lastLineText.length();
-                              cursorManager.cursorLine = selectionManager.selEndLine;
-                              cursorManager.cursorChar = selectionManager.selEndChar;
+                              cursorManager.setLine(selectionManager.selEndLine);
+                              cursorManager.setChar(selectionManager.selEndChar);
 
                               scrollManager.scrollToLineFastForSelectAll(selectionManager.selEndLine, selectionManager.selEndChar);
 
@@ -9979,8 +9992,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       eL = tL;
       eC = tC;
     }
-    final int beforeLine = cursorManager.cursorLine;
-    final int beforeChar = cursorManager.cursorChar;
+    final int beforeLine = cursorManager.getLine();
+    final int beforeChar = cursorManager.getChar();
     String removedText = null;
     if (Math.abs(eL - sL) <= 5000) {
       removedText = readRangeText(sL, sC, eL, eC);
@@ -10031,8 +10044,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       indexDisabledFileLength = -1L;
 
       // Reset cursor, selection, and scroll position.
-      cursorManager.cursorLine = 0;
-      cursorManager.cursorChar = 0;
+      cursorManager.setLine(0);
+      cursorManager.setChar(0);
       selectionManager.selStartLine = 0;
       selectionManager.selEndLine = 0;
       selectionManager.selStartChar = 0;
@@ -10051,8 +10064,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
           }
         }
         CursorTarget newPos = computeCursorAfterInsert(0, 0, insertText);
-        cursorManager.cursorLine = newPos.line;
-        cursorManager.cursorChar = newPos.ch;
+        cursorManager.setLine(newPos.line);
+        cursorManager.setChar(newPos.ch);
       }
 
       // Crucially, end the large edit UI and force a redraw.
@@ -10094,8 +10107,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
           updateLocalLine(local, merged);
           modifiedLines.put(sL, merged);
 
-          cursorManager.cursorLine = sL;
-          cursorManager.cursorChar = a + insertText.length();
+          cursorManager.setLine(sL);
+          cursorManager.setChar(a + insertText.length());
 
           computeWidthForLine(sL, merged);
           recalculateMaxLineWidth();
@@ -10120,8 +10133,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     if (fullyInWindow) {
       applyMultiLineReplaceInWindowNow(sL, sC, eL, eC, insertText, target);
     } else {
-      cursorManager.cursorLine = sL;
-      cursorManager.cursorChar = sC;
+      cursorManager.setLine(sL);
+      cursorManager.setChar(sC);
     }
 
     clearSelectionStateAfterDelete();
@@ -10187,8 +10200,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         linesWindow.addAll(sLocal + 1, toInsert);
       }
 
-      cursorManager.cursorLine = Math.max(0, target.line);
-      cursorManager.cursorChar = Math.max(0, target.ch);
+      cursorManager.setLine(Math.max(0, target.line));
+      cursorManager.setChar(Math.max(0, target.ch));
 
       int newLineCount = getLinesCount();
       if (lineNumberManager.isShowLineNumbers()
@@ -10310,15 +10323,15 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
                   ioHandler.post(this::buildFileIndex);
                   onLineCountChanged();
 
-                  cursorManager.cursorLine = Math.max(0, target.line);
-                  cursorManager.cursorChar = Math.max(0, target.ch);
+                  cursorManager.setLine(Math.max(0, target.line));
+                  cursorManager.setChar(Math.max(0, target.ch));
 
                   // لا تعمل "Reload" للنافذة بعد الحذف/الاستبدال إذا كانت النتيجة ضمن النافذة
                   // الحالية.
                   // هذا يمنع دائرة التحميل ويمنع القفز/الزمن الطويل مع الملفات الضخمة.
                   boolean cursorInsideWindow =
-                      (cursorManager.cursorLine >= windowStartLine
-                          && cursorManager.cursorLine < windowStartLine + linesWindow.size());
+                      (cursorManager.getLine() >= windowStartLine
+                          && cursorManager.getLine() < windowStartLine + linesWindow.size());
 
                   if (cursorInsideWindow) {
                     // النافذة الحالية تم تعديلها مسبقاً (fast path)، فقط أعد حساب العرض وحدث الرسم.
@@ -10334,12 +10347,12 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
                     if (finishLargeEditUi) endLargeEditUi(false);
                     invalidate();
                   } else {
-                    int targetStart = Math.max(0, cursorManager.cursorLine - prefetchLines);
+                    int targetStart = Math.max(0, cursorManager.getLine() - prefetchLines);
                     loadWindowAround(
                         targetStart,
                         () -> {
-                          String ln = getLineTextForRender(cursorManager.cursorLine);
-                          cursorManager.cursorChar = Math.min(cursorManager.cursorChar, ln.length());
+                          String ln = getLineTextForRender(cursorManager.getLine());
+                          cursorManager.setChar(Math.min(cursorManager.getChar(), ln.length()));
                           clampScrollY();
                           scrollManager.keepCursorVisibleHorizontally();
                           requestFocus();
@@ -10454,8 +10467,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         modifiedLines.put(windowStartLine + i, linesWindow.get(i));
       }
 
-      cursorManager.cursorLine = sL;
-      cursorManager.cursorChar = left.length();
+      cursorManager.setLine(sL);
+      cursorManager.setChar(left.length());
 
       recalculateMaxLineWidth();
       int newLineCount = getLinesCount();
@@ -10895,8 +10908,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     selectionManager.isSelectAllActive = false;
     selectionManager.isEntireFileSelected = false;
     selectionManager.selecting = true;
-    cursorManager.cursorLine = line;
-    cursorManager.cursorChar = selectionManager.selEndChar;
+    cursorManager.setLine(line);
+    cursorManager.setChar(selectionManager.selEndChar);
     lastDoubleTapLine = line;
     lastDoubleTapWordStart = bounds[0];
     lastDoubleTapWordEnd = bounds[1];
@@ -11189,23 +11202,23 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       return;
     }
 
-    final int beforeLine = cursorManager.cursorLine;
-    final int beforeChar = cursorManager.cursorChar;
+    final int beforeLine = cursorManager.getLine();
+    final int beforeChar = cursorManager.getChar();
 
     // For very large pastes into a file-backed document, avoid expanding the in-memory window and
     // doing
     // expensive per-line work on the UI thread. Instead, apply the insert via the file rewrite
     // path.
     if (sourceFile != null && !isFileCleared && isLargePasteText(text)) {
-      beginLargeEditUiIfNeeded(true, cursorManager.cursorLine, cursorManager.cursorLine, true);
+      beginLargeEditUiIfNeeded(true, cursorManager.getLine(), cursorManager.getLine(), true);
       // Extend the watchdog for large paste operations; they can legitimately take longer than
       // the default safety timeout.
       mainHandler.removeCallbacks(largeEditUiWatchdog);
       mainHandler.postDelayed(largeEditUiWatchdog, 30_000);
-      CursorTarget target = computeCursorAfterInsert(cursorManager.cursorLine, cursorManager.cursorChar, text);
+      CursorTarget target = computeCursorAfterInsert(cursorManager.getLine(), cursorManager.getChar(), text);
       final File inFile = sourceFile;
       rewriteReplaceRangeAsync(
-          opToken, inFile, cursorManager.cursorLine, cursorManager.cursorChar, cursorManager.cursorLine, cursorManager.cursorChar, text, target, true);
+          opToken, inFile, cursorManager.getLine(), cursorManager.getChar(), cursorManager.getLine(), cursorManager.getChar(), text, target, true);
       updateSuggestion();
       undoRedo.addLineCountDelta(countNewlines(text));
       if (text.length() <= undoRedo.getUndoTextLimit()) {
@@ -11229,14 +11242,14 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     }
 
     String[] parts = text.split("\n", -1);
-    scrollManager.ensureLineInWindow(cursorManager.cursorLine, true);
+    scrollManager.ensureLineInWindow(cursorManager.getLine(), true);
     if (isWindowLoading
-        && (cursorManager.cursorLine < windowStartLine || cursorManager.cursorLine >= windowStartLine + linesWindow.size())) {
+        && (cursorManager.getLine() < windowStartLine || cursorManager.getLine() >= windowStartLine + linesWindow.size())) {
       post(() -> insertTextAtCursor(text));
       return;
     }
 
-    int local = cursorManager.cursorLine - windowStartLine;
+    int local = cursorManager.getLine() - windowStartLine;
     if (local < 0 || local >= linesWindow.size()) {
       synchronized (linesWindow) {
         if (linesWindow.isEmpty()) {
@@ -11250,21 +11263,21 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       int oldLineCount = getLinesCount();
       String base = getLineFromWindowLocal(local);
       if (base == null) base = "";
-      int pos = Math.max(0, Math.min(cursorManager.cursorChar, base.length()));
+      int pos = Math.max(0, Math.min(cursorManager.getChar(), base.length()));
       String left = base.substring(0, pos);
       String right = base.substring(pos);
 
       if (parts.length == 1) {
         String modified = left + parts[0] + right;
         updateLocalLine(local, modified);
-        modifiedLines.put(cursorManager.cursorLine, modified);
-        lineWidthCache.remove(cursorManager.cursorLine);
-        cursorManager.cursorChar += parts[0].length();
+        modifiedLines.put(cursorManager.getLine(), modified);
+        lineWidthCache.remove(cursorManager.getLine());
+        cursorManager.setChar(cursorManager.getChar() + parts[0].length());
       } else {
         lineWidthCache.clear();
         String firstLine = left + parts[0];
         updateLocalLine(local, firstLine);
-        modifiedLines.put(cursorManager.cursorLine, firstLine);
+        modifiedLines.put(cursorManager.getLine(), firstLine);
 
         List<String> linesToInsert = new ArrayList<>();
         for (int p = 1; p < parts.length - 1; p++) linesToInsert.add(parts[p]);
@@ -11274,11 +11287,11 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
 
         if (!linesToInsert.isEmpty()) linesWindow.addAll(local + 1, linesToInsert);
         for (int i = 0; i < linesToInsert.size(); i++) {
-          modifiedLines.put(cursorManager.cursorLine + 1 + i, linesToInsert.get(i));
+          modifiedLines.put(cursorManager.getLine() + 1 + i, linesToInsert.get(i));
         }
 
-        cursorManager.cursorLine += (parts.length - 1);
-        cursorManager.cursorChar = lastPart.length();
+        cursorManager.setLine(cursorManager.getLine() + (parts.length - 1));
+        cursorManager.setChar(lastPart.length());
         undoRedo.addLineCountDelta((parts.length - 1));
       }
 
@@ -11311,8 +11324,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     op.insertedEndChar = insertedEnd.ch;
     op.cursorLineBefore = beforeLine;
     op.cursorCharBefore = beforeChar;
-    op.cursorLineAfter = cursorManager.cursorLine;
-    op.cursorCharAfter = cursorManager.cursorChar;
+    op.cursorLineAfter = cursorManager.getLine();
+    op.cursorCharAfter = cursorManager.getChar();
     op.timestamp = System.currentTimeMillis();
     recordEdit(op);
   }
@@ -11478,9 +11491,9 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     else if (c == '\'') closing = "'";
     else if (c == '`') closing = "`";
     else if (c == '*') {
-      if (cursorManager.cursorChar >= 2) {
-        String ln = getLineTextForRender(cursorManager.cursorLine);
-        if (ln != null && ln.length() >= cursorManager.cursorChar && ln.charAt(cursorManager.cursorChar - 2) == '/') {
+      if (cursorManager.getChar() >= 2) {
+        String ln = getLineTextForRender(cursorManager.getLine());
+        if (ln != null && ln.length() >= cursorManager.getChar() && ln.charAt(cursorManager.getChar() - 2) == '/') {
           closing = "*/";
         }
       }
@@ -11787,7 +11800,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
             pointerDown = false; // Reset pointerDown state
             Log.d("SodiumEditorView", "onTouchEvent.ACTION_UP: Suggestion accepted, returning true.");
             return true; // Consume the event, preventing further processing
-          } else if (isEmptyArea && line == cursorManager.cursorLine) {
+          } else if (isEmptyArea && line == cursorManager.getLine()) {
             Log.d(
                 "SodiumEditorView",
                 "onTouchEvent.ACTION_UP: Suggestion tap detected. Calling acceptAutoCompletion.");
@@ -11891,8 +11904,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         selectionManager.selEndChar = clamped;
       }
     } else if (draggingHandle == 3) {
-      cursorManager.cursorLine = line;
-      cursorManager.cursorChar = clamped;
+      cursorManager.setLine(line);
+      cursorManager.setChar(clamped);
       scrollManager.keepCursorVisibleHorizontally();
     }
   }
@@ -12020,13 +12033,13 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         sL = selectionManager.selEndLine;
         sC = selectionManager.selEndChar;
       }
-      cursorManager.cursorLine = sL;
-      cursorManager.cursorChar = sC;
-    } else if (cursorManager.cursorChar > 0) cursorManager.cursorChar--;
-    else if (cursorManager.cursorLine > 0) {
-      cursorManager.cursorLine--;
-      String ln = getLineTextForRender(cursorManager.cursorLine);
-      cursorManager.cursorChar = ln.length();
+      cursorManager.setLine(sL);
+      cursorManager.setChar(sC);
+    } else if (cursorManager.getChar() > 0) cursorManager.setChar(cursorManager.getChar() - 1);
+    else if (cursorManager.getLine() > 0) {
+      cursorManager.setLine(cursorManager.getLine() - 1);
+      String ln = getLineTextForRender(cursorManager.getLine());
+      cursorManager.setChar(ln.length());
     }
     selectionManager.hasSelection = false;
     selectionManager.isSelectAllActive = false;
@@ -12046,16 +12059,16 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         eL = selectionManager.selStartLine;
         eC = selectionManager.selStartChar;
       }
-      cursorManager.cursorLine = eL;
-      cursorManager.cursorChar = eC;
+      cursorManager.setLine(eL);
+      cursorManager.setChar(eC);
     } else {
-      String ln = getLineTextForRender(cursorManager.cursorLine);
-      if (cursorManager.cursorChar < ln.length()) cursorManager.cursorChar++;
+      String ln = getLineTextForRender(cursorManager.getLine());
+      if (cursorManager.getChar() < ln.length()) cursorManager.setChar(cursorManager.getChar() + 1);
       else {
-        int next = cursorManager.cursorLine + 1;
+        int next = cursorManager.getLine() + 1;
         if (!isEof || next < windowStartLine + linesWindow.size()) {
-          cursorManager.cursorLine = next;
-          cursorManager.cursorChar = 0;
+          cursorManager.setLine(next);
+          cursorManager.setChar(0);
         }
       }
     }
@@ -12077,13 +12090,13 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         sL = selectionManager.selEndLine;
         sC = selectionManager.selEndChar;
       }
-      cursorManager.cursorLine = sL;
-      cursorManager.cursorChar = sC;
+      cursorManager.setLine(sL);
+      cursorManager.setChar(sC);
     }
-    if (cursorManager.cursorLine > 0) {
-      cursorManager.cursorLine--;
-      String ln = getLineTextForRender(cursorManager.cursorLine);
-      cursorManager.cursorChar = Math.min(cursorManager.cursorChar, ln.length());
+    if (cursorManager.getLine() > 0) {
+      cursorManager.setLine(cursorManager.getLine() - 1);
+      String ln = getLineTextForRender(cursorManager.getLine());
+      cursorManager.setChar(Math.min(cursorManager.getChar(), ln.length()));
     }
     selectionManager.hasSelection = false;
     selectionManager.isSelectAllActive = false;
@@ -12103,14 +12116,14 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         eL = selectionManager.selStartLine;
         eC = selectionManager.selStartChar;
       }
-      cursorManager.cursorLine = eL;
-      cursorManager.cursorChar = eC;
+      cursorManager.setLine(eL);
+      cursorManager.setChar(eC);
     }
-    int next = cursorManager.cursorLine + 1;
+    int next = cursorManager.getLine() + 1;
     if (!isEof || next < windowStartLine + linesWindow.size()) {
-      cursorManager.cursorLine = next;
-      String ln = getLineTextForRender(cursorManager.cursorLine);
-      cursorManager.cursorChar = Math.min(cursorManager.cursorChar, ln.length());
+      cursorManager.setLine(next);
+      String ln = getLineTextForRender(cursorManager.getLine());
+      cursorManager.setChar(Math.min(cursorManager.getChar(), ln.length()));
     }
     selectionManager.hasSelection = false;
     selectionManager.isSelectAllActive = false;
@@ -12145,7 +12158,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       invalidate();
       return;
     }
-    int idx = isCodeFoldingEnabled ? getVisibleIndexForGlobalLine(globalLine) : globalLine;
+    int idx = foldManager.isCodeFoldingEnabled ? getVisibleIndexForGlobalLine(globalLine) : globalLine;
     float top = (idx * lineHeight) - scrollManager.scrollY;
     invalidate(0, (int) Math.floor(top), getWidth(), (int) Math.ceil(top + lineHeight));
   }
@@ -12163,7 +12176,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       invalidate();
       return;
     }
-    invalidateLineGlobal(cursorManager.cursorLine);
+    invalidateLineGlobal(cursorManager.getLine());
   }
 
   void invalidateCursorAreaForCursor() {
@@ -12348,6 +12361,32 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     wordWrapManager.buildWrapMetricsFromFile(this, token, widthPx, wrapPaint);
   }
 
+  private long[] buildIndexJava(String path) {
+    if (path == null) return null;
+    java.io.File file = new java.io.File(path);
+    if (!file.exists()) return null;
+    java.util.ArrayList<Long> offsets = new java.util.ArrayList<>();
+    offsets.add(0L);
+    try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(file, "r")) {
+      long pos = 0L;
+      byte[] buf = new byte[64 * 1024];
+      int read;
+      while ((read = raf.read(buf)) != -1) {
+        for (int i = 0; i < read; i++) {
+          if (buf[i] == '\n') {
+            offsets.add(pos + i + 1);
+          }
+        }
+        pos += read;
+      }
+    } catch (Exception ignored) {
+      return null;
+    }
+    long[] out = new long[offsets.size()];
+    for (int i = 0; i < offsets.size(); i++) out[i] = offsets.get(i);
+    return out;
+  }
+
   boolean isZoomScalingForWrap() {
     return zoomManager.isScaling() || zoomManager.isScaleInProgress();
   }
@@ -12362,6 +12401,165 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
 
   boolean isWrapMetricsUsableForWindowForWrap(int widthPx) {
     return isWrapMetricsUsableForWindow(widthPx);
+  }
+
+  String getLineTextForRender(int line) {
+    return getLineTextForRenderWithDirect(line, null);
+  }
+
+  @Nullable
+  String getLineTextForRenderWithDirect(int line, @Nullable java.util.Map<Integer, String> direct) {
+    if (line < 0) return null;
+    if (direct != null) {
+      String cached = direct.get(line);
+      if (cached != null) return cached;
+    }
+    String mod = modifiedLines.get(line);
+    if (mod != null) return mod;
+    if (line >= windowStartLine && line < windowStartLine + linesWindow.size()) {
+      String text = getLineFromWindowLocal(line - windowStartLine);
+      return (text != null) ? text : "";
+    }
+    if (sourceFile != null && isIndexReady) {
+      long offset;
+      synchronized (lineOffsetsLock) {
+        if (line < 0 || line >= lineOffsets.length) return null;
+        offset = lineOffsets[line];
+      }
+      try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(sourceFile, "r")) {
+        return readLineUtf8AtByte(raf, offset);
+      } catch (Exception ignored) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  void resetCursorBlink() {
+    cursorAnimationManager.resetCursorBlink();
+  }
+
+  void updateCursorDrawPosition(float x, float y) {
+    cursorAnimationManager.updateCursorDrawPosition(x, y);
+  }
+
+  int getGlobalLineForY(float y) {
+    int idx = Math.max(0, (int) (y / lineHeight));
+    if (isWordWrapEnabled) {
+      return getVisualPositionForIndex(idx).line;
+    }
+    return mapVisibleIndexToGlobal(idx);
+  }
+
+  void showScrollBar() {
+    scrollManager.showScrollBar();
+  }
+
+  float getMaxScrollXForClamp() {
+    return scrollManager.getMaxScrollXForClamp();
+  }
+
+  void clampScrollX() {
+    scrollManager.clampScrollX();
+  }
+
+  float getMaxLineWidthInWindow() {
+    return Math.max(currentMaxWindowLineWidth, globalMaxLineWidth);
+  }
+
+  float getKeyboardBarrierPadding() {
+    return Math.min(BOTTOM_SCROLL_OFFSET, keyboardHeight * 0.4f);
+  }
+
+  float getBottomBarrierPadding() {
+    return BOTTOM_SCROLL_OFFSET;
+  }
+
+  void clampScrollXForZoom() {
+    scrollManager.clampScrollX();
+  }
+
+  void drawScrollBar(Canvas canvas) {
+    scrollManager.drawScrollBar(canvas);
+  }
+
+  private boolean isOpeningBracket(char c) {
+    return c == '{' || c == '(' || c == '[';
+  }
+
+  private char matchingBracket(char c) {
+    if (c == '{') return '}';
+    if (c == '(') return ')';
+    if (c == '[') return ']';
+    if (c == '}') return '{';
+    if (c == ')') return '(';
+    if (c == ']') return '[';
+    return c;
+  }
+
+  private void populateDirectLinesForRange(int startLine, int endLine, java.util.Map<Integer, String> direct) {
+    if (direct == null) return;
+    int s = Math.max(0, Math.min(startLine, endLine));
+    int e = Math.max(startLine, endLine);
+    for (int line = s; line <= e; line++) {
+      if (direct.containsKey(line)) continue;
+      String text = getLineTextForRender(line);
+      if (text == null) text = "";
+      direct.put(line, text);
+    }
+  }
+
+  private boolean toggleFoldAtLine(int line) {
+    return foldManager.toggleFoldAtLine(line);
+  }
+
+  private FoldManager.FoldRange getFoldRangeAtStart(int line) {
+    return foldManager.getFoldRangeAtStart(line);
+  }
+
+  private int clampSegmentEndForWrapIndicator(String line, int segStart, int segEnd, int wrapWidthPx) {
+    if (line == null || wrapWidthPx <= 0) return segEnd;
+    float available =
+        wrapWidthPx - wordWrapManager.wordWrapIndicatorWidth - wordWrapManager.wordWrapIndicatorPadPx;
+    if (available <= 0f) return segStart;
+    int end = Math.max(segStart, Math.min(segEnd, line.length()));
+    while (end > segStart) {
+      float width =
+          whitespaceGuideManager.measureTextWithVisualSpaces(this, line, segStart, end, paint);
+      if (width <= available) break;
+      end--;
+    }
+    return end;
+  }
+
+  int getVisibleLineCount() {
+    int total = getLinesCount();
+    if (total <= 0) total = windowStartLine + linesWindow.size();
+    int visible = Math.max(1, total - foldManager.getHiddenLineCount(total));
+    return visible;
+  }
+
+  int mapVisibleIndexToGlobal(int visibleIndex) {
+    int total = getLinesCount();
+    if (total <= 0) total = windowStartLine + linesWindow.size();
+    return foldManager.mapVisibleIndexToGlobal(visibleIndex, total);
+  }
+
+  int getVisibleIndexForGlobalLine(int globalLine) {
+    return foldManager.getVisibleIndexForGlobalLine(globalLine);
+  }
+
+  int getVisualIndexForLineAndChar(int line, int ch) {
+    if (!isWrapMetricsUsableForLine(line)) {
+      if (foldManager.isCodeFoldingEnabled) return getVisibleIndexForGlobalLine(line);
+      return Math.max(0, line);
+    }
+    int totalLines = wordWrapManager.wrapLinePrefix.length - 1;
+    int safeLine = Math.max(0, Math.min(line, Math.max(0, totalLines - 1)));
+    String text = getLineTextForRender(safeLine);
+    int[] starts = getWrapStartsForLine(safeLine, text);
+    int seg = getWrapSegmentIndexForChar(starts, Math.max(0, Math.min(ch, text.length())));
+    return wordWrapManager.wrapLinePrefix[safeLine] + seg;
   }
 
   public int getLinesCount() {
@@ -12387,854 +12585,6 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
   }
 
   boolean isLineHiddenByFold(int line) {
-    if (!isCodeFoldingEnabled || foldRanges.isEmpty()) return false;
-    rebuildFoldIntervalsIfNeeded();
-    for (int[] interval : foldIntervals) {
-      if (line < interval[0]) return false;
-      if (line <= interval[1]) return true;
-    }
-    return false;
+    return foldManager.isLineHiddenByFold(line);
   }
-
-  private FoldRange getFoldRangeAtStart(int line) {
-    if (!isCodeFoldingEnabled) return null;
-    FoldRange range = foldRanges.get(line);
-    return (range != null && range.collapsed) ? range : null;
-  }
-
-  private void rebuildFoldIntervalsIfNeeded() {
-    if (!foldIntervalsDirty) return;
-    foldIntervalsDirty = false;
-    foldIntervals.clear();
-    if (!isCodeFoldingEnabled || foldRanges.isEmpty()) return;
-
-    for (FoldRange range : foldRanges.values()) {
-      if (!range.collapsed) continue;
-      int start = range.startLine + 1;
-      int end = range.endLine;
-      if (end < start) continue;
-      foldIntervals.add(new int[] {start, end});
-    }
-    if (foldIntervals.isEmpty()) return;
-
-    Collections.sort(foldIntervals, (a, b) -> Integer.compare(a[0], b[0]));
-    int write = 0;
-    int[] cur = foldIntervals.get(0);
-    for (int i = 1; i < foldIntervals.size(); i++) {
-      int[] nxt = foldIntervals.get(i);
-      if (nxt[0] <= cur[1] + 1) {
-        cur[1] = Math.max(cur[1], nxt[1]);
-      } else {
-        foldIntervals.set(write++, cur);
-        cur = nxt;
-      }
-    }
-    foldIntervals.set(write++, cur);
-    while (foldIntervals.size() > write) foldIntervals.remove(foldIntervals.size() - 1);
-  }
-
-  private int getHiddenLineCount() {
-    if (!isCodeFoldingEnabled || foldRanges.isEmpty()) return 0;
-    rebuildFoldIntervalsIfNeeded();
-    int total = getLinesCount();
-    if (total <= 0) total = windowStartLine + linesWindow.size();
-    int hidden = 0;
-    for (int[] interval : foldIntervals) {
-      int s = interval[0];
-      int e = Math.min(interval[1], total - 1);
-      if (e >= s) hidden += (e - s + 1);
-    }
-    return hidden;
-  }
-
-  int getVisibleLineCount() {
-    int total = getLinesCount();
-    if (total <= 0) total = windowStartLine + linesWindow.size();
-    int visible = Math.max(1, total - getHiddenLineCount());
-    return visible;
-  }
-
-  int getVisualIndexForLineAndChar(int line, int ch) {
-    if (!isWrapMetricsUsableForLine(line)) {
-      if (isCodeFoldingEnabled) return getVisibleIndexForGlobalLine(line);
-      return Math.max(0, line);
-    }
-    int totalLines = wordWrapManager.wrapLinePrefix.length - 1;
-    int safeLine = Math.max(0, Math.min(line, Math.max(0, totalLines - 1)));
-    String text = getLineTextForRender(safeLine);
-    int[] starts = getWrapStartsForLine(safeLine, text);
-    int seg = getWrapSegmentIndexForChar(starts, Math.max(0, Math.min(ch, text.length())));
-    return wordWrapManager.wrapLinePrefix[safeLine] + seg;
-  }
-
-  int mapVisibleIndexToGlobal(int visibleIndex) {
-    if (!isCodeFoldingEnabled) return visibleIndex;
-    int total = getLinesCount();
-    if (total <= 0) total = windowStartLine + linesWindow.size();
-    int visibleTotal = getVisibleLineCount();
-    int clamped = Math.max(0, Math.min(visibleIndex, Math.max(0, visibleTotal - 1)));
-    int global = clamped;
-    rebuildFoldIntervalsIfNeeded();
-    for (int[] interval : foldIntervals) {
-      if (global < interval[0]) break;
-      global += (interval[1] - interval[0] + 1);
-    }
-    return Math.max(0, Math.min(global, total - 1));
-  }
-
-  int getVisibleIndexForGlobalLine(int globalLine) {
-    if (!isCodeFoldingEnabled) return globalLine;
-    rebuildFoldIntervalsIfNeeded();
-    int visible = globalLine;
-    for (int[] interval : foldIntervals) {
-      if (globalLine < interval[0]) break;
-      if (globalLine <= interval[1]) return Math.max(0, interval[0] - 1);
-      visible -= (interval[1] - interval[0] + 1);
-    }
-    return Math.max(0, visible);
-  }
-
-  int getGlobalLineForY(float y) {
-    int idx = Math.max(0, (int) (y / lineHeight));
-    if (isWordWrapEnabled) {
-      return getVisualPositionForIndex(idx).line;
-    }
-    return mapVisibleIndexToGlobal(idx);
-  }
-
-  private boolean toggleFoldAtLine(int line) {
-    if (!isCodeFoldingEnabled) return false;
-    FoldRange existing = foldRanges.get(line);
-    if (existing != null) {
-      existing.collapsed = !existing.collapsed;
-      foldIntervalsDirty = true;
-      invalidate();
-      return true;
-    }
-
-    FoldRange created = findFoldRangeForLine(line);
-    if (created == null) return false;
-    created.collapsed = true;
-    foldRanges.put(created.startLine, created);
-    if (created.isIndentFold) indentGuideIntervalsDirty = true;
-    foldIntervalsDirty = true;
-    invalidate();
-    return true;
-  }
-
-  private FoldRange findFoldRangeForLine(int line) {
-    if (!isCodeFoldingEnabled) return null;
-    if (line < 0) return null;
-
-    RandomAccessFile raf = null;
-    try {
-      if (sourceFile != null && isIndexReady) {
-        raf = new RandomAccessFile(sourceFile, "r");
-      }
-
-      String ln = getLineTextForFoldScan(line, raf);
-      if (ln == null) return null;
-
-      HighlightLineState startState = getLineStateAtStart(line);
-      boolean inBlockComment = startState.inBlockComment && isBlockCommentsEnabled;
-      int stringState = startState.stringState;
-      if (!isBlockCommentsEnabled) inBlockComment = false;
-      if (!isMultiLineStringsEnabled && stringState != STRING_STATE_TRIPLE) stringState = 0;
-      if (!isBacktickStringsEnabled && stringState == STRING_STATE_BACKTICK) stringState = 0;
-      if (!isTripleQuoteStringsEnabled && stringState == STRING_STATE_TRIPLE) stringState = 0;
-
-      if (inBlockComment || stringState != 0) return null;
-
-      if (isIndentationBlocksEnabled && isIndentFoldCandidate(ln)) {
-        FoldRange indentRange = findIndentFoldRangeForLine(line, raf);
-        if (indentRange != null) return indentRange;
-      }
-
-      int scanIndex = 0;
-      while (true) {
-        FoldToken token = findFoldTokenInLine(ln, scanIndex);
-        if (token == null) return null;
-
-        if (token.isBlockComment) {
-          int endLine = findBlockCommentEndLine(line, token.index, raf);
-          if (endLine > line) {
-            return new FoldRange(line, endLine, token.index, '/', '/', true, false);
-          }
-          scanIndex = token.index + 2;
-          continue;
-        }
-
-        FoldMatch match = findMatchingBracketFrom(line, token.index, token.openChar, raf);
-        if (match != null && match.endLine > line) {
-          return new FoldRange(
-              line, match.endLine, token.index, token.openChar, match.closeChar, false, false);
-        }
-
-        scanIndex = token.index + 1;
-        if (scanIndex >= ln.length()) return null;
-      }
-    } catch (Exception ignored) {
-      return null;
-    } finally {
-      if (raf != null) {
-        try {
-          raf.close();
-        } catch (Exception ignored) {
-        }
-      }
-    }
-  }
-
-  private String getLineTextForFoldScan(int line, @Nullable RandomAccessFile raf) {
-    if (line < 0) return null;
-    String mod = modifiedLines.get(line);
-    if (mod != null) return mod;
-    if (line >= windowStartLine && line < windowStartLine + linesWindow.size()) {
-      String text = getLineFromWindowLocal(line - windowStartLine);
-      return (text != null) ? text : "";
-    }
-    if (raf != null && isIndexReady) {
-      long offset;
-      synchronized (lineOffsetsLock) {
-        if (line < 0 || line >= lineOffsets.length) return null;
-        offset = lineOffsets[line];
-      }
-      try {
-        return readLineUtf8AtByte(raf, offset);
-      } catch (Exception ignored) {
-        return null;
-      }
-    }
-    return null;
-  }
-
-  private FoldRange findIndentFoldRangeForLine(int line, @Nullable RandomAccessFile raf) {
-    if (!isIndentationBlocksEnabled) return null;
-    String ln = getLineTextForFoldScan(line, raf);
-    if (ln == null) return null;
-    String trimmed = rstripWhitespace(ln);
-    if (trimmed.isEmpty() || !trimmed.endsWith(":")) return null;
-
-    int baseIndent = getIndentWidth(ln);
-    int totalLines = getLinesCount();
-    if (totalLines <= 0) totalLines = Math.max(line + 1, windowStartLine + linesWindow.size());
-
-    int endLine = -1;
-    int scanEnd = Math.min(totalLines, line + INDENT_FOLD_SCAN_LIMIT);
-    for (int i = line + 1; i < scanEnd; i++) {
-      String next = getLineTextForFoldScan(i, raf);
-      if (next == null) break;
-      String nextTrimmed = rstripWhitespace(next);
-      if (nextTrimmed.isEmpty()) continue;
-      int indent = getIndentWidth(next);
-      if (indent <= baseIndent) {
-        endLine = i - 1;
-        break;
-      }
-      endLine = i;
-    }
-
-    if (endLine > line) {
-      int openIdx = Math.max(0, trimmed.length() - 1);
-      return new FoldRange(line, endLine, openIdx, ':', ':', false, true);
-    }
-    return null;
-  }
-
-  private static final class FoldToken {
-    final int index;
-    final boolean isBlockComment;
-    final char openChar;
-
-    FoldToken(int index, boolean isBlockComment, char openChar) {
-      this.index = index;
-      this.isBlockComment = isBlockComment;
-      this.openChar = openChar;
-    }
-  }
-
-  private static final class FoldMatch {
-    final int endLine;
-    final char closeChar;
-
-    FoldMatch(int endLine, char closeChar) {
-      this.endLine = endLine;
-      this.closeChar = closeChar;
-    }
-  }
-
-  private FoldToken findFoldTokenInLine(String line, int startIndex) {
-    if (line == null || line.isEmpty()) return null;
-    int len = line.length();
-    int i = Math.max(0, startIndex);
-    boolean inLineComment = false;
-    boolean inBlockComment = false;
-    int stringState = 0;
-
-    while (i < len) {
-      if (inLineComment) break;
-
-      if (inBlockComment) {
-        int end = findBlockCommentEnd(line, i);
-        if (end < 0) return null;
-        i = end + 2;
-        inBlockComment = false;
-        continue;
-      }
-
-      if (stringState != 0) {
-        StringEndResult endResult = findStringEndForState(line, i, stringState);
-        if (!endResult.found) return null;
-        i = endResult.endIndex;
-        stringState = 0;
-        continue;
-      }
-
-      if (isLineCommentStart(line, i)) {
-        inLineComment = true;
-        break;
-      }
-
-      if (isBlockCommentsEnabled
-          && i + 1 < len
-          && line.charAt(i) == '/'
-          && line.charAt(i + 1) == '*'
-          && !isTokenEscaped(line, i)) {
-        return new FoldToken(i, true, '/');
-      }
-
-      if (isTripleQuoteStart(line, i) && !isEscaped(line, i)) {
-        int end = findTripleQuoteEnd(line, i + 3);
-        if (end < 0) return null;
-        i = end + 3;
-        continue;
-      }
-
-      char c = line.charAt(i);
-      if (isStringDelimiter(c) && !isEscaped(line, i)) {
-        int end = findStringEnd(line, i + 1, c);
-        if (end < 0) return null;
-        i = end + 1;
-        continue;
-      }
-
-      if (isOpeningBracket(c) && !isEscaped(line, i)) {
-        if (c == '{') return new FoldToken(i, false, c);
-      }
-      i++;
-    }
-    for (int j = Math.max(0, startIndex); j < len; j++) {
-      char c = line.charAt(j);
-      if ((c == '(' || c == '[') && !isEscaped(line, j)) {
-        return new FoldToken(j, false, c);
-      }
-    }
-    return null;
-  }
-
-  private int findBlockCommentEndLine(
-      int startLine, int startIndex, @Nullable RandomAccessFile raf) {
-    int totalLines = getLinesCount();
-    if (totalLines <= 0) totalLines = Math.max(startLine + 1, windowStartLine + linesWindow.size());
-
-    for (int line = startLine; line < totalLines; line++) {
-      String text = getLineTextForFoldScan(line, raf);
-      if (text == null) break;
-      int from = (line == startLine) ? Math.min(startIndex + 2, text.length()) : 0;
-      int end = findBlockCommentEnd(text, from);
-      if (end >= 0) return line;
-    }
-    return -1;
-  }
-
-  private FoldMatch findMatchingBracketFrom(
-      int startLine, int startIndex, char openChar, @Nullable RandomAccessFile raf) {
-    int totalLines = getLinesCount();
-    if (totalLines <= 0) totalLines = Math.max(startLine + 1, windowStartLine + linesWindow.size());
-
-    HighlightLineState startState = getLineStateAtStart(startLine);
-    boolean inBlockComment = startState.inBlockComment && isBlockCommentsEnabled;
-    int stringState = startState.stringState;
-    if (!isBlockCommentsEnabled) inBlockComment = false;
-    if (!isMultiLineStringsEnabled && stringState != STRING_STATE_TRIPLE) stringState = 0;
-    if (!isBacktickStringsEnabled && stringState == STRING_STATE_BACKTICK) stringState = 0;
-    if (!isTripleQuoteStringsEnabled && stringState == STRING_STATE_TRIPLE) stringState = 0;
-
-    if (inBlockComment || stringState != 0) return null;
-
-    int depth = 1;
-    char closeChar = matchingBracket(openChar);
-
-    for (int line = startLine; line < totalLines; line++) {
-      String text = getLineTextForFoldScan(line, raf);
-      if (text == null) break;
-      int len = text.length();
-      int i = (line == startLine) ? Math.min(startIndex + 1, len) : 0;
-      boolean inLineComment = false;
-
-      while (i < len) {
-        if (inLineComment) break;
-
-        if (inBlockComment) {
-          int end = findBlockCommentEnd(text, i);
-          if (end < 0) break;
-          i = end + 2;
-          inBlockComment = false;
-          continue;
-        }
-
-        if (stringState != 0) {
-          StringEndResult endResult = findStringEndForState(text, i, stringState);
-          if (!endResult.found) break;
-          i = endResult.endIndex;
-          stringState = 0;
-          continue;
-        }
-
-        if (isLineCommentStart(text, i)) {
-          inLineComment = true;
-          break;
-        }
-
-        if (isBlockCommentsEnabled
-            && i + 1 < len
-            && text.charAt(i) == '/'
-            && text.charAt(i + 1) == '*'
-            && !isTokenEscaped(text, i)) {
-          int end = findBlockCommentEnd(text, i + 2);
-          if (end < 0) {
-            inBlockComment = true;
-            break;
-          }
-          i = end + 2;
-          continue;
-        }
-
-        if (isTripleQuoteStart(text, i) && !isEscaped(text, i)) {
-          int end = findTripleQuoteEnd(text, i + 3);
-          if (end < 0) {
-            if (isTripleQuoteStringsEnabled) {
-              stringState = STRING_STATE_TRIPLE;
-            }
-            break;
-          }
-          i = end + 3;
-          continue;
-        }
-
-        char c = text.charAt(i);
-        if (isStringDelimiter(c) && !isEscaped(text, i)) {
-          int end = findStringEnd(text, i + 1, c);
-          if (end < 0) {
-            if (isMultiLineStringsEnabled) {
-              stringState = getStringStateForDelimiter(c);
-            }
-            break;
-          }
-          i = end + 1;
-          continue;
-        }
-
-        if (!isEscaped(text, i)) {
-          if (c == openChar) depth++;
-          else if (c == closeChar) {
-            depth--;
-            if (depth == 0) return new FoldMatch(line, closeChar);
-          }
-        }
-        i++;
-      }
-    }
-    return null;
-  }
-
-  private float getMaxScrollXForClamp() {
-    return scrollManager.getMaxScrollXForClamp();
-  }
-
-  private void clampScrollX() {
-    scrollManager.clampScrollX();
-  }
-
-  void clampScrollXForZoom() {
-    clampScrollX();
-  }
-
-  private void drawScrollBar(Canvas canvas) {
-    scrollManager.drawScrollBar(canvas);
-  }
-
-  private void showScrollBar() {
-    scrollManager.showScrollBar();
-  }
-
-  private void startScrollBarFadeOut() {
-    scrollManager.startScrollBarFadeOut();
-  }
-
-  private void cancelScrollBarFade() {
-    scrollManager.cancelScrollBarFade();
-  }
-
-  private void recalculateMaxLineWidth() {
-    float mx = 0f;
-    synchronized (linesWindow) {
-      for (int i = 0; i < linesWindow.size(); i++) {
-        String line = linesWindow.get(i);
-        mx = Math.max(mx, getWidthForLine(windowStartLine + i, line));
-      }
-    }
-    currentMaxWindowLineWidth = mx;
-    globalMaxLineWidth = Math.max(globalMaxLineWidth, currentMaxWindowLineWidth);
-  }
-
-  float getMaxLineWidthInWindow() {
-    // This is the core fix for horizontal scrolling. The scroll range must be based on the
-    // longest line seen anywhere in the file, not just the current visible window.
-    return globalMaxLineWidth;
-  }
-
-  private int clampSegmentEndForWrapIndicator(
-      String line, int segStart, int segEnd, int wrapWidthPx) {
-    if (segEnd <= segStart) return segEnd;
-    float reserved = wordWrapManager.wordWrapIndicatorWidth + (wordWrapManager.wordWrapIndicatorPadPx * 2f);
-    float available = wrapWidthPx - reserved;
-    if (available <= 0f) return segStart;
-    float width = whitespaceGuideManager.measureTextWithVisualSpaces(this, line, segStart, segEnd, paint);
-    if (width <= available) return segEnd;
-    int end = segEnd;
-    while (end > segStart) {
-      end--;
-      float w = whitespaceGuideManager.measureTextWithVisualSpaces(this, line, segStart, end, paint);
-      if (w <= available) break;
-    }
-    return end;
-  }
-
-  float getBottomBarrierPadding() {
-    float base = BOTTOM_SCROLL_OFFSET;
-    float minSpace = MIN_BOTTOM_VISIBLE_SPACE;
-    if (lineHeight > 0f) {
-      base = Math.max(base, lineHeight * 2f);
-      minSpace = Math.max(minSpace, lineHeight * 2f);
-    }
-    return Math.max(base, minSpace);
-  }
-
-  float getKeyboardBarrierPadding() {
-    if (keyboardHeight <= 0) return 0f;
-    float minPad = (lineHeight > 0f) ? lineHeight * 2f : MIN_BOTTOM_VISIBLE_SPACE;
-    float maxPad = (lineHeight > 0f) ? lineHeight * 3.5f : BOTTOM_SCROLL_OFFSET;
-    float kbPad = keyboardHeight * 0.4f;
-    return Math.max(minPad, Math.min(maxPad, kbPad));
-  }
-
-  private void drawAutoSuggestion(
-      Canvas canvas, String lineContent, int globalLine, float textBaselineY) {
-    boolean allowSuggestion =
-        activeSuggestionIsPath ? isAutoPathCompletionEnabled : isAutoCompletionEnabled;
-    if (!allowSuggestion || activeSuggestion == null || globalLine != activeSuggestionLine) {
-      return;
-    }
-
-    int cursorPositionInLine = activeSuggestionCharStart + activeSuggestionWordFragment.length();
-    if (cursorPositionInLine > lineContent.length()) {
-      clearActiveSuggestion();
-      return;
-    }
-
-    // Calculate X position where the suggestion starts
-    float suggestionStartX_canvas = measureText(lineContent, cursorPositionInLine, globalLine);
-
-    // Draw the suggestion text
-    canvas.drawText(activeSuggestion, suggestionStartX_canvas, textBaselineY, suggestionPaint);
-
-    // Calculate and store the tap area in VIEW coordinates
-    float suggestionTextWidth = suggestionPaint.measureText(activeSuggestion);
-
-    // The canvas is translated by (getTextStartX() - effectiveScrollX, -scrollManager.scrollY)
-    // To get view coordinates:
-    // viewX = canvasX + (effectiveScrollX - getTextStartX())
-    // viewY = canvasY + scrollManager.scrollY
-
-    float left_view = suggestionStartX_canvas + getTextStartX() - getEffectiveScrollX();
-    float right_view = left_view + suggestionTextWidth;
-    if (isRtl) {
-      float baseX = getRtlLineBaseX(lineContent, globalLine);
-      left_view += baseX;
-      right_view += baseX;
-    }
-    float top_view = globalLine * lineHeight - scrollManager.scrollY;
-    float bottom_view = (globalLine + 1) * lineHeight - scrollManager.scrollY;
-
-    activeSuggestionRect.set(left_view, top_view, right_view, bottom_view);
-  }
-
-  private void populateDirectLinesForRange(
-      int startLine, int endLineInclusive, java.util.Map<Integer, String> out) {
-    if (out == null) return;
-    if (sourceFile == null || !sourceFile.exists()) return;
-    if (!isIndexReady) return;
-
-    int start = Math.max(0, startLine);
-    int end = Math.max(start, endLineInclusive);
-
-    int maxLine = -1;
-    synchronized (lineOffsetsLock) {
-      maxLine = lineOffsets.length - 1;
-    }
-    if (maxLine < 0) return;
-    if (start > maxLine) return;
-    if (end > maxLine) end = maxLine;
-
-    // Ensure we don't drop visible lines; range is already caller-bounded.
-
-    // If cached, fill quickly first.
-    synchronized (directLineCache) {
-      for (int l = start; l <= end; l++) {
-        String c = directLineCache.get(l);
-        if (c != null) out.put(l, c);
-      }
-    }
-
-    // Read missing contiguous segments in one go.
-    int l = start;
-    while (l <= end) {
-      if (out.containsKey(l)) {
-        l++;
-        continue;
-      }
-
-      int segStart = l;
-      int segEnd = l;
-      while (segEnd + 1 <= end && !out.containsKey(segEnd + 1)) segEnd++;
-
-      try (RandomAccessFile raf = new RandomAccessFile(sourceFile, "r")) {
-        long fileLen = raf.length();
-        for (int cur = segStart; cur <= segEnd; cur++) {
-          long lineStart;
-          synchronized (lineOffsetsLock) {
-            if (cur >= lineOffsets.length) break;
-            lineStart = lineOffsets[cur];
-          }
-          long lineByteLen = getLineByteLengthFromIndex(raf, cur, fileLen);
-          int lineLen = (int) Math.min(Integer.MAX_VALUE, lineByteLen);
-          String ln;
-          if (shouldStreamLineLength(lineLen)) {
-            computeStreamedSliceBounds(null, cur, lineLen, streamedSliceTmp);
-            int sliceStart = streamedSliceTmp[0];
-            int sliceEnd = streamedSliceTmp[1];
-            if (isSingleByteCharset()) {
-              ln = readLineSliceAtByte(raf, lineStart, lineByteLen, sliceStart, sliceEnd);
-              setStreamedLineInfo(cur, lineLen, sliceStart);
-            } else {
-              StreamedCharSlice slice =
-                  readLineSliceByChars(raf, lineStart, sliceStart, sliceEnd, true);
-              ln = slice.text;
-              setStreamedLineInfo(cur, slice.length, sliceStart);
-            }
-          } else {
-            ln = readLineUtf8AtByte(raf, lineStart);
-          }
-          out.put(cur, (ln == null) ? "" : ln);
-        }
-      } catch (Exception ignored) {
-        // ignore: fallback to blank
-      }
-
-      l = segEnd + 1;
-    }
-
-    // Update cache
-    synchronized (directLineCache) {
-      for (java.util.Map.Entry<Integer, String> e : out.entrySet()) {
-        if (e.getKey() >= start && e.getKey() <= end) {
-          directLineCache.put(e.getKey(), (e.getValue() == null) ? "" : e.getValue());
-        }
-      }
-    }
-  }
-
-  private String getLineTextForRenderWithDirect(
-      int line, @Nullable java.util.Map<Integer, String> direct) {
-    if (line < 0) return "";
-
-    // Window first
-    if (line >= windowStartLine && line < windowStartLine + linesWindow.size()) {
-      String text = getLineFromWindowLocal(line - windowStartLine);
-      return (text != null) ? text : "";
-    }
-
-    // Modified lines (recent edits)
-    String mod = modifiedLines.get(line);
-    if (mod != null) return mod;
-
-    // Direct batch (during fast fling)
-    if (direct != null) {
-      String d = direct.get(line);
-      if (d != null) return d;
-    }
-
-    // Cache
-    synchronized (directLineCache) {
-      String c = directLineCache.get(line);
-      if (c != null) return c;
-    }
-
-    return "";
-  }
-
-  // Render-safe line getter (NO file random read here)
-  String getLineTextForRender(int line) {
-    if (line < 0) return "";
-    if (line >= windowStartLine && line < windowStartLine + linesWindow.size()) {
-      String text = getLineFromWindowLocal(line - windowStartLine);
-      return (text != null) ? text : "";
-    }
-    String mod = modifiedLines.get(line);
-    return (mod != null) ? mod : "";
-  }
-
-  private long[] buildIndexJava(String filepath) {
-    long numNewlines = 0;
-    long fileLength = 0;
-
-    try (RandomAccessFile raf = new RandomAccessFile(filepath, "r")) {
-      fileLength = raf.length();
-      if (fileLength == 0) {
-        return new long[0]; // Empty file has no lines
-      }
-
-      byte[] buffer = new byte[8192];
-      long currentReadPos = 0;
-      while (currentReadPos < fileLength) {
-        raf.seek(currentReadPos);
-        int bytesRead = raf.read(buffer);
-        if (bytesRead == -1) break; // EOF
-
-        for (int i = 0; i < bytesRead; i++) {
-          if (buffer[i] == '\n') {
-            numNewlines++;
-          }
-        }
-        currentReadPos += bytesRead;
-      }
-    } catch (Exception e) {
-      e.printStackTrace();
-      return null; // Return null on error
-    }
-
-    // The number of lines is (number of newlines) + 1.
-    // So the array size needs to be numNewlines + 1.
-    if (numNewlines >= Integer.MAX_VALUE - 1) {
-      isIndexDisabled = true;
-      indexDisabledPath = filepath;
-      indexDisabledFileLength = fileLength;
-      return null;
-    }
-    long lines = numNewlines + 1;
-    long bytesRequired = lines * (long) Long.BYTES;
-    long maxMemory = Runtime.getRuntime().maxMemory();
-    long maxIndexBytes = Math.min(MAX_INDEX_BYTES_HARD, Math.max(16L * 1024 * 1024, maxMemory / 6));
-    if (bytesRequired > maxIndexBytes) {
-      isIndexDisabled = true;
-      indexDisabledPath = filepath;
-      indexDisabledFileLength = fileLength;
-      return null;
-    }
-
-    long[] offsetsArray = new long[(int) lines];
-    int currentOffsetIndex = 0;
-
-    try (RandomAccessFile raf = new RandomAccessFile(filepath, "r")) {
-      offsetsArray[currentOffsetIndex++] = 0L; // First line starts at offset 0
-      long currentPos = 0;
-      byte[] buffer = new byte[8192];
-      while (currentPos < fileLength) {
-        raf.seek(currentPos);
-        int bytesRead = raf.read(buffer);
-        if (bytesRead == -1) break; // EOF
-
-        for (int i = 0; i < bytesRead; i++) {
-          if (buffer[i] == '\n') {
-            // Store the offset of the character *after* the newline
-            long nextStart = currentPos + i + 1;
-            if (currentOffsetIndex < offsetsArray.length) {
-              offsetsArray[currentOffsetIndex++] = nextStart;
-            } else {
-              // This should not happen if the first pass line counting is correct.
-              // But as a safeguard, if we somehow counted more newlines than array size, break.
-              break;
-            }
-          }
-        }
-        currentPos += bytesRead;
-      }
-    } catch (Exception e) {
-      e.printStackTrace();
-      return null; // Return null on error
-    }
-
-    return offsetsArray;
-  }
-
-  private void cancelAndCloseReader() {
-    ioHandler.post(
-        () -> {
-          try {
-            if (readerForFile != null) {
-              readerForFile.close();
-              readerForFile = null;
-            }
-          } catch (Exception e) {
-            e.printStackTrace();
-          }
-        });
-  }
-
-  public void setCursorAnimationEnabled(boolean enabled) {
-    cursorAnimationManager.setCursorAnimationEnabled(enabled);
-  }
-
-  private void updateCursorDrawPosition(float targetX, float targetY) {
-    cursorAnimationManager.updateCursorDrawPosition(targetX, targetY);
-  }
-
-  void resetCursorBlink() {
-    cursorAnimationManager.resetCursorBlink();
-  }
-
-  public void release() {
-    cancelAndCloseReader();
-    charAnimationManager.release();
-    cursorAnimationManager.release();
-    ioThread.quitSafely();
-  }
-  private static boolean isOpeningBracket(char c) {
-    return c == '(' || c == '[' || c == '{';
-  }
-
-  private static boolean isClosingBracket(char c) {
-    return c == ')' || c == ']' || c == '}';
-  }
-
-  private static char matchingBracket(char c) {
-    switch (c) {
-      case '(':
-        return ')';
-      case ')':
-        return '(';
-      case '[':
-        return ']';
-      case ']':
-        return '[';
-      case '{':
-        return '}';
-      case '}':
-        return '{';
-      default:
-        return 0;
-    }
-  }
-
 }

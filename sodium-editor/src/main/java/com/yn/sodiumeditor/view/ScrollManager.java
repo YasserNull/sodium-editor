@@ -190,7 +190,7 @@ public final class ScrollManager {
     int lineCount =
         view.isWordWrapEnabled
             ? view.getTotalVisualLineCount()
-            : (view.isCodeFoldingEnabled
+            : (view.foldManager.isCodeFoldingEnabled
                 ? view.getVisibleLineCount()
                 : Math.max(1, view.getLinesCount()));
     if (view.isEof) {
@@ -347,7 +347,7 @@ public final class ScrollManager {
     int lineCount =
         view.isWordWrapEnabled
             ? view.getTotalVisualLineCount()
-            : (view.isCodeFoldingEnabled
+            : (view.foldManager.isCodeFoldingEnabled
                 ? view.getVisibleLineCount()
                 : Math.max(1, view.getLinesCount()));
     if (view.isWordWrapEnabled && (view.isSelectAllActiveValue() || view.isEntireFileSelectedValue())) {
@@ -592,7 +592,7 @@ public final class ScrollManager {
 
   float getDrawLineTop(int globalLine) {
     int drawIndex = globalLine;
-    if (view.isCodeFoldingEnabled) {
+    if (view.foldManager.isCodeFoldingEnabled) {
       drawIndex = view.getVisibleIndexForGlobalLine(globalLine);
     }
     return (drawIndex - view.drawBaseLine) * view.lineHeight;

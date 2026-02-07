@@ -235,7 +235,7 @@ final class LineNumberManager {
 
     int drawLastIndex = lastVisibleIndex;
     int drawLastLine = lastVisibleLine;
-    if (view.isCodeFoldingEnabled) {
+    if (view.foldManager.isCodeFoldingEnabled) {
       int visibleCount = view.getVisibleLineCount();
       if (visibleCount > 0) {
         drawLastIndex = Math.min(lastVisibleIndex + 1, visibleCount - 1);
@@ -265,9 +265,9 @@ final class LineNumberManager {
             || lineNumberCacheTypeface != lineNumbersPaint.getTypeface()
             || lineNumberCacheRtl != view.isRtl
             || lineNumberCacheWrapped
-            || lineNumberCacheCodeFolding != view.isCodeFoldingEnabled
+            || lineNumberCacheCodeFolding != view.foldManager.isCodeFoldingEnabled
             || Math.abs(lineNumberCacheGutterWidth - lineNumbersGutterWidth) > 0.1f
-            || Math.abs(lineNumberCacheFoldMarkerWidth - view.foldMarkerGutterWidth)
+            || Math.abs(lineNumberCacheFoldMarkerWidth - view.foldManager.foldMarkerGutterWidth)
                 > 0.1f
             || Math.abs(lineNumberCacheLineHeight - lineHeight) > 0.1f
             || lineNumberCacheColor != lineNumbersPaint.getColor();
@@ -280,14 +280,14 @@ final class LineNumberManager {
           view.isRtl
               ? view.getGutterStartX()
                   + SodiumEditorView.GUTTER_TEXT_PADDING
-                  + (view.isCodeFoldingEnabled ? view.foldMarkerGutterWidth : 0f)
+                  + (view.foldManager.isCodeFoldingEnabled ? view.foldManager.foldMarkerGutterWidth : 0f)
               : view.getGutterStartX()
                   + lineNumbersGutterWidth
-                  - (view.isCodeFoldingEnabled ? view.foldMarkerGutterWidth : 0f)
+                  - (view.foldManager.isCodeFoldingEnabled ? view.foldManager.foldMarkerGutterWidth : 0f)
                   - SodiumEditorView.GUTTER_TEXT_PADDING;
       float lineNumXLocal = lineNumX - view.getGutterStartX();
 
-      if (view.isCodeFoldingEnabled) {
+      if (view.foldManager.isCodeFoldingEnabled) {
         for (int v = firstVisibleIndex; v <= drawLastIndex; v++) {
           int i = view.mapVisibleIndexToGlobal(v);
           int start = writeIntToChars(i + 1, lineNumberChars);
@@ -317,9 +317,9 @@ final class LineNumberManager {
       lineNumberCacheTypeface = lineNumbersPaint.getTypeface();
       lineNumberCacheRtl = view.isRtl;
       lineNumberCacheWrapped = false;
-      lineNumberCacheCodeFolding = view.isCodeFoldingEnabled;
+      lineNumberCacheCodeFolding = view.foldManager.isCodeFoldingEnabled;
       lineNumberCacheGutterWidth = lineNumbersGutterWidth;
-      lineNumberCacheFoldMarkerWidth = view.foldMarkerGutterWidth;
+      lineNumberCacheFoldMarkerWidth = view.foldManager.foldMarkerGutterWidth;
       lineNumberCacheLineHeight = lineHeight;
       lineNumberCacheColor = lineNumbersPaint.getColor();
     }
@@ -359,7 +359,7 @@ final class LineNumberManager {
             || lineNumberCacheTypeface != lineNumbersPaint.getTypeface()
             || lineNumberCacheRtl != view.isRtl
             || !lineNumberCacheWrapped
-            || lineNumberCacheCodeFolding != view.isCodeFoldingEnabled
+            || lineNumberCacheCodeFolding != view.foldManager.isCodeFoldingEnabled
             || Math.abs(lineNumberCacheGutterWidth - lineNumbersGutterWidth) > 0.1f
             || Math.abs(lineNumberCacheLineHeight - lineHeight) > 0.1f
             || lineNumberCacheColor != lineNumbersPaint.getColor();
@@ -395,9 +395,9 @@ final class LineNumberManager {
       lineNumberCacheTypeface = lineNumbersPaint.getTypeface();
       lineNumberCacheRtl = view.isRtl;
       lineNumberCacheWrapped = true;
-      lineNumberCacheCodeFolding = view.isCodeFoldingEnabled;
+      lineNumberCacheCodeFolding = view.foldManager.isCodeFoldingEnabled;
       lineNumberCacheGutterWidth = lineNumbersGutterWidth;
-      lineNumberCacheFoldMarkerWidth = view.foldMarkerGutterWidth;
+      lineNumberCacheFoldMarkerWidth = view.foldManager.foldMarkerGutterWidth;
       lineNumberCacheLineHeight = lineHeight;
       lineNumberCacheColor = lineNumbersPaint.getColor();
     }
@@ -415,7 +415,7 @@ final class LineNumberManager {
       int lastVisibleLine) {
     int drawLastIndex = lastVisibleIndex;
     int drawLastLine = lastVisibleLine;
-    if (view.isCodeFoldingEnabled) {
+    if (view.foldManager.isCodeFoldingEnabled) {
       int visibleCount = view.getVisibleLineCount();
       if (visibleCount > 0) drawLastIndex = Math.min(lastVisibleIndex + 1, visibleCount - 1);
     } else {
@@ -428,13 +428,13 @@ final class LineNumberManager {
         view.isRtl
             ? view.getGutterStartX()
                 + SodiumEditorView.GUTTER_TEXT_PADDING
-                + (view.isCodeFoldingEnabled ? view.foldMarkerGutterWidth : 0f)
+                + (view.foldManager.isCodeFoldingEnabled ? view.foldManager.foldMarkerGutterWidth : 0f)
             : view.getGutterStartX()
                 + lineNumbersGutterWidth
-                - (view.isCodeFoldingEnabled ? view.foldMarkerGutterWidth : 0f)
+                - (view.foldManager.isCodeFoldingEnabled ? view.foldManager.foldMarkerGutterWidth : 0f)
                 - SodiumEditorView.GUTTER_TEXT_PADDING;
 
-    if (view.isCodeFoldingEnabled) {
+    if (view.foldManager.isCodeFoldingEnabled) {
       for (int v = firstVisibleIndex; v <= drawLastIndex; v++) {
         int i = view.mapVisibleIndexToGlobal(v);
         int start = writeIntToChars(i + 1, lineNumberChars);
@@ -445,7 +445,7 @@ final class LineNumberManager {
                     - view.scrollManager.scrollY
                     + lineHeight
                     - view.paint.descent());
-        if (i == view.cursorManager.cursorLine) {
+        if (i == view.cursorManager.getLine()) {
           int originalColor = lineNumbersPaint.getColor();
           lineNumbersPaint.setColor(currentLineNumberColor);
           canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
@@ -464,7 +464,7 @@ final class LineNumberManager {
                     - view.scrollManager.scrollY
                     + lineHeight
                     - view.paint.descent());
-        if (i == view.cursorManager.cursorLine) {
+        if (i == view.cursorManager.getLine()) {
           int originalColor = lineNumbersPaint.getColor();
           lineNumbersPaint.setColor(currentLineNumberColor);
           canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
@@ -500,7 +500,7 @@ final class LineNumberManager {
                   - view.scrollManager.scrollY
                   + lineHeight
                   - view.paint.descent());
-      if (pos.line == view.cursorManager.cursorLine) {
+      if (pos.line == view.cursorManager.getLine()) {
         int originalColor = lineNumbersPaint.getColor();
         lineNumbersPaint.setColor(currentLineNumberColor);
         canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
@@ -513,12 +513,12 @@ final class LineNumberManager {
 
   void drawCurrentLineNumberUnwrapped(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex) {
     if (!showLineNumbers) return;
-    if (view.isCodeFoldingEnabled
-        && view.isLineHiddenByFold(view.cursorManager.cursorLine)) return;
+    if (view.foldManager.isCodeFoldingEnabled
+        && view.isLineHiddenByFold(view.cursorManager.getLine())) return;
 
-    int cursorLine = view.cursorManager.cursorLine;
+    int cursorLine = view.cursorManager.getLine();
     int visibleIndex =
-        view.isCodeFoldingEnabled
+        view.foldManager.isCodeFoldingEnabled
             ? view.getVisibleIndexForGlobalLine(cursorLine)
             : cursorLine;
     if (visibleIndex < firstVisibleIndex || visibleIndex > lastVisibleIndex) return;
@@ -528,10 +528,10 @@ final class LineNumberManager {
         view.isRtl
             ? view.getGutterStartX()
                 + SodiumEditorView.GUTTER_TEXT_PADDING
-                + (view.isCodeFoldingEnabled ? view.foldMarkerGutterWidth : 0f)
+                + (view.foldManager.isCodeFoldingEnabled ? view.foldManager.foldMarkerGutterWidth : 0f)
             : view.getGutterStartX()
                 + lineNumbersGutterWidth
-                - (view.isCodeFoldingEnabled ? view.foldMarkerGutterWidth : 0f)
+                - (view.foldManager.isCodeFoldingEnabled ? view.foldManager.foldMarkerGutterWidth : 0f)
                 - SodiumEditorView.GUTTER_TEXT_PADDING;
     int start = writeIntToChars(cursorLine + 1, lineNumberChars);
     int count = lineNumberChars.length - start;
@@ -550,7 +550,7 @@ final class LineNumberManager {
   void drawCurrentLineNumberWrapped(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
     if (!showLineNumbers) return;
     int visualIndex =
-        view.getVisualIndexForLineAndChar(view.cursorManager.cursorLine, 0);
+        view.getVisualIndexForLineAndChar(view.cursorManager.getLine(), 0);
     if (visualIndex < firstVisualIndex || visualIndex > lastVisualIndex) return;
 
     float lineHeight = view.lineHeight;
@@ -560,7 +560,7 @@ final class LineNumberManager {
             : view.getGutterStartX()
                 + lineNumbersGutterWidth
                 - SodiumEditorView.GUTTER_TEXT_PADDING;
-    int start = writeIntToChars(view.cursorManager.cursorLine + 1, lineNumberChars);
+    int start = writeIntToChars(view.cursorManager.getLine() + 1, lineNumberChars);
     int count = lineNumberChars.length - start;
     float y =
         Math.round(
