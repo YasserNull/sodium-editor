@@ -353,7 +353,7 @@ final class FoldManager {
       String ln = getLineTextForFoldScan(line, raf);
       if (ln == null) return null;
 
-      SodiumEditorView.HighlightLineState startState = view.getLineStateAtStartForFold(line);
+      HighlightManager.HighlightLineState startState = view.getLineStateAtStartForFold(line);
       boolean inBlockComment =
           startState.inBlockComment && view.isBlockCommentsEnabledForFold();
       int stringState = startState.stringState;
@@ -466,7 +466,7 @@ final class FoldManager {
       }
 
       if (stringState != 0) {
-        SodiumEditorView.StringEndResult endResult =
+        HighlightManager.StringEndResult endResult =
             view.findStringEndForStateForFold(line, i, stringState);
         if (!endResult.found) return null;
         i = endResult.endIndex;
@@ -544,7 +544,7 @@ final class FoldManager {
               startLine + 1,
               view.getWindowStartLineForFold() + view.getLinesWindowSizeForFold());
 
-    SodiumEditorView.HighlightLineState startState = view.getLineStateAtStartForFold(startLine);
+    HighlightManager.HighlightLineState startState = view.getLineStateAtStartForFold(startLine);
     boolean inBlockComment =
         startState.inBlockComment && view.isBlockCommentsEnabledForFold();
     int stringState = startState.stringState;
@@ -580,7 +580,7 @@ final class FoldManager {
         }
 
         if (stringState != 0) {
-          SodiumEditorView.StringEndResult endResult =
+          HighlightManager.StringEndResult endResult =
               view.findStringEndForStateForFold(text, i, stringState);
           if (!endResult.found) return null;
           i = endResult.endIndex;

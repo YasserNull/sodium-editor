@@ -264,11 +264,11 @@ public class SodiumEditorView extends View {
   private final HandlesManager handlesManager = new HandlesManager();
   final CursorManager cursorManager = new CursorManager(this);
   private final SelectionManager selectionManager = new SelectionManager();
+  private final HighlightManager highlightManager = new HighlightManager(this);
   final LineNumberManager lineNumberManager = new LineNumberManager(this);
   private final BracketGuideManager bracketGuideManager = new BracketGuideManager(this);
   private final BracketMatchManager bracketMatchManager = new BracketMatchManager(this);
-  private final Paint loadingCirclePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  private final RectF loadingCircleRect = new RectF();
+  private final LoadingCircleManager loadingCircleManager;
   private final java.util.HashMap<Integer, String> directLinesTmp = new java.util.HashMap<>();
   private final Path teardropPath = new Path();
   private final Paint popupBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -296,13 +296,6 @@ public class SodiumEditorView extends View {
   // During onDraw, we render everything relative to the first visible line.
   int drawBaseLine = 0;
 
-  private final LinkedHashMap<Integer, int[]> colorCodeBgCache =
-      new LinkedHashMap<Integer, int[]>(600, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<Integer, int[]> eldest) {
-          return size() > 600;
-        }
-      };
   private static final String WHITESPACE_GUIDE_SPACE = "\u00B7";
   private static final String WHITESPACE_GUIDE_TAB = "\u2192";
   private static final String FOLD_PLACEHOLDER_TEXT = "<—>";
@@ -329,11 +322,7 @@ public class SodiumEditorView extends View {
   private final AtomicInteger goToLineVersion = new AtomicInteger(0);
 
   // Loading circle variables
-  private boolean showLoadingCircle = false;
-  private float loadingCircleRadius = 40f;
-  private int loadingCircleColor = 0xFF3F51B5;
-  private float loadingCircleRotation = 0f;
-  private ValueAnimator rotationAnimator;
+  // loading circle state moved to LoadingCircleManager
   private boolean showLoadingOnFileOpen = true;
   private boolean isInitialFileOpenLoading = false;
   private int initialFileOpenToken = 0;
@@ -375,86 +364,6 @@ public class SodiumEditorView extends View {
         }
       };
 
-  private int lastHighlightEnsureStartLine = -1;
-  private int lastHighlightEnsureEndLine = -1;
-  private int lastHighlightEnsureEditVersion = -1;
-
-
-  // --- Syntax Highlighting State ---
-  private final java.util.ArrayList<String> lineCommentDelimiters = new java.util.ArrayList<>();
-  @Nullable private HighlightRule lineCommentHighlightRule;
-  private final List<HighlightRule> highlightRules = new ArrayList<>();
-  private HighlightRule stringHighlightRule;
-  private HighlightRule blockCommentHighlightRule;
-  private final ArrayList<HighlightRule> regexHighlightRules = new ArrayList<>();
-  private final LinkedHashMap<Integer, List<HighlightSpan>> highlightCache =
-      new LinkedHashMap<Integer, List<HighlightSpan>>(1000, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<Integer, List<HighlightSpan>> eldest) {
-          return size() > 1000;
-        }
-      };
-  private final LinkedHashMap<Integer, Boolean> blockCommentEndStateCache =
-      new LinkedHashMap<Integer, Boolean>(1000, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<Integer, Boolean> eldest) {
-          return size() > 1000;
-        }
-      };
-  private final LinkedHashMap<Integer, Integer> stringEndStateCache =
-      new LinkedHashMap<Integer, Integer>(1000, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<Integer, Integer> eldest) {
-          return size() > 1000;
-        }
-      };
-
-  // --- URL underline (decoration, not syntax) ---
-  private static final Pattern DEFAULT_URL_UNDERLINE_PATTERN = Pattern.compile("https?://[^\\s]+");
-  private boolean isUrlUnderliningEnabled = false;
-  @Nullable private Pattern urlUnderlinePattern = DEFAULT_URL_UNDERLINE_PATTERN;
-  private final Paint urlUnderlineTmpPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  private final LinkedHashMap<Integer, List<UnderlineSpan>> urlUnderlineCache =
-      new LinkedHashMap<Integer, List<UnderlineSpan>>(1000, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<Integer, List<UnderlineSpan>> eldest) {
-          return size() > 1000;
-        }
-      };
-
-  // --- Path underline (decoration, not syntax) ---
-  private boolean isPathUnderliningEnabled = false;
-  @Nullable private Pattern pathUnderlinePattern = Pattern.compile("/[^\\s,;()'\"]+");
-  private final Paint pathUnderlineTmpPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  private final LinkedHashMap<Integer, List<UnderlineSpan>> pathUnderlineCache =
-      new LinkedHashMap<Integer, List<UnderlineSpan>>(1000, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<Integer, List<UnderlineSpan>> eldest) {
-          return size() > 1000;
-        }
-      };
-  // Using ConcurrentHashMap for thread-safe access from IO and UI threads.
-  private final java.util.concurrent.ConcurrentHashMap<String, Boolean> pathValidationCache =
-      new java.util.concurrent.ConcurrentHashMap<>();
-  private final java.util.Set<String> pendingPathValidations =
-      java.util.Collections.synchronizedSet(new java.util.HashSet<>());
-
-  // --- Error underline (squiggle) ---
-  private int errorUnderlineColor = 0xFFE53935;
-  private boolean errorUnderlineEnabled = true;
-  private final Paint errorUnderlinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  private final Path errorUnderlinePath = new Path();
-  private float errorUnderlineHeightScale = 0.18f;
-  private float errorUnderlineWaveLengthScale = 0.70f;
-  private float errorUnderlineStrokeScale = 0.08f;
-  private float errorUnderlineSmoothness = 3f;
-  private final LinkedHashMap<Integer, List<ErrorUnderlineSpan>> errorUnderlineMap =
-      new LinkedHashMap<Integer, List<ErrorUnderlineSpan>>(256, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<Integer, List<ErrorUnderlineSpan>> eldest) {
-          return size() > 2000;
-        }
-      };
   private final int[] visibleCharRangeTmp = new int[2];
   private int visibleCharPadding = 2;
   private boolean isPerformanceModeEnabled = false;
@@ -555,151 +464,11 @@ public class SodiumEditorView extends View {
     }
   }
 
-  static class HighlightSpan {
-    final int start;
-    final int end;
-    final Paint paint;
-
-    HighlightSpan(int start, int end, Paint paint) {
-      this.start = start;
-      this.end = end;
-      this.paint = paint;
-    }
-  }
-
-  private static class UnderlineSpan {
-    final int start;
-    final int end;
-    final boolean isPath; // true if it's a path, false if URL
-
-    UnderlineSpan(int start, int end, boolean isPath) {
-      this.start = start;
-      this.end = end;
-      this.isPath = isPath;
-    }
-  }
-
-  private static class ErrorUnderlineSpan {
-    final int start;
-    final int end;
-
-    ErrorUnderlineSpan(int start, int end) {
-      this.start = start;
-      this.end = end;
-    }
-  }
-
-  static class LineParseResult {
-    final List<HighlightSpan> spans;
-    final boolean endsInBlockComment;
-    final int endsInStringState;
-
-    LineParseResult(List<HighlightSpan> spans, boolean endsInBlockComment, int endsInStringState) {
-      this.spans = spans;
-      this.endsInBlockComment = endsInBlockComment;
-      this.endsInStringState = endsInStringState;
-    }
-  }
-
-  static class HighlightLineState {
-    final boolean inBlockComment;
-    final int stringState;
-
-    HighlightLineState(boolean inBlockComment, int stringState) {
-      this.inBlockComment = inBlockComment;
-      this.stringState = stringState;
-    }
-  }
-
-  enum HighlightRuleType {
-    REGEX,
-    STRING,
-    BLOCK_COMMENT,
-    LINE_COMMENT
-  }
-
-  static class HighlightRule {
-    final HighlightRuleType type;
-    final Pattern pattern;
-    final Paint paint;
-    final int style;
-    final boolean underline;
-
-    HighlightRule(
-        String regex,
-        int style,
-        int color,
-        float baseTextSize,
-        Typeface baseTypeface,
-        boolean underline,
-        HighlightRuleType type) {
-      this.type = type;
-      if (type == HighlightRuleType.REGEX) {
-        this.pattern = Pattern.compile(regex);
-      } else {
-        this.pattern = null;
-      }
-      this.paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-      this.paint.setColor(color);
-      this.paint.setTextSize(baseTextSize);
-      this.style = style;
-      this.underline = underline;
-
-      int typefaceStyle;
-      switch (style) {
-        case STYLE_BOLD:
-          typefaceStyle = Typeface.BOLD;
-          break;
-        case STYLE_ITALIC:
-          typefaceStyle = Typeface.ITALIC;
-          break;
-        case STYLE_BOLD_ITALIC:
-          typefaceStyle = Typeface.BOLD_ITALIC;
-          break;
-        default:
-          typefaceStyle = Typeface.NORMAL;
-          break;
-      }
-
-      this.paint.setTypeface(Typeface.create(baseTypeface, typefaceStyle));
-      this.paint.setUnderlineText(underline);
-    }
-
-    void updateTextSize(float size) {
-      paint.setTextSize(size);
-    }
-
-    void updateTypeface(Typeface baseTypeface) {
-      int typefaceStyle;
-      switch (style) {
-        case STYLE_BOLD:
-          typefaceStyle = Typeface.BOLD;
-          break;
-        case STYLE_ITALIC:
-          typefaceStyle = Typeface.ITALIC;
-          break;
-        case STYLE_BOLD_ITALIC:
-          typefaceStyle = Typeface.BOLD_ITALIC;
-          break;
-        default:
-          typefaceStyle = Typeface.NORMAL;
-          break;
-      }
-      paint.setTypeface(Typeface.create(baseTypeface, typefaceStyle));
-    }
-  }
-
   // --- Color Code Highlighting ---
-  private boolean isColorHighlightingEnabled = false;
   private boolean isMultiLineStringsEnabled = false;
   private boolean isBacktickStringsEnabled = false;
   private boolean isBlockCommentsEnabled = false;
   private boolean isTripleQuoteStringsEnabled = false;
-  private final Paint colorOverlayPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  private static final Pattern COLOR_HEX_PATTERN =
-      Pattern.compile(
-          "(#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8}))\\b|(\\b0x[a-fA-F0-9]{6,8}\\b)",
-          Pattern.CASE_INSENSITIVE);
 
   final Runnable delayedWindowCheck =
       new Runnable() {
@@ -736,8 +505,6 @@ public class SodiumEditorView extends View {
     caretPaint.setStyle(Paint.Style.STROKE);
     caretPaint.setStrokeCap(Paint.Cap.BUTT);
     handlePaint.setStyle(Paint.Style.FILL);
-    loadingCirclePaint.setStyle(Paint.Style.STROKE);
-    loadingCirclePaint.setStrokeCap(Paint.Cap.ROUND);
 
     // Initialization for line numbers
     float density = getContext().getResources().getDisplayMetrics().density;
@@ -750,6 +517,7 @@ public class SodiumEditorView extends View {
     foldManager.foldMarkerEdgePadding = foldManager.foldMarkerEdgePadding * density;
 
     popupMenuManager = new PopupMenuManager(this);
+    loadingCircleManager = new LoadingCircleManager(this);
 
     foldManager.foldPlaceholderPaint.setColor(0xFFE0E0E0);
     foldManager.foldPlaceholderPaint.setStyle(Paint.Style.FILL);
@@ -917,7 +685,7 @@ public class SodiumEditorView extends View {
     if (enabled) {
       setUrlUnderliningEnabled(false);
       setPathUnderliningEnabled(false);
-      isColorHighlightingEnabled = false;
+      highlightManager.isColorHighlightingEnabled = false;
       setBracketMatchingEnabled(false);
       setBracketGuidesEnabled(false);
       setIndentGuidesEnabled(false);
@@ -1065,12 +833,12 @@ public class SodiumEditorView extends View {
     }
 
     // Prevent suggestions inside syntax highlighting (expensive).
-    List<HighlightSpan> spans = highlightCache.get(cursorManager.getLine());
+    List<HighlightManager.HighlightSpan> spans = highlightManager.highlightCache.get(cursorManager.getLine());
     if (spans == null) {
       spans = calculateSpansForLine(line, cursorManager.getLine());
-      highlightCache.put(cursorManager.getLine(), spans);
+      highlightManager.highlightCache.put(cursorManager.getLine(), spans);
     }
-    for (HighlightSpan span : spans) {
+    for (HighlightManager.HighlightSpan span : spans) {
       if (cursorManager.getChar() > span.start && cursorManager.getChar() <= span.end) {
         clearActiveSuggestion();
         return;
@@ -1318,10 +1086,10 @@ public class SodiumEditorView extends View {
 
   private void validatePathInBackground(final String path, final int lineToInvalidate) {
     // Avoid queueing the same path if it's already being checked
-    if (pendingPathValidations.contains(path)) {
+    if (highlightManager.pendingPathValidations.contains(path)) {
       return;
     }
-    pendingPathValidations.add(path);
+    highlightManager.pendingPathValidations.add(path);
 
     ioHandler.post(
         () -> {
@@ -1333,14 +1101,14 @@ public class SodiumEditorView extends View {
           } catch (Exception e) {
             // Ignore security exceptions or other errors
           } finally {
-            pathValidationCache.put(path, exists);
-            pendingPathValidations.remove(path);
+            highlightManager.pathValidationCache.put(path, exists);
+            highlightManager.pendingPathValidations.remove(path);
 
             if (exists) {
               // Invalidate caches for the line and trigger a redraw
               mainHandler.post(
                   () -> {
-                    pathUnderlineCache.remove(lineToInvalidate);
+                    highlightManager.pathUnderlineCache.remove(lineToInvalidate);
 
                     // To be safe and simple, just invalidate the whole view.
                     // This ensures the line gets redrawn even if it has moved.
@@ -1873,7 +1641,7 @@ public class SodiumEditorView extends View {
     invalidateWrapMetrics(async);
   }
 
-  HighlightLineState getLineStateAtStartForFold(int line) {
+  HighlightManager.HighlightLineState getLineStateAtStartForFold(int line) {
     return getLineStateAtStart(line);
   }
 
@@ -1881,7 +1649,7 @@ public class SodiumEditorView extends View {
     return findBlockCommentEnd(line, from);
   }
 
-  StringEndResult findStringEndForStateForFold(String line, int index, int stringState) {
+  HighlightManager.StringEndResult findStringEndForStateForFold(String line, int index, int stringState) {
     return findStringEndForState(line, index, stringState);
   }
 
@@ -1945,12 +1713,28 @@ public class SodiumEditorView extends View {
     return isTripleQuoteStringsEnabled;
   }
 
+  boolean isBacktickStringsEnabledForHighlight() {
+    return isBacktickStringsEnabled;
+  }
+
+  boolean isTripleQuoteStringsEnabledForHighlight() {
+    return isTripleQuoteStringsEnabled;
+  }
+
+  boolean isBlockCommentsEnabledForHighlight() {
+    return isBlockCommentsEnabled;
+  }
+
+  boolean isMultiLineStringsEnabledForHighlight() {
+    return isMultiLineStringsEnabled;
+  }
+
   int getStringStateTripleForFold() {
-    return STRING_STATE_TRIPLE;
+    return HighlightManager.STRING_STATE_TRIPLE;
   }
 
   int getStringStateBacktickForFold() {
-    return STRING_STATE_BACKTICK;
+    return HighlightManager.STRING_STATE_BACKTICK;
   }
 
   int getIndentFoldScanLimitForFold() {
@@ -2029,29 +1813,29 @@ public class SodiumEditorView extends View {
   }
 
   public void addHighlightRule(String regex, int style, int color, boolean underline) {
-    HighlightRuleType type = HighlightRuleType.REGEX;
+    HighlightManager.HighlightRuleType type = HighlightManager.HighlightRuleType.REGEX;
     if (RULE_STRING.equals(regex)) {
-      type = HighlightRuleType.STRING;
+      type = HighlightManager.HighlightRuleType.STRING;
     } else if (RULE_BLOCK_COMMENT.equals(regex)) {
-      type = HighlightRuleType.BLOCK_COMMENT;
+      type = HighlightManager.HighlightRuleType.BLOCK_COMMENT;
     } else if (isLineCommentRegex(regex)) {
-      type = HighlightRuleType.LINE_COMMENT;
+      type = HighlightManager.HighlightRuleType.LINE_COMMENT;
     }
 
-    HighlightRule rule =
-        new HighlightRule(
+    HighlightManager.HighlightRule rule =
+        new HighlightManager.HighlightRule(
             regex, style, color, paint.getTextSize(), paint.getTypeface(), underline, type);
-    if (type == HighlightRuleType.LINE_COMMENT) {
+    if (type == HighlightManager.HighlightRuleType.LINE_COMMENT) {
       ensureLineCommentDelimiter("//");
-      lineCommentHighlightRule = rule;
+      highlightManager.lineCommentHighlightRule = rule;
     } else {
-      highlightRules.add(rule);
-      if (type == HighlightRuleType.STRING) {
-        stringHighlightRule = rule;
-      } else if (type == HighlightRuleType.BLOCK_COMMENT) {
-        blockCommentHighlightRule = rule;
+      highlightManager.highlightRules.add(rule);
+      if (type == HighlightManager.HighlightRuleType.STRING) {
+        highlightManager.stringHighlightRule = rule;
+      } else if (type == HighlightManager.HighlightRuleType.BLOCK_COMMENT) {
+        highlightManager.blockCommentHighlightRule = rule;
       } else {
-        regexHighlightRules.add(rule);
+        highlightManager.regexHighlightRules.add(rule);
       }
     }
     clearHighlightCaches();
@@ -2059,128 +1843,114 @@ public class SodiumEditorView extends View {
   }
 
   public void clearHighlightRules() {
-    highlightRules.clear();
-    stringHighlightRule = null;
-    blockCommentHighlightRule = null;
-    regexHighlightRules.clear();
-    lineCommentHighlightRule = null;
+    highlightManager.highlightRules.clear();
+    highlightManager.stringHighlightRule = null;
+    highlightManager.blockCommentHighlightRule = null;
+    highlightManager.regexHighlightRules.clear();
+    highlightManager.lineCommentHighlightRule = null;
     clearHighlightCaches();
     invalidate();
   }
 
   private void clearHighlightCaches() {
-    highlightCache.clear();
-    blockCommentEndStateCache.clear();
-    stringEndStateCache.clear();
-    colorCodeBgCache.clear();
-    urlUnderlineCache.clear();
-    pathUnderlineCache.clear();
-    invalidateHighlightEnsureRange();
-    bracketGuideManager.invalidateCache();
+    highlightManager.clearHighlightCaches();
   }
 
   private void invalidateHighlightCacheForLine(int line) {
-    highlightCache.remove(line);
-    blockCommentEndStateCache.clear();
-    stringEndStateCache.clear();
-    colorCodeBgCache.remove(line);
-    urlUnderlineCache.remove(line);
-    pathUnderlineCache.remove(line);
-    invalidateHighlightEnsureRange();
-    bracketGuideManager.invalidateCache();
+    highlightManager.invalidateHighlightCacheForLine(line);
   }
 
   public void setUrlUnderliningEnabled(boolean enabled) {
-    if (this.isUrlUnderliningEnabled == enabled) return;
-    this.isUrlUnderliningEnabled = enabled;
-    urlUnderlineCache.clear();
+    if (this.highlightManager.isUrlUnderliningEnabled == enabled) return;
+    this.highlightManager.isUrlUnderliningEnabled = enabled;
+    highlightManager.urlUnderlineCache.clear();
     invalidate();
   }
 
   public void setUrlUnderliningRegex(@Nullable String regex) {
     if (regex == null || regex.trim().isEmpty()) {
-      this.urlUnderlinePattern = null;
+      this.highlightManager.urlUnderlinePattern = null;
     } else {
-      this.urlUnderlinePattern = Pattern.compile(regex);
+      this.highlightManager.urlUnderlinePattern = Pattern.compile(regex);
     }
-    urlUnderlineCache.clear();
+    highlightManager.urlUnderlineCache.clear();
     invalidate();
   }
 
   public void setPathUnderliningEnabled(boolean enabled) {
-    if (this.isPathUnderliningEnabled == enabled) return;
-    this.isPathUnderliningEnabled = enabled;
+    if (this.highlightManager.isPathUnderliningEnabled == enabled) return;
+    this.highlightManager.isPathUnderliningEnabled = enabled;
     // Clear all caches when state changes to ensure fresh checks.
-    pathUnderlineCache.clear();
-    pathValidationCache.clear();
-    pendingPathValidations.clear();
+    highlightManager.pathUnderlineCache.clear();
+    highlightManager.pathValidationCache.clear();
+    highlightManager.pendingPathValidations.clear();
     invalidate();
   }
 
   public void setErrorUnderlineColor(int color) {
-    if (this.errorUnderlineColor == color) return;
-    this.errorUnderlineColor = color;
+    if (this.highlightManager.errorUnderlineColor == color) return;
+    this.highlightManager.errorUnderlineColor = color;
     invalidate();
   }
 
   public void setErrorUnderlineEnabled(boolean enabled) {
-    if (errorUnderlineEnabled == enabled) return;
-    errorUnderlineEnabled = enabled;
+    if (highlightManager.errorUnderlineEnabled == enabled) return;
+    highlightManager.errorUnderlineEnabled = enabled;
     invalidate();
   }
 
   public void setErrorUnderlineHeightScale(float scale) {
     float safe = Math.max(0f, scale);
-    if (errorUnderlineHeightScale == safe) return;
-    errorUnderlineHeightScale = safe;
+    if (highlightManager.errorUnderlineHeightScale == safe) return;
+    highlightManager.errorUnderlineHeightScale = safe;
     invalidate();
   }
 
   public void setErrorUnderlineWaveLengthScale(float scale) {
     float safe = Math.max(0.1f, scale);
-    if (errorUnderlineWaveLengthScale == safe) return;
-    errorUnderlineWaveLengthScale = safe;
+    if (highlightManager.errorUnderlineWaveLengthScale == safe) return;
+    highlightManager.errorUnderlineWaveLengthScale = safe;
     invalidate();
   }
 
   public void setErrorUnderlineStrokeScale(float scale) {
     float safe = Math.max(0f, scale);
-    if (errorUnderlineStrokeScale == safe) return;
-    errorUnderlineStrokeScale = safe;
+    if (highlightManager.errorUnderlineStrokeScale == safe) return;
+    highlightManager.errorUnderlineStrokeScale = safe;
     invalidate();
   }
 
   public void setErrorUnderlineSmoothness(float radiusPx) {
     float safe = Math.max(0f, radiusPx);
-    if (errorUnderlineSmoothness == safe) return;
-    errorUnderlineSmoothness = safe;
+    if (highlightManager.errorUnderlineSmoothness == safe) return;
+    highlightManager.errorUnderlineSmoothness = safe;
     invalidate();
   }
 
   public void setErrorUnderline(int line, int col, int length) {
     if (line < 0) return;
     if (length <= 0) {
-      errorUnderlineMap.remove(line);
+      highlightManager.errorUnderlineMap.remove(line);
       invalidate();
       return;
     }
     int start = Math.max(0, col);
     int end = Math.max(start, start + length);
-    List<ErrorUnderlineSpan> list = errorUnderlineMap.get(line);
+    List<HighlightManager.ErrorUnderlineSpan> list = highlightManager.errorUnderlineMap.get(line);
     if (list == null) {
       list = new ArrayList<>();
-      errorUnderlineMap.put(line, list);
+      highlightManager.errorUnderlineMap.put(line, list);
     }
-    list.add(new ErrorUnderlineSpan(start, end));
+    list.add(new HighlightManager.ErrorUnderlineSpan(start, end));
     invalidate();
   }
 
   public void setStringsHighlight(boolean enabled, int color) {
-    if (stringHighlightRule == null) {
+    if (highlightManager.stringHighlightRule == null) {
       addHighlightRule(RULE_STRING, STYLE_NORMAL, color);
     }
-    if (stringHighlightRule != null && stringHighlightRule.paint.getColor() != color) {
-      stringHighlightRule.paint.setColor(color);
+    if (highlightManager.stringHighlightRule != null && highlightManager.stringHighlightRule.paint.getColor() != color) {
+      highlightManager.stringHighlightRule.paint.setColor(color);
     }
     if (isMultiLineStringsEnabled != enabled) {
       isMultiLineStringsEnabled = enabled;
@@ -2190,11 +1960,11 @@ public class SodiumEditorView extends View {
   }
 
   public void setMultiLineStringsHighlight(boolean enabled, int color) {
-    if (stringHighlightRule == null) {
+    if (highlightManager.stringHighlightRule == null) {
       addHighlightRule(RULE_STRING, STYLE_NORMAL, color);
     }
-    if (stringHighlightRule != null && stringHighlightRule.paint.getColor() != color) {
-      stringHighlightRule.paint.setColor(color);
+    if (highlightManager.stringHighlightRule != null && highlightManager.stringHighlightRule.paint.getColor() != color) {
+      highlightManager.stringHighlightRule.paint.setColor(color);
     }
     if (isMultiLineStringsEnabled != enabled) {
       isMultiLineStringsEnabled = enabled;
@@ -2205,8 +1975,9 @@ public class SodiumEditorView extends View {
 
   // Toggle background highlight for hex color literals (e.g., #RRGGBB, 0xAARRGGBB).
   public void setColorCodeHighlightingEnabled(boolean enabled) {
-    if (isColorHighlightingEnabled == enabled) return;
-    isColorHighlightingEnabled = enabled;
+    if (highlightManager.isColorHighlightingEnabled == enabled) return;
+    highlightManager.isColorHighlightingEnabled = enabled;
+    highlightManager.colorCodeBgCache.clear();
     invalidate();
   }
 
@@ -2219,24 +1990,24 @@ public class SodiumEditorView extends View {
 
   public void setMultiLineComments(boolean enabled, int style, int color) {
     boolean needsInvalidate = false;
-    if (blockCommentHighlightRule == null || blockCommentHighlightRule.style != style) {
-      if (blockCommentHighlightRule != null) {
-        highlightRules.remove(blockCommentHighlightRule);
+    if (highlightManager.blockCommentHighlightRule == null || highlightManager.blockCommentHighlightRule.style != style) {
+      if (highlightManager.blockCommentHighlightRule != null) {
+        highlightManager.highlightRules.remove(highlightManager.blockCommentHighlightRule);
       }
-      blockCommentHighlightRule =
-          new HighlightRule(
+      highlightManager.blockCommentHighlightRule =
+          new HighlightManager.HighlightRule(
               RULE_BLOCK_COMMENT,
               style,
               color,
               paint.getTextSize(),
               paint.getTypeface(),
               false,
-              HighlightRuleType.BLOCK_COMMENT);
-      highlightRules.add(blockCommentHighlightRule);
+              HighlightManager.HighlightRuleType.BLOCK_COMMENT);
+      highlightManager.highlightRules.add(highlightManager.blockCommentHighlightRule);
       needsInvalidate = true;
     } else {
-      if (blockCommentHighlightRule.paint.getColor() != color) {
-        blockCommentHighlightRule.paint.setColor(color);
+      if (highlightManager.blockCommentHighlightRule.paint.getColor() != color) {
+        highlightManager.blockCommentHighlightRule.paint.setColor(color);
         needsInvalidate = true;
       }
     }
@@ -2251,19 +2022,19 @@ public class SodiumEditorView extends View {
   }
 
   private void setSingleLineCommentDelimiters(String... delimiters) {
-    lineCommentDelimiters.clear();
+    highlightManager.lineCommentDelimiters.clear();
     if (delimiters != null) {
       for (String d : delimiters) {
         if (d == null) continue;
         String trimmed = d.trim();
         if (trimmed.isEmpty()) continue;
-        if (!lineCommentDelimiters.contains(trimmed)) {
-          lineCommentDelimiters.add(trimmed);
+        if (!highlightManager.lineCommentDelimiters.contains(trimmed)) {
+          highlightManager.lineCommentDelimiters.add(trimmed);
         }
       }
     }
     // Prefer longer delimiters first (e.g. '//' before '/')
-    lineCommentDelimiters.sort((a, b) -> Integer.compare(b.length(), a.length()));
+    highlightManager.lineCommentDelimiters.sort((a, b) -> Integer.compare(b.length(), a.length()));
     clearHighlightCaches();
     invalidate();
   }
@@ -2272,9 +2043,9 @@ public class SodiumEditorView extends View {
     if (delimiter == null) return;
     String trimmed = delimiter.trim();
     if (trimmed.isEmpty()) return;
-    if (!lineCommentDelimiters.contains(trimmed)) {
-      lineCommentDelimiters.add(trimmed);
-      lineCommentDelimiters.sort((a, b) -> Integer.compare(b.length(), a.length()));
+    if (!highlightManager.lineCommentDelimiters.contains(trimmed)) {
+      highlightManager.lineCommentDelimiters.add(trimmed);
+      highlightManager.lineCommentDelimiters.sort((a, b) -> Integer.compare(b.length(), a.length()));
       clearHighlightCaches();
       invalidate();
     }
@@ -2282,26 +2053,26 @@ public class SodiumEditorView extends View {
 
   private void setSingleLineCommentsHighlight(boolean enabled, int style, int color) {
     if (!enabled) {
-      if (lineCommentHighlightRule != null) {
-        lineCommentHighlightRule = null;
+      if (highlightManager.lineCommentHighlightRule != null) {
+        highlightManager.lineCommentHighlightRule = null;
         clearHighlightCaches();
         invalidate();
       }
       return;
     }
 
-    if (lineCommentHighlightRule == null || lineCommentHighlightRule.style != style) {
-      lineCommentHighlightRule =
-          new HighlightRule(
+    if (highlightManager.lineCommentHighlightRule == null || highlightManager.lineCommentHighlightRule.style != style) {
+      highlightManager.lineCommentHighlightRule =
+          new HighlightManager.HighlightRule(
               "",
               style,
               color,
               paint.getTextSize(),
               paint.getTypeface(),
               false,
-              HighlightRuleType.LINE_COMMENT);
+              HighlightManager.HighlightRuleType.LINE_COMMENT);
     } else {
-      lineCommentHighlightRule.paint.setColor(color);
+      highlightManager.lineCommentHighlightRule.paint.setColor(color);
     }
     clearHighlightCaches();
     invalidate();
@@ -2576,11 +2347,11 @@ public class SodiumEditorView extends View {
     updateWhitespaceGuideMetrics();
     invalidateLineNumberCache();
 
-    for (HighlightRule rule : highlightRules) {
+    for (HighlightManager.HighlightRule rule : highlightManager.highlightRules) {
       rule.updateTextSize(sizePx);
     }
     whitespaceGuideManager.updateRuleTextSize(sizePx);
-    if (lineCommentHighlightRule != null) lineCommentHighlightRule.updateTextSize(sizePx);
+    if (highlightManager.lineCommentHighlightRule != null) highlightManager.lineCommentHighlightRule.updateTextSize(sizePx);
     clearHighlightCaches();
 
     // Invalidate caches and approximate new max width
@@ -2703,21 +2474,21 @@ public class SodiumEditorView extends View {
     return undoRedo.getEditVersion();
   }
 
-  HighlightLineState getLineStateAtStartForBracket(int line) {
+  HighlightManager.HighlightLineState getLineStateAtStartForBracket(int line) {
     return getLineStateAtStart(line);
   }
 
   BracketGuideManager.BracketGuideLineState getBracketGuideLineStateForBracket(int line) {
-    HighlightLineState state = getLineStateAtStart(line);
+    HighlightManager.HighlightLineState state = getLineStateAtStart(line);
     return new BracketGuideManager.BracketGuideLineState(state.inBlockComment, state.stringState);
   }
 
-  HighlightLineState getLineStateAtStartForMatch(int line) {
+  HighlightManager.HighlightLineState getLineStateAtStartForMatch(int line) {
     return getLineStateAtStart(line);
   }
 
   BracketMatchManager.BracketMatchLineState getBracketMatchLineStateForMatch(int line) {
-    HighlightLineState state = getLineStateAtStart(line);
+    HighlightManager.HighlightLineState state = getLineStateAtStart(line);
     return new BracketMatchManager.BracketMatchLineState(state.inBlockComment, state.stringState);
   }
 
@@ -2747,11 +2518,11 @@ public class SodiumEditorView extends View {
   }
 
   int getStringStateTripleForMatch() {
-    return STRING_STATE_TRIPLE;
+    return HighlightManager.STRING_STATE_TRIPLE;
   }
 
   int getStringStateBacktickForMatch() {
-    return STRING_STATE_BACKTICK;
+    return HighlightManager.STRING_STATE_BACKTICK;
   }
 
   boolean isLineCommentStartForMatch(String line, int index) {
@@ -2782,7 +2553,7 @@ public class SodiumEditorView extends View {
     return findTripleQuoteEnd(line, start);
   }
 
-  StringEndResult findStringEndForStateForMatch(String line, int start, int state) {
+  HighlightManager.StringEndResult findStringEndForStateForMatch(String line, int start, int state) {
     return findStringEndForState(line, start, state);
   }
 
@@ -2836,15 +2607,15 @@ public class SodiumEditorView extends View {
   }
 
   int getStringStateTripleForBracket() {
-    return STRING_STATE_TRIPLE;
+    return HighlightManager.STRING_STATE_TRIPLE;
   }
 
   int getStringStateBacktickForBracket() {
-    return STRING_STATE_BACKTICK;
+    return HighlightManager.STRING_STATE_BACKTICK;
   }
 
   java.util.List<String> getLineCommentDelimitersForBracket() {
-    return lineCommentDelimiters;
+    return highlightManager.lineCommentDelimiters;
   }
 
   boolean isWhitespaceGuidesEnabledForBracket() {
@@ -2871,15 +2642,15 @@ public class SodiumEditorView extends View {
     return whitespaceGuideManager.getVisualSpaceWidth(paint);
   }
 
-  List<HighlightSpan> getHighlightSpansForBracket(int line) {
-    return highlightCache.get(line);
+  List<HighlightManager.HighlightSpan> getHighlightSpansForBracket(int line) {
+    return highlightManager.highlightCache.get(line);
   }
 
-  void putHighlightSpansForBracket(int line, List<HighlightSpan> spans) {
-    highlightCache.put(line, spans);
+  void putHighlightSpansForBracket(int line, List<HighlightManager.HighlightSpan> spans) {
+    highlightManager.highlightCache.put(line, spans);
   }
 
-  List<HighlightSpan> calculateSpansForLineForBracket(String line, int globalLine) {
+  List<HighlightManager.HighlightSpan> calculateSpansForLineForBracket(String line, int globalLine) {
     return calculateSpansForLine(line, globalLine);
   }
 
@@ -2903,7 +2674,7 @@ public class SodiumEditorView extends View {
     return findBlockCommentEnd(line, start);
   }
 
-  StringEndResult findStringEndForStateForBracket(String line, int start, int state) {
+  HighlightManager.StringEndResult findStringEndForStateForBracket(String line, int start, int state) {
     return findStringEndForState(line, start, state);
   }
 
@@ -3185,8 +2956,8 @@ public class SodiumEditorView extends View {
     whitespaceGuideManager.updateTypeface(paint);
     popupMenuManager.onEditorTypefaceChanged(finalTypeface);
     whitespaceGuideManager.updateRuleTypeface(safeBase);
-    if (lineCommentHighlightRule != null) lineCommentHighlightRule.updateTypeface(safeBase);
-    for (HighlightRule rule : highlightRules) {
+    if (highlightManager.lineCommentHighlightRule != null) highlightManager.lineCommentHighlightRule.updateTypeface(safeBase);
+    for (HighlightManager.HighlightRule rule : highlightManager.highlightRules) {
       rule.updateTypeface(safeBase);
     }
     clearHighlightCaches();
@@ -3219,123 +2990,16 @@ public class SodiumEditorView extends View {
       int firstVisibleLine,
       int lastVisibleLine,
       @Nullable java.util.HashMap<Integer, String> directLines) {
-    if (highlightRules.isEmpty()) return;
-    if (firstVisibleLine > lastVisibleLine) return;
-
-    HighlightRule stringRule = stringHighlightRule;
-    HighlightRule blockRule = blockCommentHighlightRule;
-    boolean needSyntax = stringRule != null || blockRule != null;
-    boolean needRegex = !regexHighlightRules.isEmpty();
-    if (!needSyntax && !needRegex) return;
-
-    boolean inBlock = false;
-    int stringState = 0;
-    final int localWindowStart = windowStartLine;
-    final int localWindowEnd;
-    synchronized (linesWindow) {
-      localWindowEnd = localWindowStart + linesWindow.size();
-    }
-
-    if (needSyntax) {
-      int prevLine = firstVisibleLine - 1;
-      Boolean cachedBlockPrev = blockCommentEndStateCache.get(prevLine);
-      Integer cachedStringPrev = stringEndStateCache.get(prevLine);
-      if (cachedBlockPrev != null && cachedStringPrev != null) {
-        inBlock = cachedBlockPrev;
-        stringState = cachedStringPrev;
-      } else {
-        int seedStart = localWindowStart;
-        int seedEnd = Math.min(firstVisibleLine, localWindowEnd);
-        for (int line = seedStart; line < seedEnd; line++) {
-          String seedLine = getLineTextForRenderWithDirect(line, directLines);
-          if (seedLine == null) seedLine = "";
-          LineParseResult seedResult =
-              parseLineForSyntax(seedLine, inBlock, stringState, null, null, false);
-          inBlock = seedResult.endsInBlockComment;
-          stringState = seedResult.endsInStringState;
-          if (line >= localWindowStart && line < localWindowEnd) {
-            if (isBlockCommentsEnabled) blockCommentEndStateCache.put(line, inBlock);
-            stringEndStateCache.put(line, stringState);
-          }
-          if (line + 1 == firstVisibleLine) break;
-        }
-      }
-    }
-
-    for (int globalLine = firstVisibleLine; globalLine <= lastVisibleLine; globalLine++) {
-      List<HighlightSpan> cachedSpans = highlightCache.get(globalLine);
-      boolean hasCachedState = true;
-      Boolean cachedBlock = null;
-      Integer cachedString = null;
-      if (needSyntax && globalLine >= localWindowStart && globalLine < localWindowEnd) {
-        cachedBlock = blockCommentEndStateCache.get(globalLine);
-        cachedString = stringEndStateCache.get(globalLine);
-        hasCachedState = cachedBlock != null && cachedString != null;
-      }
-      if (cachedSpans != null && (!needSyntax || hasCachedState)) {
-        if (needSyntax && cachedBlock != null && cachedString != null) {
-          inBlock = cachedBlock;
-          stringState = cachedString;
-        }
-        continue;
-      }
-
-      String line = getLineTextForRenderWithDirect(globalLine, directLines);
-      if (line == null) line = "";
-
-      List<HighlightSpan> spans;
-      if (needSyntax) {
-        LineParseResult parseResult =
-            parseLineForSyntax(line, inBlock, stringState, stringRule, blockRule, true);
-        spans = parseResult.spans;
-        inBlock = parseResult.endsInBlockComment;
-        stringState = parseResult.endsInStringState;
-        if (globalLine >= localWindowStart && globalLine < localWindowEnd) {
-          if (isBlockCommentsEnabled) blockCommentEndStateCache.put(globalLine, inBlock);
-          stringEndStateCache.put(globalLine, stringState);
-        }
-      } else {
-        spans = new ArrayList<>();
-      }
-
-      if (needRegex && !line.isEmpty()) {
-        for (HighlightRule rule : regexHighlightRules) {
-          Matcher matcher = rule.pattern.matcher(line);
-          while (matcher.find()) {
-            if (matcher.start() == matcher.end()) continue;
-            HighlightSpan span = new HighlightSpan(matcher.start(), matcher.end(), rule.paint);
-            if (hasOverlap(span, spans)) continue;
-            spans.add(span);
-          }
-        }
-      }
-
-      if (spans.size() > 1) {
-        Collections.sort(spans, (s1, s2) -> Integer.compare(s1.start, s2.start));
-      }
-      highlightCache.put(globalLine, spans);
-    }
+    highlightManager.ensureHighlightCacheForVisibleRange(firstVisibleLine, lastVisibleLine, directLines);
   }
 
   private void maybeEnsureHighlightCacheForRange(
       int startLine, int endLine, @Nullable java.util.HashMap<Integer, String> directLines) {
-    if (startLine > endLine) return;
-    int v = undoRedo.getEditVersion();
-    if (startLine == lastHighlightEnsureStartLine
-        && endLine == lastHighlightEnsureEndLine
-        && v == lastHighlightEnsureEditVersion) {
-      return;
-    }
-    lastHighlightEnsureStartLine = startLine;
-    lastHighlightEnsureEndLine = endLine;
-    lastHighlightEnsureEditVersion = v;
-    ensureHighlightCacheForVisibleRange(startLine, endLine, directLines);
+    highlightManager.maybeEnsureHighlightCacheForRange(startLine, endLine, directLines);
   }
 
   private void invalidateHighlightEnsureRange() {
-    lastHighlightEnsureStartLine = -1;
-    lastHighlightEnsureEndLine = -1;
-    lastHighlightEnsureEditVersion = -1;
+    highlightManager.resetEnsureRange();
   }
 
   // --- Layout and Measurement ---
@@ -3966,7 +3630,7 @@ public class SodiumEditorView extends View {
     float xAfter = xStart + placeholderWidth;
     if (range.isBlockComment) {
       Paint commentPaint =
-          (blockCommentHighlightRule != null) ? blockCommentHighlightRule.paint : paint;
+          (highlightManager.blockCommentHighlightRule != null) ? highlightManager.blockCommentHighlightRule.paint : paint;
       commentPaint.setUnderlineText(false);
       canvas.drawText("*/", xAfter, y, commentPaint);
     } else if (!range.isIndentFold) {
@@ -4005,16 +3669,16 @@ public class SodiumEditorView extends View {
     end = Math.max(start, Math.min(end, line.length()));
     if (start >= end) return;
 
-    if (highlightRules.isEmpty()) {
+    if (highlightManager.highlightRules.isEmpty()) {
       paint.setUnderlineText(false);
       canvas.drawText(line, start, end, x, y, paint);
       return;
     }
 
-    List<HighlightSpan> spans = highlightCache.get(globalLine);
+    List<HighlightManager.HighlightSpan> spans = highlightManager.highlightCache.get(globalLine);
     if (spans == null) {
       spans = calculateSpansForLine(line, globalLine);
-      highlightCache.put(globalLine, spans);
+      highlightManager.highlightCache.put(globalLine, spans);
     }
 
     if (spans.isEmpty()) {
@@ -4026,7 +3690,7 @@ public class SodiumEditorView extends View {
     float currentX = x;
     int lastEnd = start;
 
-    for (HighlightSpan span : spans) {
+    for (HighlightManager.HighlightSpan span : spans) {
       if (lastEnd >= end) break;
       if (span.start >= end) break;
       if (span.start < lastEnd) continue;
@@ -4058,14 +3722,14 @@ public class SodiumEditorView extends View {
     end = Math.max(start, Math.min(end, line.length()));
     if (start >= end) return 0f;
 
-    if (highlightRules.isEmpty()) {
+    if (highlightManager.highlightRules.isEmpty()) {
       return paint.measureText(line, start, end);
     }
 
-    List<HighlightSpan> spans = highlightCache.get(globalLine);
+    List<HighlightManager.HighlightSpan> spans = highlightManager.highlightCache.get(globalLine);
     if (spans == null) {
       spans = calculateSpansForLine(line, globalLine);
-      highlightCache.put(globalLine, spans);
+      highlightManager.highlightCache.put(globalLine, spans);
     }
 
     if (spans.isEmpty()) {
@@ -4075,7 +3739,7 @@ public class SodiumEditorView extends View {
     float total = 0f;
     int lastEnd = start;
 
-    for (HighlightSpan span : spans) {
+    for (HighlightManager.HighlightSpan span : spans) {
       if (lastEnd >= end) break;
       if (span.start >= end) break;
       if (span.start < lastEnd) continue;
@@ -4721,22 +4385,7 @@ public class SodiumEditorView extends View {
     // --- 4. Draw overlays (popups, loading circle, etc.) ---
     if (popupMenuManager.isPopupVisible()) popupMenuManager.drawPopup(canvas);
 
-    if (showLoadingCircle) {
-
-      loadingCirclePaint.setColor(loadingCircleColor);
-      loadingCirclePaint.setStrokeWidth(8f);
-      float centerX = getWidth() / 2f;
-      float centerY = getHeight() / 2f;
-      canvas.save();
-      canvas.rotate(loadingCircleRotation, centerX, centerY);
-      loadingCircleRect.set(
-          centerX - loadingCircleRadius,
-          centerY - loadingCircleRadius,
-          centerX + loadingCircleRadius,
-          centerY + loadingCircleRadius);
-      canvas.drawArc(loadingCircleRect, 0, 270, false, loadingCirclePaint);
-      canvas.restore();
-    }
+    loadingCircleManager.draw(canvas);
   }
 
   private void drawContentWrapped(Canvas canvas) {
@@ -5083,21 +4732,7 @@ public class SodiumEditorView extends View {
 
     if (popupMenuManager.isPopupVisible()) popupMenuManager.drawPopup(canvas);
 
-    if (showLoadingCircle) {
-      loadingCirclePaint.setColor(loadingCircleColor);
-      loadingCirclePaint.setStrokeWidth(8f);
-      float centerX = getWidth() / 2f;
-      float centerY = getHeight() / 2f;
-      canvas.save();
-      canvas.rotate(loadingCircleRotation, centerX, centerY);
-      loadingCircleRect.set(
-          centerX - loadingCircleRadius,
-          centerY - loadingCircleRadius,
-          centerX + loadingCircleRadius,
-          centerY + loadingCircleRadius);
-      canvas.drawArc(loadingCircleRect, 0, 270, false, loadingCirclePaint);
-      canvas.restore();
-    }
+    loadingCircleManager.draw(canvas);
   }
 
   private void drawContentWrappedFallback(Canvas canvas, int wrapWidthPx) {
@@ -5406,21 +5041,7 @@ public class SodiumEditorView extends View {
 
     if (popupMenuManager.isPopupVisible()) popupMenuManager.drawPopup(canvas);
 
-    if (showLoadingCircle) {
-      loadingCirclePaint.setColor(loadingCircleColor);
-      loadingCirclePaint.setStrokeWidth(8f);
-      float centerX = getWidth() / 2f;
-      float centerY = getHeight() / 2f;
-      canvas.save();
-      canvas.rotate(loadingCircleRotation, centerX, centerY);
-      loadingCircleRect.set(
-          centerX - loadingCircleRadius,
-          centerY - loadingCircleRadius,
-          centerX + loadingCircleRadius,
-          centerY + loadingCircleRadius);
-      canvas.drawArc(loadingCircleRect, 0, 270, false, loadingCirclePaint);
-      canvas.restore();
-    }
+    loadingCircleManager.draw(canvas);
   }
 
   @Override
@@ -5453,12 +5074,12 @@ public class SodiumEditorView extends View {
   }
 
   private Paint getPaintForChar(int lineIndex, int charIndex, String lineText) {
-    List<HighlightSpan> spans = highlightCache.get(lineIndex);
+    List<HighlightManager.HighlightSpan> spans = highlightManager.highlightCache.get(lineIndex);
     if (spans == null) {
       spans = calculateSpansForLine(lineText, lineIndex);
-      highlightCache.put(lineIndex, spans);
+      highlightManager.highlightCache.put(lineIndex, spans);
     }
-    for (HighlightSpan span : spans) {
+    for (HighlightManager.HighlightSpan span : spans) {
       if (charIndex >= span.start && charIndex < span.end) {
         return span.paint;
       }
@@ -5528,48 +5149,15 @@ public class SodiumEditorView extends View {
       return;
     }
 
-    List<UnderlineSpan> combinedUnderlines = new ArrayList<>();
+    List<HighlightManager.UnderlineSpan> combinedUnderlines = new ArrayList<>();
 
-    // Fetch URL underlines
-    if (isUrlUnderliningEnabled && urlUnderlinePattern != null) {
-      List<UnderlineSpan> urlSpans = urlUnderlineCache.get(globalLine);
-      if (urlSpans == null) {
-        urlSpans = new ArrayList<>();
-        Matcher m = urlUnderlinePattern.matcher(line);
-        while (m.find()) {
-          int start = m.start();
-          int end = m.end();
-          end = trimUrlUnderlineEnd(line, start, end);
-          if (end > start) {
-            urlSpans.add(new UnderlineSpan(start, end, false));
-          }
-        }
-        urlUnderlineCache.put(globalLine, urlSpans);
-      }
-      combinedUnderlines.addAll(urlSpans);
-    }
+    List<HighlightManager.UnderlineSpan> urlSpans =
+        highlightManager.getUrlUnderlineSpansForLine(line, globalLine);
+    if (urlSpans != null) combinedUnderlines.addAll(urlSpans);
 
-    // Fetch Path underlines
-    if (isPathUnderliningEnabled && pathUnderlinePattern != null) {
-      List<UnderlineSpan> pathSpans = pathUnderlineCache.get(globalLine);
-      if (pathSpans == null) {
-        pathSpans = new ArrayList<>();
-        Matcher m = pathUnderlinePattern.matcher(line);
-        while (m.find()) {
-          String potentialPath = m.group();
-          if (potentialPath != null && !potentialPath.isEmpty()) {
-            Boolean exists = pathValidationCache.get(potentialPath);
-            if (Boolean.TRUE.equals(exists)) {
-              pathSpans.add(new UnderlineSpan(m.start(), m.end(), true));
-            } else if (exists == null) {
-              validatePathInBackground(potentialPath, globalLine);
-            }
-          }
-        }
-        pathUnderlineCache.put(globalLine, pathSpans);
-      }
-      combinedUnderlines.addAll(pathSpans);
-    }
+    List<HighlightManager.UnderlineSpan> pathSpans =
+        highlightManager.getPathUnderlineSpansForLine(line, globalLine);
+    if (pathSpans != null) combinedUnderlines.addAll(pathSpans);
 
     // Sort combined underlines by start position
     if (!combinedUnderlines.isEmpty()) {
@@ -5595,7 +5183,7 @@ public class SodiumEditorView extends View {
     float lineTop = scrollManager.getDrawLineTop(globalLine);
     float lineBottom = lineTop + lineHeight;
 
-    if (highlightRules.isEmpty()) {
+    if (highlightManager.highlightRules.isEmpty()) {
       drawTextSegmentWithFadeAndUnderlines(
           canvas,
           line,
@@ -5628,10 +5216,10 @@ public class SodiumEditorView extends View {
       return;
     }
 
-    List<HighlightSpan> spans = highlightCache.get(globalLine);
+    List<HighlightManager.HighlightSpan> spans = highlightManager.highlightCache.get(globalLine);
     if (spans == null) {
       spans = calculateSpansForLine(line, globalLine);
-      highlightCache.put(globalLine, spans);
+      highlightManager.highlightCache.put(globalLine, spans);
     }
 
     if (spans.isEmpty()) {
@@ -5670,7 +5258,7 @@ public class SodiumEditorView extends View {
     float currentX = 0f;
     int lastEnd = 0;
 
-    for (HighlightSpan span : spans) {
+    for (HighlightManager.HighlightSpan span : spans) {
       if (span.start < lastEnd) continue;
 
       if (span.start >= line.length()) break;
@@ -5754,43 +5342,14 @@ public class SodiumEditorView extends View {
     end = Math.max(start, Math.min(end, len));
     if (start >= end) return;
 
-    List<UnderlineSpan> combinedUnderlines = new ArrayList<>();
-    if (isUrlUnderliningEnabled && urlUnderlinePattern != null) {
-      List<UnderlineSpan> urlSpans = urlUnderlineCache.get(globalLine);
-      if (urlSpans == null) {
-        urlSpans = new ArrayList<>();
-        Matcher m = urlUnderlinePattern.matcher(line);
-        while (m.find()) {
-          int s = m.start();
-          int e = trimUrlUnderlineEnd(line, s, m.end());
-          if (e > s) {
-            urlSpans.add(new UnderlineSpan(s, e, false));
-          }
-        }
-        urlUnderlineCache.put(globalLine, urlSpans);
-      }
-      combinedUnderlines.addAll(urlSpans);
-    }
-    if (isPathUnderliningEnabled && pathUnderlinePattern != null) {
-      List<UnderlineSpan> pathSpans = pathUnderlineCache.get(globalLine);
-      if (pathSpans == null) {
-        pathSpans = new ArrayList<>();
-        Matcher m = pathUnderlinePattern.matcher(line);
-        while (m.find()) {
-          String potentialPath = m.group();
-          if (potentialPath != null && !potentialPath.isEmpty()) {
-            Boolean exists = pathValidationCache.get(potentialPath);
-            if (Boolean.TRUE.equals(exists)) {
-              pathSpans.add(new UnderlineSpan(m.start(), m.end(), true));
-            } else if (exists == null) {
-              validatePathInBackground(potentialPath, globalLine);
-            }
-          }
-        }
-        pathUnderlineCache.put(globalLine, pathSpans);
-      }
-      combinedUnderlines.addAll(pathSpans);
-    }
+    List<HighlightManager.UnderlineSpan> combinedUnderlines = new ArrayList<>();
+    List<HighlightManager.UnderlineSpan> urlSpans =
+        highlightManager.getUrlUnderlineSpansForLine(line, globalLine);
+    if (urlSpans != null) combinedUnderlines.addAll(urlSpans);
+
+    List<HighlightManager.UnderlineSpan> pathSpans =
+        highlightManager.getPathUnderlineSpansForLine(line, globalLine);
+    if (pathSpans != null) combinedUnderlines.addAll(pathSpans);
     if (!combinedUnderlines.isEmpty()) {
       Collections.sort(combinedUnderlines, (s1, s2) -> Integer.compare(s1.start, s2.start));
     }
@@ -5816,7 +5375,7 @@ public class SodiumEditorView extends View {
     float currentX = measureText(line, start, globalLine);
     int lastEnd = start;
 
-    if (highlightRules.isEmpty()) {
+    if (highlightManager.highlightRules.isEmpty()) {
       drawTextSegmentWithFadeAndUnderlines(
           canvas,
           line,
@@ -5832,12 +5391,12 @@ public class SodiumEditorView extends View {
           lineTop,
           lineBottom);
     } else {
-      List<HighlightSpan> spans = highlightCache.get(globalLine);
+      List<HighlightManager.HighlightSpan> spans = highlightManager.highlightCache.get(globalLine);
       if (spans == null) {
         spans = calculateSpansForLine(line, globalLine);
-        highlightCache.put(globalLine, spans);
+        highlightManager.highlightCache.put(globalLine, spans);
       }
-      for (HighlightSpan span : spans) {
+      for (HighlightManager.HighlightSpan span : spans) {
         if (span.end <= start) continue;
         if (span.start >= end) break;
 
@@ -6061,7 +5620,17 @@ public class SodiumEditorView extends View {
     end = Math.max(start, Math.min(end, line.length()));
     if (start >= end) return;
 
-    final List<UnderlineSpan> urlUnderlines = getUrlUnderlineSpansForLine(line, globalLine);
+    final List<HighlightManager.UnderlineSpan> urlUnderlines =
+        highlightManager.getUrlUnderlineSpansForLine(line, globalLine);
+    final List<HighlightManager.UnderlineSpan> pathUnderlines =
+        highlightManager.getPathUnderlineSpansForLine(line, globalLine);
+    List<HighlightManager.UnderlineSpan> combinedUnderlines = urlUnderlines;
+    if (pathUnderlines != null && !pathUnderlines.isEmpty()) {
+      combinedUnderlines = new ArrayList<>();
+      if (urlUnderlines != null) combinedUnderlines.addAll(urlUnderlines);
+      combinedUnderlines.addAll(pathUnderlines);
+      Collections.sort(combinedUnderlines, (s1, s2) -> Integer.compare(s1.start, s2.start));
+    }
 
     int fadeStart = -1;
     int fadeEnd = -1;
@@ -6079,7 +5648,7 @@ public class SodiumEditorView extends View {
       }
     }
 
-    if (highlightRules.isEmpty()) {
+    if (highlightManager.highlightRules.isEmpty()) {
       drawTextSegmentWithFadeAndUnderlines(
           canvas,
           line,
@@ -6091,23 +5660,23 @@ public class SodiumEditorView extends View {
           fadeStart,
           fadeEnd,
           fadeAlpha,
-          urlUnderlines,
+          combinedUnderlines,
           lineTop,
           lineBottom);
       return;
     }
 
-    List<HighlightSpan> spans = highlightCache.get(globalLine);
+    List<HighlightManager.HighlightSpan> spans = highlightManager.highlightCache.get(globalLine);
     if (spans == null) {
       spans = calculateSpansForLine(line, globalLine);
-      highlightCache.put(globalLine, spans);
+      highlightManager.highlightCache.put(globalLine, spans);
     }
 
     float currentX = 0f;
     int lastEnd = start;
 
     if (!spans.isEmpty()) {
-      for (HighlightSpan span : spans) {
+      for (HighlightManager.HighlightSpan span : spans) {
         if (lastEnd >= end) break;
         if (span.end <= start) continue;
         if (span.start >= end) break;
@@ -6414,14 +5983,14 @@ public class SodiumEditorView extends View {
       int fadeStart,
       int fadeEnd,
       float fadeAlpha,
-      @Nullable List<UnderlineSpan> underlines,
+      @Nullable List<HighlightManager.UnderlineSpan> underlines,
       float lineTop,
       float lineBottom) {
     if (start >= end) return 0f;
     // Check if any underlining is active based on both URL and Path flags
     boolean anyUnderliningActive =
-        (isUrlUnderliningEnabled && urlUnderlinePattern != null)
-            || (isPathUnderliningEnabled && pathUnderlinePattern != null);
+        (highlightManager.isUrlUnderliningEnabled && highlightManager.urlUnderlinePattern != null)
+            || (highlightManager.isPathUnderliningEnabled && highlightManager.pathUnderlinePattern != null);
     if (underlines == null || underlines.isEmpty() || !anyUnderliningActive) {
       return drawTextSegmentWithFade(
           canvas, line, start, end, x, y, segmentPaint, fadeStart, fadeEnd, fadeAlpha);
@@ -6430,7 +5999,7 @@ public class SodiumEditorView extends View {
     float currentX = x;
     int pos = start;
 
-    for (UnderlineSpan span : underlines) {
+    for (HighlightManager.UnderlineSpan span : underlines) {
       if (span.end <= pos) continue;
       if (span.start >= end) break;
 
@@ -6510,55 +6079,20 @@ public class SodiumEditorView extends View {
       float fadeAlpha,
       boolean isPath // New parameter
       ) {
-    if (start >= end) return;
-
-    Paint.FontMetrics fm = textPaint.getFontMetrics();
-    float underlineY = baselineY + (fm.descent * 0.5f);
-    underlineY = Math.max(lineTop + 1f, Math.min(underlineY, lineBottom - 2f));
-
-    float thickness = Math.max(1f, textPaint.getTextSize() / 18f);
-    thickness = Math.min(thickness, Math.max(1f, (lineBottom - lineTop) / 8f));
-
-    // Select the correct temporary paint based on isPath flag
-    Paint tmpPaintToUse = isPath ? pathUnderlineTmpPaint : urlUnderlineTmpPaint;
-    tmpPaintToUse.set(textPaint);
-    tmpPaintToUse.setStyle(Paint.Style.STROKE);
-    tmpPaintToUse.setStrokeWidth(thickness);
-    tmpPaintToUse.setUnderlineText(false);
-
-    boolean hasFade = fadeStart >= 0 && fadeEnd > fadeStart && fadeAlpha < 1f;
-    if (!hasFade || end <= fadeStart || start >= fadeEnd) {
-      float w = whitespaceGuideManager.measureTextWithVisualSpaces(this, line, start, end, textPaint);
-      if (w > 0f) canvas.drawLine(x, underlineY, x + w, underlineY, tmpPaintToUse);
-      return;
-    }
-
-    float currentX = x;
-    int baseAlpha = textPaint.getAlpha();
-
-    int beforeEnd = Math.min(end, fadeStart);
-    if (start < beforeEnd) {
-      tmpPaintToUse.setAlpha(baseAlpha);
-      float w = whitespaceGuideManager.measureTextWithVisualSpaces(this, line, start, beforeEnd, textPaint);
-      if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, tmpPaintToUse);
-      currentX += w;
-    }
-
-    int fadeSegStart = Math.max(start, fadeStart);
-    int fadeSegEnd = Math.min(end, fadeEnd);
-    if (fadeSegStart < fadeSegEnd) {
-      tmpPaintToUse.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))));
-      float w = whitespaceGuideManager.measureTextWithVisualSpaces(this, line, fadeSegStart, fadeSegEnd, textPaint);
-      if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, tmpPaintToUse);
-      currentX += w;
-    }
-
-    int afterStart = Math.max(start, fadeEnd);
-    if (afterStart < end) {
-      tmpPaintToUse.setAlpha(baseAlpha);
-      float w = whitespaceGuideManager.measureTextWithVisualSpaces(this, line, afterStart, end, textPaint);
-      if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, tmpPaintToUse);
-    }
+    highlightManager.drawUnderlineSegmentWithFade(
+        canvas,
+        line,
+        start,
+        end,
+        x,
+        baselineY,
+        lineTop,
+        lineBottom,
+        textPaint,
+        fadeStart,
+        fadeEnd,
+        fadeAlpha,
+        isPath);
   }
 
   private void drawErrorUnderlinesForLine(
@@ -6568,19 +6102,8 @@ public class SodiumEditorView extends View {
       float baselineY,
       float lineTop,
       float lineBottom) {
-    if (!errorUnderlineEnabled) return;
-    List<ErrorUnderlineSpan> spans = errorUnderlineMap.get(globalLine);
-    if (spans == null || spans.isEmpty()) return;
-    List<ErrorUnderlineSpan> snapshot = new ArrayList<>(spans);
-    int len = line.length();
-    for (ErrorUnderlineSpan span : snapshot) {
-      int start = Math.max(0, Math.min(span.start, len));
-      int end = Math.max(start, Math.min(span.end, len));
-      if (start >= end) continue;
-      float xStart = measureText(line, start, globalLine);
-      float xEnd = measureText(line, end, globalLine);
-      drawErrorSquiggle(canvas, xStart, xEnd, baselineY, lineTop, lineBottom);
-    }
+    highlightManager.drawErrorUnderlinesForLine(
+        canvas, line, globalLine, baselineY, lineTop, lineBottom);
   }
 
   private void drawErrorUnderlinesForLineRange(
@@ -6592,22 +6115,8 @@ public class SodiumEditorView extends View {
       float baselineY,
       float lineTop,
       float lineBottom) {
-    if (!errorUnderlineEnabled) return;
-    List<ErrorUnderlineSpan> spans = errorUnderlineMap.get(globalLine);
-    if (spans == null || spans.isEmpty()) return;
-    List<ErrorUnderlineSpan> snapshot = new ArrayList<>(spans);
-    int len = line.length();
-    start = Math.max(0, Math.min(start, len));
-    end = Math.max(start, Math.min(end, len));
-    if (start >= end) return;
-    for (ErrorUnderlineSpan span : snapshot) {
-      int s = Math.max(start, Math.max(0, Math.min(span.start, len)));
-      int e = Math.min(end, Math.max(s, Math.min(span.end, len)));
-      if (s >= e) continue;
-      float xStart = measureText(line, s, globalLine);
-      float xEnd = measureText(line, e, globalLine);
-      drawErrorSquiggle(canvas, xStart, xEnd, baselineY, lineTop, lineBottom);
-    }
+    highlightManager.drawErrorUnderlinesForLineRange(
+        canvas, line, globalLine, start, end, baselineY, lineTop, lineBottom);
   }
 
   private void drawErrorUnderlinesForSegment(
@@ -6619,100 +6128,15 @@ public class SodiumEditorView extends View {
       float baselineY,
       float lineTop,
       float lineBottom) {
-    if (!errorUnderlineEnabled) return;
-    List<ErrorUnderlineSpan> spans = errorUnderlineMap.get(globalLine);
-    if (spans == null || spans.isEmpty()) return;
-    List<ErrorUnderlineSpan> snapshot = new ArrayList<>(spans);
-    int len = line.length();
-    for (ErrorUnderlineSpan span : snapshot) {
-      int start = Math.max(segStart, Math.max(0, Math.min(span.start, len)));
-      int end = Math.min(segEnd, Math.max(start, Math.min(span.end, len)));
-      if (start >= end) continue;
-      float xStart = whitespaceGuideManager.measureTextWithVisualSpaces(this, line, segStart, start, paint);
-      float w = whitespaceGuideManager.measureTextWithVisualSpaces(this, line, start, end, paint);
-      if (w <= 0f) continue;
-      drawErrorSquiggle(canvas, xStart, xStart + w, baselineY, lineTop, lineBottom);
-    }
+    highlightManager.drawErrorUnderlinesForSegment(
+        canvas, line, globalLine, segStart, segEnd, baselineY, lineTop, lineBottom);
   }
 
   private void drawErrorSquiggle(
       Canvas canvas, float xStart, float xEnd, float baselineY, float lineTop, float lineBottom) {
-    if (xEnd <= xStart) return;
-    float lineH = Math.max(1f, lineBottom - lineTop);
-    float textSize = paint.getTextSize();
-    float y = baselineY + (paint.getFontMetrics().descent * 0.55f);
-    float maxY = lineBottom - 2f;
-    float minY = lineTop + 1f;
-    y = Math.max(minY, Math.min(y, maxY));
-    float amplitude = Math.max(1f, Math.min(lineH * 0.22f, textSize * errorUnderlineHeightScale));
-    float roomTop = y - minY;
-    float roomBottom = maxY - y;
-    float room = Math.max(0f, Math.min(roomTop, roomBottom));
-    amplitude = Math.min(amplitude, Math.max(1f, room));
-    float waveLen = Math.max(textSize * errorUnderlineWaveLengthScale, amplitude * 2f);
-    float thickness = Math.max(1f, textSize * errorUnderlineStrokeScale);
-
-    errorUnderlinePaint.setColor(errorUnderlineColor);
-    errorUnderlinePaint.setStyle(Paint.Style.STROKE);
-    errorUnderlinePaint.setStrokeWidth(thickness);
-    errorUnderlinePaint.setUnderlineText(false);
-    errorUnderlinePaint.setStrokeCap(Paint.Cap.ROUND);
-    errorUnderlinePaint.setStrokeJoin(Paint.Join.ROUND);
-    if (errorUnderlineSmoothness > 0f) {
-      errorUnderlinePaint.setPathEffect(
-          new android.graphics.CornerPathEffect(errorUnderlineSmoothness));
-    } else {
-      errorUnderlinePaint.setPathEffect(null);
-    }
-
-    errorUnderlinePath.reset();
-    errorUnderlinePath.moveTo(xStart, y);
-    float x = xStart;
-    boolean up = true;
-    while (x < xEnd) {
-      float midX = Math.min(xEnd, x + waveLen * 0.5f);
-      float endX = Math.min(xEnd, x + waveLen);
-      float ctrlY = up ? (y - amplitude) : (y + amplitude);
-      errorUnderlinePath.quadTo(midX, ctrlY, endX, y);
-      up = !up;
-      x = endX;
-    }
-    canvas.drawPath(errorUnderlinePath, errorUnderlinePaint);
+    highlightManager.drawErrorSquiggle(canvas, xStart, xEnd, baselineY, lineTop, lineBottom);
   }
 
-  @Nullable
-  private List<UnderlineSpan> getUrlUnderlineSpansForLine(String line, int globalLine) {
-    if (!isUrlUnderliningEnabled || urlUnderlinePattern == null) return null;
-    List<UnderlineSpan> cached = urlUnderlineCache.get(globalLine);
-    if (cached != null) return cached;
-
-    ArrayList<UnderlineSpan> spans = new ArrayList<>();
-    Matcher matcher = urlUnderlinePattern.matcher(line);
-    while (matcher.find()) {
-      int start = matcher.start();
-      int end = matcher.end();
-      end = trimUrlUnderlineEnd(line, start, end);
-      if (end > start) {
-        spans.add(new UnderlineSpan(start, end, false));
-      }
-    }
-    urlUnderlineCache.put(globalLine, spans);
-    return spans;
-  }
-
-  private static int trimUrlUnderlineEnd(String line, int start, int end) {
-    int e = Math.min(end, line.length());
-    while (e > start) {
-      char c = line.charAt(e - 1);
-      if (c == '.' || c == ',' || c == ';' || c == ':' || c == '!' || c == '?' || c == ')'
-          || c == ']' || c == '}' || c == '>' || c == '"' || c == '\'') {
-        e--;
-        continue;
-      }
-      break;
-    }
-    return e;
-  }
 
   private int getVisualSpaceScale() {
     return 1;
@@ -6738,16 +6162,29 @@ public class SodiumEditorView extends View {
     return getLogicalLineLength(globalLine, line);
   }
 
-  HighlightLineState getLineStateAtStartForWhitespace(int globalLine) {
+  float measureTextForHighlight(String line, int length, int globalLine) {
+    return measureText(line, length, globalLine);
+  }
+
+  float measureTextWithVisualSpacesForHighlight(
+      String line, int start, int end, Paint textPaint) {
+    return whitespaceGuideManager.measureTextWithVisualSpaces(this, line, start, end, textPaint);
+  }
+
+  Paint getTextPaintForHighlight() {
+    return paint;
+  }
+
+  HighlightManager.HighlightLineState getLineStateAtStartForWhitespace(int globalLine) {
     return getLineStateAtStart(globalLine);
   }
 
-  LineParseResult parseLineForSyntaxForWhitespace(
+  HighlightManager.LineParseResult parseLineForSyntaxForWhitespace(
       String line,
       boolean inBlockComment,
       int stringState,
-      HighlightRule stringRule,
-      HighlightRule commentRule) {
+      HighlightManager.HighlightRule stringRule,
+      HighlightManager.HighlightRule commentRule) {
     return parseLineForSyntax(line, inBlockComment, stringState, stringRule, commentRule, true);
   }
 
@@ -6756,11 +6193,19 @@ public class SodiumEditorView extends View {
   }
 
   void cacheBlockCommentEndStateForWhitespace(int line, boolean endsInBlockComment) {
-    blockCommentEndStateCache.put(line, endsInBlockComment);
+    highlightManager.blockCommentEndStateCache.put(line, endsInBlockComment);
   }
 
   void cacheStringEndStateForWhitespace(int line, int endsInStringState) {
-    stringEndStateCache.put(line, endsInStringState);
+    highlightManager.stringEndStateCache.put(line, endsInStringState);
+  }
+
+  void invalidateBracketGuideCacheForHighlight() {
+    bracketGuideManager.invalidateCache();
+  }
+
+  void validatePathInBackgroundForHighlight(String path, int lineToInvalidate) {
+    validatePathInBackground(path, lineToInvalidate);
   }
 
   int getWindowStartLineForWhitespace() {
@@ -6771,23 +6216,23 @@ public class SodiumEditorView extends View {
     return linesWindow.size();
   }
 
-  HighlightRule getStringHighlightRuleForWhitespace() {
-    return stringHighlightRule;
+  HighlightManager.HighlightRule getStringHighlightRuleForWhitespace() {
+    return highlightManager.stringHighlightRule;
   }
 
-  HighlightRule getBlockCommentHighlightRuleForWhitespace() {
-    return blockCommentHighlightRule;
+  HighlightManager.HighlightRule getBlockCommentHighlightRuleForWhitespace() {
+    return highlightManager.blockCommentHighlightRule;
   }
 
-  List<HighlightSpan> getHighlightCacheForWhitespace(int line) {
-    return highlightCache.get(line);
+  List<HighlightManager.HighlightSpan> getHighlightCacheForWhitespace(int line) {
+    return highlightManager.highlightCache.get(line);
   }
 
-  void putHighlightCacheForWhitespace(int line, List<HighlightSpan> spans) {
-    highlightCache.put(line, spans);
+  void putHighlightCacheForWhitespace(int line, List<HighlightManager.HighlightSpan> spans) {
+    highlightManager.highlightCache.put(line, spans);
   }
 
-  List<HighlightSpan> calculateSpansForLineForWhitespace(String line, int globalLine) {
+  List<HighlightManager.HighlightSpan> calculateSpansForLineForWhitespace(String line, int globalLine) {
     return calculateSpansForLine(line, globalLine);
   }
 
@@ -6869,371 +6314,83 @@ public class SodiumEditorView extends View {
   }
 
 
-  private List<HighlightSpan> calculateSpansForLine(String line, int globalLine) {
-    List<HighlightSpan> spans = new ArrayList<>();
-    if (getLogicalLineLength(globalLine, line) > maxSyntaxLineLength) {
-      return spans;
-    }
-    if (highlightRules.isEmpty()) {
-      return spans;
-    }
-
-    HighlightRule stringRule = stringHighlightRule;
-    HighlightRule blockCommentRule = blockCommentHighlightRule;
-    List<HighlightSpan> exclusionSpans = new ArrayList<>();
-
-    if (isBlockCommentsEnabled
-        || !lineCommentDelimiters.isEmpty()
-        || isMultiLineStringsEnabled
-        || isTripleQuoteStringsEnabled
-        || isBacktickStringsEnabled
-        || stringRule != null
-        || blockCommentRule != null
-        || lineCommentHighlightRule != null) {
-      HighlightLineState startState = getLineStateAtStart(globalLine);
-      HighlightRule parseStringRule = (stringRule != null) ? stringRule : whitespaceGuideManager.getStringRule();
-      HighlightRule parseBlockRule =
-          (blockCommentRule != null) ? blockCommentRule : whitespaceGuideManager.getCommentRule();
-      LineParseResult parseResult =
-          parseLineForSyntax(
-              line,
-              startState.inBlockComment,
-              startState.stringState,
-              parseStringRule,
-              parseBlockRule,
-              true);
-      if (stringRule != null || blockCommentRule != null || lineCommentHighlightRule != null) {
-        spans.addAll(parseResult.spans);
-      } else {
-        exclusionSpans.addAll(parseResult.spans);
-      }
-
-      if (globalLine >= windowStartLine && globalLine < windowStartLine + linesWindow.size()) {
-        if (isBlockCommentsEnabled) {
-          blockCommentEndStateCache.put(globalLine, parseResult.endsInBlockComment);
-        }
-        stringEndStateCache.put(globalLine, parseResult.endsInStringState);
-      }
-    }
-
-    if (!regexHighlightRules.isEmpty() && !line.isEmpty()) {
-      for (HighlightRule rule : regexHighlightRules) {
-        Matcher matcher = rule.pattern.matcher(line);
-        while (matcher.find()) {
-          if (matcher.start() == matcher.end()) continue;
-          HighlightSpan span = new HighlightSpan(matcher.start(), matcher.end(), rule.paint);
-          if (hasOverlap(span, spans) || hasOverlap(span, exclusionSpans)) continue;
-          spans.add(span);
-        }
-      }
-    }
-
-    if (spans.size() > 1) {
-      Collections.sort(spans, (s1, s2) -> Integer.compare(s1.start, s2.start));
-    }
-    return spans;
+  private List<HighlightManager.HighlightSpan> calculateSpansForLine(String line, int globalLine) {
+    return highlightManager.calculateSpansForLine(line, globalLine);
   }
 
-  private LineParseResult parseLineForSyntax(
+
+  private HighlightManager.LineParseResult parseLineForSyntax(
       String line,
       boolean inBlockComment,
       int stringState,
-      HighlightRule stringRule,
-      HighlightRule blockCommentRule,
+      HighlightManager.HighlightRule stringRule,
+      HighlightManager.HighlightRule blockCommentRule,
       boolean collectSpans) {
-    List<HighlightSpan> spans = new ArrayList<>();
-    int length = line.length();
-    int i = 0;
-    if (!isBlockCommentsEnabled) {
-      inBlockComment = false;
-    }
-    if (stringState == STRING_STATE_BACKTICK && !isBacktickStringsEnabled) {
-      stringState = 0;
-    }
-    if (stringState == STRING_STATE_TRIPLE && !isTripleQuoteStringsEnabled) {
-      stringState = 0;
-    }
-    if (stringState != 0 && !isMultiLineStringsEnabled && stringState != STRING_STATE_TRIPLE) {
-      stringState = 0;
-    }
-
-    while (i < length) {
-      if (inBlockComment) {
-        int end = findBlockCommentEnd(line, i);
-        if (end < 0) {
-          if (collectSpans && blockCommentRule != null && isBlockCommentsEnabled && length > 0) {
-            spans.add(new HighlightSpan(0, length, blockCommentRule.paint));
-          }
-          return new LineParseResult(spans, true, 0);
-        }
-        if (collectSpans && blockCommentRule != null && isBlockCommentsEnabled) {
-          spans.add(new HighlightSpan(0, end + 2, blockCommentRule.paint));
-        }
-        i = end + 2;
-        inBlockComment = false;
-        continue;
-      }
-
-      if (stringState != 0) {
-        StringEndResult endResult = findStringEndForState(line, i, stringState);
-        if (endResult.found) {
-          if (collectSpans && stringRule != null) {
-            spans.add(new HighlightSpan(0, endResult.endIndex, stringRule.paint));
-          }
-          i = endResult.endIndex;
-          stringState = 0;
-          continue;
-        }
-        if (collectSpans && stringRule != null && length > 0) {
-          spans.add(new HighlightSpan(0, length, stringRule.paint));
-        }
-        return new LineParseResult(spans, false, stringState);
-      }
-
-      if (isLineCommentStart(line, i)) {
-        if (collectSpans && length > i) {
-          Paint commentPaint =
-              (lineCommentHighlightRule != null)
-                  ? lineCommentHighlightRule.paint
-                  : ((blockCommentRule != null) ? blockCommentRule.paint : paint);
-          spans.add(new HighlightSpan(i, length, commentPaint));
-        }
-        return new LineParseResult(spans, false, 0);
-      }
-
-      char c = line.charAt(i);
-      if (isTripleQuoteStart(line, i) && !isEscaped(line, i)) {
-        int end = findTripleQuoteEnd(line, i + 3);
-        if (end >= 0) {
-          if (collectSpans && stringRule != null) {
-            spans.add(new HighlightSpan(i, end + 3, stringRule.paint));
-          }
-          i = end + 3;
-          continue;
-        }
-        if (isTripleQuoteStringsEnabled) {
-          if (collectSpans && stringRule != null && length > 0) {
-            spans.add(new HighlightSpan(i, length, stringRule.paint));
-          }
-          return new LineParseResult(spans, false, STRING_STATE_TRIPLE);
-        }
-      }
-
-      if (isStringDelimiter(c) && !isEscaped(line, i)) {
-        int end = findStringEnd(line, i + 1, c);
-        if (end >= 0) {
-          if (collectSpans && stringRule != null) {
-            spans.add(new HighlightSpan(i, end + 1, stringRule.paint));
-          }
-          i = end + 1;
-          continue;
-        }
-        if (isMultiLineStringsEnabled) {
-          if (collectSpans && stringRule != null && length > 0) {
-            spans.add(new HighlightSpan(i, length, stringRule.paint));
-          }
-          return new LineParseResult(spans, false, getStringStateForDelimiter(c));
-        }
-      }
-
-      if (isBlockCommentsEnabled
-          && c == '/'
-          && i + 1 < length
-          && line.charAt(i + 1) == '*'
-          && !isTokenEscaped(line, i)) {
-        int end = findBlockCommentEnd(line, i + 2);
-        if (end < 0) {
-          if (collectSpans && blockCommentRule != null && length > 0) {
-            spans.add(new HighlightSpan(i, length, blockCommentRule.paint));
-          }
-          return new LineParseResult(spans, true, 0);
-        }
-        if (collectSpans && blockCommentRule != null) {
-          spans.add(new HighlightSpan(i, end + 2, blockCommentRule.paint));
-        }
-        i = end + 2;
-        continue;
-      }
-
-      i++;
-    }
-
-    return new LineParseResult(spans, inBlockComment, stringState);
+    return highlightManager.parseLineForSyntax(
+        line, inBlockComment, stringState, stringRule, blockCommentRule, collectSpans);
   }
 
-  private HighlightLineState getLineStateAtStart(int globalLine) {
-    if (globalLine <= windowStartLine) return new HighlightLineState(false, 0);
-    int windowEnd = windowStartLine + linesWindow.size() - 1;
-    if (globalLine > windowEnd) return new HighlightLineState(false, 0);
 
-    Boolean cachedBlockPrev = blockCommentEndStateCache.get(globalLine - 1);
-    Integer cachedStringPrev = stringEndStateCache.get(globalLine - 1);
-    if (cachedBlockPrev != null && cachedStringPrev != null) {
-      return new HighlightLineState(cachedBlockPrev, cachedStringPrev);
-    }
-
-    boolean inBlock = false;
-    int stringState = 0;
-    for (int line = windowStartLine; line < globalLine; line++) {
-      Boolean cachedBlock = blockCommentEndStateCache.get(line);
-      Integer cachedString = stringEndStateCache.get(line);
-      if (cachedBlock != null && cachedString != null) {
-        inBlock = cachedBlock;
-        stringState = cachedString;
-        continue;
-      }
-      String lineText = getLineFromWindowLocal(line - windowStartLine);
-      if (lineText == null) lineText = "";
-      LineParseResult result =
-          parseLineForSyntax(lineText, inBlock, stringState, null, null, false);
-      inBlock = result.endsInBlockComment;
-      stringState = result.endsInStringState;
-      blockCommentEndStateCache.put(line, inBlock);
-      stringEndStateCache.put(line, stringState);
-    }
-    return new HighlightLineState(inBlock, stringState);
+  private HighlightManager.HighlightLineState getLineStateAtStart(int globalLine) {
+    return highlightManager.getLineStateAtStart(globalLine);
   }
 
-  private static boolean hasOverlap(HighlightSpan span, List<HighlightSpan> spans) {
-    for (HighlightSpan other : spans) {
-      if (span.start < other.end && other.start < span.end) {
-        return true;
-      }
-    }
-    return false;
+  private static boolean hasOverlap(HighlightManager.HighlightSpan span, List<HighlightManager.HighlightSpan> spans) {
+    return HighlightManager.hasOverlap(span, spans);
   }
 
   private static boolean isLineCommentRegex(String regex) {
-    if (regex == null) return false;
-    String r = regex.trim();
-    if (r.startsWith("//")) return true;
-    if (r.startsWith("^//")) return true;
-    if (r.startsWith("^\\s*//")) return true;
-    if (r.startsWith("\\s*//")) return true;
-    return false;
+    return HighlightManager.isLineCommentRegex(regex);
   }
 
   private boolean isStringDelimiter(char c) {
-    if (c == '"') return true;
-    if (c == '\'') return true;
-    return c == '`' && isBacktickStringsEnabled;
+    return highlightManager.isStringDelimiter(c);
   }
 
   private static boolean isTokenEscaped(String line, int index) {
-    if (isEscaped(line, index)) return true;
-    int next = index + 1;
-    return next < line.length() && isEscaped(line, next);
+    return HighlightManager.isTokenEscaped(line, index);
   }
 
   private static boolean isEscaped(String line, int index) {
-    int backslashes = 0;
-    for (int i = index - 1; i >= 0; i--) {
-      if (line.charAt(i) != '\\') break;
-      backslashes++;
-    }
-    return (backslashes % 2) == 1;
+    return HighlightManager.isEscaped(line, index);
   }
 
   private static int findStringEnd(String line, int start, char delimiter) {
-    for (int i = start; i < line.length(); i++) {
-      if (line.charAt(i) == delimiter && !isEscaped(line, i)) {
-        return i;
-      }
-    }
-    return -1;
+    return HighlightManager.findStringEnd(line, start, delimiter);
   }
 
   private boolean isTripleQuoteStart(String line, int index) {
-    if (!isTripleQuoteStringsEnabled) return false;
-    if (index + 2 >= line.length()) return false;
-    return line.charAt(index) == '"'
-        && line.charAt(index + 1) == '"'
-        && line.charAt(index + 2) == '"';
+    return highlightManager.isTripleQuoteStart(line, index);
   }
 
   private static int findTripleQuoteEnd(String line, int start) {
-    for (int i = start; i + 2 < line.length(); i++) {
-      if (line.charAt(i) == '"'
-          && line.charAt(i + 1) == '"'
-          && line.charAt(i + 2) == '"'
-          && !isEscaped(line, i)) {
-        return i;
-      }
-    }
-    return -1;
+    return HighlightManager.findTripleQuoteEnd(line, start);
   }
-
-  private static final int STRING_STATE_DOUBLE = 1;
-  private static final int STRING_STATE_SINGLE = 2;
-  private static final int STRING_STATE_BACKTICK = 3;
-  private static final int STRING_STATE_TRIPLE = 4;
 
   private int getStringStateForDelimiter(char delimiter) {
-    if (delimiter == '"') return STRING_STATE_DOUBLE;
-    if (delimiter == '\'') return STRING_STATE_SINGLE;
-    return STRING_STATE_BACKTICK;
+    return highlightManager.getStringStateForDelimiter(delimiter);
   }
 
-  private StringEndResult findStringEndForState(String line, int start, int state) {
-    if (state == STRING_STATE_TRIPLE) {
-      int end = findTripleQuoteEnd(line, start);
-      return new StringEndResult(end >= 0, end >= 0 ? end + 3 : start);
-    }
-    char delimiter = '"';
-    if (state == STRING_STATE_SINGLE) delimiter = '\'';
-    if (state == STRING_STATE_BACKTICK) delimiter = '`';
-    int end = findStringEnd(line, start, delimiter);
-    return new StringEndResult(end >= 0, end >= 0 ? end + 1 : start);
-  }
-
-  static class StringEndResult {
-    final boolean found;
-    final int endIndex;
-
-    StringEndResult(boolean found, int endIndex) {
-      this.found = found;
-      this.endIndex = endIndex;
-    }
+  private HighlightManager.StringEndResult findStringEndForState(String line, int start, int state) {
+    return highlightManager.findStringEndForState(line, start, state);
   }
 
   private static int findBlockCommentEnd(String line, int start) {
-    for (int i = start; i + 1 < line.length(); i++) {
-      if (line.charAt(i) == '*' && line.charAt(i + 1) == '/' && !isTokenEscaped(line, i)) {
-        return i;
-      }
-    }
-    return -1;
+    return HighlightManager.findBlockCommentEnd(line, start);
   }
 
   private boolean isLineCommentStart(String line, int index) {
-    if (index < 0 || index >= line.length()) return false;
-    if (lineCommentDelimiters.isEmpty()) return false;
-    for (int t = 0; t < lineCommentDelimiters.size(); t++) {
-      String token = lineCommentDelimiters.get(t);
-      int len = token.length();
-      if (len == 0) continue;
-      if (index + len > line.length()) continue;
-      boolean match;
-      if (len == 1) {
-        match = line.charAt(index) == token.charAt(0);
-      } else {
-        match = line.regionMatches(index, token, 0, len);
-      }
-      if (match && !isTokenEscaped(line, index)) {
-        return true;
-      }
-    }
-    return false;
+    return highlightManager.isLineCommentStart(line, index);
   }
 
   private boolean isWhitespaceAtX(String line, int globalLine, float x) {
     if (line == null || line.isEmpty()) return true;
     if (x <= 0f) return Character.isWhitespace(line.charAt(0));
 
-    List<HighlightSpan> spans = highlightCache.get(globalLine);
+    List<HighlightManager.HighlightSpan> spans = highlightManager.highlightCache.get(globalLine);
     if (spans == null) {
       spans = calculateSpansForLine(line, globalLine);
-      highlightCache.put(globalLine, spans);
+      highlightManager.highlightCache.put(globalLine, spans);
     }
 
     final int len = line.length();
@@ -7242,7 +6399,7 @@ public class SodiumEditorView extends View {
 
     int pos = 0;
     if (spans != null && !spans.isEmpty()) {
-      for (HighlightSpan span : spans) {
+      for (HighlightManager.HighlightSpan span : spans) {
         if (pos >= len) break;
         if (span.end <= pos) continue;
         if (span.start > pos) {
@@ -7395,63 +6552,9 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
   }
 
   private void drawColorCodeBackgrounds(Canvas canvas, String line, int globalLine) {
-    if (!isColorHighlightingEnabled || line.isEmpty()) {
-      return;
-    }
-
-    if (line.indexOf('#') < 0 && line.indexOf('0') < 0) return;
-
-    int[] triples = colorCodeBgCache.get(globalLine);
-    if (triples == null) {
-      ArrayList<Integer> tmp = null;
-      Matcher matcher = COLOR_HEX_PATTERN.matcher(line);
-      while (matcher.find()) {
-        String colorString = matcher.group(0);
-        if (colorString == null || colorString.isEmpty()) continue;
-
-        int color;
-        try {
-          if (colorString.startsWith("0x") || colorString.startsWith("0X")) {
-            String hex = colorString.substring(2);
-            if (hex.length() == 6) hex = "FF" + hex;
-            color = (int) Long.parseLong(hex, 16);
-          } else {
-            color = android.graphics.Color.parseColor(colorString);
-          }
-        } catch (Exception e) {
-          continue;
-        }
-
-        int backgroundColor = (color & 0x00FFFFFF) | (0xC0 << 24);
-        if (tmp == null) tmp = new ArrayList<>();
-        tmp.add(matcher.start());
-        tmp.add(matcher.end());
-        tmp.add(backgroundColor);
-      }
-      if (tmp == null || tmp.isEmpty()) {
-        triples = new int[0];
-      } else {
-        triples = new int[tmp.size()];
-        for (int i = 0; i < tmp.size(); i++) triples[i] = tmp.get(i);
-      }
-      colorCodeBgCache.put(globalLine, triples);
-    }
-
-    if (triples.length == 0) return;
-
     float top = scrollManager.getDrawLineTop(globalLine);
     float bottom = top + lineHeight;
-    colorOverlayPaint.setStyle(Paint.Style.FILL);
-    for (int i = 0; i + 2 < triples.length; i += 3) {
-      int start = triples[i];
-      int end = triples[i + 1];
-      int backgroundColor = triples[i + 2];
-
-      float left = measureText(line, start, globalLine);
-      float right = measureText(line, end, globalLine);
-      colorOverlayPaint.setColor(backgroundColor);
-      canvas.drawRect(left, top, right, bottom, colorOverlayPaint);
-    }
+    highlightManager.drawColorCodeBackgrounds(canvas, line, globalLine, top, bottom);
   }
 
   private float measureText(String line, int length, int globalLine) {
@@ -7461,14 +6564,14 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       float avg = getAverageCharWidthForLine(line, globalLine);
       return avg * safeLen;
     }
-    if (highlightRules.isEmpty() || line.isEmpty() || safeLen == 0) {
+    if (highlightManager.highlightRules.isEmpty() || line.isEmpty() || safeLen == 0) {
       return whitespaceGuideManager.measureTextWithVisualSpaces(this, line, 0, safeLen, paint);
     }
 
-    List<HighlightSpan> spans = highlightCache.get(globalLine);
+    List<HighlightManager.HighlightSpan> spans = highlightManager.highlightCache.get(globalLine);
     if (spans == null) {
       spans = calculateSpansForLine(line, globalLine);
-      highlightCache.put(globalLine, spans);
+      highlightManager.highlightCache.put(globalLine, spans);
     }
 
     if (spans.isEmpty()) {
@@ -7478,7 +6581,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     float totalWidth = 0;
     int lastEnd = 0;
 
-    for (HighlightSpan span : spans) {
+    for (HighlightManager.HighlightSpan span : spans) {
       if (lastEnd >= safeLen) break;
       if (span.start >= safeLen) break;
       if (span.start < lastEnd) continue;
@@ -8514,24 +7617,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
   }
 
   public void showLoadingCircle(boolean show) {
-    showLoadingCircle = show;
-    if (show) {
-      if (rotationAnimator == null) {
-        rotationAnimator = ValueAnimator.ofFloat(0f, 360f);
-        rotationAnimator.setDuration(1000);
-        rotationAnimator.setRepeatCount(ValueAnimator.INFINITE);
-        rotationAnimator.addUpdateListener(
-            animation -> {
-              loadingCircleRotation = (float) animation.getAnimatedValue();
-              invalidate();
-            });
-      }
-      if (!rotationAnimator.isRunning()) rotationAnimator.start();
-    } else {
-      if (rotationAnimator != null && rotationAnimator.isRunning()) rotationAnimator.cancel();
-      loadingCircleRotation = 0f;
-    }
-    invalidate();
+    loadingCircleManager.show(show);
   }
 
   public void setShowLoadingOnFileOpen(boolean enabled) {

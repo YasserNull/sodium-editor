@@ -183,7 +183,7 @@ final class BracketMatchManager {
         }
 
         if (stringState != 0) {
-          SodiumEditorView.StringEndResult endResult =
+          HighlightManager.StringEndResult endResult =
               view.findStringEndForStateForMatch(text, i, stringState);
           int endPos = endResult.found ? endResult.endIndex : len;
           if (line == cursorLine && targetIndex >= i && targetIndex < endPos) return null;

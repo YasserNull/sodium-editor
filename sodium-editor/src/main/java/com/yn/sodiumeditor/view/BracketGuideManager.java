@@ -199,7 +199,7 @@ final class BracketGuideManager {
       }
 
       if (state.stringState != 0) {
-        SodiumEditorView.StringEndResult endResult =
+        HighlightManager.StringEndResult endResult =
             view.findStringEndForStateForBracket(line, i, state.stringState);
         if (!endResult.found) return tokensToDraw;
         i = endResult.endIndex;
@@ -290,7 +290,7 @@ final class BracketGuideManager {
       }
 
       if (state.stringState != 0) {
-        SodiumEditorView.StringEndResult endResult =
+        HighlightManager.StringEndResult endResult =
             view.findStringEndForStateForBracket(line, i, state.stringState);
         if (!endResult.found) return;
         i = endResult.endIndex;
@@ -397,7 +397,7 @@ final class BracketGuideManager {
     if (line == null || line.isEmpty()) return true;
     if (x <= 0f) return Character.isWhitespace(line.charAt(0));
 
-    List<SodiumEditorView.HighlightSpan> spans =
+    List<HighlightManager.HighlightSpan> spans =
         view.getHighlightSpansForBracket(globalLine);
     if (spans == null) {
       spans = view.calculateSpansForLineForBracket(line, globalLine);
@@ -411,7 +411,7 @@ final class BracketGuideManager {
 
     int pos = 0;
     if (spans != null && !spans.isEmpty()) {
-      for (SodiumEditorView.HighlightSpan span : spans) {
+      for (HighlightManager.HighlightSpan span : spans) {
         if (pos >= len) break;
         if (span.end <= pos) continue;
         if (span.start > pos) {

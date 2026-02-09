@@ -23,8 +23,8 @@ final class WhitespaceGuideManager {
   }
 
   final WhitespaceDrawState whitespaceDrawState = new WhitespaceDrawState();
-  SodiumEditorView.HighlightRule whitespaceStringRule;
-  SodiumEditorView.HighlightRule whitespaceCommentRule;
+  HighlightManager.HighlightRule whitespaceStringRule;
+  HighlightManager.HighlightRule whitespaceCommentRule;
 
   void initPaints(int color) {
     whitespaceGuidePaint.setColor(color);
@@ -74,25 +74,25 @@ final class WhitespaceGuideManager {
   void ensureRules(float textSizePx, Typeface typeface) {
     if (whitespaceStringRule == null) {
       whitespaceStringRule =
-          new SodiumEditorView.HighlightRule(
+          new HighlightManager.HighlightRule(
               "",
               SodiumEditorView.STYLE_NORMAL,
               0xFF000000,
               textSizePx,
               typeface,
               false,
-              SodiumEditorView.HighlightRuleType.STRING);
+              HighlightManager.HighlightRuleType.STRING);
     }
     if (whitespaceCommentRule == null) {
       whitespaceCommentRule =
-          new SodiumEditorView.HighlightRule(
+          new HighlightManager.HighlightRule(
               "",
               SodiumEditorView.STYLE_NORMAL,
               0xFF000000,
               textSizePx,
               typeface,
               false,
-              SodiumEditorView.HighlightRuleType.BLOCK_COMMENT);
+              HighlightManager.HighlightRuleType.BLOCK_COMMENT);
     }
   }
 
@@ -121,11 +121,11 @@ final class WhitespaceGuideManager {
     return whitespaceDrawState;
   }
 
-  SodiumEditorView.HighlightRule getStringRule() {
+  HighlightManager.HighlightRule getStringRule() {
     return whitespaceStringRule;
   }
 
-  SodiumEditorView.HighlightRule getCommentRule() {
+  HighlightManager.HighlightRule getCommentRule() {
     return whitespaceCommentRule;
   }
 
@@ -197,7 +197,7 @@ final class WhitespaceGuideManager {
     return total;
   }
 
-  List<SodiumEditorView.HighlightSpan> calculateSyntaxSpansForLine(
+  List<HighlightManager.HighlightSpan> calculateSyntaxSpansForLine(
       SodiumEditorView view, String line, int globalLine) {
     if (view.getLogicalLineLengthForWhitespace(globalLine, line)
         > view.getMaxSyntaxLineLengthForWhitespace()) {
@@ -207,9 +207,9 @@ final class WhitespaceGuideManager {
       return Collections.emptyList();
     }
 
-    SodiumEditorView.HighlightLineState startState =
+    HighlightManager.HighlightLineState startState =
         view.getLineStateAtStartForWhitespace(globalLine);
-    SodiumEditorView.LineParseResult parseResult =
+    HighlightManager.LineParseResult parseResult =
         view.parseLineForSyntaxForWhitespace(
             line,
             startState.inBlockComment,
@@ -225,22 +225,22 @@ final class WhitespaceGuideManager {
       view.cacheStringEndStateForWhitespace(globalLine, parseResult.endsInStringState);
     }
 
-    List<SodiumEditorView.HighlightSpan> spans = parseResult.spans;
+    List<HighlightManager.HighlightSpan> spans = parseResult.spans;
     if (spans.size() > 1) {
       Collections.sort(spans, (s1, s2) -> Integer.compare(s1.start, s2.start));
     }
     return spans;
   }
 
-  List<SodiumEditorView.HighlightSpan> getWhitespaceGuideSyntaxSpans(
+  List<HighlightManager.HighlightSpan> getWhitespaceGuideSyntaxSpans(
       SodiumEditorView view, String line, int globalLine) {
-    SodiumEditorView.HighlightRule stringRule = view.getStringHighlightRuleForWhitespace();
-    SodiumEditorView.HighlightRule commentRule = view.getBlockCommentHighlightRuleForWhitespace();
+    HighlightManager.HighlightRule stringRule = view.getStringHighlightRuleForWhitespace();
+    HighlightManager.HighlightRule commentRule = view.getBlockCommentHighlightRuleForWhitespace();
     if (stringRule == null && commentRule == null) {
       return calculateSyntaxSpansForLine(view, line, globalLine);
     }
 
-    List<SodiumEditorView.HighlightSpan> spans = view.getHighlightCacheForWhitespace(globalLine);
+    List<HighlightManager.HighlightSpan> spans = view.getHighlightCacheForWhitespace(globalLine);
     if (spans == null) {
       spans = view.calculateSpansForLineForWhitespace(line, globalLine);
       view.putHighlightCacheForWhitespace(globalLine, spans);
@@ -251,8 +251,8 @@ final class WhitespaceGuideManager {
     Paint commentPaint = (commentRule != null) ? commentRule.paint : null;
     if (stringPaint == null && commentPaint == null) return Collections.emptyList();
 
-    ArrayList<SodiumEditorView.HighlightSpan> syntaxSpans = null;
-    for (SodiumEditorView.HighlightSpan span : spans) {
+    ArrayList<HighlightManager.HighlightSpan> syntaxSpans = null;
+    for (HighlightManager.HighlightSpan span : spans) {
       if (span.paint == stringPaint || span.paint == commentPaint) {
         if (syntaxSpans == null) syntaxSpans = new ArrayList<>();
         syntaxSpans.add(span);
@@ -283,7 +283,7 @@ final class WhitespaceGuideManager {
     if (start >= end) return;
     if (line.indexOf(' ', start) < 0 && line.indexOf('\t', start) < 0) return;
 
-    List<SodiumEditorView.HighlightSpan> syntaxSpans =
+    List<HighlightManager.HighlightSpan> syntaxSpans =
         getWhitespaceGuideSyntaxSpans(view, line, globalLine);
     boolean hasSyntaxSpans = !syntaxSpans.isEmpty();
     getDrawState().syntaxIndex = 0;
@@ -294,7 +294,7 @@ final class WhitespaceGuideManager {
             ? view.measureHighlightedSegmentWidthForWhitespace(line, globalLine, start, end)
             : 0f;
 
-    List<SodiumEditorView.HighlightSpan> visualSpans =
+    List<HighlightManager.HighlightSpan> visualSpans =
         view.getHighlightCacheForWhitespace(globalLine);
     if (visualSpans == null) {
       visualSpans = view.calculateSpansForLineForWhitespace(line, globalLine);
@@ -305,7 +305,7 @@ final class WhitespaceGuideManager {
     int lastEnd = start;
 
     if (!visualSpans.isEmpty()) {
-      for (SodiumEditorView.HighlightSpan span : visualSpans) {
+      for (HighlightManager.HighlightSpan span : visualSpans) {
         if (lastEnd >= end) break;
         if (span.end <= start) continue;
         if (span.start >= end) break;
@@ -378,13 +378,13 @@ final class WhitespaceGuideManager {
       return;
     }
 
-    List<SodiumEditorView.HighlightSpan> syntaxSpans =
+    List<HighlightManager.HighlightSpan> syntaxSpans =
         getWhitespaceGuideSyntaxSpans(view, line, globalLine);
     boolean hasSyntaxSpans = !syntaxSpans.isEmpty();
     getDrawState().syntaxIndex = 0;
     float rtlWidth = 0f;
 
-    List<SodiumEditorView.HighlightSpan> visualSpans =
+    List<HighlightManager.HighlightSpan> visualSpans =
         view.getHighlightCacheForWhitespace(globalLine);
     if (visualSpans == null) {
       visualSpans = view.calculateSpansForLineForWhitespace(line, globalLine);
@@ -395,7 +395,7 @@ final class WhitespaceGuideManager {
     int lastEnd = 0;
 
     if (!visualSpans.isEmpty()) {
-      for (SodiumEditorView.HighlightSpan span : visualSpans) {
+      for (HighlightManager.HighlightSpan span : visualSpans) {
         if (span.start < lastEnd) continue;
         if (span.start >= line.length()) break;
 
@@ -466,11 +466,11 @@ final class WhitespaceGuideManager {
     if (start >= end) return;
     if (line.indexOf(' ', start) < 0 && line.indexOf('\t', start) < 0) return;
 
-    List<SodiumEditorView.HighlightSpan> syntaxSpans =
+    List<HighlightManager.HighlightSpan> syntaxSpans =
         getWhitespaceGuideSyntaxSpans(view, line, globalLine);
     boolean hasSyntaxSpans = !syntaxSpans.isEmpty();
     int syntaxIndex = 0;
-    SodiumEditorView.HighlightSpan activeSyntax =
+    HighlightManager.HighlightSpan activeSyntax =
         hasSyntaxSpans && syntaxIndex < syntaxSpans.size() ? syntaxSpans.get(syntaxIndex) : null;
 
     Paint.FontMetrics dotFm = getGuidePaint().getFontMetrics();
@@ -565,7 +565,7 @@ final class WhitespaceGuideManager {
       float x,
       float y,
       Paint segmentPaint,
-      List<SodiumEditorView.HighlightSpan> syntaxSpans,
+      List<HighlightManager.HighlightSpan> syntaxSpans,
       boolean hasSyntaxSpans,
       WhitespaceDrawState state,
       float rtlWidth) {
@@ -579,7 +579,7 @@ final class WhitespaceGuideManager {
     String tabGlyph = view.getWhitespaceGuideTabGlyphForWhitespace();
     float currentX = x;
     int localSyntaxIndex = hasSyntaxSpans ? state.syntaxIndex : 0;
-    SodiumEditorView.HighlightSpan activeSyntax =
+    HighlightManager.HighlightSpan activeSyntax =
         hasSyntaxSpans && localSyntaxIndex < syntaxSpans.size()
             ? syntaxSpans.get(localSyntaxIndex)
             : null;
