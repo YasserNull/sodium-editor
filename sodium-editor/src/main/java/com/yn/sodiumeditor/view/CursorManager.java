@@ -3,8 +3,8 @@ package com.yn.sodiumeditor.view;
 final class CursorManager {
   private final SodiumEditorView view;
 
-  int cursorLine = 0;
-  int cursorChar = 0;
+  private int cursorLine = 0;
+  private int cursorChar = 0;
 
   CursorManager(SodiumEditorView view) {
     this.view = view;
@@ -24,6 +24,22 @@ final class CursorManager {
 
   void setChar(int ch) {
     cursorChar = ch;
+  }
+
+  void moveCharDelta(int delta) {
+    cursorChar = Math.max(0, cursorChar + delta);
+  }
+
+  void clampCharToLineLength(int line) {
+    String lineText = view.getLineTextForRender(line);
+    if (lineText != null) {
+      cursorChar = Math.min(cursorChar, lineText.length());
+    }
+  }
+
+  void setLineAndChar(int line, int ch) {
+    cursorLine = Math.max(0, line);
+    cursorChar = Math.max(0, ch);
   }
 
   void setPositionNoClear(int line, int col) {
@@ -59,5 +75,6 @@ final class CursorManager {
     view.resetCursorBlink();
     view.scrollManager.keepCursorVisibleHorizontally();
     view.invalidate();
+    view.updateImeSelectionForCursorManager();
   }
 }

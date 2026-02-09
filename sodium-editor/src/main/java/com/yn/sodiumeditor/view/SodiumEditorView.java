@@ -321,7 +321,7 @@ public class SodiumEditorView extends View {
   // current line number color moved to LineNumberManager
   private final Paint currentLinePaint = new Paint();
 
-  private int draggingHandle = 0;
+  // dragging handle state moved to HandlesManager
   volatile boolean isWindowLoading = false;
 
   boolean isDisabled = false;
@@ -975,9 +975,7 @@ public class SodiumEditorView extends View {
 
     String textToInsert = activeSuggestion;
     clearActiveSuggestion();
-    selectionManager.hasSelection = false; // Clear selection after accepting suggestion
-    selectionManager.isSelectAllActive = false;
-    selectionManager.isEntireFileSelected = false;
+    selectionManager.clearSelectionKeepLineNumberState(); // Clear selection after accepting suggestion
     Log.d("SodiumEditorView", "acceptAutoCompletion: Cleared selection flags, inserting text.");
     insertStringAtCursor(textToInsert);
     Log.d("SodiumEditorView", "acceptAutoCompletion: Text inserted.");
@@ -1283,7 +1281,7 @@ public class SodiumEditorView extends View {
   private void insertStringAtCursor(String text) {
     if (isReadOnly) return;
     if (text == null || text.isEmpty()) return;
-    if (selectionManager.hasSelection) {
+    if (selectionManager.hasSelection()) {
       replaceSelectionWithText(text);
       return;
     }
@@ -1310,7 +1308,7 @@ public class SodiumEditorView extends View {
       updateLocalLine(localIdx, modified);
       modifiedLines.put(cursorManager.getLine(), modified);
       invalidateHighlightCacheForLine(cursorManager.getLine());
-      cursorManager.setChar(cursorManager.getChar() + text.length());
+      cursorManager.moveCharDelta(text.length());
       computeWidthForLine(cursorManager.getLine(), modified);
       recalculateMaxLineWidth();
       scrollManager.keepCursorVisibleHorizontally();
@@ -1380,9 +1378,8 @@ public class SodiumEditorView extends View {
   public void setLineNumberSelectionEnabled(boolean enabled) {
     if (lineNumberManager.isLineNumberSelectionEnabled() == enabled) return;
     lineNumberManager.setLineNumberSelectionEnabled(enabled);
-    if (!enabled && selectionManager.isLineNumberSelecting) {
-      selectionManager.isLineNumberSelecting = false;
-      selectionManager.lineNumberSelectAnchorLine = -1;
+    if (!enabled && selectionManager.isLineNumberSelecting()) {
+      selectionManager.setLineNumberSelecting(false, -1);
     }
   }
 
@@ -1446,7 +1443,7 @@ public class SodiumEditorView extends View {
   public void setSelectionHighlightColor(int color) {
     if (this.selectionHighlightColor == color) return;
     this.selectionHighlightColor = color;
-    if (selectionManager.hasSelection) invalidate();
+    if (selectionManager.hasSelection()) invalidate();
   }
 
   public void setSelectionColor(int color) {
@@ -1547,14 +1544,11 @@ public class SodiumEditorView extends View {
   }
 
   boolean hasSelectionForCursorManager() {
-    return selectionManager.hasSelection;
+    return selectionManager.hasSelection();
   }
 
   void clearSelectionForCursorManager() {
-    selectionManager.hasSelection = false;
-    selectionManager.isSelectAllActive = false;
-    selectionManager.isEntireFileSelected = false;
-    selectionManager.selecting = false;
+    selectionManager.clearSelection();
   }
 
   public void replaceSelectionText(String text) {
@@ -2430,8 +2424,12 @@ public class SodiumEditorView extends View {
     cursorManager.setChar(ch);
   }
 
+  void setCursorLineAndChar(int line, int ch) {
+    cursorManager.setLineAndChar(line, ch);
+  }
+
   public boolean hasSelectionValue() {
-    return selectionManager.hasSelection;
+    return selectionManager.hasSelection();
   }
 
   public int getSelectionStartLineValue() {
@@ -2451,23 +2449,23 @@ public class SodiumEditorView extends View {
   }
 
   boolean isSelectAllActiveValue() {
-    return selectionManager.isSelectAllActive;
+    return selectionManager.isSelectAllActive();
   }
 
   boolean isEntireFileSelectedValue() {
-    return selectionManager.isEntireFileSelected;
+    return selectionManager.isEntireFileSelected();
   }
 
   boolean isSelectingValue() {
-    return selectionManager.selecting;
+    return selectionManager.isSelecting();
   }
 
   boolean isLineNumberSelectingValue() {
-    return selectionManager.isLineNumberSelecting;
+    return selectionManager.isLineNumberSelecting();
   }
 
   int getLineNumberSelectAnchorLineValue() {
-    return selectionManager.lineNumberSelectAnchorLine;
+    return selectionManager.getLineNumberSelectAnchorLine();
   }
 
   public void restoreSelection(int sL, int sC, int eL, int eC, int cursorLine, int cursorChar) {
@@ -2476,7 +2474,7 @@ public class SodiumEditorView extends View {
   }
 
   public void showSelectionPopup() {
-    if (selectionManager.hasSelection) {
+    if (selectionManager.hasSelection()) {
       showPopupAtSelection();
     }
   }
@@ -3041,10 +3039,8 @@ public class SodiumEditorView extends View {
   }
 
   void clearSelectionForInput() {
-    if (selectionManager.hasSelection) {
-      selectionManager.hasSelection = false;
-      selectionManager.isSelectAllActive = false;
-      selectionManager.isEntireFileSelected = false;
+    if (selectionManager.hasSelection()) {
+      selectionManager.clearSelectionKeepLineNumberState();
     }
   }
 
@@ -3117,8 +3113,7 @@ public class SodiumEditorView extends View {
   }
 
   void setCursorPositionForInput(int line, int ch) {
-    cursorManager.setLine(line);
-    cursorManager.setChar(ch);
+    cursorManager.setLineAndChar(line, ch);
   }
 
   void insertTextAtCursorForInput(String text) {
@@ -3126,7 +3121,7 @@ public class SodiumEditorView extends View {
   }
 
   void setSelectingForInput(boolean selectingNow) {
-    selectionManager.selecting = selectingNow;
+    selectionManager.setSelecting(selectingNow);
   }
 
   void updateSuggestionForInput() {
@@ -3842,40 +3837,28 @@ public class SodiumEditorView extends View {
     int clamped = clampLineForSelection(line);
     if (!isLineSelectable(clamped)) return;
     clearActiveSuggestion();
-    selectionManager.isLineNumberSelecting = true;
-    selectionManager.lineNumberSelectAnchorLine = clamped;
-    selectionManager.hasSelection = true;
-    selectionManager.selecting = true;
-    selectionManager.isSelectAllActive = false;
-    selectionManager.isEntireFileSelected = false;
+    selectionManager.setLineNumberSelecting(true, clamped);
+    selectionManager.setSelectAllState(false, false);
     String lineText = getLineTextForRender(clamped);
-    selectionManager.selStartLine = clamped;
-    selectionManager.selStartChar = 0;
-    selectionManager.selEndLine = clamped;
-    selectionManager.selEndChar = lineText.length();
-    cursorManager.setLine(clamped);
-    cursorManager.setChar(selectionManager.selEndChar);
+    selectionManager.setSelection(clamped, 0, clamped, lineText.length(), true);
+    cursorManager.setLineAndChar(clamped, selectionManager.selEndChar);
     hidePopup();
     resetCursorBlink();
     invalidate();
   }
 
   private void updateLineNumberSelection(int line) {
-    if (!selectionManager.isLineNumberSelecting) return;
+    if (!selectionManager.isLineNumberSelecting()) return;
     int clamped = clampLineForSelection(line);
     if (!isLineSelectable(clamped)) return;
-    int startLine = Math.min(selectionManager.lineNumberSelectAnchorLine, clamped);
-    int endLine = Math.max(selectionManager.lineNumberSelectAnchorLine, clamped);
+    int anchorLine = selectionManager.getLineNumberSelectAnchorLine();
+    int startLine = Math.min(anchorLine, clamped);
+    int endLine = Math.max(anchorLine, clamped);
     scrollManager.ensureLineInWindow(endLine, true);
     String endLineText = getLineTextForRender(endLine);
-    selectionManager.selStartLine = startLine;
-    selectionManager.selStartChar = 0;
-    selectionManager.selEndLine = endLine;
-    selectionManager.selEndChar = endLineText.length();
-    cursorManager.setLine(endLine);
-    cursorManager.setChar(selectionManager.selEndChar);
-    selectionManager.hasSelection = true;
-    selectionManager.selecting = true;
+    selectionManager.setSelection(startLine, 0, endLine, endLineText.length(), true);
+    cursorManager.setLineAndChar(endLine, selectionManager.selEndChar);
+    selectionManager.setLineNumberSelecting(true, anchorLine);
     hidePopup();
     invalidate();
   }
@@ -3884,7 +3867,7 @@ public class SodiumEditorView extends View {
       new Runnable() {
         @Override
         public void run() {
-          if (draggingHandle == 0) return;
+          if (!handlesManager.isDragging()) return;
           if (scrollManager.autoScrollX != 0 || scrollManager.autoScrollY != 0) {
             scrollManager.scrollX += scrollManager.autoScrollX;
             float nextY = scrollManager.scrollY + scrollManager.autoScrollY;
@@ -3901,7 +3884,9 @@ public class SodiumEditorView extends View {
             clampScrollX();
             clampScrollY();
             updateHandlePosition(lastTouchX, lastTouchY);
-            if (draggingHandle == 1 || draggingHandle == 2) {
+            int draggingHandle = handlesManager.getDraggingHandle();
+            if (draggingHandle == HandlesManager.HANDLE_LEFT
+                || draggingHandle == HandlesManager.HANDLE_RIGHT) {
               showPopupAtSelection();
             }
             checkAndLoadWindow();
@@ -4243,7 +4228,7 @@ public class SodiumEditorView extends View {
 
     // --- This is the original text, selection, and handle drawing logic ---
     Paint selPaint = null;
-    if (selectionManager.hasSelection) {
+    if (selectionManager.hasSelection()) {
       selectionPaint.setColor(selectionHighlightColor);
       selPaint = selectionPaint;
     }
@@ -4306,7 +4291,7 @@ public class SodiumEditorView extends View {
                 : 0f;
 
         // Highlight the current line, only if there is no selection
-        if (highlightCurrentLine && globalLine == cursorManager.getLine() && !selectionManager.hasSelection) {
+        if (highlightCurrentLine && globalLine == cursorManager.getLine() && !selectionManager.hasSelection()) {
           float top = Math.round(scrollManager.getDrawLineTop(globalLine));
           float bottom = Math.round(scrollManager.getDrawLineBottom(globalLine));
           float viewLeft = lineNumberManager.getContentViewLeft(isRtl);
@@ -4316,7 +4301,7 @@ public class SodiumEditorView extends View {
           canvas.drawRect(left, top, right, bottom, currentLinePaint);
         }
 
-        if (selectionManager.hasSelection && selPaint != null) {
+        if (selectionManager.hasSelection() && selPaint != null) {
           float top = Math.round(scrollManager.getDrawLineTop(globalLine));
           float bottom = Math.round(scrollManager.getDrawLineBottom(globalLine));
           float fullRight =
@@ -4325,7 +4310,7 @@ public class SodiumEditorView extends View {
             fullRight = lineBaseX + lineWidth;
           }
 
-          if (selectionManager.isSelectAllActive) {
+          if (selectionManager.isSelectAllActive()) {
             boolean lineExists =
                 (isEof) ? (globalLine <= windowStartLine + linesWindow.size() - 1) : true;
             if (lineExists) {
@@ -4493,7 +4478,7 @@ public class SodiumEditorView extends View {
                 : 0f;
 
         // Highlight the current line, only if there is no selection
-        if (highlightCurrentLine && globalLine == cursorManager.getLine() && !selectionManager.hasSelection) {
+        if (highlightCurrentLine && globalLine == cursorManager.getLine() && !selectionManager.hasSelection()) {
           float top = Math.round(scrollManager.getDrawLineTop(globalLine));
           float bottom = Math.round(scrollManager.getDrawLineBottom(globalLine));
           float viewLeft = lineNumberManager.getContentViewLeft(isRtl);
@@ -4503,7 +4488,7 @@ public class SodiumEditorView extends View {
           canvas.drawRect(left, top, right, bottom, currentLinePaint);
         }
 
-        if (selectionManager.hasSelection && selPaint != null) {
+        if (selectionManager.hasSelection() && selPaint != null) {
           float top = Math.round(scrollManager.getDrawLineTop(globalLine));
           float bottom = Math.round(scrollManager.getDrawLineBottom(globalLine));
           float fullRight =
@@ -4512,7 +4497,7 @@ public class SodiumEditorView extends View {
             fullRight = lineBaseX + lineWidth;
           }
 
-          if (selectionManager.isSelectAllActive) {
+          if (selectionManager.isSelectAllActive()) {
             boolean lineExists =
                 (isEof) ? (globalLine <= windowStartLine + linesWindow.size() - 1) : true;
             if (lineExists) {
@@ -4657,7 +4642,7 @@ public class SodiumEditorView extends View {
     }
     if (isFocused()
         && !isReadOnly
-        && !selectionManager.hasSelection
+        && !selectionManager.hasSelection()
         && cursorManager.getLine() >= firstVisibleLine
         && cursorManager.getLine() <= lastVisibleLine
         && (!foldManager.isCodeFoldingEnabled || !isLineHiddenByFold(cursorManager.getLine()))) {
@@ -4682,7 +4667,7 @@ public class SodiumEditorView extends View {
           drawY + lineHeight + handlesManager.getHandleRadius() * 2);
     }
 
-    if (selectionManager.hasSelection && !isReadOnly) {
+    if (selectionManager.hasSelection() && !isReadOnly) {
       handlePaint.setColor(handlesManager.getSelectionHandleColor());
       if (selectionManager.selStartLine >= firstVisibleLine
           && selectionManager.selStartLine <= lastVisibleLine
@@ -4898,7 +4883,7 @@ public class SodiumEditorView extends View {
     }
 
     Paint selPaint = null;
-    if (selectionManager.hasSelection) {
+    if (selectionManager.hasSelection()) {
       selectionPaint.setColor(selectionHighlightColor);
       selPaint = selectionPaint;
     }
@@ -4907,7 +4892,7 @@ public class SodiumEditorView extends View {
     int startChar = selectionManager.selStartChar;
     int endLine = selectionManager.selEndLine;
     int endChar = selectionManager.selEndChar;
-    if (selectionManager.hasSelection && comparePos(selectionManager.selStartLine, selectionManager.selStartChar, selectionManager.selEndLine, selectionManager.selEndChar) > 0) {
+    if (selectionManager.hasSelection() && comparePos(selectionManager.selStartLine, selectionManager.selStartChar, selectionManager.selEndLine, selectionManager.selEndChar) > 0) {
       startLine = selectionManager.selEndLine;
       startChar = selectionManager.selEndChar;
       endLine = selectionManager.selStartLine;
@@ -4930,12 +4915,12 @@ public class SodiumEditorView extends View {
       float bottom = top + lineHeight;
       float y = Math.round(top + lineHeight - paint.descent());
 
-      if (highlightCurrentLine && pos.line == cursorManager.getLine() && !selectionManager.hasSelection) {
+      if (highlightCurrentLine && pos.line == cursorManager.getLine() && !selectionManager.hasSelection()) {
         canvas.drawRect(
             -paddingLeft, top, Math.max(getWrapWidth(), getWidth()), bottom, currentLinePaint);
       }
 
-      if (selectionManager.hasSelection && selPaint != null) {
+      if (selectionManager.hasSelection() && selPaint != null) {
         if (pos.line >= startLine && pos.line <= endLine) {
           int lineSelStart = (pos.line == startLine) ? startChar : 0;
           int lineSelEnd = (pos.line == endLine) ? endChar : line.length();
@@ -5009,7 +4994,7 @@ public class SodiumEditorView extends View {
       canvas.restore();
     }
 
-    if (isFocused() && !isReadOnly && !selectionManager.hasSelection) {
+    if (isFocused() && !isReadOnly && !selectionManager.hasSelection()) {
       int cursorVisualIndex = getVisualIndexForLineAndChar(cursorManager.getLine(), cursorManager.getChar());
       if (cursorVisualIndex >= firstVisualIndex && cursorVisualIndex <= lastVisualIndex) {
         String cursorLineText = getLineTextForRenderWithDirect(cursorManager.getLine(), directLines);
@@ -5040,7 +5025,7 @@ public class SodiumEditorView extends View {
       }
     }
 
-    if (selectionManager.hasSelection) {
+    if (selectionManager.hasSelection()) {
       handlePaint.setColor(handlesManager.getSelectionHandleColor());
       int startVisual = getVisualIndexForLineAndChar(selectionManager.selStartLine, selectionManager.selStartChar);
       if (startVisual >= firstVisualIndex && startVisual <= lastVisualIndex) {
@@ -5206,7 +5191,7 @@ public class SodiumEditorView extends View {
     canvas.translate(getTextStartX() - getEffectiveScrollX(), 0); // already translated by translateY
 
     Paint selPaint = null;
-    if (selectionManager.hasSelection) {
+    if (selectionManager.hasSelection()) {
       selectionPaint.setColor(selectionHighlightColor);
       selPaint = selectionPaint;
     }
@@ -5215,7 +5200,7 @@ public class SodiumEditorView extends View {
     int startChar = selectionManager.selStartChar;
     int endLine = selectionManager.selEndLine;
     int endChar = selectionManager.selEndChar;
-    if (selectionManager.hasSelection && comparePos(selectionManager.selStartLine, selectionManager.selStartChar, selectionManager.selEndLine, selectionManager.selEndChar) > 0) {
+    if (selectionManager.hasSelection() && comparePos(selectionManager.selStartLine, selectionManager.selStartChar, selectionManager.selEndLine, selectionManager.selEndChar) > 0) {
       startLine = selectionManager.selEndLine;
       startChar = selectionManager.selEndChar;
       endLine = selectionManager.selStartLine;
@@ -5266,12 +5251,12 @@ public class SodiumEditorView extends View {
           canvas.translate(getTextStartX() - getEffectiveScrollX(), 0);
         }
 
-        if (highlightCurrentLine && line == cursorManager.getLine() && !selectionManager.hasSelection) {
+        if (highlightCurrentLine && line == cursorManager.getLine() && !selectionManager.hasSelection()) {
           canvas.drawRect(
               -paddingLeft, top, Math.max(getWrapWidth(), getWidth()), bottom, currentLinePaint);
         }
 
-        if (selectionManager.hasSelection && selPaint != null) {
+        if (selectionManager.hasSelection() && selPaint != null) {
           if (line >= startLine && line <= endLine) {
             int lineSelStart = (line == startLine) ? startChar : 0;
             int lineSelEnd = (line == endLine) ? endChar : text.length();
@@ -5331,7 +5316,7 @@ public class SodiumEditorView extends View {
         }
         canvas.restore();
 
-        if (!cursorDrawn && isFocused() && !selectionManager.hasSelection && line == cursorManager.getLine()) {
+        if (!cursorDrawn && isFocused() && !selectionManager.hasSelection() && line == cursorManager.getLine()) {
           int cursorSeg = getWrapSegmentIndexForChar(starts, cursorManager.getChar());
           if (cursorSeg == seg) {
             int safeChar = Math.min(cursorManager.getChar(), text.length());
@@ -5356,7 +5341,7 @@ public class SodiumEditorView extends View {
           }
         }
 
-        if (selectionManager.hasSelection) {
+        if (selectionManager.hasSelection()) {
           if (line == selectionManager.selStartLine) {
             int selSeg = getWrapSegmentIndexForChar(starts, selectionManager.selStartChar);
             if (selSeg == seg) startHandleVisual = visualIndex;
@@ -5376,7 +5361,7 @@ public class SodiumEditorView extends View {
     canvas.restore(); // Restore from text clip
     canvas.restore(); // Restore from translation
 
-    if (selectionManager.hasSelection) {
+    if (selectionManager.hasSelection()) {
       handlePaint.setColor(handlesManager.getSelectionHandleColor());
       if (startHandleVisual >= firstIndex && startHandleVisual <= visualIndex - 1) {
         String startLineText = getLineTextForRenderWithDirect(selectionManager.selStartLine, directLines);
@@ -7704,7 +7689,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
   }
 
   private boolean shouldHideCopyCutForSelection() {
-    if (!selectionManager.hasSelection) return true;
+    if (!selectionManager.hasSelection()) return true;
 
     int sL = selectionManager.selStartLine, eL = selectionManager.selEndLine;
     if (sL > eL) {
@@ -7781,12 +7766,12 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
   }
 
   private void showMinimalPopupAtCursor() {
-    if (selectionManager.hasSelection) return;
+    if (selectionManager.hasSelection()) return;
     popupMenuManager.showMinimalPopupAtCursor();
   }
 
   void showPopupAtSelection() {
-    if (!selectionManager.hasSelection) return;
+    if (!selectionManager.hasSelection()) return;
     popupMenuManager.showPopupAtSelection();
   }
 
@@ -8333,8 +8318,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     invalidatePendingIOForEdit();
     sourceFile = null;
     isFileCleared = true;
-    selectionManager.isSelectAllActive = false;
-    selectionManager.isEntireFileSelected = false;
+    selectionManager.setSelectAllState(false, false);
     isIndexReady = false;
     isIndexDisabled = false;
     indexDisabledPath = null;
@@ -8365,8 +8349,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     scrollManager.maxTextStartXForScroll = 0f;
     scrollManager.maxScrollXForScroll = 0f;
 
-    cursorManager.setLine(0);
-    cursorManager.setChar(0);
+    cursorManager.setLineAndChar(0, 0);
     isEof = true;
     scrollManager.scrollY = 0;
     scrollManager.scrollX = 0;
@@ -8379,8 +8362,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
   public void loadFromFile(final File file) {
     invalidatePendingIOForEdit();
     isFileCleared = false;
-    selectionManager.isSelectAllActive = false;
-    selectionManager.isEntireFileSelected = false;
+    selectionManager.setSelectAllState(false, false);
     invalidateLineNumberCache();
 
     // Force clear wrap metrics for new file
@@ -8433,8 +8415,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     indexDisabledPath = null;
     indexDisabledFileLength = -1L;
 
-    cursorManager.setLine(0);
-    cursorManager.setChar(0);
+    cursorManager.setLineAndChar(0, 0);
     isEof = false;
     scrollManager.scrollY = 0;
     scrollManager.scrollX = 0;
@@ -8505,9 +8486,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     this.isReadOnly = readOnly;
     if (readOnly) {
       clearActiveSuggestion();
-      selectionManager.hasSelection = false;
-      selectionManager.isSelectAllActive = false;
-      selectionManager.isEntireFileSelected = false;
+      selectionManager.clearSelectionKeepLineNumberState();
       hidePopup();
       InputMethodManager imm =
           (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -8614,11 +8593,9 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     setDisable(true);
     showLoadingCircle(true);
 
-    if (selectionManager.hasSelection) {
-      selectionManager.hasSelection = false;
-      selectionManager.isSelectAllActive = false;
-      selectionManager.isEntireFileSelected = false;
-      selectionManager.selecting = false;
+    if (selectionManager.hasSelection()) {
+      selectionManager.clearSelectionKeepLineNumberState();
+      selectionManager.setSelecting(false);
       hidePopup();
     }
 
@@ -8677,20 +8654,20 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         () -> {
           if (currentGoToLineVersion != goToLineVersion.get()) return;
 
-          cursorManager.setLine(targetLine);
-
-          if (cursorManager.getLine() >= windowStartLine
-              && cursorManager.getLine() < windowStartLine + linesWindow.size()) {
-            String lineText = getLineTextForRender(cursorManager.getLine());
-            cursorManager.setChar(Math.max(0, Math.min(targetCol, lineText.length())));
+          int finalLine = targetLine;
+          int finalChar;
+          if (finalLine >= windowStartLine && finalLine < windowStartLine + linesWindow.size()) {
+            String lineText = getLineTextForRender(finalLine);
+            finalChar = Math.max(0, Math.min(targetCol, lineText.length()));
           } else if (isEof) {
             int lastLineInDoc = windowStartLine + linesWindow.size() - 1;
-            if (cursorManager.getLine() > lastLineInDoc) cursorManager.setLine(Math.max(0, lastLineInDoc));
-            String lineText = getLineTextForRender(cursorManager.getLine());
-            cursorManager.setChar(Math.max(0, Math.min(targetCol, lineText.length())));
+            if (finalLine > lastLineInDoc) finalLine = Math.max(0, lastLineInDoc);
+            String lineText = getLineTextForRender(finalLine);
+            finalChar = Math.max(0, Math.min(targetCol, lineText.length()));
           } else {
-            cursorManager.setChar(0);
+            finalChar = 0;
           }
+          cursorManager.setLineAndChar(finalLine, finalChar);
 
           scrollManager.keepCursorVisibleHorizontally();
           setDisable(false);
@@ -8725,7 +8702,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     undoRedo.incrementEditVersion();
 
     // FIX: لو فيه تحديد، لازم يكون استبدال ذري (خصوصاً خارج الشاشة)
-    if (selectionManager.hasSelection) {
+    if (selectionManager.hasSelection()) {
       replaceSelectionWithText(String.valueOf(c));
       return;
     }
@@ -8775,8 +8752,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         if (oldWidth != null && oldWidth >= currentMaxWindowLineWidth)
           recalculateMaxLineWidthAsync();
         clearHighlightCaches();
-        cursorManager.setLine(cursorManager.getLine() + 1);
-        cursorManager.setChar(0);
+        cursorManager.setLineAndChar(cursorManager.getLine() + 1, 0);
         undoRedo.addLineCountDelta(1);
 
         int newLineCount = getLinesCount();
@@ -8791,7 +8767,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         updateLocalLine(localIdx, modified);
         modifiedLines.put(cursorManager.getLine(), modified);
         invalidateHighlightCacheForLine(cursorManager.getLine());
-        cursorManager.setChar(cursorManager.getChar() + 1);
+        cursorManager.moveCharDelta(1);
         float newWidth =
             whitespaceGuideManager.measureTextWithVisualSpaces(
                 this, modified, 0, modified.length(), paint);
@@ -8826,7 +8802,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
 
   public void insertNewlineAtCursor() {
     if (isReadOnly) return;
-    if (selectionManager.hasSelection) {
+    if (selectionManager.hasSelection()) {
       replaceSelectionWithText("\n");
       return;
     }
@@ -8847,8 +8823,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       int targetChar = innerIndent.length();
       insertTextAtCursor(insertText);
 
-      cursorManager.setLine(targetLine);
-      cursorManager.setChar(targetChar);
+      cursorManager.setLineAndChar(targetLine, targetChar);
       resetCursorBlink();
       scrollManager.keepCursorVisibleHorizontally();
       invalidate();
@@ -9061,8 +9036,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         if (localIdx < linesWindow.size()) linesWindow.remove(localIdx);
 
         recalculateMaxLineWidth();
-        cursorManager.setLine(prevGlobal);
-        cursorManager.setChar(prev.length());
+        cursorManager.setLineAndChar(prevGlobal, prev.length());
         computeWidthForLine(prevGlobal, merged);
         undoRedo.addLineCountDelta(-1);
 
@@ -9244,8 +9218,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       updateLocalLine(local, newLine);
       modifiedLines.put(composingLine, newLine);
       composingLength = textSeq.length();
-      cursorManager.setLine(composingLine);
-      cursorManager.setChar(composingOffset + composingLength);
+      cursorManager.setLineAndChar(composingLine, composingOffset + composingLength);
       computeWidthForLine(composingLine, newLine);
       recalculateMaxLineWidth();
       invalidate();
@@ -9281,7 +9254,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
   private boolean hideKeyboardOnFocusLoss = true;
 
   public String getSelectedText() {
-    if (!selectionManager.hasSelection) return null;
+    if (!selectionManager.hasSelection()) return null;
     if (shouldHideCopyCutForSelection()) return null;
 
     int sL = selectionManager.selStartLine, sC = selectionManager.selStartChar, eL = selectionManager.selEndLine, eC = selectionManager.selEndChar;
@@ -9312,7 +9285,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
   }
 
   private void copyOrCutSelection(final boolean cut) {
-    if (!selectionManager.hasSelection) return;
+    if (!selectionManager.hasSelection()) return;
     clearActiveSuggestion(); // Clear suggestion when copying/cutting
 
     // Hidden/disabled for huge selections (requested behavior)
@@ -9519,12 +9492,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     setDisable(true);
     showLoadingCircle(true);
 
-    selectionManager.isSelectAllActive = true;
-    selectionManager.isEntireFileSelected = true;
-    selectionManager.hasSelection = true;
-
-    selectionManager.selStartLine = 0;
-    selectionManager.selStartChar = 0;
+    selectionManager.setSelectAllState(true, true);
+    selectionManager.setSelection(0, 0, 0, 0, false);
     hidePopup();
 
     // =========================
@@ -9543,8 +9512,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       selectionManager.selEndLine = Math.max(0, windowStartLine + linesWindow.size() - 1);
       String lastLineText = getLineTextForRender(selectionManager.selEndLine);
       selectionManager.selEndChar = lastLineText.length();
-      cursorManager.setLine(selectionManager.selEndLine);
-      cursorManager.setChar(selectionManager.selEndChar);
+      cursorManager.setLineAndChar(selectionManager.selEndLine, selectionManager.selEndChar);
 
       scrollManager.scrollToLineFastForSelectAll(selectionManager.selEndLine, selectionManager.selEndChar);
 
@@ -9572,8 +9540,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       selectionManager.selEndLine = windowLast;
       String lastLineText = getLineTextForRender(windowLast);
       selectionManager.selEndChar = lastLineText.length();
-      cursorManager.setLine(windowLast);
-      cursorManager.setChar(selectionManager.selEndChar);
+      cursorManager.setLineAndChar(windowLast, selectionManager.selEndChar);
 
       scrollManager.scrollToLineFastForSelectAll(windowLast, selectionManager.selEndChar);
 
@@ -9613,8 +9580,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
               selectionManager.selEndLine = windowLast;
               String lastLineText = getLineTextForRender(windowLast);
               selectionManager.selEndChar = lastLineText.length();
-              cursorManager.setLine(windowLast);
-              cursorManager.setChar(selectionManager.selEndChar);
+              cursorManager.setLineAndChar(windowLast, selectionManager.selEndChar);
 
               scrollManager.scrollToLineFastForSelectAll(windowLast, selectionManager.selEndChar);
 
@@ -9648,8 +9614,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
                       () -> {
                         String lastLineText = getLineTextForRender(fileLastLine);
                         selectionManager.selEndChar = lastLineText.length();
-                        cursorManager.setLine(fileLastLine);
-                        cursorManager.setChar(selectionManager.selEndChar);
+                        cursorManager.setLineAndChar(fileLastLine, selectionManager.selEndChar);
 
                         scrollManager.scrollToLineFastForSelectAll(fileLastLine, selectionManager.selEndChar);
 
@@ -9695,8 +9660,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
                             () -> {
                               String lastLineText = getLineTextForRender(selectionManager.selEndLine);
                               selectionManager.selEndChar = lastLineText.length();
-                              cursorManager.setLine(selectionManager.selEndLine);
-                              cursorManager.setChar(selectionManager.selEndChar);
+                              cursorManager.setLineAndChar(selectionManager.selEndLine, selectionManager.selEndChar);
 
                               scrollManager.scrollToLineFastForSelectAll(selectionManager.selEndLine, selectionManager.selEndChar);
 
@@ -9908,14 +9872,13 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       endL = tL;
       endC = tC;
     }
-    selectionManager.selStartLine = startL;
-    selectionManager.selStartChar = Math.max(0, startC);
-    selectionManager.selEndLine = endL;
-    selectionManager.selEndChar = Math.max(0, endC);
-    selectionManager.hasSelection = !(selectionManager.selStartLine == selectionManager.selEndLine && selectionManager.selStartChar == selectionManager.selEndChar);
-    selectionManager.selecting = false;
-    selectionManager.isSelectAllActive = false;
-    selectionManager.isEntireFileSelected = false;
+    selectionManager.setSelection(
+        startL,
+        Math.max(0, startC),
+        endL,
+        Math.max(0, endC),
+        false);
+    selectionManager.setSelectAllState(false, false);
     hidePopup();
   }
 
@@ -9976,7 +9939,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
 
     if (insertText == null) insertText = "";
 
-    if (!selectionManager.hasSelection) {
+    if (!selectionManager.hasSelection()) {
       if (!insertText.isEmpty()) insertTextAtCursor(insertText);
       // No selection means no large edit UI was started for it.
       updateSuggestion();
@@ -10007,7 +9970,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     }
     int insertedNewlines = countNewlines(insertText);
 
-    final boolean selectAllLike = selectionManager.isSelectAllActive || selectionManager.isEntireFileSelected;
+    final boolean selectAllLike =
+        selectionManager.isSelectAllActive() || selectionManager.isEntireFileSelected();
     beginLargeEditUiIfNeeded(true, sL, eL, selectAllLike);
 
     // This is the critical fix: The "Select All" path now correctly cleans up and finalizes the UI
@@ -10044,12 +10008,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       indexDisabledFileLength = -1L;
 
       // Reset cursor, selection, and scroll position.
-      cursorManager.setLine(0);
-      cursorManager.setChar(0);
-      selectionManager.selStartLine = 0;
-      selectionManager.selEndLine = 0;
-      selectionManager.selStartChar = 0;
-      selectionManager.selEndChar = 0;
+      cursorManager.setLineAndChar(0, 0);
+      selectionManager.setSelection(0, 0, 0, 0, false);
       scrollManager.scrollY = 0;
       scrollManager.scrollX = 0;
       clearSelectionStateAfterDelete();
@@ -10064,8 +10024,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
           }
         }
         CursorTarget newPos = computeCursorAfterInsert(0, 0, insertText);
-        cursorManager.setLine(newPos.line);
-        cursorManager.setChar(newPos.ch);
+        cursorManager.setLineAndChar(newPos.line, newPos.ch);
       }
 
       // Crucially, end the large edit UI and force a redraw.
@@ -10107,8 +10066,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
           updateLocalLine(local, merged);
           modifiedLines.put(sL, merged);
 
-          cursorManager.setLine(sL);
-          cursorManager.setChar(a + insertText.length());
+          cursorManager.setLineAndChar(sL, a + insertText.length());
 
           computeWidthForLine(sL, merged);
           recalculateMaxLineWidth();
@@ -10133,8 +10091,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     if (fullyInWindow) {
       applyMultiLineReplaceInWindowNow(sL, sC, eL, eC, insertText, target);
     } else {
-      cursorManager.setLine(sL);
-      cursorManager.setChar(sC);
+      cursorManager.setLineAndChar(sL, sC);
     }
 
     clearSelectionStateAfterDelete();
@@ -10200,8 +10157,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         linesWindow.addAll(sLocal + 1, toInsert);
       }
 
-      cursorManager.setLine(Math.max(0, target.line));
-      cursorManager.setChar(Math.max(0, target.ch));
+      cursorManager.setLineAndChar(Math.max(0, target.line), Math.max(0, target.ch));
 
       int newLineCount = getLinesCount();
       if (lineNumberManager.isShowLineNumbers()
@@ -10323,8 +10279,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
                   ioHandler.post(this::buildFileIndex);
                   onLineCountChanged();
 
-                  cursorManager.setLine(Math.max(0, target.line));
-                  cursorManager.setChar(Math.max(0, target.ch));
+                  cursorManager.setLineAndChar(Math.max(0, target.line), Math.max(0, target.ch));
 
                   // لا تعمل "Reload" للنافذة بعد الحذف/الاستبدال إذا كانت النتيجة ضمن النافذة
                   // الحالية.
@@ -10352,7 +10307,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
                         targetStart,
                         () -> {
                           String ln = getLineTextForRender(cursorManager.getLine());
-                          cursorManager.setChar(Math.min(cursorManager.getChar(), ln.length()));
+                          cursorManager.clampCharToLineLength(cursorManager.getLine());
                           clampScrollY();
                           scrollManager.keepCursorVisibleHorizontally();
                           requestFocus();
@@ -10467,8 +10422,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         modifiedLines.put(windowStartLine + i, linesWindow.get(i));
       }
 
-      cursorManager.setLine(sL);
-      cursorManager.setChar(left.length());
+      cursorManager.setLineAndChar(sL, left.length());
 
       recalculateMaxLineWidth();
       int newLineCount = getLinesCount();
@@ -10479,10 +10433,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
   }
 
   private void clearSelectionStateAfterDelete() {
-    selectionManager.hasSelection = false;
-    selectionManager.selecting = false;
-    selectionManager.isSelectAllActive = false;
-    selectionManager.isEntireFileSelected = false;
+    selectionManager.clearSelection();
     hidePopup();
     resetCursorBlink();
   }
@@ -10901,15 +10852,9 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     }
 
     TextRange pick = candidates.get(nextIdx);
-    selectionManager.selStartLine = selectionManager.selEndLine = line;
-    selectionManager.selStartChar = pick.start;
-    selectionManager.selEndChar = pick.end;
-    selectionManager.hasSelection = true;
-    selectionManager.isSelectAllActive = false;
-    selectionManager.isEntireFileSelected = false;
-    selectionManager.selecting = true;
-    cursorManager.setLine(line);
-    cursorManager.setChar(selectionManager.selEndChar);
+    selectionManager.setSelection(line, pick.start, line, pick.end, true);
+    selectionManager.setSelectAllState(false, false);
+    cursorManager.setLineAndChar(line, selectionManager.selEndChar);
     lastDoubleTapLine = line;
     lastDoubleTapWordStart = bounds[0];
     lastDoubleTapWordEnd = bounds[1];
@@ -11001,7 +10946,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
   }
 
   private boolean isPositionInsideSelection(int line, int ch) {
-    if (!selectionManager.hasSelection) return false;
+    if (!selectionManager.hasSelection()) return false;
     int sL = selectionManager.selStartLine;
     int sC = selectionManager.selStartChar;
     int eL = selectionManager.selEndLine;
@@ -11038,7 +10983,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
   }
 
   private int findSelectionCandidateIndex(int line, List<TextRange> candidates) {
-    if (!selectionManager.hasSelection || candidates == null || candidates.isEmpty()) return -1;
+    if (!selectionManager.hasSelection() || candidates == null || candidates.isEmpty()) return -1;
     int sL = selectionManager.selStartLine;
     int sC = selectionManager.selStartChar;
     int eL = selectionManager.selEndLine;
@@ -11184,10 +11129,10 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     final int opToken = undoRedo.incrementEditVersion();
 
     if (text == null) return;
-    if (text.isEmpty() && !selectionManager.hasSelection) return;
+    if (text.isEmpty() && !selectionManager.hasSelection()) return;
 
     // FIX: لو فيه تحديد، لازم يكون replace ذري
-    if (selectionManager.hasSelection) {
+    if (selectionManager.hasSelection()) {
       replaceSelectionWithText(text);
       return;
     }
@@ -11272,7 +11217,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         updateLocalLine(local, modified);
         modifiedLines.put(cursorManager.getLine(), modified);
         lineWidthCache.remove(cursorManager.getLine());
-        cursorManager.setChar(cursorManager.getChar() + parts[0].length());
+        cursorManager.moveCharDelta(parts[0].length());
       } else {
         lineWidthCache.clear();
         String firstLine = left + parts[0];
@@ -11290,8 +11235,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
           modifiedLines.put(cursorManager.getLine() + 1 + i, linesToInsert.get(i));
         }
 
-        cursorManager.setLine(cursorManager.getLine() + (parts.length - 1));
-        cursorManager.setChar(lastPart.length());
+        cursorManager.setLineAndChar(cursorManager.getLine() + (parts.length - 1), lastPart.length());
         undoRedo.addLineCountDelta((parts.length - 1));
       }
 
@@ -11540,11 +11484,10 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       zoomManager.onPointerDown();
       pointerDown = false;
       movedSinceDown = false;
-      draggingHandle = 0;
+      handlesManager.setDraggingHandle(HandlesManager.HANDLE_NONE);
       scrollManager.dragMaxScrollX = -1f;
-      selectionManager.selecting = false;
-      selectionManager.isLineNumberSelecting = false;
-      selectionManager.lineNumberSelectAnchorLine = -1;
+      selectionManager.setSelecting(false);
+      selectionManager.setLineNumberSelecting(false, -1);
       mainHandler.removeCallbacks(autoScrollRunnable);
       if (!scrollManager.scroller.isFinished()) {
         scrollManager.scroller.computeScrollOffset();
@@ -11574,10 +11517,9 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     if (zoomManager.hadMultiTouch()
         && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL)) {
       pointerDown = false;
-      draggingHandle = 0;
-      selectionManager.selecting = false;
-      selectionManager.isLineNumberSelecting = false;
-      selectionManager.lineNumberSelectAnchorLine = -1;
+      handlesManager.setDraggingHandle(HandlesManager.HANDLE_NONE);
+      selectionManager.setSelecting(false);
+      selectionManager.setLineNumberSelecting(false, -1);
       mainHandler.removeCallbacks(autoScrollRunnable);
       scrollManager.dragMaxScrollX = -1f;
       return true;
@@ -11632,14 +11574,14 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         // area.
         float gx = ex + getEffectiveScrollX() - getTextStartX();
         float gy = ey + scrollManager.scrollY - scrollManager.getHitTestBaseY();
-        if (selectionManager.hasSelection && handlesManager.getLeftHandleRect().contains(gx, gy)) {
-          draggingHandle = 1;
+        if (selectionManager.hasSelection() && handlesManager.getLeftHandleRect().contains(gx, gy)) {
+          handlesManager.setDraggingHandle(HandlesManager.HANDLE_LEFT);
           return true;
-        } else if (selectionManager.hasSelection && handlesManager.getRightHandleRect().contains(gx, gy)) {
-          draggingHandle = 2;
+        } else if (selectionManager.hasSelection() && handlesManager.getRightHandleRect().contains(gx, gy)) {
+          handlesManager.setDraggingHandle(HandlesManager.HANDLE_RIGHT);
           return true;
-        } else if (isFocused() && !selectionManager.hasSelection && handlesManager.getCursorHandleRect().contains(gx, gy)) {
-          draggingHandle = 3;
+        } else if (isFocused() && !selectionManager.hasSelection() && handlesManager.getCursorHandleRect().contains(gx, gy)) {
+          handlesManager.setDraggingHandle(HandlesManager.HANDLE_CURSOR);
           return true;
         }
 
@@ -11680,16 +11622,20 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
           return true;
         }
 
-        if (selectionManager.isLineNumberSelecting) {
+        if (selectionManager.isLineNumberSelecting()) {
           float y = ey + scrollManager.scrollY;
           int line = getGlobalLineForY(y);
           updateLineNumberSelection(line);
           return true;
         }
 
-        if (draggingHandle != 0) {
+        if (handlesManager.isDragging()) {
           updateHandlePosition(ex, ey);
-          if (draggingHandle == 1 || draggingHandle == 2) showPopupAtSelection();
+          int draggingHandle = handlesManager.getDraggingHandle();
+          if (draggingHandle == HandlesManager.HANDLE_LEFT
+              || draggingHandle == HandlesManager.HANDLE_RIGHT) {
+            showPopupAtSelection();
+          }
 
           float scrollMargin = lineHeight * 2f;
           float scrollSpeed = Math.max(4f, lineHeight * 0.35f);
@@ -11739,12 +11685,11 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
             }
             if (actionForTap == PopupMenuManager.POPUP_ACTION_COPY) {
               copySelectionToClipboard();
-              selectionManager.hasSelection = false;
-              selectionManager.isSelectAllActive = false;
+              selectionManager.clearSelectionKeepLineNumberState();
               hidePopup();
               invalidate();
             } else if (actionForTap == PopupMenuManager.POPUP_ACTION_SELECT_ALL) {
-              if (!selectionManager.isSelectAllActive) selectAll();
+              if (!selectionManager.isSelectAllActive()) selectAll();
               else hidePopup();
             } else {
               popupMenuManager.performPopupAction(actionForTap);
@@ -11758,12 +11703,11 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
           return true;
         }
 
-        if (selectionManager.isLineNumberSelecting) {
-          selectionManager.isLineNumberSelecting = false;
-          selectionManager.lineNumberSelectAnchorLine = -1;
-          selectionManager.selecting = false;
+        if (selectionManager.isLineNumberSelecting()) {
+          selectionManager.setLineNumberSelecting(false, -1);
+          selectionManager.setSelecting(false);
           pointerDown = false;
-          if (selectionManager.hasSelection) showPopupAtSelection();
+          if (selectionManager.hasSelection()) showPopupAtSelection();
           return true;
         }
 
@@ -11815,15 +11759,19 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         pointerDown = false;
         // clearActiveSuggestion();
 
-        if (draggingHandle != 0) {
-          if (draggingHandle == 1 || draggingHandle == 2) showPopupAtSelection();
-          draggingHandle = 0;
+        if (handlesManager.isDragging()) {
+          int draggingHandle = handlesManager.getDraggingHandle();
+          if (draggingHandle == HandlesManager.HANDLE_LEFT
+              || draggingHandle == HandlesManager.HANDLE_RIGHT) {
+            showPopupAtSelection();
+          }
+          handlesManager.setDraggingHandle(HandlesManager.HANDLE_NONE);
           invalidate();
           return true;
         }
 
         if (movedSinceDown && scrollManager.scroller.isFinished()) { // Just finished a scroll/drag
-          if (selectionManager.hasSelection) showPopupAtSelection();
+          if (selectionManager.hasSelection()) showPopupAtSelection();
           restartInput(); // Sync IME state
           Log.d("SodiumEditorView", "onTouchEvent.ACTION_UP: Scroll/Zoom ended, restarted input.");
           if (isWordWrapEnabled && wordWrapManager.wrapPrefixRebuildPending && !wordWrapManager.wrapPrefixBuilding) {
@@ -11834,7 +11782,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
 
         Log.d("SodiumEditorView", "onTouchEvent.ACTION_UP: Passing to GestureDetector.ACTION_UP.");
         inputManager.onGestureEvent(event);
-        if (selectionManager.hasSelection && !popupMenuManager.isPopupVisible()) {
+        if (selectionManager.hasSelection() && !popupMenuManager.isPopupVisible()) {
           showPopupAtSelection();
         }
         return true;
@@ -11842,10 +11790,9 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       case MotionEvent.ACTION_CANCEL:
         mainHandler.removeCallbacks(autoScrollRunnable);
         pointerDown = false;
-        draggingHandle = 0;
-        selectionManager.selecting = false;
-        selectionManager.isLineNumberSelecting = false;
-        selectionManager.lineNumberSelectAnchorLine = -1;
+        handlesManager.setDraggingHandle(HandlesManager.HANDLE_NONE);
+        selectionManager.setSelecting(false);
+        selectionManager.setLineNumberSelecting(false, -1);
         popupMenuManager.clearPressedAction();
         cancelPopupRipple();
         clearActiveSuggestion(); // Clear suggestion on touch cancel
@@ -11865,9 +11812,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
   private void updateHandlePosition(float touchX, float touchY) {
     // FIX: Any manual adjustment of the selection handles must deactivate ALL "Select All" flags.
     // This prevents the editor from deleting all content when the user has reduced the selection.
-    if (selectionManager.isSelectAllActive || selectionManager.isEntireFileSelected) {
-      selectionManager.isSelectAllActive = false;
-      selectionManager.isEntireFileSelected = false;
+    if (selectionManager.isSelectAllActive() || selectionManager.isEntireFileSelected()) {
+      selectionManager.setSelectAllState(false, false);
       // The popup needs to be redrawn as "Copy" and "Cut" might become available again.
       showPopupAtSelection();
     }
@@ -11887,7 +11833,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
     lastDragAtLineStart = clamped == 0;
     lastDragAtLineEnd = clamped == ln.length();
 
-    if (draggingHandle == 1) {
+    int draggingHandle = handlesManager.getDraggingHandle();
+    if (draggingHandle == HandlesManager.HANDLE_LEFT) {
       if (isRtl) {
         selectionManager.selEndLine = line;
         selectionManager.selEndChar = clamped;
@@ -11895,7 +11842,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         selectionManager.selStartLine = line;
         selectionManager.selStartChar = clamped;
       }
-    } else if (draggingHandle == 2) {
+    } else if (draggingHandle == HandlesManager.HANDLE_RIGHT) {
       if (isRtl) {
         selectionManager.selStartLine = line;
         selectionManager.selStartChar = clamped;
@@ -11903,9 +11850,8 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         selectionManager.selEndLine = line;
         selectionManager.selEndChar = clamped;
       }
-    } else if (draggingHandle == 3) {
-      cursorManager.setLine(line);
-      cursorManager.setChar(clamped);
+    } else if (draggingHandle == HandlesManager.HANDLE_CURSOR) {
+      cursorManager.setLineAndChar(line, clamped);
       scrollManager.keepCursorVisibleHorizontally();
     }
   }
@@ -11981,7 +11927,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       if (event.isPrintingKey()) return true;
     }
 
-    if (selectionManager.hasSelection && event.isPrintingKey()) {
+    if (selectionManager.hasSelection() && event.isPrintingKey()) {
       int uc = event.getUnicodeChar();
       if (uc != 0) {
         String s = String.valueOf((char) uc);
@@ -12008,17 +11954,17 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
         return true;
 
       case KeyEvent.KEYCODE_DEL:
-        if (selectionManager.hasSelection) replaceSelectionWithText("");
+        if (selectionManager.hasSelection()) replaceSelectionWithText("");
         else deleteCharAtCursor();
         return true;
 
       case KeyEvent.KEYCODE_FORWARD_DEL:
-        if (selectionManager.hasSelection) replaceSelectionWithText("");
+        if (selectionManager.hasSelection()) replaceSelectionWithText("");
         else deleteForwardAtCursor();
         return true;
 
       case KeyEvent.KEYCODE_ENTER:
-        if (selectionManager.hasSelection) replaceSelectionWithText("\n");
+        if (selectionManager.hasSelection()) replaceSelectionWithText("\n");
         else insertNewlineAtCursor();
         return true;
     }
@@ -12027,23 +11973,20 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
 
   private void moveCursorLeft() {
     clearActiveSuggestion(); // Clear suggestion when cursor moves
-    if (selectionManager.hasSelection) {
+    if (selectionManager.hasSelection()) {
       int sL = selectionManager.selStartLine, sC = selectionManager.selStartChar;
       if (comparePos(selectionManager.selStartLine, selectionManager.selStartChar, selectionManager.selEndLine, selectionManager.selEndChar) > 0) {
         sL = selectionManager.selEndLine;
         sC = selectionManager.selEndChar;
       }
-      cursorManager.setLine(sL);
-      cursorManager.setChar(sC);
-    } else if (cursorManager.getChar() > 0) cursorManager.setChar(cursorManager.getChar() - 1);
+      cursorManager.setLineAndChar(sL, sC);
+    } else if (cursorManager.getChar() > 0) cursorManager.moveCharDelta(-1);
     else if (cursorManager.getLine() > 0) {
-      cursorManager.setLine(cursorManager.getLine() - 1);
-      String ln = getLineTextForRender(cursorManager.getLine());
-      cursorManager.setChar(ln.length());
+      int nextLine = cursorManager.getLine() - 1;
+      String ln = getLineTextForRender(nextLine);
+      cursorManager.setLineAndChar(nextLine, ln.length());
     }
-    selectionManager.hasSelection = false;
-    selectionManager.isSelectAllActive = false;
-    selectionManager.isEntireFileSelected = false;
+    selectionManager.clearSelectionKeepLineNumberState();
     hidePopup();
     resetCursorBlink();
     invalidate();
@@ -12053,28 +11996,24 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
 
   private void moveCursorRight() {
     clearActiveSuggestion(); // Clear suggestion when cursor moves
-    if (selectionManager.hasSelection) {
+    if (selectionManager.hasSelection()) {
       int eL = selectionManager.selEndLine, eC = selectionManager.selEndChar;
       if (comparePos(selectionManager.selStartLine, selectionManager.selStartChar, selectionManager.selEndLine, selectionManager.selEndChar) > 0) {
         eL = selectionManager.selStartLine;
         eC = selectionManager.selStartChar;
       }
-      cursorManager.setLine(eL);
-      cursorManager.setChar(eC);
+      cursorManager.setLineAndChar(eL, eC);
     } else {
       String ln = getLineTextForRender(cursorManager.getLine());
-      if (cursorManager.getChar() < ln.length()) cursorManager.setChar(cursorManager.getChar() + 1);
+      if (cursorManager.getChar() < ln.length()) cursorManager.moveCharDelta(1);
       else {
         int next = cursorManager.getLine() + 1;
         if (!isEof || next < windowStartLine + linesWindow.size()) {
-          cursorManager.setLine(next);
-          cursorManager.setChar(0);
+          cursorManager.setLineAndChar(next, 0);
         }
       }
     }
-    selectionManager.hasSelection = false;
-    selectionManager.isSelectAllActive = false;
-    selectionManager.isEntireFileSelected = false;
+    selectionManager.clearSelectionKeepLineNumberState();
     hidePopup();
     resetCursorBlink();
     invalidate();
@@ -12084,23 +12023,20 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
 
   private void moveCursorUp() {
     clearActiveSuggestion(); // Clear suggestion when cursor moves
-    if (selectionManager.hasSelection) {
+    if (selectionManager.hasSelection()) {
       int sL = selectionManager.selStartLine, sC = selectionManager.selStartChar;
       if (comparePos(selectionManager.selStartLine, selectionManager.selStartChar, selectionManager.selEndLine, selectionManager.selEndChar) > 0) {
         sL = selectionManager.selEndLine;
         sC = selectionManager.selEndChar;
       }
-      cursorManager.setLine(sL);
-      cursorManager.setChar(sC);
+      cursorManager.setLineAndChar(sL, sC);
     }
     if (cursorManager.getLine() > 0) {
-      cursorManager.setLine(cursorManager.getLine() - 1);
-      String ln = getLineTextForRender(cursorManager.getLine());
-      cursorManager.setChar(Math.min(cursorManager.getChar(), ln.length()));
+      int nextLine = cursorManager.getLine() - 1;
+      String ln = getLineTextForRender(nextLine);
+      cursorManager.setLineAndChar(nextLine, Math.min(cursorManager.getChar(), ln.length()));
     }
-    selectionManager.hasSelection = false;
-    selectionManager.isSelectAllActive = false;
-    selectionManager.isEntireFileSelected = false;
+    selectionManager.clearSelectionKeepLineNumberState();
     hidePopup();
     resetCursorBlink();
     invalidate();
@@ -12110,24 +12046,20 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
 
   private void moveCursorDown() {
     clearActiveSuggestion(); // Clear suggestion when cursor moves
-    if (selectionManager.hasSelection) {
+    if (selectionManager.hasSelection()) {
       int eL = selectionManager.selEndLine, eC = selectionManager.selEndChar;
       if (comparePos(selectionManager.selStartLine, selectionManager.selStartChar, selectionManager.selEndLine, selectionManager.selEndChar) > 0) {
         eL = selectionManager.selStartLine;
         eC = selectionManager.selStartChar;
       }
-      cursorManager.setLine(eL);
-      cursorManager.setChar(eC);
+      cursorManager.setLineAndChar(eL, eC);
     }
     int next = cursorManager.getLine() + 1;
     if (!isEof || next < windowStartLine + linesWindow.size()) {
-      cursorManager.setLine(next);
-      String ln = getLineTextForRender(cursorManager.getLine());
-      cursorManager.setChar(Math.min(cursorManager.getChar(), ln.length()));
+      String ln = getLineTextForRender(next);
+      cursorManager.setLineAndChar(next, Math.min(cursorManager.getChar(), ln.length()));
     }
-    selectionManager.hasSelection = false;
-    selectionManager.isSelectAllActive = false;
-    selectionManager.isEntireFileSelected = false;
+    selectionManager.clearSelectionKeepLineNumberState();
     hidePopup();
     resetCursorBlink();
     invalidate();
@@ -12148,7 +12080,7 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
       if (hideKeyboardOnFocusLoss && imm != null) imm.hideSoftInputFromWindow(getWindowToken(), 0);
       cursorAnimationManager.onFocusChanged(false);
       hasComposing = false;
-      selectionManager.hasSelection = false;
+      selectionManager.clearSelectionKeepLineNumberState();
       hidePopup();
     }
   }
@@ -12392,11 +12324,11 @@ private void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine)
   }
 
   boolean isSelectAllActiveForWrap() {
-    return selectionManager.isSelectAllActive;
+    return selectionManager.isSelectAllActive();
   }
 
   boolean isEntireFileSelectedForWrap() {
-    return selectionManager.isEntireFileSelected;
+    return selectionManager.isEntireFileSelected();
   }
 
   boolean isWrapMetricsUsableForWindowForWrap(int widthPx) {

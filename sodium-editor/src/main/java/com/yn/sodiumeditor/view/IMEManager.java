@@ -196,8 +196,7 @@ final class IMEManager {
         SodiumEditorView.CursorTarget s = offsetToLineCharInContext(ctx, sOff);
         SodiumEditorView.CursorTarget e = offsetToLineCharInContext(ctx, eOff);
         view.setSelectionInternal(s.line, s.ch, e.line, e.ch);
-        view.setCursorLine(e.line);
-        view.setCursorChar(e.ch);
+        view.setCursorLineAndChar(e.line, e.ch);
         view.resetCursorBlink();
         view.invalidate();
         view.updateSuggestion();
@@ -221,8 +220,7 @@ final class IMEManager {
         SodiumEditorView.CursorTarget e = offsetToLineCharInContext(ctx, eOff);
         if (s.line != e.line) {
           view.setSelectionInternal(s.line, s.ch, e.line, e.ch);
-          view.setCursorLine(e.line);
-          view.setCursorChar(e.ch);
+          view.setCursorLineAndChar(e.line, e.ch);
           view.resetCursorBlink();
           view.invalidate();
           view.updateSuggestion();

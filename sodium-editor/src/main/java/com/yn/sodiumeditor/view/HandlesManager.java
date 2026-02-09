@@ -3,6 +3,11 @@ package com.yn.sodiumeditor.view;
 import android.graphics.RectF;
 
 final class HandlesManager {
+  static final int HANDLE_NONE = 0;
+  static final int HANDLE_LEFT = 1;
+  static final int HANDLE_RIGHT = 2;
+  static final int HANDLE_CURSOR = 3;
+
   private final RectF leftHandleRect = new RectF();
   private final RectF rightHandleRect = new RectF();
   private final RectF cursorHandleRect = new RectF();
@@ -16,6 +21,7 @@ final class HandlesManager {
   private int caretColor = cursorAndHandlesColor;
   private int cursorHandleColor = cursorAndHandlesColor;
   private int selectionHandleColor = cursorAndHandlesColor;
+  private int draggingHandle = HANDLE_NONE;
 
   RectF getLeftHandleRect() {
     return leftHandleRect;
@@ -91,5 +97,17 @@ final class HandlesManager {
 
   void setSelectionHandleColor(int color) {
     selectionHandleColor = color;
+  }
+
+  int getDraggingHandle() {
+    return draggingHandle;
+  }
+
+  void setDraggingHandle(int handle) {
+    draggingHandle = handle;
+  }
+
+  boolean isDragging() {
+    return draggingHandle != HANDLE_NONE;
   }
 }
