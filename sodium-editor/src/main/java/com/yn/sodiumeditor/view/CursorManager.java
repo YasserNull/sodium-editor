@@ -52,10 +52,10 @@ final class CursorManager {
     } else {
       cursorChar = targetCol;
     }
-    view.resetCursorBlink();
+    view.cursorAnimationManager.resetCursorBlink();
     view.scrollManager.keepCursorVisibleHorizontally();
     view.invalidate();
-    view.updateImeSelectionForCursorManager();
+    view.imeManager.updateImeSelection();
   }
 
   void setPosition(int line, int col) {
@@ -72,9 +72,9 @@ final class CursorManager {
     } else {
       cursorChar = targetCol;
     }
-    view.resetCursorBlink();
+    view.cursorAnimationManager.resetCursorBlink();
     view.scrollManager.keepCursorVisibleHorizontally();
     view.invalidate();
-    view.updateImeSelectionForCursorManager();
+    view.imeManager.updateImeSelection();
   }
 }

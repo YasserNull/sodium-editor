@@ -99,7 +99,9 @@ final class BracketGuideManager {
       return;
     }
 
-    BracketGuideLineState guideStart = view.getBracketGuideLineStateForBracket(start);
+    HighlightManager.HighlightLineState hlState = view.highlightManager.getLineStateAtStart(start);
+    BracketGuideLineState guideStart =
+        new BracketGuideLineState(hlState.inBlockComment, hlState.stringState);
     boolean guideBlock = guideStart.inBlockComment && view.isBlockCommentsEnabledForBracket();
     int guideString = guideStart.stringState;
     if (!view.isBlockCommentsEnabledForBracket()) guideBlock = false;
@@ -191,7 +193,7 @@ final class BracketGuideManager {
       if (inLineComment) break;
 
       if (state.inBlockComment) {
-        int end = view.findBlockCommentEndForBracket(line, i);
+        int end = HighlightManager.findBlockCommentEnd(line, i);
         if (end < 0) return tokensToDraw;
         i = end + 2;
         state.inBlockComment = false;
@@ -200,14 +202,14 @@ final class BracketGuideManager {
 
       if (state.stringState != 0) {
         HighlightManager.StringEndResult endResult =
-            view.findStringEndForStateForBracket(line, i, state.stringState);
+            view.highlightManager.findStringEndForState(line, i, state.stringState);
         if (!endResult.found) return tokensToDraw;
         i = endResult.endIndex;
         state.stringState = 0;
         continue;
       }
 
-      if (view.isLineCommentStartForBracket(line, i)) {
+      if (view.highlightManager.isLineCommentStart(line, i)) {
         inLineComment = true;
         break;
       }
@@ -216,8 +218,8 @@ final class BracketGuideManager {
           && i + 1 < length
           && line.charAt(i) == '/'
           && line.charAt(i + 1) == '*'
-          && !view.isTokenEscapedForBracket(line, i)) {
-        int end = view.findBlockCommentEndForBracket(line, i + 2);
+          && !HighlightManager.isTokenEscaped(line, i)) {
+        int end = HighlightManager.findBlockCommentEnd(line, i + 2);
         if (end < 0) {
           state.inBlockComment = true;
           return tokensToDraw;
@@ -226,8 +228,8 @@ final class BracketGuideManager {
         continue;
       }
 
-      if (view.isTripleQuoteStartForBracket(line, i) && !view.isEscapedForBracket(line, i)) {
-        int end = view.findTripleQuoteEndForBracket(line, i + 3);
+      if (view.highlightManager.isTripleQuoteStart(line, i) && !HighlightManager.isEscaped(line, i)) {
+        int end = HighlightManager.findTripleQuoteEnd(line, i + 3);
         if (end < 0) {
           if (view.isTripleQuoteStringsEnabledForBracket()) {
             state.stringState = view.getStringStateTripleForBracket();
@@ -239,11 +241,11 @@ final class BracketGuideManager {
       }
 
       char c = line.charAt(i);
-      if (view.isStringDelimiterForBracket(c) && !view.isEscapedForBracket(line, i)) {
-        int end = view.findStringEndForBracket(line, i + 1, c);
+      if (view.highlightManager.isStringDelimiter(c) && !HighlightManager.isEscaped(line, i)) {
+        int end = HighlightManager.findStringEnd(line, i + 1, c);
         if (end < 0) {
           if (view.isMultiLineStringsEnabledForBracket()) {
-            state.stringState = view.getStringStateForDelimiterForBracket(c);
+            state.stringState = view.highlightManager.getStringStateForDelimiter(c);
           }
           return tokensToDraw;
         }
@@ -251,7 +253,7 @@ final class BracketGuideManager {
         continue;
       }
 
-      if ((c == '{' || c == '}') && !view.isEscapedForBracket(line, i)) {
+      if ((c == '{' || c == '}') && !HighlightManager.isEscaped(line, i)) {
         if (c == '{') {
           int column = view.getBraceGuideColumnForLineForBracket(line, globalLine, i, firstNonSpace);
           float x = getGuideXForColumn(line, column, globalLine);
@@ -282,7 +284,7 @@ final class BracketGuideManager {
       if (inLineComment) break;
 
       if (state.inBlockComment) {
-        int end = view.findBlockCommentEndForBracket(line, i);
+        int end = HighlightManager.findBlockCommentEnd(line, i);
         if (end < 0) return;
         i = end + 2;
         state.inBlockComment = false;
@@ -291,14 +293,14 @@ final class BracketGuideManager {
 
       if (state.stringState != 0) {
         HighlightManager.StringEndResult endResult =
-            view.findStringEndForStateForBracket(line, i, state.stringState);
+            view.highlightManager.findStringEndForState(line, i, state.stringState);
         if (!endResult.found) return;
         i = endResult.endIndex;
         state.stringState = 0;
         continue;
       }
 
-      if (view.isLineCommentStartForBracket(line, i)) {
+      if (view.highlightManager.isLineCommentStart(line, i)) {
         inLineComment = true;
         break;
       }
@@ -307,8 +309,8 @@ final class BracketGuideManager {
           && i + 1 < length
           && line.charAt(i) == '/'
           && line.charAt(i + 1) == '*'
-          && !view.isTokenEscapedForBracket(line, i)) {
-        int end = view.findBlockCommentEndForBracket(line, i + 2);
+          && !HighlightManager.isTokenEscaped(line, i)) {
+        int end = HighlightManager.findBlockCommentEnd(line, i + 2);
         if (end < 0) {
           state.inBlockComment = true;
           return;
@@ -317,8 +319,8 @@ final class BracketGuideManager {
         continue;
       }
 
-      if (view.isTripleQuoteStartForBracket(line, i) && !view.isEscapedForBracket(line, i)) {
-        int end = view.findTripleQuoteEndForBracket(line, i + 3);
+      if (view.highlightManager.isTripleQuoteStart(line, i) && !HighlightManager.isEscaped(line, i)) {
+        int end = HighlightManager.findTripleQuoteEnd(line, i + 3);
         if (end < 0) {
           if (view.isTripleQuoteStringsEnabledForBracket()) {
             state.stringState = view.getStringStateTripleForBracket();
@@ -330,11 +332,11 @@ final class BracketGuideManager {
       }
 
       char c = line.charAt(i);
-      if (view.isStringDelimiterForBracket(c) && !view.isEscapedForBracket(line, i)) {
-        int end = view.findStringEndForBracket(line, i + 1, c);
+      if (view.highlightManager.isStringDelimiter(c) && !HighlightManager.isEscaped(line, i)) {
+        int end = HighlightManager.findStringEnd(line, i + 1, c);
         if (end < 0) {
           if (view.isMultiLineStringsEnabledForBracket()) {
-            state.stringState = view.getStringStateForDelimiterForBracket(c);
+            state.stringState = view.highlightManager.getStringStateForDelimiter(c);
           }
           return;
         }
@@ -342,7 +344,7 @@ final class BracketGuideManager {
         continue;
       }
 
-      if ((c == '{' || c == '}') && !view.isEscapedForBracket(line, i)) {
+      if ((c == '{' || c == '}') && !HighlightManager.isEscaped(line, i)) {
         if (c == '{') {
           int column = view.getBraceGuideColumnForLineForBracket(line, globalLine, i, firstNonSpace);
           float x = getGuideXForColumn(line, column, globalLine);
@@ -372,7 +374,7 @@ final class BracketGuideManager {
     h = 31 * h + (view.isMultiLineStringsEnabledForBracket() ? 1 : 0);
     h = 31 * h + (view.isBacktickStringsEnabledForBracket() ? 1 : 0);
     h = 31 * h + (view.isTripleQuoteStringsEnabledForBracket() ? 1 : 0);
-    List<String> delimiters = view.getLineCommentDelimitersForBracket();
+    List<String> delimiters = view.highlightManager.lineCommentDelimiters;
     for (int i = 0; i < delimiters.size(); i++) {
       h = 31 * h + delimiters.get(i).hashCode();
     }
@@ -386,10 +388,10 @@ final class BracketGuideManager {
   private float getGuideXForColumn(String line, int column, int globalLine) {
     if (line == null) line = "";
     if (column <= line.length()) {
-      return view.measureTextForBracket(line, column, globalLine);
+      return view.highlightManager.measureText(line, column, globalLine);
     }
-    float base = view.measureTextForBracket(line, line.length(), globalLine);
-    float spaceWidth = view.getVisualSpaceWidthForBracket();
+    float base = view.highlightManager.measureText(line, line.length(), globalLine);
+    float spaceWidth = view.whitespaceGuideManager.getVisualSpaceWidth(view.paint);
     return base + spaceWidth * (column - line.length());
   }
 
@@ -398,10 +400,10 @@ final class BracketGuideManager {
     if (x <= 0f) return Character.isWhitespace(line.charAt(0));
 
     List<HighlightManager.HighlightSpan> spans =
-        view.getHighlightSpansForBracket(globalLine);
+        view.highlightManager.highlightCache.get(globalLine);
     if (spans == null) {
-      spans = view.calculateSpansForLineForBracket(line, globalLine);
-      view.putHighlightSpansForBracket(globalLine, spans);
+      spans = view.highlightManager.calculateSpansForLine(line, globalLine);
+      view.highlightManager.highlightCache.put(globalLine, spans);
     }
 
     final int len = line.length();
@@ -416,7 +418,7 @@ final class BracketGuideManager {
         if (span.end <= pos) continue;
         if (span.start > pos) {
           for (int i = pos; i < Math.min(span.start, len); i++) {
-            float adv = view.measureTextWithVisualSpacesForBracket(line, i, i + 1);
+            float adv = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, i, i + 1, view.paint);
             if (x >= currentX - eps && x <= currentX + adv + eps) {
               return Character.isWhitespace(line.charAt(i));
             }
@@ -426,7 +428,7 @@ final class BracketGuideManager {
         int start = Math.max(pos, span.start);
         int end = Math.min(len, span.end);
         for (int i = start; i < end; i++) {
-          float adv = view.measureTextWithVisualSpacesForBracket(line, i, i + 1);
+          float adv = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, i, i + 1, view.paint);
           if (x >= currentX - eps && x <= currentX + adv + eps) {
             return Character.isWhitespace(line.charAt(i));
           }
@@ -438,7 +440,7 @@ final class BracketGuideManager {
 
     if (pos < len) {
       for (int i = pos; i < len; i++) {
-        float adv = view.measureTextWithVisualSpacesForBracket(line, i, i + 1);
+        float adv = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, i, i + 1, view.paint);
         if (x >= currentX - eps && x <= currentX + adv + eps) {
           return Character.isWhitespace(line.charAt(i));
         }

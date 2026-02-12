@@ -6,7 +6,7 @@ import android.graphics.RectF;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-final class FoldManager {
+public final class FoldManager {
   private final SodiumEditorView view;
   final Paint foldPlaceholderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   final Paint foldMarkerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -33,36 +33,36 @@ final class FoldManager {
     this.view = view;
   }
 
-  void setCodeFoldingEnabled(boolean enabled) {
+  public void setCodeFoldingEnabled(boolean enabled) {
     if (isCodeFoldingEnabled == enabled) return;
     isCodeFoldingEnabled = enabled;
-    view.invalidateLineNumberCacheForFold();
+    view.lineNumberManager.invalidateCache();
     if (!enabled) {
       foldRanges.clear();
       clearFoldRipple();
     }
-    view.markIndentGuideIntervalsDirtyForFold();
+    view.indentGuideManager.markIntervalsDirty();
     foldIntervalsDirty = true;
     view.invalidate();
   }
 
-  void setFoldPlaceholderColor(int color) {
+  public void setFoldPlaceholderColor(int color) {
     foldPlaceholderPaint.setColor(color);
     if (isCodeFoldingEnabled) view.invalidate();
   }
 
-  void setFoldMarkerColor(int color) {
+  public void setFoldMarkerColor(int color) {
     foldMarkerPaint.setColor(color);
     if (isCodeFoldingEnabled) view.invalidate();
   }
 
-  void setFoldMarkerTextSize(float size) {
+  public void setFoldMarkerTextSize(float size) {
     float base = view.paint.getTextSize();
     if (base <= 0f) return;
     foldMarkerTextScale = size / base;
     foldMarkerPaint.setTextSize(base * foldMarkerTextScale);
     view.requestLayout();
-    if (view.isWordWrapEnabled) view.invalidateWrapMetricsForFold(true);
+    if (view.isWordWrapEnabled) view.invalidateWrapMetrics(true);
     view.invalidate();
   }
 
@@ -76,12 +76,12 @@ final class FoldManager {
     if (range != null) return range.collapsed ? ">" : "v";
     if (lineText == null) return null;
     boolean isIndentCandidate =
-        view.isIndentationBlocksEnabledForFold() && isIndentFoldCandidate(lineText);
+        view.isIndentationBlocksEnabled && isIndentFoldCandidate(lineText);
     if (!isIndentCandidate && !shouldShowFoldMarkerFromLine(lineText)) return null;
     FoldRange found = findFoldRangeForLine(line);
     if (found == null) return null;
     foldRanges.put(found.startLine, found);
-    if (found.isIndentFold) view.markIndentGuideIntervalsDirtyForFold();
+    if (found.isIndentFold) view.indentGuideManager.markIntervalsDirty();
     foldIntervalsDirty = true;
     return "v";
   }
@@ -226,14 +226,71 @@ final class FoldManager {
   void drawFoldedLine(android.graphics.Canvas canvas, String line, int globalLine) {
     FoldRange range = foldRanges.get(globalLine);
     if (range == null) return;
-    view.drawFoldedLineForFoldManager(canvas, line, globalLine, range);
+    if (line == null) line = "";
+
+    float y =
+        Math.round(
+            view.scrollManager.getDrawLineTop(globalLine) + view.lineHeight - view.paint.descent());
+    view.paint.getTextBounds(
+        SodiumEditorView.FOLD_PLACEHOLDER_TEXT,
+        0,
+        SodiumEditorView.FOLD_PLACEHOLDER_TEXT.length(),
+        view.textBounds);
+    float top = Math.round(y + view.textBounds.top - foldPlaceholderPadY);
+    float bottom = Math.round(y + view.textBounds.bottom + foldPlaceholderPadY);
+
+    int prefixEnd;
+    if (range.isBlockComment) {
+      prefixEnd = Math.min(range.openCharIndex + 2, line.length());
+    } else if (range.isIndentFold) {
+      prefixEnd = line.length();
+    } else {
+      prefixEnd = Math.min(range.openCharIndex + 1, line.length());
+    }
+
+    float xStart = view.highlightManager.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
+    float placeholderWidth = Math.max(0f, view.paint.measureText(SodiumEditorView.FOLD_PLACEHOLDER_TEXT));
+    foldPlaceholderRect.set(xStart, top, xStart + placeholderWidth, bottom);
+    canvas.drawRoundRect(foldPlaceholderRect, foldPlaceholderCorner, foldPlaceholderCorner, foldPlaceholderPaint);
+
+    view.highlightManager.drawHighlightedSegment(canvas, line, globalLine, 0, prefixEnd, 0f, y);
+
+    view.paint.setUnderlineText(false);
+    canvas.drawText(SodiumEditorView.FOLD_PLACEHOLDER_TEXT, xStart, y, view.paint);
+
+    float xAfter = xStart + placeholderWidth;
+    if (range.isBlockComment) {
+      android.graphics.Paint commentPaint =
+          (view.highlightManager.blockCommentHighlightRule != null)
+              ? view.highlightManager.blockCommentHighlightRule.paint
+              : view.paint;
+      commentPaint.setUnderlineText(false);
+      canvas.drawText("*/", xAfter, y, commentPaint);
+    } else if (!range.isIndentFold) {
+      canvas.drawText(String.valueOf(range.closeChar), xAfter, y, view.paint);
+    }
   }
 
   boolean isFoldPlaceholderHit(int globalLine, String line, float localX) {
     if (!isCodeFoldingEnabled) return false;
     FoldRange range = foldRanges.get(globalLine);
     if (range == null || !range.collapsed) return false;
-    return view.isFoldPlaceholderHitForFoldManager(globalLine, line, localX, range);
+    if (line == null) line = "";
+
+    int prefixEnd;
+    if (range.isBlockComment) {
+      prefixEnd = Math.min(range.openCharIndex + 2, line.length());
+    } else if (range.isIndentFold) {
+      prefixEnd = line.length();
+    } else {
+      prefixEnd = Math.min(range.openCharIndex + 1, line.length());
+    }
+    float xStart = view.highlightManager.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
+    float placeholderWidth = Math.max(0f, view.paint.measureText(SodiumEditorView.FOLD_PLACEHOLDER_TEXT));
+    float pad = Math.max(0f, foldPlaceholderPadX);
+    float left = xStart - pad;
+    float right = xStart + placeholderWidth + pad;
+    return localX >= left && localX <= right;
   }
 
   boolean isLineHiddenByFold(int line) {
@@ -334,7 +391,7 @@ final class FoldManager {
     if (created == null) return false;
     created.collapsed = true;
     foldRanges.put(created.startLine, created);
-    if (created.isIndentFold) view.markIndentGuideIntervalsDirtyForFold();
+    if (created.isIndentFold) view.indentGuideManager.markIntervalsDirty();
     foldIntervalsDirty = true;
     view.invalidate();
     return true;
@@ -346,28 +403,28 @@ final class FoldManager {
 
     java.io.RandomAccessFile raf = null;
     try {
-      if (view.getSourceFileForFold() != null && view.isIndexReadyForFold()) {
-        raf = new java.io.RandomAccessFile(view.getSourceFileForFold(), "r");
+      if (view.sourceFile != null && view.isIndexReady) {
+        raf = new java.io.RandomAccessFile(view.sourceFile, "r");
       }
 
       String ln = getLineTextForFoldScan(line, raf);
       if (ln == null) return null;
 
-      HighlightManager.HighlightLineState startState = view.getLineStateAtStartForFold(line);
+      HighlightManager.HighlightLineState startState = view.highlightManager.getLineStateAtStart(line);
       boolean inBlockComment =
-          startState.inBlockComment && view.isBlockCommentsEnabledForFold();
+          startState.inBlockComment && view.isBlockCommentsEnabled;
       int stringState = startState.stringState;
-      if (!view.isBlockCommentsEnabledForFold()) inBlockComment = false;
-      if (!view.isMultiLineStringsEnabledForFold()
-          && stringState != view.getStringStateTripleForFold()) stringState = 0;
-      if (!view.isBacktickStringsEnabledForFold()
-          && stringState == view.getStringStateBacktickForFold()) stringState = 0;
-      if (!view.isTripleQuoteStringsEnabledForFold()
-          && stringState == view.getStringStateTripleForFold()) stringState = 0;
+      if (!view.isBlockCommentsEnabled) inBlockComment = false;
+      if (!view.isMultiLineStringsEnabled
+          && stringState != HighlightManager.STRING_STATE_TRIPLE) stringState = 0;
+      if (!view.isBacktickStringsEnabled
+          && stringState == HighlightManager.STRING_STATE_BACKTICK) stringState = 0;
+      if (!view.isTripleQuoteStringsEnabled
+          && stringState == HighlightManager.STRING_STATE_TRIPLE) stringState = 0;
 
       if (inBlockComment || stringState != 0) return null;
 
-      if (view.isIndentationBlocksEnabledForFold() && isIndentFoldCandidate(ln)) {
+      if (view.isIndentationBlocksEnabled && isIndentFoldCandidate(ln)) {
         FoldRange indentRange = findIndentFoldRangeForLine(line, raf);
         if (indentRange != null) return indentRange;
       }
@@ -408,30 +465,49 @@ final class FoldManager {
   }
 
   String getLineTextForFoldScan(int line, @androidx.annotation.Nullable java.io.RandomAccessFile raf) {
-    return view.getLineTextForFoldScanInternal(line, raf);
+    if (line < 0) return null;
+    String mod = view.modifiedLines.get(line);
+    if (mod != null) return mod;
+    if (line >= view.windowStartLine && line < view.windowStartLine + view.linesWindow.size()) {
+      String text = view.getLineFromWindowLocal(line - view.windowStartLine);
+      return (text != null) ? text : "";
+    }
+    if (raf != null && view.isIndexReady) {
+      long offset;
+      synchronized (view.lineOffsetsLock) {
+        if (line < 0 || line >= view.lineOffsets.length) return null;
+        offset = view.lineOffsets[line];
+      }
+      try {
+        return view.readLineUtf8AtByte(raf, offset);
+      } catch (Exception ignored) {
+        return null;
+      }
+    }
+    return null;
   }
 
   FoldRange findIndentFoldRangeForLine(int line, @androidx.annotation.Nullable java.io.RandomAccessFile raf) {
-    if (!view.isIndentationBlocksEnabledForFold()) return null;
+    if (!view.isIndentationBlocksEnabled) return null;
     String ln = getLineTextForFoldScan(line, raf);
     if (ln == null) return null;
     String trimmed = rstripWhitespace(ln);
     if (trimmed.isEmpty() || !trimmed.endsWith(":")) return null;
 
-    int baseIndent = view.getIndentWidthForFold(ln);
+    int baseIndent = view.getIndentWidth(ln);
     int totalLines = view.getLinesCount();
     if (totalLines <= 0)
       totalLines =
-          Math.max(line + 1, view.getWindowStartLineForFold() + view.getLinesWindowSizeForFold());
+          Math.max(line + 1, view.windowStartLine + view.linesWindow.size());
 
     int endLine = -1;
-    int scanEnd = Math.min(totalLines, line + view.getIndentFoldScanLimitForFold());
+    int scanEnd = Math.min(totalLines, line + SodiumEditorView.INDENT_FOLD_SCAN_LIMIT);
     for (int i = line + 1; i < scanEnd; i++) {
       String next = getLineTextForFoldScan(i, raf);
       if (next == null) break;
       String nextTrimmed = rstripWhitespace(next);
       if (nextTrimmed.isEmpty()) continue;
-      int indent = view.getIndentWidthForFold(next);
+      int indent = view.getIndentWidth(next);
       if (indent <= baseIndent) {
         endLine = i - 1;
         break;
@@ -458,7 +534,7 @@ final class FoldManager {
       if (inLineComment) break;
 
       if (inBlockComment) {
-        int end = view.findBlockCommentEndForFold(line, i);
+        int end = HighlightManager.findBlockCommentEnd(line, i);
         if (end < 0) return null;
         i = end + 2;
         inBlockComment = false;
@@ -467,49 +543,49 @@ final class FoldManager {
 
       if (stringState != 0) {
         HighlightManager.StringEndResult endResult =
-            view.findStringEndForStateForFold(line, i, stringState);
+            view.highlightManager.findStringEndForState(line, i, stringState);
         if (!endResult.found) return null;
         i = endResult.endIndex;
         stringState = 0;
         continue;
       }
 
-      if (view.isLineCommentStartForFold(line, i)) {
+      if (view.highlightManager.isLineCommentStart(line, i)) {
         inLineComment = true;
         break;
       }
 
-      if (view.isBlockCommentsEnabledForFold()
+      if (view.isBlockCommentsEnabled
           && i + 1 < len
           && line.charAt(i) == '/'
           && line.charAt(i + 1) == '*'
-          && !view.isTokenEscapedForFold(line, i)) {
+          && !HighlightManager.isTokenEscaped(line, i)) {
         return new FoldToken(i, true, '/');
       }
 
-      if (view.isTripleQuoteStartForFold(line, i) && !view.isEscapedForFold(line, i)) {
-        int end = view.findTripleQuoteEndForFold(line, i + 3);
+      if (view.highlightManager.isTripleQuoteStart(line, i) && !HighlightManager.isEscaped(line, i)) {
+        int end = HighlightManager.findTripleQuoteEnd(line, i + 3);
         if (end < 0) return null;
         i = end + 3;
         continue;
       }
 
       char c = line.charAt(i);
-      if (view.isStringDelimiterForFold(c) && !view.isEscapedForFold(line, i)) {
-        int end = view.findStringEndForFold(line, i + 1, c);
+      if (view.highlightManager.isStringDelimiter(c) && !HighlightManager.isEscaped(line, i)) {
+        int end = HighlightManager.findStringEnd(line, i + 1, c);
         if (end < 0) return null;
         i = end + 1;
         continue;
       }
 
-      if (view.isOpeningBracketForFold(c) && !view.isEscapedForFold(line, i)) {
+      if (view.isOpeningBracket(c) && !HighlightManager.isEscaped(line, i)) {
         if (c == '{') return new FoldToken(i, false, c);
       }
       i++;
     }
     for (int j = Math.max(0, startIndex); j < len; j++) {
       char c = line.charAt(j);
-      if ((c == '(' || c == '[') && !view.isEscapedForFold(line, j)) {
+      if ((c == '(' || c == '[') && !HighlightManager.isEscaped(line, j)) {
         return new FoldToken(j, false, c);
       }
     }
@@ -523,13 +599,13 @@ final class FoldManager {
       totalLines =
           Math.max(
               startLine + 1,
-              view.getWindowStartLineForFold() + view.getLinesWindowSizeForFold());
+              view.windowStartLine + view.linesWindow.size());
 
     for (int line = startLine; line < totalLines; line++) {
       String text = getLineTextForFoldScan(line, raf);
       if (text == null) break;
       int from = (line == startLine) ? Math.min(startIndex + 2, text.length()) : 0;
-      int end = view.findBlockCommentEndForFold(text, from);
+      int end = HighlightManager.findBlockCommentEnd(text, from);
       if (end >= 0) return line;
     }
     return -1;
@@ -542,24 +618,24 @@ final class FoldManager {
       totalLines =
           Math.max(
               startLine + 1,
-              view.getWindowStartLineForFold() + view.getLinesWindowSizeForFold());
+              view.windowStartLine + view.linesWindow.size());
 
-    HighlightManager.HighlightLineState startState = view.getLineStateAtStartForFold(startLine);
+    HighlightManager.HighlightLineState startState = view.highlightManager.getLineStateAtStart(startLine);
     boolean inBlockComment =
-        startState.inBlockComment && view.isBlockCommentsEnabledForFold();
+        startState.inBlockComment && view.isBlockCommentsEnabled;
     int stringState = startState.stringState;
-    if (!view.isBlockCommentsEnabledForFold()) inBlockComment = false;
-    if (!view.isMultiLineStringsEnabledForFold()
-        && stringState != view.getStringStateTripleForFold()) stringState = 0;
-    if (!view.isBacktickStringsEnabledForFold()
-        && stringState == view.getStringStateBacktickForFold()) stringState = 0;
-    if (!view.isTripleQuoteStringsEnabledForFold()
-        && stringState == view.getStringStateTripleForFold()) stringState = 0;
+    if (!view.isBlockCommentsEnabled) inBlockComment = false;
+    if (!view.isMultiLineStringsEnabled
+        && stringState != HighlightManager.STRING_STATE_TRIPLE) stringState = 0;
+    if (!view.isBacktickStringsEnabled
+        && stringState == HighlightManager.STRING_STATE_BACKTICK) stringState = 0;
+    if (!view.isTripleQuoteStringsEnabled
+        && stringState == HighlightManager.STRING_STATE_TRIPLE) stringState = 0;
 
     if (inBlockComment || stringState != 0) return null;
 
     int depth = 1;
-    char closeChar = view.matchingBracketForFold(openChar);
+    char closeChar = view.matchingBracket(openChar);
 
     for (int line = startLine; line < totalLines; line++) {
       String text = getLineTextForFoldScan(line, raf);
@@ -572,7 +648,7 @@ final class FoldManager {
         if (inLineComment) break;
 
         if (inBlockComment) {
-          int end = view.findBlockCommentEndForFold(text, i);
+          int end = HighlightManager.findBlockCommentEnd(text, i);
           if (end < 0) break;
           i = end + 2;
           inBlockComment = false;
@@ -581,49 +657,49 @@ final class FoldManager {
 
         if (stringState != 0) {
           HighlightManager.StringEndResult endResult =
-              view.findStringEndForStateForFold(text, i, stringState);
+              view.highlightManager.findStringEndForState(text, i, stringState);
           if (!endResult.found) return null;
           i = endResult.endIndex;
           stringState = 0;
           continue;
         }
 
-        if (view.isLineCommentStartForFold(text, i)) {
+        if (view.highlightManager.isLineCommentStart(text, i)) {
           inLineComment = true;
           continue;
         }
 
-        if (view.isBlockCommentsEnabledForFold()
+        if (view.isBlockCommentsEnabled
             && i + 1 < len
             && text.charAt(i) == '/'
             && text.charAt(i + 1) == '*'
-            && !view.isTokenEscapedForFold(text, i)) {
+            && !HighlightManager.isTokenEscaped(text, i)) {
           inBlockComment = true;
           i += 2;
           continue;
         }
 
-        if (view.isTripleQuoteStartForFold(text, i) && !view.isEscapedForFold(text, i)) {
-          int end = view.findTripleQuoteEndForFold(text, i + 3);
+        if (view.highlightManager.isTripleQuoteStart(text, i) && !HighlightManager.isEscaped(text, i)) {
+          int end = HighlightManager.findTripleQuoteEnd(text, i + 3);
           if (end < 0) return null;
           i = end + 3;
           continue;
         }
 
         char c = text.charAt(i);
-        if (view.isStringDelimiterForFold(c) && !view.isEscapedForFold(text, i)) {
-          int end = view.findStringEndForFold(text, i + 1, c);
+        if (view.highlightManager.isStringDelimiter(c) && !HighlightManager.isEscaped(text, i)) {
+          int end = HighlightManager.findStringEnd(text, i + 1, c);
           if (end < 0) return null;
           i = end + 1;
           continue;
         }
 
-        if (c == openChar && !view.isEscapedForFold(text, i)) {
+        if (c == openChar && !HighlightManager.isEscaped(text, i)) {
           depth++;
           i++;
           continue;
         }
-        if (c == closeChar && !view.isEscapedForFold(text, i)) {
+        if (c == closeChar && !HighlightManager.isEscaped(text, i)) {
           depth--;
           if (depth == 0) return new FoldMatch(line, closeChar);
         }

@@ -192,15 +192,15 @@ final class WhitespaceGuideManager {
       char c = text.charAt(start + i);
       total +=
           getCharAdvanceWidth(
-              c, widths[i], p, view.getDefaultTabSizeSpacesForWhitespace());
+              c, widths[i], p, SodiumEditorView.DEFAULT_TAB_SIZE_SPACES);
     }
     return total;
   }
 
   List<HighlightManager.HighlightSpan> calculateSyntaxSpansForLine(
       SodiumEditorView view, String line, int globalLine) {
-    if (view.getLogicalLineLengthForWhitespace(globalLine, line)
-        > view.getMaxSyntaxLineLengthForWhitespace()) {
+    if (view.getLogicalLineLength(globalLine, line)
+        > view.highlightManager.maxSyntaxLineLength) {
       return Collections.emptyList();
     }
     if (line.isEmpty()) {
@@ -208,21 +208,22 @@ final class WhitespaceGuideManager {
     }
 
     HighlightManager.HighlightLineState startState =
-        view.getLineStateAtStartForWhitespace(globalLine);
+        view.highlightManager.getLineStateAtStart(globalLine);
     HighlightManager.LineParseResult parseResult =
-        view.parseLineForSyntaxForWhitespace(
+        view.highlightManager.parseLineForSyntax(
             line,
             startState.inBlockComment,
             startState.stringState,
             getStringRule(),
-            getCommentRule());
+            getCommentRule(),
+            false);
 
-    if (globalLine >= view.getWindowStartLineForWhitespace()
-        && globalLine < view.getWindowStartLineForWhitespace() + view.getWindowLineCountForWhitespace()) {
-      if (view.isBlockCommentsEnabledForWhitespace()) {
-        view.cacheBlockCommentEndStateForWhitespace(globalLine, parseResult.endsInBlockComment);
+    if (globalLine >= view.windowStartLine
+        && globalLine < view.windowStartLine + view.linesWindow.size()) {
+      if (view.isBlockCommentsEnabled) {
+        view.highlightManager.blockCommentEndStateCache.put(globalLine, parseResult.endsInBlockComment);
       }
-      view.cacheStringEndStateForWhitespace(globalLine, parseResult.endsInStringState);
+      view.highlightManager.stringEndStateCache.put(globalLine, parseResult.endsInStringState);
     }
 
     List<HighlightManager.HighlightSpan> spans = parseResult.spans;
@@ -234,16 +235,16 @@ final class WhitespaceGuideManager {
 
   List<HighlightManager.HighlightSpan> getWhitespaceGuideSyntaxSpans(
       SodiumEditorView view, String line, int globalLine) {
-    HighlightManager.HighlightRule stringRule = view.getStringHighlightRuleForWhitespace();
-    HighlightManager.HighlightRule commentRule = view.getBlockCommentHighlightRuleForWhitespace();
+    HighlightManager.HighlightRule stringRule = view.highlightManager.stringHighlightRule;
+    HighlightManager.HighlightRule commentRule = view.highlightManager.blockCommentHighlightRule;
     if (stringRule == null && commentRule == null) {
       return calculateSyntaxSpansForLine(view, line, globalLine);
     }
 
-    List<HighlightManager.HighlightSpan> spans = view.getHighlightCacheForWhitespace(globalLine);
+    List<HighlightManager.HighlightSpan> spans = view.highlightManager.highlightCache.get(globalLine);
     if (spans == null) {
-      spans = view.calculateSpansForLineForWhitespace(line, globalLine);
-      view.putHighlightCacheForWhitespace(globalLine, spans);
+      spans = view.highlightManager.calculateSpansForLine(line, globalLine);
+      view.highlightManager.highlightCache.put(globalLine, spans);
     }
     if (spans.isEmpty()) return Collections.emptyList();
 
@@ -269,12 +270,12 @@ final class WhitespaceGuideManager {
       int start,
       int end,
       float y) {
-    if (!view.isWhitespaceGuidesEnabledForWhitespace()
-        || view.isHeavyDrawSuppressedForWhitespace()
+    if (!view.isWhitespaceGuidesEnabled
+        || view.isHeavyDrawSuppressed()
         || line == null
         || line.isEmpty())
       return;
-    if (view.isRtlForWhitespace()) {
+    if (view.isRtl) {
       drawWhitespaceGuidesForRangeRtl(view, canvas, line, globalLine, start, end, y);
       return;
     }
@@ -288,17 +289,17 @@ final class WhitespaceGuideManager {
     boolean hasSyntaxSpans = !syntaxSpans.isEmpty();
     getDrawState().syntaxIndex = 0;
     boolean mirrorRtl =
-        view.isRtlForWhitespace() && !view.isMixedDirectionTextForWhitespace(line, start, end);
+        view.isRtl && !view.isMixedDirectionText(line, start, end);
     float rtlWidth =
         mirrorRtl
-            ? view.measureHighlightedSegmentWidthForWhitespace(line, globalLine, start, end)
+            ? view.highlightManager.measureHighlightedSegmentWidth(line, globalLine, start, end)
             : 0f;
 
     List<HighlightManager.HighlightSpan> visualSpans =
-        view.getHighlightCacheForWhitespace(globalLine);
+        view.highlightManager.highlightCache.get(globalLine);
     if (visualSpans == null) {
-      visualSpans = view.calculateSpansForLineForWhitespace(line, globalLine);
-      view.putHighlightCacheForWhitespace(globalLine, visualSpans);
+      visualSpans = view.highlightManager.calculateSpansForLine(line, globalLine);
+      view.highlightManager.highlightCache.put(globalLine, visualSpans);
     }
 
     float currentX = 0f;
@@ -323,7 +324,7 @@ final class WhitespaceGuideManager {
                   segStart,
                   currentX,
                   y,
-                  view.getBasePaintForWhitespace(),
+                  view.paint,
                   syntaxSpans,
                   hasSyntaxSpans,
                   getDrawState(),
@@ -359,7 +360,7 @@ final class WhitespaceGuideManager {
           end,
           currentX,
           y,
-          view.getBasePaintForWhitespace(),
+          view.paint,
           syntaxSpans,
           hasSyntaxSpans,
           getDrawState(),
@@ -369,11 +370,11 @@ final class WhitespaceGuideManager {
 
   void drawWhitespaceGuidesForLine(
       SodiumEditorView view, Canvas canvas, String line, int globalLine, float y) {
-    if (!view.isWhitespaceGuidesEnabledForWhitespace()
-        || view.isHeavyDrawSuppressedForWhitespace()
+    if (!view.isWhitespaceGuidesEnabled
+        || view.isHeavyDrawSuppressed()
         || line.isEmpty()) return;
     if (line.indexOf(' ') < 0 && line.indexOf('\t') < 0) return;
-    if (view.isRtlForWhitespace()) {
+    if (view.isRtl) {
       drawWhitespaceGuidesForRangeRtl(view, canvas, line, globalLine, 0, line.length(), y);
       return;
     }
@@ -385,10 +386,10 @@ final class WhitespaceGuideManager {
     float rtlWidth = 0f;
 
     List<HighlightManager.HighlightSpan> visualSpans =
-        view.getHighlightCacheForWhitespace(globalLine);
+        view.highlightManager.highlightCache.get(globalLine);
     if (visualSpans == null) {
-      visualSpans = view.calculateSpansForLineForWhitespace(line, globalLine);
-      view.putHighlightCacheForWhitespace(globalLine, visualSpans);
+      visualSpans = view.highlightManager.calculateSpansForLine(line, globalLine);
+      view.highlightManager.highlightCache.put(globalLine, visualSpans);
     }
 
     float currentX = 0f;
@@ -410,7 +411,7 @@ final class WhitespaceGuideManager {
                   span.start,
                   currentX,
                   y,
-                  view.getBasePaintForWhitespace(),
+                  view.paint,
                   syntaxSpans,
                   hasSyntaxSpans,
                   getDrawState(),
@@ -444,7 +445,7 @@ final class WhitespaceGuideManager {
           line.length(),
           currentX,
           y,
-          view.getBasePaintForWhitespace(),
+          view.paint,
           syntaxSpans,
           hasSyntaxSpans,
           getDrawState(),
@@ -475,9 +476,9 @@ final class WhitespaceGuideManager {
 
     Paint.FontMetrics dotFm = getGuidePaint().getFontMetrics();
     float dotY = y + (dotFm.ascent + dotFm.descent) * 0.5f;
-    int spaceStep = view.getWhitespaceGuideStepForWhitespace();
-    int tabSpaces = view.getDefaultTabSizeSpacesForWhitespace();
-    String tabGlyph = view.getWhitespaceGuideTabGlyphForWhitespace();
+    int spaceStep = getSpaceStep();
+    int tabSpaces = SodiumEditorView.DEFAULT_TAB_SIZE_SPACES;
+    String tabGlyph = SodiumEditorView.WHITESPACE_GUIDE_TAB;
 
     String sub = line.substring(start, end);
     Bidi bidi = new Bidi(sub, Bidi.DIRECTION_RIGHT_TO_LEFT);
@@ -494,15 +495,15 @@ final class WhitespaceGuideManager {
       if (runLen <= 0) continue;
 
       float[] widths = ensureWhitespaceWidthBuffer(Math.max(runLen, 64));
-      view.getBasePaintForWhitespace().getTextWidths(line, runStart, runLimit, widths);
+      view.paint.getTextWidths(line, runStart, runLimit, widths);
 
       float runWidth = 0f;
       for (int i = 0; i < runLen; i++) {
         char c = line.charAt(runStart + i);
         float adv =
             (c == '\t')
-                ? getVisualTabWidth(view.getBasePaintForWhitespace(), tabSpaces)
-                : getCharAdvanceWidth(c, widths[i], view.getBasePaintForWhitespace(), tabSpaces);
+                ? getVisualTabWidth(view.paint, tabSpaces)
+                : getCharAdvanceWidth(c, widths[i], view.paint, tabSpaces);
         runWidth += adv;
       }
 
@@ -522,8 +523,8 @@ final class WhitespaceGuideManager {
         char c = line.charAt(charIndex);
         float adv =
             (c == '\t')
-                ? getVisualTabWidth(view.getBasePaintForWhitespace(), tabSpaces)
-                : getCharAdvanceWidth(c, widths[i], view.getBasePaintForWhitespace(), tabSpaces);
+                ? getVisualTabWidth(view.paint, tabSpaces)
+                : getCharAdvanceWidth(c, widths[i], view.paint, tabSpaces);
 
         if (!inSyntax && c == ' ') {
           if (spaceStep <= 1 || (spaceSeqIndex % spaceStep) == 0) {
@@ -574,9 +575,9 @@ final class WhitespaceGuideManager {
     float[] widths = ensureWhitespaceWidthBuffer(segLen);
     segmentPaint.getTextWidths(line, start, end, widths);
 
-    final int spaceStep = view.getWhitespaceGuideStepForWhitespace();
-    int tabSpaces = view.getDefaultTabSizeSpacesForWhitespace();
-    String tabGlyph = view.getWhitespaceGuideTabGlyphForWhitespace();
+    final int spaceStep = getSpaceStep();
+    int tabSpaces = SodiumEditorView.DEFAULT_TAB_SIZE_SPACES;
+    String tabGlyph = SodiumEditorView.WHITESPACE_GUIDE_TAB;
     float currentX = x;
     int localSyntaxIndex = hasSyntaxSpans ? state.syntaxIndex : 0;
     HighlightManager.HighlightSpan activeSyntax =
@@ -626,7 +627,7 @@ final class WhitespaceGuideManager {
           float visualWidth = widths[runStart + k];
           if (spaceStep <= 1 || (k % spaceStep) == 0) {
             float dotX = runCursorX + visualWidth * 0.5f;
-            if (view.isRtlForWhitespace() && rtlWidth > 0f) {
+            if (view.isRtl && rtlWidth > 0f) {
               dotX = rtlWidth - dotX;
             }
             dots[pointCount++] = dotX;
@@ -646,7 +647,7 @@ final class WhitespaceGuideManager {
       if (!isInSyntaxSpan && c == '\t') {
         float charWidth = getVisualTabWidth(segmentPaint, tabSpaces);
         float glyphX = currentX + Math.max(0f, (charWidth - getTabWidth()) * 0.5f);
-        if (view.isRtlForWhitespace() && rtlWidth > 0f) {
+        if (view.isRtl && rtlWidth > 0f) {
           glyphX = rtlWidth - (currentX + charWidth)
               + Math.max(0f, (charWidth - getTabWidth()) * 0.5f);
         }

@@ -9,7 +9,7 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-final class SearchManager {
+public final class SearchManager {
   private final SodiumEditorView view;
 
   private String searchQuery = "";
@@ -118,10 +118,10 @@ final class SearchManager {
 
       boolean isCurrentMatch =
           highlightCurrentSearchMatch
-              && !view.hasSelectionValue()
-              && globalLine == view.getCursorLine()
-              && view.getCursorChar() >= start
-              && view.getCursorChar() <= end;
+              && !view.selectionManager.hasSelection()
+              && globalLine == view.cursorManager.getLine()
+              && view.cursorManager.getChar() >= start
+              && view.cursorManager.getChar() <= end;
 
       Paint paintToUse = isCurrentMatch ? currentSearchMatchPaint : searchHighlightPaint;
       canvas.drawRect(left, top, right, bottom, paintToUse);
@@ -150,10 +150,10 @@ final class SearchManager {
 
       boolean isCurrentMatch =
           highlightCurrentSearchMatch
-              && !view.hasSelectionValue()
-              && globalLine == view.getCursorLine()
-              && view.getCursorChar() >= start
-              && view.getCursorChar() <= end;
+              && !view.selectionManager.hasSelection()
+              && globalLine == view.cursorManager.getLine()
+              && view.cursorManager.getChar() >= start
+              && view.cursorManager.getChar() <= end;
 
       Paint paintToUse = isCurrentMatch ? currentSearchMatchPaint : searchHighlightPaint;
       canvas.drawRect(left, top, right, bottom, paintToUse);
@@ -165,8 +165,8 @@ final class SearchManager {
     int total = view.getLinesCount();
     if (total <= 0) return false;
 
-    int startLine = Math.max(0, view.getCursorLine());
-    int startChar = Math.max(0, view.getCursorChar());
+    int startLine = Math.max(0, view.cursorManager.getLine());
+    int startChar = Math.max(0, view.cursorManager.getChar());
 
     SearchMatch match =
         forward
@@ -175,7 +175,7 @@ final class SearchManager {
     if (match == null) return false;
 
     view.ensureLineInWindowForSearch(match.line, true);
-    view.setCursorPosition(match.line, match.start);
+    view.cursorManager.setPosition(match.line, match.start);
     return true;
   }
 
@@ -330,8 +330,8 @@ final class SearchManager {
     int total = view.getLinesCount();
     if (total <= 0) return false;
 
-    int startLine = Math.max(0, view.getCursorLine());
-    int startChar = Math.max(0, view.getCursorChar());
+    int startLine = Math.max(0, view.cursorManager.getLine());
+    int startChar = Math.max(0, view.cursorManager.getChar());
 
     SearchMatch match =
         forward
@@ -350,8 +350,8 @@ final class SearchManager {
     int total = view.getLinesCount();
     if (total <= 0) return false;
 
-    int startLine = Math.max(0, view.getCursorLine());
-    int startChar = Math.max(0, view.getCursorChar());
+    int startLine = Math.max(0, view.cursorManager.getLine());
+    int startChar = Math.max(0, view.cursorManager.getChar());
     if (forward) {
       startChar = Math.max(-1, startChar - 1);
     } else {
@@ -387,8 +387,8 @@ final class SearchManager {
 
   private SearchMatch findSearchMatchAtCursor() {
     if (!isSearchActive()) return null;
-    int line = view.getCursorLine();
-    int ch = view.getCursorChar();
+    int line = view.cursorManager.getLine();
+    int ch = view.cursorManager.getChar();
     String lineText = view.getLineTextForRender(line);
     if (lineText == null) lineText = "";
 
@@ -447,25 +447,25 @@ final class SearchManager {
     view.invalidate();
   }
 
-  void setSearchHighlightEnabled(boolean enabled) {
+  public void setSearchHighlightEnabled(boolean enabled) {
     if (searchHighlightEnabled == enabled) return;
     searchHighlightEnabled = enabled;
     view.invalidate();
   }
 
-  void setSearchHighlightColor(int color) {
+  public void setSearchHighlightColor(int color) {
     searchHighlightColor = color;
     searchHighlightPaint.setColor(color);
     view.invalidate();
   }
 
-  void setHighlightCurrentSearchMatchEnabled(boolean enabled) {
+  public void setHighlightCurrentSearchMatchEnabled(boolean enabled) {
     if (highlightCurrentSearchMatch == enabled) return;
     highlightCurrentSearchMatch = enabled;
     view.invalidate();
   }
 
-  void setCurrentSearchMatchColor(int color) {
+  public void setCurrentSearchMatchColor(int color) {
     if (currentSearchMatchColor == color) return;
     currentSearchMatchColor = color;
     currentSearchMatchPaint.setColor(color);

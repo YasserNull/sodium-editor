@@ -6,7 +6,8 @@ import android.graphics.Paint;
 import android.graphics.Typeface;
 import androidx.annotation.Nullable;
 
-final class LineNumberManager {
+public final class LineNumberManager {
+  private static final float GUTTER_TEXT_PADDING = 20f;
   private final SodiumEditorView view;
   private final char[] lineNumberChars = new char[16];
 
@@ -41,28 +42,42 @@ final class LineNumberManager {
 
   float gutterSeparatorWidth;
 
-  boolean isShowLineNumbers() {
+  public boolean isShowLineNumbers() {
     return showLineNumbers;
   }
 
-  void setShowLineNumbers(boolean show) {
+  public void setShowLineNumbers(boolean show) {
+    if (showLineNumbers == show) return;
     showLineNumbers = show;
+    view.scrollManager.maxTextStartXForScroll = 0f;
+    invalidateCache();
+    view.requestLayout();
+    if (view.isWordWrapEnabled) {
+      view.invalidateWrapMetrics(true);
+    }
+    view.invalidate();
   }
 
-  boolean isHighlightCurrentLineInGutter() {
+  public boolean isHighlightCurrentLineInGutter() {
     return highlightCurrentLineInGutter;
   }
 
-  void setHighlightCurrentLineInGutter(boolean enabled) {
+  public void setHighlightCurrentLineInGutter(boolean enabled) {
+    if (highlightCurrentLineInGutter == enabled) return;
     highlightCurrentLineInGutter = enabled;
+    view.invalidate();
   }
 
-  int getCurrentLineNumberColor() {
+  public int getCurrentLineNumberColor() {
     return currentLineNumberColor;
   }
 
-  void setCurrentLineNumberColor(int color) {
+  public void setCurrentLineNumberColor(int color) {
+    if (currentLineNumberColor == color) return;
     currentLineNumberColor = color;
+    if (showLineNumbers) {
+      view.invalidate();
+    }
   }
 
   void initDefaults(Paint basePaint, float density) {
@@ -75,25 +90,48 @@ final class LineNumberManager {
     gutterSeparatorPaint.setColor(0xFF555555);
   }
 
-  void setLineNumberColor(int color) {
+  public void setLineNumberColor(int color) {
     lineNumbersPaint.setColor(color);
     lineNumberCacheColor = color;
+    invalidateCache();
+    if (showLineNumbers) {
+      view.invalidate();
+    }
   }
 
-  void setGutterBackgroundColor(int color) {
+  public void setGutterBackgroundColor(int color) {
     gutterPaint.setColor(color);
+    if (showLineNumbers) {
+      view.invalidate();
+    }
   }
 
-  void setGutterSeparatorColor(int color) {
+  public void setGutterSeparatorColor(int color) {
     gutterSeparatorPaint.setColor(color);
+    if (showLineNumbers) {
+      view.invalidate();
+    }
   }
 
-  void setGutterSeparatorWidth(float width) {
-    gutterSeparatorWidth = width;
+  public void setGutterSeparatorWidth(float width) {
+    float safe = Math.max(0f, width);
+    if (gutterSeparatorWidth == safe) return;
+    gutterSeparatorWidth = safe;
+    view.requestLayout();
+    if (view.isWordWrapEnabled) {
+      view.invalidateWrapMetrics(true);
+    }
+    if (showLineNumbers) {
+      view.invalidate();
+    }
   }
 
-  float getGutterSeparatorWidth() {
+  public float getGutterSeparatorWidth() {
     return gutterSeparatorWidth;
+  }
+
+  public float getGutterTextPadding() {
+    return GUTTER_TEXT_PADDING;
   }
 
   void setTextAlign(boolean rtl) {
@@ -136,12 +174,16 @@ final class LineNumberManager {
     canvas.drawRect(left, top, right, bottom, paint);
   }
 
-  boolean isLineNumberSelectionEnabled() {
+  public boolean isLineNumberSelectionEnabled() {
     return lineNumberSelectionEnabled;
   }
 
-  void setLineNumberSelectionEnabled(boolean enabled) {
+  public void setLineNumberSelectionEnabled(boolean enabled) {
+    if (lineNumberSelectionEnabled == enabled) return;
     lineNumberSelectionEnabled = enabled;
+    if (!enabled && view.selectionManager.isLineNumberSelecting()) {
+      view.selectionManager.setLineNumberSelecting(false, -1);
+    }
   }
 
   float getGutterWidth() {
@@ -155,11 +197,11 @@ final class LineNumberManager {
   float computeGutterWidth(
       int maxLines,
       boolean codeFoldingEnabled,
-      float foldMarkerWidth,
-      float gutterTextPadding) {
+      float foldMarkerWidth) {
     if (!showLineNumbers) return 0f;
     String maxLineNum = String.valueOf(Math.max(0, maxLines));
-    float baseWidth = lineNumbersPaint.measureText(maxLineNum) + (gutterTextPadding * 2f);
+    float baseWidth =
+        lineNumbersPaint.measureText(maxLineNum) + (GUTTER_TEXT_PADDING * 2f);
     float foldWidth = codeFoldingEnabled ? foldMarkerWidth : 0f;
     return baseWidth + foldWidth + gutterSeparatorWidth;
   }
@@ -279,12 +321,12 @@ final class LineNumberManager {
       float lineNumX =
           view.isRtl
               ? view.getGutterStartX()
-                  + SodiumEditorView.GUTTER_TEXT_PADDING
+                  + GUTTER_TEXT_PADDING
                   + (view.foldManager.isCodeFoldingEnabled ? view.foldManager.foldMarkerGutterWidth : 0f)
               : view.getGutterStartX()
                   + lineNumbersGutterWidth
                   - (view.foldManager.isCodeFoldingEnabled ? view.foldManager.foldMarkerGutterWidth : 0f)
-                  - SodiumEditorView.GUTTER_TEXT_PADDING;
+                  - GUTTER_TEXT_PADDING;
       float lineNumXLocal = lineNumX - view.getGutterStartX();
 
       if (view.foldManager.isCodeFoldingEnabled) {
@@ -370,10 +412,10 @@ final class LineNumberManager {
 
       float lineNumX =
           view.isRtl
-              ? view.getGutterStartX() + SodiumEditorView.GUTTER_TEXT_PADDING
+              ? view.getGutterStartX() + GUTTER_TEXT_PADDING
               : view.getGutterStartX()
                   + lineNumbersGutterWidth
-                  - SodiumEditorView.GUTTER_TEXT_PADDING;
+                  - GUTTER_TEXT_PADDING;
       float lineNumXLocal = lineNumX - view.getGutterStartX();
 
       for (int v = firstVisualIndex; v <= drawLastIndex; v++) {
@@ -427,12 +469,12 @@ final class LineNumberManager {
     float lineNumX =
         view.isRtl
             ? view.getGutterStartX()
-                + SodiumEditorView.GUTTER_TEXT_PADDING
+                + GUTTER_TEXT_PADDING
                 + (view.foldManager.isCodeFoldingEnabled ? view.foldManager.foldMarkerGutterWidth : 0f)
             : view.getGutterStartX()
                 + lineNumbersGutterWidth
                 - (view.foldManager.isCodeFoldingEnabled ? view.foldManager.foldMarkerGutterWidth : 0f)
-                - SodiumEditorView.GUTTER_TEXT_PADDING;
+                - GUTTER_TEXT_PADDING;
 
     if (view.foldManager.isCodeFoldingEnabled) {
       for (int v = firstVisibleIndex; v <= drawLastIndex; v++) {
@@ -480,10 +522,10 @@ final class LineNumberManager {
     float lineHeight = view.lineHeight;
     float lineNumX =
         view.isRtl
-            ? view.getGutterStartX() + SodiumEditorView.GUTTER_TEXT_PADDING
+            ? view.getGutterStartX() + GUTTER_TEXT_PADDING
             : view.getGutterStartX()
                 + lineNumbersGutterWidth
-                - SodiumEditorView.GUTTER_TEXT_PADDING;
+                - GUTTER_TEXT_PADDING;
 
     int drawLastIndex = lastVisualIndex;
     int totalVisual = view.getTotalVisualLineCount();
@@ -527,12 +569,12 @@ final class LineNumberManager {
     float lineNumX =
         view.isRtl
             ? view.getGutterStartX()
-                + SodiumEditorView.GUTTER_TEXT_PADDING
+                + GUTTER_TEXT_PADDING
                 + (view.foldManager.isCodeFoldingEnabled ? view.foldManager.foldMarkerGutterWidth : 0f)
             : view.getGutterStartX()
                 + lineNumbersGutterWidth
                 - (view.foldManager.isCodeFoldingEnabled ? view.foldManager.foldMarkerGutterWidth : 0f)
-                - SodiumEditorView.GUTTER_TEXT_PADDING;
+                - GUTTER_TEXT_PADDING;
     int start = writeIntToChars(cursorLine + 1, lineNumberChars);
     int count = lineNumberChars.length - start;
     float y =
@@ -556,10 +598,10 @@ final class LineNumberManager {
     float lineHeight = view.lineHeight;
     float lineNumX =
         view.isRtl
-            ? view.getGutterStartX() + SodiumEditorView.GUTTER_TEXT_PADDING
+            ? view.getGutterStartX() + GUTTER_TEXT_PADDING
             : view.getGutterStartX()
                 + lineNumbersGutterWidth
-                - SodiumEditorView.GUTTER_TEXT_PADDING;
+                - GUTTER_TEXT_PADDING;
     int start = writeIntToChars(view.cursorManager.getLine() + 1, lineNumberChars);
     int count = lineNumberChars.length - start;
     float y =

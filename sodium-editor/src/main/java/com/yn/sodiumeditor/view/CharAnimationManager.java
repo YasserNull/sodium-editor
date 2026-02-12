@@ -8,7 +8,7 @@ import android.os.Looper;
 import android.os.SystemClock;
 import androidx.annotation.Nullable;
 
-final class CharAnimationManager {
+public final class CharAnimationManager {
   private final SodiumEditorView view;
 
   private boolean isCharAnimationEnabled = false;
@@ -40,7 +40,7 @@ final class CharAnimationManager {
     return isCharAnimationEnabled;
   }
 
-  void setEnabled(boolean enabled, int durationMs) {
+  public void setEnabled(boolean enabled, int durationMs) {
     isCharAnimationEnabled = enabled;
     if (durationMs > 0) charAnimationDurationMs = durationMs;
     if (!enabled) {
@@ -65,8 +65,8 @@ final class CharAnimationManager {
     if (!isCharAnimationEnabled) return;
     if (committedText == null) return;
 
-    final int targetLine = view.getCursorLine();
-    final int targetEndChar = view.getCursorChar();
+    final int targetLine = view.cursorManager.getLine();
+    final int targetEndChar = view.cursorManager.getChar();
 
     int extractedCodePoint = -1;
     int extractedCharCount = 0;
@@ -101,7 +101,7 @@ final class CharAnimationManager {
           charAnimEndChar = Math.max(0, targetEndChar);
           charAnimStartChar = Math.max(0, charAnimEndChar - finalCharCount);
           charAnimAlpha = 0.2f;
-          view.invalidateLineGlobalForCharAnim(charAnimLine);
+          view.invalidateLineGlobal(charAnimLine);
 
           charAnimAnimator = ValueAnimator.ofFloat(0.2f, 1f);
           charAnimAnimator.setDuration(animDuration);
@@ -109,7 +109,7 @@ final class CharAnimationManager {
               a -> {
                 Object v = a.getAnimatedValue();
                 charAnimAlpha = (v instanceof Float) ? (Float) v : 0f;
-                view.invalidateLineGlobalForCharAnim(charAnimLine);
+                view.invalidateLineGlobal(charAnimLine);
               });
           charAnimAnimator.addListener(
               new AnimatorListenerAdapter() {
@@ -141,7 +141,7 @@ final class CharAnimationManager {
     final int lineForAnim = targetLine;
     final int atForAnim = Math.max(0, atChar);
     final String textForAnim = removedText;
-    final Paint p = (paintToUse != null) ? paintToUse : view.getPaintForCharAnim();
+    final Paint p = (paintToUse != null) ? paintToUse : view.paint;
     long now = SystemClock.uptimeMillis();
     long delta = (lastCharAnimUptime == 0L) ? Long.MAX_VALUE : (now - lastCharAnimUptime);
     lastCharAnimUptime = now;
@@ -159,7 +159,7 @@ final class CharAnimationManager {
           delAnimText = textForAnim;
           delAnimPaint = p;
           delAnimAlpha = 1f;
-          view.invalidateLineGlobalForCharAnim(lineForAnim);
+          view.invalidateLineGlobal(lineForAnim);
 
           delAnimAnimator = ValueAnimator.ofFloat(1f, 0f);
           delAnimAnimator.setDuration(animDuration);
@@ -167,7 +167,7 @@ final class CharAnimationManager {
               a -> {
                 Object v = a.getAnimatedValue();
                 delAnimAlpha = (v instanceof Float) ? (Float) v : 0f;
-                view.invalidateLineGlobalForCharAnim(lineForAnim);
+                view.invalidateLineGlobal(lineForAnim);
               });
           delAnimAnimator.addListener(
               new AnimatorListenerAdapter() {

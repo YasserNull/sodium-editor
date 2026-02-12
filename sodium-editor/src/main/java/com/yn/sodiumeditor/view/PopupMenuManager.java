@@ -14,7 +14,7 @@ import androidx.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-final class PopupMenuManager {
+public final class PopupMenuManager {
   static final int POPUP_ACTION_COPY = 1;
   static final int POPUP_ACTION_CUT = 2;
   static final int POPUP_ACTION_PASTE = 3;
@@ -99,32 +99,32 @@ final class PopupMenuManager {
     popupTextPaint.setTextSize(view.spToPxForPopup(popupTextSizeSp));
   }
 
-  void setPopupBackgroundColor(int color) {
+  public void setPopupBackgroundColor(int color) {
     popupBackgroundColor = color;
     popupBgPaint.setColor(color);
     if (showPopup) view.invalidate();
   }
 
-  void setPopupTextColor(int color) {
+  public void setPopupTextColor(int color) {
     popupTextColor = color;
     popupTextPaint.setColor(color);
     if (showPopup) view.invalidate();
   }
 
-  void setPopupTextSize(float sp) {
+  public void setPopupTextSize(float sp) {
     popupTextSizeSp = sp;
     popupTextPaint.setTextSize(view.spToPxForPopup(sp));
     if (showPopup) view.invalidate();
   }
 
-  void setPopupTextSizePx(float sizePx) {
+  public void setPopupTextSizePx(float sizePx) {
     float scaledDensity = view.getResources().getDisplayMetrics().scaledDensity;
     popupTextSizeSp = (scaledDensity > 0f) ? (sizePx / scaledDensity) : popupTextSizeSp;
     popupTextPaint.setTextSize(sizePx);
     if (showPopup) view.invalidate();
   }
 
-  void setPopupTextFollowsEditorTypeface(boolean follow) {
+  public void setPopupTextFollowsEditorTypeface(boolean follow) {
     popupTextFollowsEditorTypeface = follow;
     if (follow) {
       popupTextPaint.setTypeface(view.getEditorTypefaceForPopup());
@@ -132,7 +132,7 @@ final class PopupMenuManager {
     if (showPopup) view.invalidate();
   }
 
-  void setPopupTextTypeface(@Nullable android.graphics.Typeface typeface) {
+  public void setPopupTextTypeface(@Nullable android.graphics.Typeface typeface) {
     popupTextFollowsEditorTypeface = false;
     popupTextPaint.setTypeface((typeface != null) ? typeface : android.graphics.Typeface.DEFAULT);
     if (showPopup) view.invalidate();
@@ -228,24 +228,24 @@ final class PopupMenuManager {
     }
 
     float anchorX, anchorYTop, anchorYBottom;
-    if (isMinimalPopup || !view.hasSelectionValue()) {
-      String cursorLineText = view.getLineTextForRender(view.getCursorLine());
-      anchorX = view.getViewXForPopup(cursorLineText, view.getCursorLine(), view.getCursorChar());
-      anchorYTop = view.getViewYTopForPopup(view.getCursorLine(), view.getCursorChar());
+    if (isMinimalPopup || !view.selectionManager.hasSelection()) {
+      String cursorLineText = view.getLineTextForRender(view.cursorManager.getLine());
+      anchorX = view.getViewXForPopup(cursorLineText, view.cursorManager.getLine(), view.cursorManager.getChar());
+      anchorYTop = view.getViewYTopForPopup(view.cursorManager.getLine(), view.cursorManager.getChar());
       anchorYBottom = anchorYTop + view.lineHeight;
     } else {
       int nStartLine, nEndLine, nEndChar;
       String endLineText;
-      if (view.comparePos(view.getSelectionStartLineValue(), view.getSelectionStartCharValue(), view.getSelectionEndLineValue(), view.getSelectionEndCharValue())
+      if (view.comparePos(view.selectionManager.selStartLine, view.selectionManager.selStartChar, view.selectionManager.selEndLine, view.selectionManager.selEndChar)
           <= 0) {
-        nStartLine = view.getSelectionStartLineValue();
-        nEndLine = view.getSelectionEndLineValue();
-        nEndChar = view.getSelectionEndCharValue();
+        nStartLine = view.selectionManager.selStartLine;
+        nEndLine = view.selectionManager.selEndLine;
+        nEndChar = view.selectionManager.selEndChar;
         endLineText = view.getLineTextForRender(nEndLine);
       } else {
-        nStartLine = view.getSelectionEndLineValue();
-        nEndLine = view.getSelectionStartLineValue();
-        nEndChar = view.getSelectionStartCharValue();
+        nStartLine = view.selectionManager.selEndLine;
+        nEndLine = view.selectionManager.selStartLine;
+        nEndChar = view.selectionManager.selStartChar;
         endLineText = view.getLineTextForRender(nEndLine);
       }
 
@@ -391,13 +391,13 @@ final class PopupMenuManager {
   }
 
   void showMinimalPopupAtCursor() {
-    if (view.hasSelectionValue()) return;
+    if (view.selectionManager.hasSelection()) return;
     isMinimalPopup = true;
     showPopupAnimated();
   }
 
   void showPopupAtSelection() {
-    if (!view.hasSelectionValue()) return;
+    if (!view.selectionManager.hasSelection()) return;
     isMinimalPopup = false;
     showPopupAnimated();
   }

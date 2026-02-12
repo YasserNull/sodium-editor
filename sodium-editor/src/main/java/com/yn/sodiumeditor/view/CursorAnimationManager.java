@@ -2,7 +2,7 @@ package com.yn.sodiumeditor.view;
 
 import android.os.SystemClock;
 
-final class CursorAnimationManager {
+public final class CursorAnimationManager {
   private final SodiumEditorView view;
 
   private boolean isCursorVisible = true;
@@ -28,9 +28,9 @@ final class CursorAnimationManager {
       new Runnable() {
         @Override
         public void run() {
-          if (view.isFocused() && !view.hasSelectionValue()) {
+          if (view.isFocused() && !view.selectionManager.hasSelection()) {
             isCursorVisible = !isCursorVisible;
-            view.invalidateCursorAreaForCursor();
+            view.invalidateCursorArea();
             view.mainHandler.postDelayed(this, 500);
           }
         }
@@ -58,7 +58,7 @@ final class CursorAnimationManager {
             cursorDrawX = cursorAnimX;
             cursorDrawY = cursorAnimY;
             cursorAnimRunning = false;
-            view.invalidateCursorAreaForCursor();
+            view.invalidateCursorArea();
             return;
           }
 
@@ -73,7 +73,7 @@ final class CursorAnimationManager {
           cursorAnimY += dy * alpha;
           cursorDrawX = cursorAnimX;
           cursorDrawY = cursorAnimY;
-          view.invalidateCursorAreaForCursor();
+          view.invalidateCursorArea();
           view.postOnAnimation(this);
         }
       };
@@ -94,7 +94,7 @@ final class CursorAnimationManager {
     return cursorDrawY;
   }
 
-  void setCursorAnimationEnabled(boolean enabled) {
+  public void setCursorAnimationEnabled(boolean enabled) {
     if (isCursorAnimationEnabled == enabled) return;
     isCursorAnimationEnabled = enabled;
     if (!enabled) {
@@ -119,10 +119,10 @@ final class CursorAnimationManager {
       return;
     }
 
-    boolean cursorMoved = (view.getCursorLine() != lastCursorAnimLine || view.getCursorChar() != lastCursorAnimChar);
+    boolean cursorMoved = (view.cursorManager.getLine() != lastCursorAnimLine || view.cursorManager.getChar() != lastCursorAnimChar);
     if (cursorMoved) {
-      lastCursorAnimLine = view.getCursorLine();
-      lastCursorAnimChar = view.getCursorChar();
+      lastCursorAnimLine = view.cursorManager.getLine();
+      lastCursorAnimChar = view.cursorManager.getChar();
       lastCursorMoveUptime = SystemClock.uptimeMillis();
     } else if (Math.abs(targetX - cursorAnimTargetX) > 0.5f
         || Math.abs(targetY - cursorAnimTargetY) > 0.5f) {
@@ -175,7 +175,7 @@ final class CursorAnimationManager {
   void resetCursorBlink() {
     view.mainHandler.removeCallbacks(blinkRunnable);
     isCursorVisible = true;
-    if (view.isFocused() && !view.hasSelectionValue()) {
+    if (view.isFocused() && !view.selectionManager.hasSelection()) {
       view.invalidate();
       view.mainHandler.postDelayed(blinkRunnable, 500);
     }

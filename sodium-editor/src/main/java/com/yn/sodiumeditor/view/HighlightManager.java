@@ -5,12 +5,33 @@ import android.graphics.Paint;
 import android.graphics.Typeface;
 import androidx.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
 
-final class HighlightManager {
+public final class HighlightManager {
   private final SodiumEditorView view;
   static final Pattern DEFAULT_URL_UNDERLINE_PATTERN = Pattern.compile("https?://[^\\s]+");
+
+  // --- Constants copied from SodiumEditorView ---
+  public static final String RULE_STRING = "__STRING__";
+  public static final String RULE_BLOCK_COMMENT = "__BLOCK_COMMENT__";
+  public static final String RULE_LINE_COMMENT = "__LINE_COMMENT__";
+  public static final int STRING_STATE_DOUBLE = 1;
+  public static final int STRING_STATE_SINGLE = 2;
+  public static final int STRING_STATE_BACKTICK = 3;
+  public static final int STRING_STATE_TRIPLE = 4;
+
+  // --- Fields copied from SodiumEditorView ---
+  boolean highlightCurrentLine = true;
+  private int currentLineHighlightColor = 0x202196F3; // Default: translucent gray (more visible)
+  final Paint currentLinePaint = new Paint();
+  boolean isMultiLineStringsEnabled = false;
+  boolean isBacktickStringsEnabled = false;
+  boolean isBlockCommentsEnabled = false;
+  boolean isTripleQuoteStringsEnabled = false;
+  int maxSyntaxLineLength = 4096;
+  private int prefetchCols = 512;
 
   final java.util.ArrayList<String> lineCommentDelimiters = new java.util.ArrayList<>();
   HighlightRule lineCommentHighlightRule;
@@ -110,6 +131,36 @@ final class HighlightManager {
     urlUnderlineTmpPaint.setStrokeWidth(1f);
     pathUnderlineTmpPaint.setStrokeWidth(1f);
     errorUnderlinePaint.setUnderlineText(false);
+    currentLinePaint.setColor(currentLineHighlightColor); // Initialize currentLinePaint
+  }
+
+  void validatePathInBackground(final String path, final int lineToInvalidate) {
+    if (pendingPathValidations.contains(path)) {
+      return;
+    }
+    pendingPathValidations.add(path);
+
+    view.ioHandler.post(
+        () -> {
+          boolean exists = false;
+          try {
+            java.io.File file = new java.io.File(path);
+            exists = file.exists();
+          } catch (Exception e) {
+            // Ignore errors
+          } finally {
+            pathValidationCache.put(path, exists);
+            pendingPathValidations.remove(path);
+
+            if (exists) {
+              view.mainHandler.post(
+                  () -> {
+                    pathUnderlineCache.remove(lineToInvalidate);
+                    view.invalidate();
+                  });
+            }
+          }
+        });
   }
 
   void drawColorCodeBackgrounds(
@@ -164,8 +215,8 @@ final class HighlightManager {
       int end = triples[i + 1];
       int backgroundColor = triples[i + 2];
 
-      float left = view.measureTextForHighlight(line, start, globalLine);
-      float right = view.measureTextForHighlight(line, end, globalLine);
+      float left = measureText(line, start, globalLine);
+      float right = measureText(line, end, globalLine);
       colorOverlayPaint.setColor(backgroundColor);
       canvas.drawRect(left, lineTop, right, lineBottom, colorOverlayPaint);
     }
@@ -193,6 +244,302 @@ final class HighlightManager {
     pathUnderlineCache.remove(line);
   }
 
+  public void setHighlightCurrentLine(boolean enabled) {
+    if (this.highlightCurrentLine == enabled) return;
+    this.highlightCurrentLine = enabled;
+    view.invalidate();
+  }
+
+  public void setCurrentLineHighlightColor(int color) {
+    this.currentLineHighlightColor = color;
+    this.currentLinePaint.setColor(color);
+    if (highlightCurrentLine) view.invalidate();
+  }
+
+  public void addHighlightRule(String regex, int style, int color) {
+    addHighlightRule(regex, style, color, false);
+  }
+
+  public void addHighlightRule(String regex, int style, int color, boolean underline) {
+    HighlightRuleType type = HighlightRuleType.REGEX;
+    if (RULE_STRING.equals(regex)) {
+      type = HighlightRuleType.STRING;
+    } else if (RULE_BLOCK_COMMENT.equals(regex)) {
+      type = HighlightRuleType.BLOCK_COMMENT;
+    } else if (isLineCommentRegex(regex)) {
+      type = HighlightRuleType.LINE_COMMENT;
+    }
+
+    HighlightRule rule =
+        new HighlightRule(
+            regex, style, color, view.paint.getTextSize(), view.paint.getTypeface(), underline, type);
+    if (type == HighlightRuleType.LINE_COMMENT) {
+      ensureLineCommentDelimiter("//");
+      lineCommentHighlightRule = rule;
+    } else {
+      highlightRules.add(rule);
+      if (type == HighlightRuleType.STRING) {
+        stringHighlightRule = rule;
+      } else if (type == HighlightRuleType.BLOCK_COMMENT) {
+        blockCommentHighlightRule = rule;
+      } else {
+        regexHighlightRules.add(rule);
+      }
+    }
+    clearHighlightCaches();
+    view.invalidate();
+  }
+
+  public void clearHighlightRules() {
+    highlightRules.clear();
+    stringHighlightRule = null;
+    blockCommentHighlightRule = null;
+    regexHighlightRules.clear();
+    lineCommentHighlightRule = null;
+    clearHighlightCaches();
+    view.invalidate();
+  }
+
+  public void setUrlUnderliningEnabled(boolean enabled) {
+    if (this.isUrlUnderliningEnabled == enabled) return;
+    this.isUrlUnderliningEnabled = enabled;
+    urlUnderlineCache.clear();
+    view.invalidate();
+  }
+
+  public void setUrlUnderliningRegex(@Nullable String regex) {
+    if (regex == null || regex.trim().isEmpty()) {
+      this.urlUnderlinePattern = null;
+    } else {
+      this.urlUnderlinePattern = Pattern.compile(regex);
+    }
+    urlUnderlineCache.clear();
+    view.invalidate();
+  }
+
+  public void setPathUnderliningEnabled(boolean enabled) {
+    if (this.isPathUnderliningEnabled == enabled) return;
+    this.isPathUnderliningEnabled = enabled;
+    // Clear all caches when state changes to ensure fresh checks.
+    pathUnderlineCache.clear();
+    pathValidationCache.clear();
+    pendingPathValidations.clear();
+    view.invalidate();
+  }
+
+  void setMaxSyntaxLineLength(int maxChars) {
+    int safe = Math.max(512, maxChars);
+    if (maxSyntaxLineLength == safe) return;
+    maxSyntaxLineLength = safe;
+    clearHighlightCaches();
+    view.invalidate();
+  }
+
+  public void setErrorUnderlineColor(int color) {
+    if (this.errorUnderlineColor == color) return;
+    this.errorUnderlineColor = color;
+    view.invalidate();
+  }
+
+  public void setErrorUnderlineEnabled(boolean enabled) {
+    if (errorUnderlineEnabled == enabled) return;
+    errorUnderlineEnabled = enabled;
+    view.invalidate();
+  }
+
+  public void setErrorUnderlineHeightScale(float scale) {
+    float safe = Math.max(0f, scale);
+    if (errorUnderlineHeightScale == safe) return;
+    errorUnderlineHeightScale = safe;
+    view.invalidate();
+  }
+
+  public void setErrorUnderlineWaveLengthScale(float scale) {
+    float safe = Math.max(0.1f, scale);
+    if (errorUnderlineWaveLengthScale == safe) return;
+    errorUnderlineWaveLengthScale = safe;
+    view.invalidate();
+  }
+
+  public void setErrorUnderlineStrokeScale(float scale) {
+    float safe = Math.max(0f, scale);
+    if (errorUnderlineStrokeScale == safe) return;
+    errorUnderlineStrokeScale = safe;
+    view.invalidate();
+  }
+
+  public void setErrorUnderlineSmoothness(float radiusPx) {
+    float safe = Math.max(0f, radiusPx);
+    if (errorUnderlineSmoothness == safe) return;
+    errorUnderlineSmoothness = safe;
+    view.invalidate();
+  }
+
+  public void setErrorUnderline(int line, int col, int length) {
+    if (line < 0) return;
+    if (length <= 0) {
+      errorUnderlineMap.remove(line);
+      view.invalidate();
+      return;
+    }
+    int start = Math.max(0, col);
+    int end = Math.max(start, start + length);
+    List<ErrorUnderlineSpan> list = errorUnderlineMap.get(line);
+    if (list == null) {
+      list = new ArrayList<>();
+      errorUnderlineMap.put(line, list);
+    }
+    list.add(new ErrorUnderlineSpan(start, end));
+    view.invalidate();
+  }
+
+  public void setStringsHighlight(boolean enabled, int color) {
+    if (stringHighlightRule == null) {
+      addHighlightRule(RULE_STRING, SodiumEditorView.STYLE_NORMAL, color);
+    }
+    if (stringHighlightRule != null && stringHighlightRule.paint.getColor() != color) {
+      stringHighlightRule.paint.setColor(color);
+    }
+    if (isMultiLineStringsEnabled != enabled) {
+      isMultiLineStringsEnabled = enabled;
+    }
+    clearHighlightCaches();
+    view.invalidate();
+  }
+
+  public void setMultiLineStringsHighlight(boolean enabled, int color) {
+    if (stringHighlightRule == null) {
+      addHighlightRule(RULE_STRING, SodiumEditorView.STYLE_NORMAL, color);
+    }
+    if (stringHighlightRule != null && stringHighlightRule.paint.getColor() != color) {
+      stringHighlightRule.paint.setColor(color);
+    }
+    if (isMultiLineStringsEnabled != enabled) {
+      isMultiLineStringsEnabled = enabled;
+    }
+    clearHighlightCaches();
+    view.invalidate();
+  }
+
+  public void setColorCodeHighlightingEnabled(boolean enabled) {
+    if (isColorHighlightingEnabled == enabled) return;
+    isColorHighlightingEnabled = enabled;
+    colorCodeBgCache.clear();
+    view.invalidate();
+  }
+
+  public void setBacktickStringsEnabled(boolean enabled) {
+    if (isBacktickStringsEnabled == enabled) return;
+    isBacktickStringsEnabled = enabled;
+    clearHighlightCaches();
+    view.invalidate();
+  }
+
+  public void setMultiLineComments(boolean enabled, int style, int color) {
+    boolean needsInvalidate = false;
+    if (blockCommentHighlightRule == null || blockCommentHighlightRule.style != style) {
+      if (blockCommentHighlightRule != null) {
+        highlightRules.remove(blockCommentHighlightRule);
+      }
+      blockCommentHighlightRule =
+          new HighlightRule(
+              RULE_BLOCK_COMMENT,
+              style,
+              color,
+              view.paint.getTextSize(),
+              view.paint.getTypeface(),
+              false,
+              HighlightRuleType.BLOCK_COMMENT);
+      highlightRules.add(blockCommentHighlightRule);
+      needsInvalidate = true;
+    } else {
+      if (blockCommentHighlightRule.paint.getColor() != color) {
+        blockCommentHighlightRule.paint.setColor(color);
+        needsInvalidate = true;
+      }
+    }
+    if (isBlockCommentsEnabled != enabled) {
+      isBlockCommentsEnabled = enabled;
+      needsInvalidate = true;
+    }
+    if (needsInvalidate) {
+      clearHighlightCaches();
+      view.invalidate();
+    }
+  }
+
+  public void setSingleLineCommentDelimiters(String... delimiters) {
+    lineCommentDelimiters.clear();
+    if (delimiters != null) {
+      for (String d : delimiters) {
+        if (d == null) continue;
+        String trimmed = d.trim();
+        if (trimmed.isEmpty()) continue;
+        if (!lineCommentDelimiters.contains(trimmed)) {
+          lineCommentDelimiters.add(trimmed);
+        }
+      }
+    }
+    // Prefer longer delimiters first (e.g. '//' before '/')
+    lineCommentDelimiters.sort((a, b) -> Integer.compare(b.length(), a.length()));
+    clearHighlightCaches();
+    view.invalidate();
+  }
+
+  public void ensureLineCommentDelimiter(String delimiter) {
+    if (delimiter == null) return;
+    String trimmed = delimiter.trim();
+    if (trimmed.isEmpty()) return;
+    if (!lineCommentDelimiters.contains(trimmed)) {
+      lineCommentDelimiters.add(trimmed);
+      lineCommentDelimiters.sort((a, b) -> Integer.compare(b.length(), a.length()));
+      clearHighlightCaches();
+      view.invalidate();
+    }
+  }
+
+  public void setSingleLineCommentsHighlight(boolean enabled, int style, int color) {
+    if (!enabled) {
+      if (lineCommentHighlightRule != null) {
+        lineCommentHighlightRule = null;
+        clearHighlightCaches();
+        view.invalidate();
+      }
+      return;
+    }
+
+    if (lineCommentHighlightRule == null || lineCommentHighlightRule.style != style) {
+      lineCommentHighlightRule =
+          new HighlightRule(
+              "",
+              style,
+              color,
+              view.paint.getTextSize(),
+              view.paint.getTypeface(),
+              false,
+              HighlightRuleType.LINE_COMMENT);
+    } else {
+      lineCommentHighlightRule.paint.setColor(color);
+    }
+    clearHighlightCaches();
+    view.invalidate();
+  }
+
+  public void setSingleLineCommentSyntax(
+      boolean enabled, int style, int color, String... delimiters) {
+    setSingleLineCommentDelimiters(delimiters);
+    setSingleLineCommentsHighlight(enabled, style, color);
+  }
+
+  public void setTripleQuoteStringsEnabled(boolean enabled) {
+    if (isTripleQuoteStringsEnabled == enabled) return;
+    isTripleQuoteStringsEnabled = enabled;
+    clearHighlightCaches();
+    view.invalidate();
+  }
+
+
+
   void clearHighlightCaches() {
     highlightCache.clear();
     blockCommentEndStateCache.clear();
@@ -201,7 +548,7 @@ final class HighlightManager {
     urlUnderlineCache.clear();
     pathUnderlineCache.clear();
     resetEnsureRange();
-    view.invalidateBracketGuideCacheForHighlight();
+    view.bracketGuideManager.invalidateCache();
   }
 
   void invalidateHighlightCacheForLine(int line) {
@@ -212,7 +559,16 @@ final class HighlightManager {
     urlUnderlineCache.remove(line);
     pathUnderlineCache.remove(line);
     resetEnsureRange();
-    view.invalidateBracketGuideCacheForHighlight();
+    view.bracketGuideManager.invalidateCache();
+  }
+  static boolean isLineCommentRegex(String regex) {
+    if (regex == null) return false;
+    String r = regex.trim();
+    if (r.startsWith("//")) return true;
+    if (r.startsWith("^//")) return true;
+    if (r.startsWith("^\\s*//")) return true;
+    if (r.startsWith("\\s*//")) return true;
+    return false;
   }
 
   void ensureHighlightCacheForVisibleRange(
@@ -253,7 +609,7 @@ final class HighlightManager {
           inBlock = seedResult.endsInBlockComment;
           stringState = seedResult.endsInStringState;
           if (line >= localWindowStart && line < localWindowEnd) {
-            if (view.isBlockCommentsEnabledForHighlight()) blockCommentEndStateCache.put(line, inBlock);
+            if (view.isBlockCommentsEnabled) blockCommentEndStateCache.put(line, inBlock);
             stringEndStateCache.put(line, stringState);
           }
           if (line + 1 == firstVisibleLine) break;
@@ -290,7 +646,7 @@ final class HighlightManager {
         inBlock = parseResult.endsInBlockComment;
         stringState = parseResult.endsInStringState;
         if (globalLine >= localWindowStart && globalLine < localWindowEnd) {
-          if (view.isBlockCommentsEnabledForHighlight()) blockCommentEndStateCache.put(globalLine, inBlock);
+          if (view.isBlockCommentsEnabled) blockCommentEndStateCache.put(globalLine, inBlock);
           stringEndStateCache.put(globalLine, stringState);
         }
       } else {
@@ -350,7 +706,7 @@ final class HighlightManager {
       inBlock = result.endsInBlockComment;
       stringState = result.endsInStringState;
       if (line >= view.windowStartLine && line < windowEnd) {
-        if (view.isBlockCommentsEnabledForHighlight()) blockCommentEndStateCache.put(line, inBlock);
+        if (view.isBlockCommentsEnabled) blockCommentEndStateCache.put(line, inBlock);
         stringEndStateCache.put(line, stringState);
       }
     }
@@ -366,12 +722,12 @@ final class HighlightManager {
     HighlightRule blockCommentRule = blockCommentHighlightRule;
     java.util.List<HighlightSpan> exclusionSpans = new java.util.ArrayList<>();
 
-    if (view.isMultiLineStringsEnabledForHighlight() || view.isBlockCommentsEnabledForHighlight() || lineCommentHighlightRule != null) {
+    if (view.isMultiLineStringsEnabled || view.isBlockCommentsEnabled || lineCommentHighlightRule != null) {
       HighlightLineState startState = getLineStateAtStart(globalLine);
       HighlightRule parseStringRule =
-          (stringRule != null) ? stringRule : view.getStringHighlightRuleForWhitespace();
+          (stringRule != null) ? stringRule : view.highlightManager.stringHighlightRule;
       HighlightRule parseBlockRule =
-          (blockCommentRule != null) ? blockCommentRule : view.getBlockCommentHighlightRuleForWhitespace();
+          (blockCommentRule != null) ? blockCommentRule : view.highlightManager.blockCommentHighlightRule;
       LineParseResult parseResult =
           parseLineForSyntax(line, startState.inBlockComment, startState.stringState, parseStringRule, parseBlockRule, true);
       if (parseResult != null && parseResult.spans != null) {
@@ -460,7 +816,7 @@ final class HighlightManager {
         }
       }
 
-      if (view.isTripleQuoteStringsEnabledForHighlight() && i + 2 < length) {
+      if (view.isTripleQuoteStringsEnabled && i + 2 < length) {
         if (line.startsWith("\"\"\"", i)) {
           int end = line.indexOf("\"\"\"", i + 3);
           if (end >= 0) {
@@ -473,7 +829,7 @@ final class HighlightManager {
         }
       }
 
-      if (view.isBacktickStringsEnabledForHighlight() && c == '`') {
+      if (view.isBacktickStringsEnabled && c == '`') {
         int end = line.indexOf('`', i + 1);
         if (end >= 0) {
           if (stringRule != null) spans.add(new HighlightSpan(i, end + 1, stringRule.paint));
@@ -495,7 +851,7 @@ final class HighlightManager {
         return new LineParseResult(spans, false, getStringStateForDelimiter(c));
       }
 
-      if (view.isBlockCommentsEnabledForHighlight() && i + 1 < length && c == '/' && line.charAt(i + 1) == '*') {
+      if (view.isBlockCommentsEnabled && i + 1 < length && c == '/' && line.charAt(i + 1) == '*') {
         int end = line.indexOf("*/", i + 2);
         if (end == -1) {
           if (blockCommentRule != null) {
@@ -521,25 +877,10 @@ final class HighlightManager {
     return false;
   }
 
-  static final int STRING_STATE_DOUBLE = 1;
-  static final int STRING_STATE_SINGLE = 2;
-  static final int STRING_STATE_BACKTICK = 3;
-  static final int STRING_STATE_TRIPLE = 4;
-
-  static boolean isLineCommentRegex(String regex) {
-    if (regex == null) return false;
-    String r = regex.trim();
-    if (r.startsWith("//")) return true;
-    if (r.startsWith("^//")) return true;
-    if (r.startsWith("^\\s*//")) return true;
-    if (r.startsWith("\\s*//")) return true;
-    return false;
-  }
-
   boolean isStringDelimiter(char c) {
     if (c == '"') return true;
     if (c == '\'') return true;
-    return c == '`' && view.isBacktickStringsEnabledForHighlight();
+    return c == '`' && view.isBacktickStringsEnabled;
   }
 
   static boolean isTokenEscaped(String line, int index) {
@@ -567,7 +908,7 @@ final class HighlightManager {
   }
 
   boolean isTripleQuoteStart(String line, int index) {
-    if (!view.isTripleQuoteStringsEnabledForHighlight()) return false;
+    if (!view.isTripleQuoteStringsEnabled) return false;
     if (index + 2 >= line.length()) return false;
     return line.charAt(index) == '"'
         && line.charAt(index + 1) == '"'
@@ -685,7 +1026,7 @@ final class HighlightManager {
 
     boolean hasFade = fadeStart >= 0 && fadeEnd > fadeStart && fadeAlpha < 1f;
     if (!hasFade || end <= fadeStart || start >= fadeEnd) {
-      float w = view.measureTextWithVisualSpacesForHighlight(line, start, end, textPaint);
+      float w = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, start, end, textPaint);
       if (w > 0f) canvas.drawLine(x, underlineY, x + w, underlineY, tmpPaintToUse);
       return;
     }
@@ -696,7 +1037,7 @@ final class HighlightManager {
     int beforeEnd = Math.min(end, fadeStart);
     if (start < beforeEnd) {
       tmpPaintToUse.setAlpha(baseAlpha);
-      float w = view.measureTextWithVisualSpacesForHighlight(line, start, beforeEnd, textPaint);
+      float w = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, start, beforeEnd, textPaint);
       if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, tmpPaintToUse);
       currentX += w;
     }
@@ -705,7 +1046,7 @@ final class HighlightManager {
     int fadeSegEnd = Math.min(end, fadeEnd);
     if (fadeSegStart < fadeSegEnd) {
       tmpPaintToUse.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))));
-      float w = view.measureTextWithVisualSpacesForHighlight(line, fadeSegStart, fadeSegEnd, textPaint);
+      float w = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, fadeSegStart, fadeSegEnd, textPaint);
       if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, tmpPaintToUse);
       currentX += w;
     }
@@ -713,7 +1054,7 @@ final class HighlightManager {
     int afterStart = Math.max(start, fadeEnd);
     if (afterStart < end) {
       tmpPaintToUse.setAlpha(baseAlpha);
-      float w = view.measureTextWithVisualSpacesForHighlight(line, afterStart, end, textPaint);
+      float w = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, afterStart, end, textPaint);
       if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, tmpPaintToUse);
     }
   }
@@ -753,7 +1094,7 @@ final class HighlightManager {
         if (Boolean.TRUE.equals(exists)) {
           spans.add(new UnderlineSpan(matcher.start(), matcher.end(), true));
         } else if (exists == null) {
-          view.validatePathInBackgroundForHighlight(potentialPath, globalLine);
+          validatePathInBackground(potentialPath, globalLine);
         }
       }
     }
@@ -791,8 +1132,8 @@ final class HighlightManager {
       int start = Math.max(0, Math.min(span.start, len));
       int end = Math.max(start, Math.min(span.end, len));
       if (start >= end) continue;
-      float xStart = view.measureTextForHighlight(line, start, globalLine);
-      float xEnd = view.measureTextForHighlight(line, end, globalLine);
+      float xStart = measureText(line, start, globalLine);
+      float xEnd = measureText(line, end, globalLine);
       drawErrorSquiggle(canvas, xStart, xEnd, baselineY, lineTop, lineBottom);
     }
   }
@@ -818,8 +1159,8 @@ final class HighlightManager {
       int s = Math.max(start, Math.max(0, Math.min(span.start, len)));
       int e = Math.min(end, Math.max(s, Math.min(span.end, len)));
       if (s >= e) continue;
-      float xStart = view.measureTextForHighlight(line, s, globalLine);
-      float xEnd = view.measureTextForHighlight(line, e, globalLine);
+      float xStart = measureText(line, s, globalLine);
+      float xEnd = measureText(line, e, globalLine);
       drawErrorSquiggle(canvas, xStart, xEnd, baselineY, lineTop, lineBottom);
     }
   }
@@ -842,8 +1183,8 @@ final class HighlightManager {
       int start = Math.max(segStart, Math.max(0, Math.min(span.start, len)));
       int end = Math.min(segEnd, Math.max(start, Math.min(span.end, len)));
       if (start >= end) continue;
-      float xStart = view.measureTextWithVisualSpacesForHighlight(line, segStart, start, view.getTextPaintForHighlight());
-      float w = view.measureTextWithVisualSpacesForHighlight(line, start, end, view.getTextPaintForHighlight());
+      float xStart = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, segStart, start, view.paint);
+      float w = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, start, end, view.paint);
       if (w <= 0f) continue;
       drawErrorSquiggle(canvas, xStart, xStart + w, baselineY, lineTop, lineBottom);
     }
@@ -852,7 +1193,7 @@ final class HighlightManager {
   void drawErrorSquiggle(
       Canvas canvas, float xStart, float xEnd, float baselineY, float lineTop, float lineBottom) {
     if (xEnd <= xStart) return;
-    Paint basePaint = view.getTextPaintForHighlight();
+    Paint basePaint = view.paint;
     float lineH = Math.max(1f, lineBottom - lineTop);
     float textSize = basePaint.getTextSize();
     float y = baselineY + (basePaint.getFontMetrics().descent * 0.55f);
@@ -893,7 +1234,956 @@ final class HighlightManager {
     }
     canvas.drawPath(errorUnderlinePath, errorUnderlinePaint);
   }
-  static class HighlightSpan {
+
+  float measureText(String line, int length, int globalLine) {
+    int logicalLen = view.getLogicalLineLength(globalLine, line);
+    int safeLen = Math.max(0, Math.min(length, logicalLen));
+    if (logicalLen > maxSyntaxLineLength) {
+      float avg = getAverageCharWidthForLine(line, globalLine);
+      return avg * safeLen;
+    }
+    if (highlightRules.isEmpty() || line.isEmpty() || safeLen == 0) {
+      return view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, 0, safeLen, view.paint);
+    }
+
+    List<HighlightSpan> spans = highlightCache.get(globalLine);
+    if (spans == null) {
+      spans = calculateSpansForLine(line, globalLine);
+      highlightCache.put(globalLine, spans);
+    }
+
+    if (spans.isEmpty()) {
+      return view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, 0, safeLen, view.paint);
+    }
+
+    float totalWidth = 0;
+    int lastEnd = 0;
+
+    for (HighlightSpan span : spans) {
+      if (lastEnd >= safeLen) break;
+      if (span.start >= safeLen) break;
+      if (span.start < lastEnd) continue;
+
+      // Measure part before the span
+      if (span.start > lastEnd) {
+        int measureEnd = Math.min(span.start, safeLen);
+        totalWidth += view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, lastEnd, measureEnd, view.paint);
+      }
+
+      lastEnd = span.start;
+
+      // Measure the span itself
+      int measureEnd = Math.min(span.end, safeLen);
+      totalWidth += view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, lastEnd, measureEnd, span.paint);
+
+      lastEnd = span.end;
+    }
+
+    // Measure remaining part
+    if (lastEnd < safeLen) {
+      totalWidth += view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, lastEnd, safeLen, view.paint);
+    }
+
+    return totalWidth;
+  }
+  
+  Paint getPaintForChar(int lineIndex, int charIndex, String lineText) {
+    List<HighlightSpan> spans = highlightCache.get(lineIndex);
+    if (spans == null) {
+      spans = calculateSpansForLine(lineText, lineIndex);
+      highlightCache.put(lineIndex, spans);
+    }
+    for (HighlightSpan span : spans) {
+      if (charIndex >= span.start && charIndex < span.end) {
+        return span.paint;
+      }
+    }
+    return view.paint;
+  }
+
+  float getAverageCharWidthForLine(String line, int lineIndex) {
+    if (line == null || line.isEmpty()) return view.paint.measureText(" ");
+    if (lineIndex >= 0) {
+      synchronized (view.avgCharWidthCache) {
+        Float cached = view.avgCharWidthCache.get(lineIndex);
+        if (cached != null) return cached;
+      }
+    }
+    int sampleLen = Math.min(line.length(), 256);
+    float w = (sampleLen > 0) ? view.paint.measureText(line, 0, sampleLen) : view.paint.measureText(" ");
+    float avg = (sampleLen > 0) ? (w / sampleLen) : w;
+    if (lineIndex >= 0) {
+      synchronized (view.avgCharWidthCache) {
+        if (view.isStableGlyphPositionsEnabled && view.avgCharWidthCache.containsKey(lineIndex)) {
+          return view.avgCharWidthCache.get(lineIndex);
+        }
+        view.avgCharWidthCache.put(lineIndex, avg);
+      }
+    }
+    return avg;
+  }
+
+  void drawHighlightedLine(Canvas canvas, String line, int globalLine, float y) {
+    if (line == null || line.isEmpty()) {
+      if (view.charAnimationManager.isEnabled()
+          && globalLine == view.charAnimationManager.getDelAnimLine()
+          && view.charAnimationManager.getDelAnimText() != null
+          && !view.charAnimationManager.getDelAnimText().isEmpty()
+          && view.charAnimationManager.getDelAnimAlpha() > 0f) {
+        Paint ghostPaint = (view.charAnimationManager.getDelAnimPaint() != null) ? view.charAnimationManager.getDelAnimPaint() : view.paint;
+        view.charAnimationManager.getTempPaint().set(ghostPaint);
+        view.charAnimationManager.getTempPaint().setUnderlineText(false);
+        int baseAlpha = ghostPaint.getAlpha();
+        view.charAnimationManager.getTempPaint().setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, view.charAnimationManager.getDelAnimAlpha()))));
+        canvas.drawText(view.charAnimationManager.getDelAnimText(), 0f, y, view.charAnimationManager.getTempPaint());
+      }
+      return;
+    }
+
+    view.getVisibleCharRangeForLine(line, globalLine, view.visibleCharRangeTmp);
+    int visibleStart = view.visibleCharRangeTmp[0];
+    int visibleEnd = view.visibleCharRangeTmp[1];
+    int len = view.getLogicalLineLength(globalLine, line);
+    if (len > maxSyntaxLineLength) {
+      if (visibleEnd > visibleStart) {
+        int sliceStart = view.getStreamedLineSliceStart(globalLine);
+        int sliceEnd = sliceStart + line.length();
+        int drawStart = Math.max(visibleStart, sliceStart);
+        int drawEnd = Math.min(visibleEnd, sliceEnd);
+        if (drawEnd > drawStart) {
+          float avg = getAverageCharWidthForLine(line, globalLine);
+          float x = avg * drawStart;
+          canvas.drawText(line, drawStart - sliceStart, drawEnd - sliceStart, x, y, view.paint);
+        }
+      }
+      return;
+    }
+    if (visibleStart > 0 || visibleEnd < len) {
+      drawHighlightedLineRange(canvas, line, globalLine, visibleStart, visibleEnd, y);
+      return;
+    }
+
+    List<UnderlineSpan> combinedUnderlines = new ArrayList<>();
+
+    List<UnderlineSpan> urlSpans =
+        getUrlUnderlineSpansForLine(line, globalLine);
+    if (urlSpans != null) combinedUnderlines.addAll(urlSpans);
+
+    List<UnderlineSpan> pathSpans =
+        getPathUnderlineSpansForLine(line, globalLine);
+    if (pathSpans != null) combinedUnderlines.addAll(pathSpans);
+
+    // Sort combined underlines by start position
+    if (!combinedUnderlines.isEmpty()) {
+      java.util.Collections.sort(combinedUnderlines, (s1, s2) -> Integer.compare(s1.start, s2.start));
+    }
+
+    int fadeStart = -1;
+    int fadeEnd = -1;
+    float fadeAlpha = 1f;
+    if (view.charAnimationManager.isEnabled()
+        && globalLine == view.charAnimationManager.getCharAnimLine()
+        && view.charAnimationManager.getCharAnimEndChar() > view.charAnimationManager.getCharAnimStartChar()
+        && view.charAnimationManager.getCharAnimAlpha() < 1f) {
+      fadeStart = Math.max(0, Math.min(view.charAnimationManager.getCharAnimStartChar(), line.length()));
+      fadeEnd = Math.max(0, Math.min(view.charAnimationManager.getCharAnimEndChar(), line.length()));
+      fadeAlpha = Math.max(0f, Math.min(1f, view.charAnimationManager.getCharAnimAlpha()));
+      if (fadeEnd <= fadeStart) {
+        fadeStart = -1;
+        fadeEnd = -1;
+      }
+    }
+
+    float lineTop = view.scrollManager.getDrawLineTop(globalLine);
+    float lineBottom = lineTop + view.lineHeight;
+
+    if (highlightRules.isEmpty()) {
+      drawTextSegmentWithFadeAndUnderlines(
+          canvas,
+          line,
+          0,
+          line.length(),
+          0f,
+          y,
+          view.paint,
+          fadeStart,
+          fadeEnd,
+          fadeAlpha,
+          combinedUnderlines,
+          lineTop,
+          lineBottom);
+      if (view.charAnimationManager.isEnabled()
+          && globalLine == view.charAnimationManager.getDelAnimLine()
+          && view.charAnimationManager.getDelAnimText() != null
+          && !view.charAnimationManager.getDelAnimText().isEmpty()
+          && view.charAnimationManager.getDelAnimAlpha() > 0f) {
+        int at = Math.max(0, Math.min(view.charAnimationManager.getDelAnimAtChar(), line.length()));
+        float x = measureText(line, at, globalLine);
+        Paint ghostPaint = (view.charAnimationManager.getDelAnimPaint() != null) ? view.charAnimationManager.getDelAnimPaint() : view.paint;
+        view.charAnimationManager.getTempPaint().set(ghostPaint);
+        view.charAnimationManager.getTempPaint().setUnderlineText(false);
+        int baseAlpha = ghostPaint.getAlpha();
+        view.charAnimationManager.getTempPaint().setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, view.charAnimationManager.getDelAnimAlpha()))));
+        canvas.drawText(view.charAnimationManager.getDelAnimText(), x, y, view.charAnimationManager.getTempPaint());
+      }
+      drawErrorUnderlinesForLine(canvas, line, globalLine, y, lineTop, lineBottom);
+      return;
+    }
+
+    List<HighlightSpan> spans = highlightCache.get(globalLine);
+    if (spans == null) {
+      spans = calculateSpansForLine(line, globalLine);
+      highlightCache.put(globalLine, spans);
+    }
+
+    if (spans.isEmpty()) {
+      drawTextSegmentWithFadeAndUnderlines(
+          canvas,
+          line,
+          0,
+          line.length(),
+          0f,
+          y,
+          view.paint,
+          fadeStart,
+          fadeEnd,
+          fadeAlpha,
+          combinedUnderlines,
+          lineTop,
+          lineBottom);
+      if (view.charAnimationManager.isEnabled()
+          && globalLine == view.charAnimationManager.getDelAnimLine()
+          && view.charAnimationManager.getDelAnimText() != null
+          && !view.charAnimationManager.getDelAnimText().isEmpty()
+          && view.charAnimationManager.getDelAnimAlpha() > 0f) {
+        int at = Math.max(0, Math.min(view.charAnimationManager.getDelAnimAtChar(), line.length()));
+        float x = measureText(line, at, globalLine);
+        Paint ghostPaint = (view.charAnimationManager.getDelAnimPaint() != null) ? view.charAnimationManager.getDelAnimPaint() : view.paint;
+        view.charAnimationManager.getTempPaint().set(ghostPaint);
+        view.charAnimationManager.getTempPaint().setUnderlineText(false);
+        int baseAlpha = ghostPaint.getAlpha();
+        view.charAnimationManager.getTempPaint().setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, view.charAnimationManager.getDelAnimAlpha()))));
+        canvas.drawText(view.charAnimationManager.getDelAnimText(), x, y, view.charAnimationManager.getTempPaint());
+      }
+      drawErrorUnderlinesForLine(canvas, line, globalLine, y, lineTop, lineBottom);
+      return;
+    }
+
+    float currentX = 0f;
+    int lastEnd = 0;
+
+    for (HighlightSpan span : spans) {
+      if (span.start < lastEnd) continue;
+
+      if (span.start >= line.length()) break;
+      int safeSpanEnd = Math.min(span.end, line.length());
+
+      if (span.start > lastEnd) {
+        currentX +=
+            drawTextSegmentWithFadeAndUnderlines(
+                canvas,
+                line,
+                lastEnd,
+                span.start,
+                currentX,
+                y,
+                view.paint,
+                fadeStart,
+                fadeEnd,
+                fadeAlpha,
+                combinedUnderlines,
+                lineTop,
+                lineBottom);
+      }
+
+      currentX +=
+          drawTextSegmentWithFadeAndUnderlines(
+              canvas,
+              line,
+              span.start,
+              safeSpanEnd,
+              currentX,
+              y,
+              span.paint,
+              fadeStart,
+              fadeEnd,
+              fadeAlpha,
+              combinedUnderlines,
+              lineTop,
+              lineBottom);
+      lastEnd = safeSpanEnd;
+    }
+
+    if (lastEnd < line.length()) {
+      drawTextSegmentWithFadeAndUnderlines(
+          canvas,
+          line,
+          lastEnd,
+          line.length(),
+          currentX,
+          y,
+          view.paint,
+          fadeStart,
+          fadeEnd,
+          fadeAlpha,
+          combinedUnderlines,
+          lineTop,
+          lineBottom);
+    }
+
+    if (view.charAnimationManager.isEnabled()
+        && globalLine == view.charAnimationManager.getDelAnimLine()
+        && view.charAnimationManager.getDelAnimText() != null
+        && !view.charAnimationManager.getDelAnimText().isEmpty()
+        && view.charAnimationManager.getDelAnimAlpha() > 0f) {
+      int at = Math.max(0, Math.min(view.charAnimationManager.getDelAnimAtChar(), line.length()));
+      float x = measureText(line, at, globalLine);
+      Paint ghostPaint = (view.charAnimationManager.getDelAnimPaint() != null) ? view.charAnimationManager.getDelAnimPaint() : view.paint;
+      view.charAnimationManager.getTempPaint().set(ghostPaint);
+      view.charAnimationManager.getTempPaint().setUnderlineText(false);
+      int baseAlpha = ghostPaint.getAlpha();
+      view.charAnimationManager.getTempPaint().setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, view.charAnimationManager.getDelAnimAlpha()))));
+      canvas.drawText(view.charAnimationManager.getDelAnimText(), x, y, view.charAnimationManager.getTempPaint());
+    }
+    drawErrorUnderlinesForLine(canvas, line, globalLine, y, lineTop, lineBottom);
+  }
+
+  void drawHighlightedSegment(
+      Canvas canvas, String line, int globalLine, int start, int end, float x, float y) {
+    if (line == null || line.isEmpty() || start >= end) return;
+    start = Math.max(0, Math.min(start, line.length()));
+    end = Math.max(start, Math.min(end, line.length()));
+    if (start >= end) return;
+
+    if (highlightRules.isEmpty()) {
+      view.paint.setUnderlineText(false);
+      canvas.drawText(line, start, end, x, y, view.paint);
+      return;
+    }
+
+    List<HighlightSpan> spans = highlightCache.get(globalLine);
+    if (spans == null) {
+      spans = calculateSpansForLine(line, globalLine);
+      highlightCache.put(globalLine, spans);
+    }
+
+    if (spans.isEmpty()) {
+      view.paint.setUnderlineText(false);
+      canvas.drawText(line, start, end, x, y, view.paint);
+      return;
+    }
+
+    float currentX = x;
+    int lastEnd = start;
+
+    for (HighlightSpan span : spans) {
+      if (lastEnd >= end) break;
+      if (span.start >= end) break;
+      if (span.start < lastEnd) continue;
+
+      if (span.start > lastEnd) {
+        view.paint.setUnderlineText(false);
+        canvas.drawText(line, lastEnd, span.start, currentX, y, view.paint);
+        currentX += view.paint.measureText(line, lastEnd, span.start);
+      }
+
+      int safeSpanEnd = Math.min(span.end, end);
+      if (safeSpanEnd > span.start) {
+        span.paint.setUnderlineText(false);
+        canvas.drawText(line, span.start, safeSpanEnd, currentX, y, span.paint);
+        currentX += span.paint.measureText(line, span.start, safeSpanEnd);
+      }
+      lastEnd = safeSpanEnd;
+    }
+
+    if (lastEnd < end) {
+      view.paint.setUnderlineText(false);
+      canvas.drawText(line, lastEnd, end, currentX, y, view.paint);
+    }
+  }
+
+  float measureHighlightedSegmentWidth(String line, int globalLine, int start, int end) {
+    if (line == null || line.isEmpty() || start >= end) return 0f;
+    start = Math.max(0, Math.min(start, line.length()));
+    end = Math.max(start, Math.min(end, line.length()));
+    if (start >= end) return 0f;
+
+    if (highlightRules.isEmpty()) {
+      return view.paint.measureText(line, start, end);
+    }
+
+    List<HighlightSpan> spans = highlightCache.get(globalLine);
+    if (spans == null) {
+      spans = calculateSpansForLine(line, globalLine);
+      highlightCache.put(globalLine, spans);
+    }
+
+    if (spans.isEmpty()) {
+      return view.paint.measureText(line, start, end);
+    }
+
+    float total = 0f;
+    int lastEnd = start;
+
+    for (HighlightSpan span : spans) {
+      if (lastEnd >= end) break;
+      if (span.start >= end) break;
+      if (span.start < lastEnd) continue;
+
+      if (span.start > lastEnd) {
+        total += view.paint.measureText(line, lastEnd, span.start);
+      }
+
+      int safeSpanEnd = Math.min(span.end, end);
+      if (safeSpanEnd > span.start) {
+        total += span.paint.measureText(line, span.start, safeSpanEnd);
+      }
+      lastEnd = safeSpanEnd;
+    }
+
+    if (lastEnd < end) {
+      total += view.paint.measureText(line, lastEnd, end);
+    }
+
+    return total;
+  }
+
+  void drawHighlightedLineRange(
+      Canvas canvas, String line, int globalLine, int start, int end, float y) {
+    if (line == null || line.isEmpty()) return;
+    int len = line.length();
+    start = Math.max(0, Math.min(start, len));
+    end = Math.max(start, Math.min(end, len));
+    if (start >= end) return;
+
+    List<UnderlineSpan> combinedUnderlines = new ArrayList<>();
+    List<UnderlineSpan> urlSpans = getUrlUnderlineSpansForLine(line, globalLine);
+    if (urlSpans != null) combinedUnderlines.addAll(urlSpans);
+
+    List<UnderlineSpan> pathSpans = getPathUnderlineSpansForLine(line, globalLine);
+    if (pathSpans != null) combinedUnderlines.addAll(pathSpans);
+    if (!combinedUnderlines.isEmpty()) {
+      Collections.sort(combinedUnderlines, (s1, s2) -> Integer.compare(s1.start, s2.start));
+    }
+
+    int fadeStart = -1;
+    int fadeEnd = -1;
+    float fadeAlpha = 1f;
+    if (view.charAnimationManager.isEnabled()
+        && globalLine == view.charAnimationManager.getCharAnimLine()
+        && view.charAnimationManager.getCharAnimEndChar() > view.charAnimationManager.getCharAnimStartChar()
+        && view.charAnimationManager.getCharAnimAlpha() < 1f) {
+      fadeStart =
+          Math.max(0, Math.min(view.charAnimationManager.getCharAnimStartChar(), line.length()));
+      fadeEnd =
+          Math.max(0, Math.min(view.charAnimationManager.getCharAnimEndChar(), line.length()));
+      fadeAlpha = Math.max(0f, Math.min(1f, view.charAnimationManager.getCharAnimAlpha()));
+      if (fadeEnd <= fadeStart) {
+        fadeStart = -1;
+        fadeEnd = -1;
+      }
+    }
+
+    float lineTop = view.scrollManager.getDrawLineTop(globalLine);
+    float lineBottom = lineTop + view.lineHeight;
+    float currentX = measureText(line, start, globalLine);
+    int lastEnd = start;
+
+    if (highlightRules.isEmpty()) {
+      drawTextSegmentWithFadeAndUnderlines(
+          canvas,
+          line,
+          start,
+          end,
+          currentX,
+          y,
+          view.paint,
+          fadeStart,
+          fadeEnd,
+          fadeAlpha,
+          combinedUnderlines,
+          lineTop,
+          lineBottom);
+    } else {
+      List<HighlightSpan> spans = highlightCache.get(globalLine);
+      if (spans == null) {
+        spans = calculateSpansForLine(line, globalLine);
+        highlightCache.put(globalLine, spans);
+      }
+      for (HighlightSpan span : spans) {
+        if (span.end <= start) continue;
+        if (span.start >= end) break;
+
+        int segStart = Math.max(start, span.start);
+        int segEnd = Math.min(end, span.end);
+
+        if (segStart > lastEnd) {
+          currentX +=
+              drawTextSegmentWithFadeAndUnderlines(
+                  canvas,
+                  line,
+                  lastEnd,
+                  segStart,
+                  currentX,
+                  y,
+                  view.paint,
+                  fadeStart,
+                  fadeEnd,
+                  fadeAlpha,
+                  combinedUnderlines,
+                  lineTop,
+                  lineBottom);
+        }
+        if (segEnd > segStart) {
+          currentX +=
+              drawTextSegmentWithFadeAndUnderlines(
+                  canvas,
+                  line,
+                  segStart,
+                  segEnd,
+                  currentX,
+                  y,
+                  span.paint,
+                  fadeStart,
+                  fadeEnd,
+                  fadeAlpha,
+                  combinedUnderlines,
+                  lineTop,
+                  lineBottom);
+        }
+        lastEnd = Math.max(lastEnd, segEnd);
+      }
+      if (lastEnd < end) {
+        drawTextSegmentWithFadeAndUnderlines(
+            canvas,
+            line,
+            lastEnd,
+            end,
+            currentX,
+            y,
+            view.paint,
+            fadeStart,
+            fadeEnd,
+            fadeAlpha,
+            combinedUnderlines,
+            lineTop,
+            lineBottom);
+      }
+    }
+
+    if (view.charAnimationManager.isEnabled()
+        && globalLine == view.charAnimationManager.getDelAnimLine()
+        && view.charAnimationManager.getDelAnimText() != null
+        && !view.charAnimationManager.getDelAnimText().isEmpty()
+        && view.charAnimationManager.getDelAnimAlpha() > 0f) {
+      int at = Math.max(0, Math.min(view.charAnimationManager.getDelAnimAtChar(), line.length()));
+      if (at >= start && at <= end) {
+        float x = measureText(line, at, globalLine);
+        Paint ghostPaint =
+            (view.charAnimationManager.getDelAnimPaint() != null)
+                ? view.charAnimationManager.getDelAnimPaint()
+                : view.paint;
+        view.charAnimationManager.getTempPaint().set(ghostPaint);
+        view.charAnimationManager.getTempPaint().setUnderlineText(false);
+        int baseAlpha = ghostPaint.getAlpha();
+        view.charAnimationManager
+            .getTempPaint()
+            .setAlpha(
+                (int)
+                    (baseAlpha
+                        * Math.max(0f, Math.min(1f, view.charAnimationManager.getDelAnimAlpha()))));
+        canvas.drawText(view.charAnimationManager.getDelAnimText(), x, y, view.charAnimationManager.getTempPaint());
+      }
+    }
+    drawErrorUnderlinesForLineRange(canvas, line, globalLine, start, end, y, lineTop, lineBottom);
+  }
+
+  void drawHighlightedLineSegment(
+      Canvas canvas,
+      String line,
+      int globalLine,
+      int start,
+      int end,
+      float y,
+      float lineTop,
+      float lineBottom) {
+    if (line == null || line.isEmpty() || start >= end) return;
+    start = Math.max(0, Math.min(start, line.length()));
+    end = Math.max(start, Math.min(end, line.length()));
+    if (start >= end) return;
+
+    final List<UnderlineSpan> urlUnderlines = getUrlUnderlineSpansForLine(line, globalLine);
+    final List<UnderlineSpan> pathUnderlines = getPathUnderlineSpansForLine(line, globalLine);
+    List<UnderlineSpan> combinedUnderlines = urlUnderlines;
+    if (pathUnderlines != null && !pathUnderlines.isEmpty()) {
+      combinedUnderlines = new ArrayList<>();
+      if (urlUnderlines != null) combinedUnderlines.addAll(urlUnderlines);
+      combinedUnderlines.addAll(pathUnderlines);
+      Collections.sort(combinedUnderlines, (s1, s2) -> Integer.compare(s1.start, s2.start));
+    }
+
+    int fadeStart = -1;
+    int fadeEnd = -1;
+    float fadeAlpha = 1f;
+    if (view.charAnimationManager.isEnabled()
+        && globalLine == view.charAnimationManager.getCharAnimLine()
+        && view.charAnimationManager.getCharAnimEndChar() > view.charAnimationManager.getCharAnimStartChar()
+        && view.charAnimationManager.getCharAnimAlpha() < 1f) {
+      fadeStart =
+          Math.max(0, Math.min(view.charAnimationManager.getCharAnimStartChar(), line.length()));
+      fadeEnd =
+          Math.max(0, Math.min(view.charAnimationManager.getCharAnimEndChar(), line.length()));
+      fadeAlpha = Math.max(0f, Math.min(1f, view.charAnimationManager.getCharAnimAlpha()));
+      if (fadeEnd <= fadeStart) {
+        fadeStart = -1;
+        fadeEnd = -1;
+      }
+    }
+
+    if (highlightRules.isEmpty()) {
+      drawTextSegmentWithFadeAndUnderlines(
+          canvas,
+          line,
+          start,
+          end,
+          0f,
+          y,
+          view.paint,
+          fadeStart,
+          fadeEnd,
+          fadeAlpha,
+          combinedUnderlines,
+          lineTop,
+          lineBottom);
+      return;
+    }
+
+    List<HighlightSpan> spans = highlightCache.get(globalLine);
+    if (spans == null) {
+      spans = calculateSpansForLine(line, globalLine);
+      highlightCache.put(globalLine, spans);
+    }
+
+    float currentX = 0f;
+    int lastEnd = start;
+
+    if (!spans.isEmpty()) {
+      for (HighlightSpan span : spans) {
+        if (lastEnd >= end) break;
+        if (span.end <= start) continue;
+        if (span.start >= end) break;
+
+        int segStart = Math.max(start, span.start);
+        int segEnd = Math.min(end, span.end);
+
+        if (segStart > lastEnd) {
+          currentX +=
+              drawTextSegmentWithFadeAndUnderlines(
+                  canvas,
+                  line,
+                  lastEnd,
+                  segStart,
+                  currentX,
+                  y,
+                  view.paint,
+                  fadeStart,
+                  fadeEnd,
+                  fadeAlpha,
+                  urlUnderlines,
+                  lineTop,
+                  lineBottom);
+        }
+
+        if (segEnd > segStart) {
+          currentX +=
+              drawTextSegmentWithFadeAndUnderlines(
+                  canvas,
+                  line,
+                  segStart,
+                  segEnd,
+                  currentX,
+                  y,
+                  span.paint,
+                  fadeStart,
+                  fadeEnd,
+                  fadeAlpha,
+                  urlUnderlines,
+                  lineTop,
+                  lineBottom);
+        }
+        lastEnd = Math.max(lastEnd, segEnd);
+      }
+    }
+
+    if (lastEnd < end) {
+      drawTextSegmentWithFadeAndUnderlines(
+          canvas,
+          line,
+          lastEnd,
+          end,
+          currentX,
+          y,
+          view.paint,
+          fadeStart,
+          fadeEnd,
+          fadeAlpha,
+          urlUnderlines,
+          lineTop,
+          lineBottom);
+    }
+  }
+
+  float drawTextSegmentWithFadeAndUnderlines(
+      Canvas canvas,
+      String line,
+      int start,
+      int end,
+      float x,
+      float y,
+      Paint segmentPaint,
+      int fadeStart,
+      int fadeEnd,
+      float fadeAlpha,
+      @Nullable List<UnderlineSpan> underlines,
+      float lineTop,
+      float lineBottom) {
+    if (start >= end) return 0f;
+    boolean anyUnderliningActive =
+        (isUrlUnderliningEnabled && urlUnderlinePattern != null)
+            || (isPathUnderliningEnabled && pathUnderlinePattern != null);
+    if (underlines == null || underlines.isEmpty() || !anyUnderliningActive) {
+      return drawTextSegmentWithFade(
+          canvas, line, start, end, x, y, segmentPaint, fadeStart, fadeEnd, fadeAlpha);
+    }
+
+    float currentX = x;
+    int pos = start;
+
+    for (UnderlineSpan span : underlines) {
+      if (span.end <= pos) continue;
+      if (span.start >= end) break;
+
+      int plainEnd = Math.min(end, Math.max(pos, span.start));
+      if (pos < plainEnd) {
+        currentX +=
+            drawTextSegmentWithFade(
+                canvas,
+                line,
+                pos,
+                plainEnd,
+                currentX,
+                y,
+                segmentPaint,
+                fadeStart,
+                fadeEnd,
+                fadeAlpha);
+        pos = plainEnd;
+      }
+
+      int underlineStart = Math.max(pos, span.start);
+      int underlineEnd = Math.min(end, span.end);
+      if (underlineStart < underlineEnd) {
+        float underlineXStart = currentX;
+        currentX +=
+            drawTextSegmentWithFade(
+                canvas,
+                line,
+                underlineStart,
+                underlineEnd,
+                currentX,
+                y,
+                segmentPaint,
+                fadeStart,
+                fadeEnd,
+                fadeAlpha);
+        drawUnderlineSegmentWithFade(
+            canvas,
+            line,
+            underlineStart,
+            underlineEnd,
+            underlineXStart,
+            y,
+            lineTop,
+            lineBottom,
+            segmentPaint,
+            fadeStart,
+            fadeEnd,
+            fadeAlpha,
+            span.isPath);
+        pos = underlineEnd;
+      }
+    }
+
+    if (pos < end) {
+      currentX +=
+          drawTextSegmentWithFade(
+              canvas, line, pos, end, currentX, y, segmentPaint, fadeStart, fadeEnd, fadeAlpha);
+    }
+
+    return currentX - x;
+  }
+
+  private float drawTextSegmentWithFade(
+      Canvas canvas,
+      String line,
+      int start,
+      int end,
+      float x,
+      float y,
+      Paint segmentPaint,
+      int fadeStart,
+      int fadeEnd,
+      float fadeAlpha) {
+    if (start >= end) return 0f;
+    boolean hasFade = fadeStart >= 0 && fadeEnd > fadeStart && fadeAlpha < 1f;
+    if (hasFade && containsArabicScript(line, start, end)) {
+      int spaceScale = view.getVisualSpaceScale();
+      if (spaceScale > 1 || line.indexOf('\t', start) >= 0) {
+        return drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, segmentPaint, 1f);
+      }
+      canvas.drawText(line, start, end, x, y, segmentPaint);
+      return segmentPaint.measureText(line, start, end);
+    }
+    final int spaceScale = view.getVisualSpaceScale();
+    if (spaceScale > 1) {
+      if (!hasFade || end <= fadeStart || start >= fadeEnd) {
+        return drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, segmentPaint, 1f);
+      }
+
+      float currentX = x;
+
+      int beforeEnd = Math.min(end, fadeStart);
+      if (start < beforeEnd) {
+        currentX +=
+            drawTextSegmentWithVisualSpaces(
+                canvas, line, start, beforeEnd, currentX, y, segmentPaint, 1f);
+      }
+
+      int fadeSegStart = Math.max(start, fadeStart);
+      int fadeSegEnd = Math.min(end, fadeEnd);
+      if (fadeSegStart < fadeSegEnd) {
+        currentX +=
+            drawTextSegmentWithVisualSpaces(
+                canvas, line, fadeSegStart, fadeSegEnd, currentX, y, segmentPaint, fadeAlpha);
+      }
+
+      int afterStart = Math.max(start, fadeEnd);
+      if (afterStart < end) {
+        currentX +=
+            drawTextSegmentWithVisualSpaces(
+                canvas, line, afterStart, end, currentX, y, segmentPaint, 1f);
+      }
+
+      return currentX - x;
+    }
+    if (!hasFade || end <= fadeStart || start >= fadeEnd) {
+      canvas.drawText(line, start, end, x, y, segmentPaint);
+      return segmentPaint.measureText(line, start, end);
+    }
+
+    float currentX = x;
+
+    int beforeEnd = Math.min(end, fadeStart);
+    if (start < beforeEnd) {
+      canvas.drawText(line, start, beforeEnd, currentX, y, segmentPaint);
+      currentX += segmentPaint.measureText(line, start, beforeEnd);
+    }
+
+    int fadeSegStart = Math.max(start, fadeStart);
+    int fadeSegEnd = Math.min(end, fadeEnd);
+    if (fadeSegStart < fadeSegEnd) {
+      view.charAnimationManager.getTempPaint().set(segmentPaint);
+      int baseAlpha = segmentPaint.getAlpha();
+      view.charAnimationManager
+          .getTempPaint()
+          .setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))));
+      canvas.drawText(line, fadeSegStart, fadeSegEnd, currentX, y, view.charAnimationManager.getTempPaint());
+      currentX += segmentPaint.measureText(line, fadeSegStart, fadeSegEnd);
+    }
+
+    int afterStart = Math.max(start, fadeEnd);
+    if (afterStart < end) {
+      canvas.drawText(line, afterStart, end, currentX, y, segmentPaint);
+      currentX += segmentPaint.measureText(line, afterStart, end);
+    }
+
+    return currentX - x;
+  }
+
+  private float drawTextSegmentWithVisualSpaces(
+      Canvas canvas,
+      String line,
+      int start,
+      int end,
+      float x,
+      float y,
+      Paint segmentPaint,
+      float alphaMultiplier) {
+    if (start >= end) return 0f;
+
+    Paint drawPaint = segmentPaint;
+    if (alphaMultiplier < 1f) {
+      view.charAnimationManager.getTempPaint().set(segmentPaint);
+      int baseAlpha = segmentPaint.getAlpha();
+      view.charAnimationManager
+          .getTempPaint()
+          .setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, alphaMultiplier))));
+      drawPaint = view.charAnimationManager.getTempPaint();
+    }
+
+    int len = end - start;
+    float[] widths = view.whitespaceGuideManager.ensureMeasureWidthBuffer(len);
+    segmentPaint.getTextWidths(line, start, end, widths);
+
+    float currentX = x;
+    int runStart = start;
+    float runX = currentX;
+
+    for (int i = 0; i < len; i++) {
+      int charIndex = start + i;
+      char c = line.charAt(charIndex);
+      float adv =
+          view.whitespaceGuideManager.getCharAdvanceWidth(
+              c, widths[i], segmentPaint, SodiumEditorView.DEFAULT_TAB_SIZE_SPACES);
+      boolean isVirtualSpace = (c == ' ' || c == '\t');
+      if (isVirtualSpace) {
+        if (runStart < charIndex) {
+          canvas.drawText(line, runStart, charIndex, runX, y, drawPaint);
+        }
+        currentX += adv;
+        runStart = charIndex + 1;
+        runX = currentX;
+      } else {
+        currentX += adv;
+      }
+    }
+
+    if (runStart < end) {
+      canvas.drawText(line, runStart, end, runX, y, drawPaint);
+    }
+    return currentX - x;
+  }
+
+  private boolean containsArabicScript(CharSequence text, int start, int end) {
+    if (text == null || start >= end) return false;
+    int safeStart = Math.max(0, start);
+    int safeEnd = Math.min(text.length(), end);
+    for (int i = safeStart; i < safeEnd; ) {
+      int codePoint = Character.codePointAt(text, i);
+      i += Character.charCount(codePoint);
+      Character.UnicodeBlock block = Character.UnicodeBlock.of(codePoint);
+      if (block == Character.UnicodeBlock.ARABIC
+          || block == Character.UnicodeBlock.ARABIC_SUPPLEMENT
+          || block == Character.UnicodeBlock.ARABIC_EXTENDED_A
+          || block == Character.UnicodeBlock.ARABIC_PRESENTATION_FORMS_A
+          || block == Character.UnicodeBlock.ARABIC_PRESENTATION_FORMS_B
+          || block == Character.UnicodeBlock.ARABIC_MATHEMATICAL_ALPHABETIC_SYMBOLS) {
+        return true;
+      }
+    }
+    return false;
+  }
+  public static class HighlightSpan {
     final int start;
     final int end;
     final Paint paint;
@@ -905,7 +2195,7 @@ final class HighlightManager {
     }
   }
 
-  static class UnderlineSpan {
+  public static class UnderlineSpan {
     final int start;
     final int end;
     final boolean isPath;
@@ -917,7 +2207,7 @@ final class HighlightManager {
     }
   }
 
-  static class ErrorUnderlineSpan {
+  public static class ErrorUnderlineSpan {
     final int start;
     final int end;
 
@@ -927,7 +2217,7 @@ final class HighlightManager {
     }
   }
 
-  static class LineParseResult {
+  public static class LineParseResult {
     final List<HighlightSpan> spans;
     final boolean endsInBlockComment;
     final int endsInStringState;
@@ -939,7 +2229,7 @@ final class HighlightManager {
     }
   }
 
-  static class HighlightLineState {
+  public static class HighlightLineState {
     final boolean inBlockComment;
     final int stringState;
 
@@ -949,14 +2239,14 @@ final class HighlightManager {
     }
   }
 
-  enum HighlightRuleType {
+  public enum HighlightRuleType {
     REGEX,
     STRING,
     BLOCK_COMMENT,
     LINE_COMMENT
   }
 
-  static class HighlightRule {
+  public static class HighlightRule {
     final HighlightRuleType type;
     final Pattern pattern;
     final Paint paint;

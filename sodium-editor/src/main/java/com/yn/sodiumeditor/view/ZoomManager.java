@@ -4,7 +4,7 @@ import android.content.Context;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 
-final class ZoomManager {
+public final class ZoomManager {
   private static final float MIN_TEXT_SIZE = 8f;
   private static final float MAX_TEXT_SIZE = 56f;
 
@@ -54,7 +54,7 @@ final class ZoomManager {
                   pinchFocusX = lastFocusX;
                   pinchFocusY = lastFocusY;
                   pinchAnchorGlobalLineAtFocus =
-                      view.getGlobalLineForY(view.getScrollYForZoom() + pinchFocusY);
+                      view.getGlobalLineForY(view.scrollManager.scrollY + pinchFocusY);
                 } else {
                   pinchVisualZoomActive = false;
                   pinchVisualScale = 1f;
@@ -79,7 +79,7 @@ final class ZoomManager {
                   pinchFocusX = focusX;
                   pinchFocusY = focusY;
                   pinchAnchorGlobalLineAtFocus =
-                      view.getGlobalLineForY(view.getScrollYForZoom() + focusY);
+                      view.getGlobalLineForY(view.scrollManager.scrollY + focusY);
 
                   pinchVisualScale *= scale;
                   float targetSize = pinchStartTextSizePx * pinchVisualScale;
@@ -96,7 +96,7 @@ final class ZoomManager {
 
                 int anchorGlobalLineAtFocus = -1;
                 if (view.isWordWrapEnabled) {
-                  anchorGlobalLineAtFocus = view.getGlobalLineForY(view.getScrollYForZoom() + focusY);
+                  anchorGlobalLineAtFocus = view.getGlobalLineForY(view.scrollManager.scrollY + focusY);
                 }
 
                 float oldLineHeight = view.getPaintFontSpacingPxForZoom();
@@ -115,8 +115,9 @@ final class ZoomManager {
                   effectiveScrollX =
                       (effectiveScrollX + focusX - view.getTextStartX()) * scale
                           - (focusX - view.getTextStartX());
-                  view.setScrollXForZoom(view.isRtl ? -effectiveScrollX : effectiveScrollX);
-                  view.setScrollYForZoom((view.getScrollYForZoom() + focusY) * effectiveScaleY - focusY);
+                  view.scrollManager.scrollX = view.isRtl ? -effectiveScrollX : effectiveScrollX;
+                  view.scrollManager.scrollY =
+                      (view.scrollManager.scrollY + focusY) * effectiveScaleY - focusY;
                   if (view.isWordWrapEnabled) {
                     pendingZoomScrollAdjustGlobalLine = anchorGlobalLineAtFocus;
                     pendingZoomScrollAdjustFocusY = focusY;
@@ -126,8 +127,8 @@ final class ZoomManager {
                 lastFocusX = focusX;
                 lastFocusY = focusY;
 
-                view.clampScrollXForZoom();
-                view.clampScrollYForZoom();
+                view.scrollManager.clampScrollX();
+                view.clampScrollY();
                 view.invalidate();
                 return true;
               }
@@ -158,20 +159,21 @@ final class ZoomManager {
                     effectiveScrollX =
                         (effectiveScrollX + focusX - view.getTextStartX()) * scaleX
                             - (focusX - view.getTextStartX());
-                    view.setScrollXForZoom(view.isRtl ? -effectiveScrollX : effectiveScrollX);
-                    view.setScrollYForZoom((view.getScrollYForZoom() + focusY) * effectiveScaleY - focusY);
+                    view.scrollManager.scrollX = view.isRtl ? -effectiveScrollX : effectiveScrollX;
+                    view.scrollManager.scrollY =
+                        (view.scrollManager.scrollY + focusY) * effectiveScaleY - focusY;
 
                     if (view.isWordWrapEnabled && anchorLine >= 0) {
                       pendingZoomScrollAdjustGlobalLine = anchorLine;
                       pendingZoomScrollAdjustFocusY = focusY;
                     }
-                    view.clampScrollXForZoom();
-                    view.clampScrollYForZoom();
+                    view.scrollManager.clampScrollX();
+                    view.clampScrollY();
                     view.invalidate();
                   }
                 }
-                if (view.isWrapPrefixRebuildPendingForScroll()) {
-                  view.clearWrapPrefixRebuildPendingForScroll();
+                if (view.wordWrapManager.wrapPrefixRebuildPending) {
+                  view.wordWrapManager.wrapPrefixRebuildPending = false;
                   view.scheduleWrapPrefixRebuildUpToWindow();
                 }
 
@@ -188,10 +190,10 @@ final class ZoomManager {
                       new Runnable() {
                         @Override
                         public void run() {
-                          if (view.isWrapMetricsReadyForScroll()) {
+                          if (view.wordWrapManager.wrapMetricsReady) {
                             int visualIndex = view.getVisualIndexForLineAndChar(targetGlobalLine, 0);
-                            view.setScrollYForZoom(visualIndex * view.lineHeight - targetFocusY);
-                            view.clampScrollYForZoom();
+                            view.scrollManager.scrollY = visualIndex * view.lineHeight - targetFocusY;
+                            view.clampScrollY();
                             view.invalidate();
                           } else {
                             view.mainHandler.postDelayed(this, 50);
@@ -282,15 +284,15 @@ final class ZoomManager {
     return scaleGestureDetector != null && scaleGestureDetector.isInProgress();
   }
 
-  void setZoomEnabled(boolean enabled) {
+  public void setZoomEnabled(boolean enabled) {
     isZoomEnabled = enabled;
   }
 
-  void setDeferWordWrapReflowDuringZoom(boolean enabled) {
+  public void setDeferWordWrapReflowDuringZoom(boolean enabled) {
     deferWrapReflowDuringPinch = enabled;
   }
 
-  void setZoomTextSizeRange(float minSp, float maxSp) {
+  public void setZoomTextSizeRange(float minSp, float maxSp) {
     float minPx = view.spToPxForZoom(minSp);
     float maxPx = view.spToPxForZoom(maxSp);
     if (minPx > maxPx) {
@@ -302,11 +304,23 @@ final class ZoomManager {
     maxZoomTextSizePx = maxPx;
   }
 
-  void setZoomStepClamp(float maxStep) {
+  public void setZoomStepClamp(float maxStep) {
     zoomStepClampSp = Math.max(0f, maxStep);
   }
 
-  void setHideDecorationsWhileZooming(boolean enabled) {
+  public void setZoomFocusSmoothing(float alpha) {
+    // No-op: non-wrap zoom has been removed.
+  }
+
+  public void setZoomLockToInitialFocus(boolean enabled) {
+    // No-op: non-wrap zoom has been removed.
+  }
+
+  public void setZoomScaleSmoothing(float alpha) {
+    // No-op: non-wrap zoom has been removed.
+  }
+
+  public void setHideDecorationsWhileZooming(boolean enabled) {
     hideDecorationsWhileZooming = enabled;
   }
 

@@ -31,7 +31,7 @@ final class InputManager {
               @Override
               public void onLongPress(MotionEvent e) {
                 if (view.isSuggestionAcceptedThisTouch()) return;
-                if (view.isZoomMultiTouchBlockedForInput()) return;
+                if (view.zoomManager.isMultiTouchActive() || view.zoomManager.hadMultiTouch()) return;
 
                 if (view.isPopupVisibleForInput()) {
                   int hitAction = view.getPopupActionAtForInput(e.getX(), e.getY());
@@ -67,23 +67,23 @@ final class InputManager {
                 }
 
                 view.showPopupAtSelection();
-                view.resetCursorBlink();
+                view.cursorAnimationManager.resetCursorBlink();
                 view.invalidate();
-                view.showKeyboardForInput();
+                view.imeManager.showKeyboard();
                 view.restartInputForInput();
               }
 
               @Override
               public boolean onSingleTapUp(MotionEvent e) {
                 if (view.isSuggestionAcceptedThisTouch()) return true;
-                if (view.isZoomMultiTouchBlockedForInput()) return true;
+                if (view.zoomManager.isMultiTouchActive() || view.zoomManager.hadMultiTouch()) return true;
 
                 view.clearSelectionForInput();
 
                 if (view.isCodeFoldingEnabledForInput() && view.isInLineNumberGutterForInput(e.getX())) {
                   float gy = e.getY() + view.getScrollYForInput();
                   int line = view.getGlobalLineForY(gy);
-                  if (view.toggleFoldAtLineForInput(line)) {
+                  if (view.foldManager.toggleFoldAtLine(line)) {
                     view.startFoldMarkerRippleForInput(line);
                     view.hidePopup();
                     view.invalidate();
@@ -117,7 +117,7 @@ final class InputManager {
                     x = xLocal;
                   }
                   if (view.isFoldPlaceholderHitForInput(line, ln, x)) {
-                    if (view.toggleFoldAtLineForInput(line)) {
+                    if (view.foldManager.toggleFoldAtLine(line)) {
                       view.startFoldMarkerRippleForInput(line);
                     }
                     view.hidePopup();
@@ -156,8 +156,8 @@ final class InputManager {
                 view.hidePopup();
                 view.setSelectingForInput(false);
                 view.invalidate();
-                view.resetCursorBlink();
-                view.showKeyboardForInput();
+                view.cursorAnimationManager.resetCursorBlink();
+                view.imeManager.showKeyboard();
                 view.restartInputForInput();
                 view.updateSuggestionForInput();
                 return true;
@@ -194,11 +194,11 @@ final class InputManager {
                     () -> {
                       if (!view.isPendingPopupAfterDoubleTap()) return;
                       view.setPendingPopupAfterDoubleTap(false);
-                      if (view.hasSelectionValue()) view.showPopupAtSelection();
+                      if (view.selectionManager.hasSelection()) view.showPopupAtSelection();
                     });
-                view.resetCursorBlink();
+                view.cursorAnimationManager.resetCursorBlink();
                 view.invalidate();
-                view.showKeyboardForInput();
+                view.imeManager.showKeyboard();
                 view.restartInputForInput();
                 return true;
               }

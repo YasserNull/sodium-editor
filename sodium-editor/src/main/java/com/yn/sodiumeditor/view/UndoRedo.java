@@ -123,13 +123,13 @@ final class UndoRedo {
       root.put("pending", editOpDequeToJson(pendingEdits));
       root.put("pendingRedo", editOpDequeToJson(pendingRedo));
       root.put("dirty", !pendingEdits.isEmpty());
-      root.put("cursorLine", view.getCursorLine());
-      root.put("cursorChar", view.getCursorChar());
-      root.put("selStartLine", view.getSelectionStartLineValue());
-      root.put("selStartChar", view.getSelectionStartCharValue());
-      root.put("selEndLine", view.getSelectionEndLineValue());
-      root.put("selEndChar", view.getSelectionEndCharValue());
-      root.put("hasSelection", view.hasSelectionValue());
+      root.put("cursorLine", view.cursorManager.getLine());
+      root.put("cursorChar", view.cursorManager.getChar());
+      root.put("selStartLine", view.selectionManager.selStartLine);
+      root.put("selStartChar", view.selectionManager.selStartChar);
+      root.put("selEndLine", view.selectionManager.selEndLine);
+      root.put("selEndChar", view.selectionManager.selEndChar);
+      root.put("hasSelection", view.selectionManager.hasSelection());
       return root.toString();
     } catch (Exception e) {
       return "";
@@ -170,8 +170,8 @@ final class UndoRedo {
       for (EditOp op : pendingRedoList) pendingRedo.addLast(op);
 
       if (root.has("cursorLine") && root.has("cursorChar")) {
-        int cLine = root.optInt("cursorLine", view.getCursorLine());
-        int cChar = root.optInt("cursorChar", view.getCursorChar());
+        int cLine = root.optInt("cursorLine", view.cursorManager.getLine());
+        int cChar = root.optInt("cursorChar", view.cursorManager.getChar());
         if (root.optBoolean("hasSelection", false)) {
           int sL = root.optInt("selStartLine", cLine);
           int sC = root.optInt("selStartChar", cChar);
@@ -179,12 +179,12 @@ final class UndoRedo {
           int eC = root.optInt("selEndChar", cChar);
           view.restoreSelection(sL, sC, eL, eC, cLine, cChar);
         } else {
-          view.setCursorPosition(cLine, cChar);
+          view.cursorManager.setPosition(cLine, cChar);
         }
       }
 
       editVersion.incrementAndGet();
-      view.invalidateLineNumberCacheForUndo();
+      view.lineNumberManager.invalidateCache();
       view.invalidate();
       return true;
     } catch (Exception e) {
@@ -255,7 +255,7 @@ final class UndoRedo {
                         view.modifiedLines.clear();
                       }
                       lineCountDelta = 0;
-                      view.invalidateLineNumberCacheForUndo();
+                      view.lineNumberManager.invalidateCache();
                       view.requestLayout();
                       view.invalidate();
                     }
@@ -405,8 +405,8 @@ final class UndoRedo {
       op.insertedEndChar = insertedEnd.ch;
       op.cursorLineBefore = beforeLine;
       op.cursorCharBefore = beforeChar;
-      op.cursorLineAfter = view.getCursorLine();
-      op.cursorCharAfter = view.getCursorChar();
+      op.cursorLineAfter = view.cursorManager.getLine();
+      op.cursorCharAfter = view.cursorManager.getChar();
       op.timestamp = System.currentTimeMillis();
       recordEditNoUndo(op);
       return;
@@ -425,8 +425,8 @@ final class UndoRedo {
       op.insertedEndChar = insertedEnd.ch;
       op.cursorLineBefore = beforeLine;
       op.cursorCharBefore = beforeChar;
-      op.cursorLineAfter = view.getCursorLine();
-      op.cursorCharAfter = view.getCursorChar();
+      op.cursorLineAfter = view.cursorManager.getLine();
+      op.cursorCharAfter = view.cursorManager.getChar();
       op.timestamp = System.currentTimeMillis();
       recordEditNoUndo(op);
       return;
@@ -443,8 +443,8 @@ final class UndoRedo {
     op.insertedEndChar = insertedEnd.ch;
     op.cursorLineBefore = beforeLine;
     op.cursorCharBefore = beforeChar;
-    op.cursorLineAfter = view.getCursorLine();
-    op.cursorCharAfter = view.getCursorChar();
+    op.cursorLineAfter = view.cursorManager.getLine();
+    op.cursorCharAfter = view.cursorManager.getChar();
     op.timestamp = System.currentTimeMillis();
     recordEdit(op);
   }
@@ -472,8 +472,8 @@ final class UndoRedo {
       op.insertedEndChar = insertedEnd.ch;
       op.cursorLineBefore = beforeLine;
       op.cursorCharBefore = beforeChar;
-      op.cursorLineAfter = view.getCursorLine();
-      op.cursorCharAfter = view.getCursorChar();
+      op.cursorLineAfter = view.cursorManager.getLine();
+      op.cursorCharAfter = view.cursorManager.getChar();
       op.timestamp = System.currentTimeMillis();
       lineCountDelta += view.countNewlinesForUndo(text);
       composingPendingOp = op;
@@ -501,8 +501,8 @@ final class UndoRedo {
         view.computeCursorAfterInsertForUndo(startLine, startChar, text);
     composingPendingOp.insertedEndLine = insertedEnd.line;
     composingPendingOp.insertedEndChar = insertedEnd.ch;
-    composingPendingOp.cursorLineAfter = view.getCursorLine();
-    composingPendingOp.cursorCharAfter = view.getCursorChar();
+    composingPendingOp.cursorLineAfter = view.cursorManager.getLine();
+    composingPendingOp.cursorCharAfter = view.cursorManager.getChar();
     composingPendingOp.timestamp = System.currentTimeMillis();
     lastEditTimestamp = composingPendingOp.timestamp;
 
@@ -560,12 +560,12 @@ final class UndoRedo {
       int sL, int sC, int eL, int eC, String text, int cursorLine, int cursorChar) {
     view.setSelectionInternal(sL, sC, eL, eC);
     view.replaceSelectionWithText(text);
-    view.setCursorPosition(cursorLine, cursorChar);
+    view.cursorManager.setPosition(cursorLine, cursorChar);
     if (view.isWordWrapEnabled) {
       view.invalidateWrapMetricsForUndo(true);
       view.requestWrapPrefixRebuildForUndo();
     }
-    view.invalidateLineNumberCacheForUndo();
+    view.lineNumberManager.invalidateCache();
     view.invalidate();
   }
 

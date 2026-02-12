@@ -154,20 +154,20 @@ public final class ScrollManager {
         }
         view.checkAndLoadWindow();
         if (view.isWordWrapEnabled
-            && view.isWrapPrefixRebuildPendingForScroll()
-            && !view.isWrapPrefixBuildingForScroll()) {
-          view.clearWrapPrefixRebuildPendingForScroll();
+            && view.wordWrapManager.wrapPrefixRebuildPending
+            && !view.wordWrapManager.wrapPrefixBuilding) {
+          view.wordWrapManager.wrapPrefixRebuildPending = false;
           view.scheduleWrapPrefixRebuildUpToWindow();
         }
-        if (view.hasSelectionValue()) view.showPopupAtSelection();
+        if (view.selectionManager.hasSelection()) view.showPopupAtSelection();
       }
     }
   }
 
   boolean onFling(float velocityX, float velocityY) {
-    if (view.getZoomManager().isScaling() || view.getZoomManager().isScaleInProgress()) return true;
-    if (view.getZoomManager().isJustFinishedScale()) return true;
-    if (view.isWordWrapEnabled && view.isWrapPrefixBuildingForScroll()) {
+    if (view.zoomManager.isScaling() || view.zoomManager.isScaleInProgress()) return true;
+    if (view.zoomManager.isJustFinishedScale()) return true;
+    if (view.isWordWrapEnabled && view.wordWrapManager.wrapPrefixBuilding) {
       view.cancelWrapPrefixRebuildForInteraction();
     }
     if (view.suggestionAcceptedThisTouch) return false;
@@ -180,7 +180,7 @@ public final class ScrollManager {
             ? 0
             : Math.max(
                 0,
-                Math.round(view.getMaxLineWidthInWindow() - (view.getWidth() - view.getTextStartX())));
+                Math.round(getMaxLineWidthInWindowInternal() - (view.getWidth() - view.getTextStartX())));
     int minY = 0;
 
     float maxScrollYFloat;
@@ -239,9 +239,9 @@ public final class ScrollManager {
 
   boolean onScroll(MotionEvent e2, float distanceX, float distanceY) {
     if (e2.getPointerCount() > 1) return true;
-    if (view.getZoomManager().isScaling() || view.getZoomManager().isScaleInProgress()) return true;
-    if (view.getZoomManager().isJustFinishedScale()) return true;
-    if (view.isWordWrapEnabled && view.isWrapPrefixBuildingForScroll()) {
+    if (view.zoomManager.isScaling() || view.zoomManager.isScaleInProgress()) return true;
+    if (view.zoomManager.isJustFinishedScale()) return true;
+    if (view.isWordWrapEnabled && view.wordWrapManager.wrapPrefixBuilding) {
       view.cancelWrapPrefixRebuildForInteraction();
     }
     if (view.suggestionAcceptedThisTouch) return false;
@@ -319,7 +319,7 @@ public final class ScrollManager {
     }
 
     if (view.isPopupVisibleForScroll()) view.hidePopup();
-    view.resetCursorBlink();
+    view.cursorAnimationManager.resetCursorBlink();
     view.invalidate();
     return true;
   }
@@ -338,8 +338,8 @@ public final class ScrollManager {
 
   float getMaxScrollYForClamp() {
     if (view.isWordWrapEnabled
-        && !view.isWrapMetricsReadyForScroll()
-        && (view.getZoomManager().isScaling() || view.getZoomManager().isJustFinishedScale())) {
+        && !view.wordWrapManager.wrapMetricsReady
+        && (view.zoomManager.isScaling() || view.zoomManager.isJustFinishedScale())) {
       return scrollY;
     }
 
@@ -350,12 +350,14 @@ public final class ScrollManager {
             : (view.foldManager.isCodeFoldingEnabled
                 ? view.getVisibleLineCount()
                 : Math.max(1, view.getLinesCount()));
-    if (view.isWordWrapEnabled && (view.isSelectAllActiveValue() || view.isEntireFileSelectedValue())) {
-      lineCount = Math.max(lineCount, view.getSelectionEndLineValue() + 1);
+    if (view.isWordWrapEnabled && (view.selectionManager.isSelectAllActive() || view.selectionManager.isEntireFileSelected())) {
+      lineCount = Math.max(lineCount, view.selectionManager.selEndLine + 1);
     }
     if (view.isEof) {
       float paddingToUse =
-          (view.keyboardHeight > 0) ? view.getKeyboardBarrierPadding() : view.getBottomBarrierPadding();
+          (view.keyboardHeight > 0)
+              ? getKeyboardBarrierPaddingInternal()
+              : getBottomBarrierPaddingInternal();
       return Math.max(0f, lineCount * view.lineHeight - (effectiveHeight - paddingToUse));
     }
     float virtualExtraSpace = Math.max(view.prefetchLines * view.lineHeight, 2000f);
@@ -389,7 +391,7 @@ public final class ScrollManager {
 
   float getMaxScrollXForClamp() {
     if (view.isWordWrapEnabled) return 0f;
-    float rawMaxWidth = view.getMaxLineWidthInWindow();
+    float rawMaxWidth = getMaxLineWidthInWindowInternal();
     if (rawMaxWidth > maxLineWidthForScroll) {
       maxLineWidthForScroll = rawMaxWidth;
     }
@@ -516,19 +518,21 @@ public final class ScrollManager {
   }
 
   void keepCursorVisibleHorizontally() {
-    if (view.getZoomManager().isScaleInProgress()
-        || view.getZoomManager().isScaling()
-        || view.getZoomManager().isMultiTouchActive()) {
+    if (view.zoomManager.isScaleInProgress()
+        || view.zoomManager.isScaling()
+        || view.zoomManager.isMultiTouchActive()) {
       return;
     }
-    int cursorVisualIndex = view.getVisualIndexForLineAndChar(view.getCursorLine(), view.getCursorChar());
+    int cursorVisualIndex = view.getVisualIndexForLineAndChar(view.cursorManager.getLine(), view.cursorManager.getChar());
     float cursorYTop = cursorVisualIndex * view.lineHeight;
     float cursorYBottom = cursorYTop + view.lineHeight;
     int viewHeight = view.getHeight() - view.keyboardHeight;
     if (viewHeight <= 0) viewHeight = view.getHeight();
 
     float bottomPadding =
-        (view.keyboardHeight > 0) ? view.getKeyboardBarrierPadding() : view.getBottomBarrierPadding();
+        (view.keyboardHeight > 0)
+            ? getKeyboardBarrierPaddingInternal()
+            : getBottomBarrierPaddingInternal();
     float effectiveVisibleHeight = Math.max(0f, viewHeight - bottomPadding);
     float visibleTop = scrollY;
     float visibleBottom = scrollY + effectiveVisibleHeight;
@@ -538,7 +542,7 @@ public final class ScrollManager {
 
     if (view.keyboardHeight > 0) {
       float keyboardTop = view.getHeight() - view.keyboardHeight;
-      float paddingAboveKeyboard = view.getKeyboardBarrierPadding();
+      float paddingAboveKeyboard = getKeyboardBarrierPaddingInternal();
       float currentCursorViewY = cursorYBottom - scrollY;
       if (currentCursorViewY >= keyboardTop - paddingAboveKeyboard) {
         scrollY =
@@ -548,10 +552,10 @@ public final class ScrollManager {
     clampScrollY();
 
     if (!view.isWordWrapEnabled) {
-      String line = view.getLineTextForRender(view.getCursorLine());
+      String line = view.getLineTextForRender(view.cursorManager.getLine());
       int safeChar =
-          Math.min(view.getCursorChar(), view.getLogicalLineLength(view.getCursorLine(), line));
-      float cursorX = view.getCaretXForLine(line, view.getCursorLine(), safeChar);
+          Math.min(view.cursorManager.getChar(), view.getLogicalLineLength(view.cursorManager.getLine(), line));
+      float cursorX = view.getCaretXForLine(line, view.cursorManager.getLine(), safeChar);
 
       float viewLeft = view.lineNumberManager.getContentViewLeft(view.isRtl);
       float viewRight = view.lineNumberManager.getContentViewRight(view.getWidth(), view.isRtl);
@@ -581,7 +585,7 @@ public final class ScrollManager {
 
   void scrollToLineFastForSelectAll(int line, int ch) {
     if (view.isWordWrapEnabled
-        && (!view.isWrapMetricsReadyForScroll() || view.getWrapLinePrefixForScroll() == null)) {
+        && (!view.wordWrapManager.wrapMetricsReady || view.wordWrapManager.wrapLinePrefix == null)) {
       scrollY = Math.max(0f, (line - 5) * view.lineHeight);
     } else {
       int targetVisual = view.getVisualIndexForLineAndChar(line, ch);
@@ -747,5 +751,17 @@ public final class ScrollManager {
   public void setFlingBounceDistanceFactor(float factor) {
     if (factor <= 0f) return;
     flingBounceOverScrollFactor = factor;
+  }
+
+  private float getMaxLineWidthInWindowInternal() {
+    return Math.max(view.currentMaxWindowLineWidth, view.globalMaxLineWidth);
+  }
+
+  private float getKeyboardBarrierPaddingInternal() {
+    return Math.min(SodiumEditorView.BOTTOM_SCROLL_OFFSET, view.keyboardHeight * 0.4f);
+  }
+
+  private float getBottomBarrierPaddingInternal() {
+    return SodiumEditorView.BOTTOM_SCROLL_OFFSET;
   }
 }

@@ -75,8 +75,8 @@ final class BracketMatchManager {
   BracketMatch getMatch(int firstVisibleLine, int lastVisibleLine, HashMap<Integer, String> directLines) {
     if (!enabled) return null;
     int v = view.getEditVersionForMatch();
-    int line = view.getCursorLine();
-    int ch = view.getCursorChar();
+    int line = view.cursorManager.getLine();
+    int ch = view.cursorManager.getChar();
     if (cached != null
         && cachedCursorLine == line
         && cachedCursorChar == ch
@@ -124,8 +124,8 @@ final class BracketMatchManager {
   private BracketMatch findBracketMatchInVisible(
       int firstVisibleLine, int lastVisibleLine, HashMap<Integer, String> directLines) {
     if (!enabled) return null;
-    int cursorLine = view.getCursorLine();
-    int cursorChar = view.getCursorChar();
+    int cursorLine = view.cursorManager.getLine();
+    int cursorChar = view.cursorManager.getChar();
     if (cursorLine < firstVisibleLine || cursorLine > lastVisibleLine) return null;
 
     String cursorLineText = view.getLineTextForRenderWithDirectForMatch(cursorLine, directLines);
@@ -149,7 +149,8 @@ final class BracketMatchManager {
     }
     if (targetIndex < 0) return null;
 
-    BracketMatchLineState startState = view.getBracketMatchLineStateForMatch(firstVisibleLine);
+    HighlightManager.HighlightLineState hlState = view.highlightManager.getLineStateAtStart(firstVisibleLine);
+    BracketMatchLineState startState = new BracketMatchLineState(hlState.inBlockComment, hlState.stringState);
     boolean inBlockComment = startState.inBlockComment && view.isBlockCommentsEnabledForMatch();
     int stringState = startState.stringState;
     if (!view.isBlockCommentsEnabledForMatch()) inBlockComment = false;
@@ -173,7 +174,7 @@ final class BracketMatchManager {
         if (inLineComment) break;
 
         if (inBlockComment) {
-          int end = view.findBlockCommentEndForMatch(text, i);
+          int end = HighlightManager.findBlockCommentEnd(text, i);
           int endPos = (end < 0) ? len : end + 2;
           if (line == cursorLine && targetIndex >= i && targetIndex < endPos) return null;
           if (end < 0) break;
@@ -184,7 +185,7 @@ final class BracketMatchManager {
 
         if (stringState != 0) {
           HighlightManager.StringEndResult endResult =
-              view.findStringEndForStateForMatch(text, i, stringState);
+              view.highlightManager.findStringEndForState(text, i, stringState);
           int endPos = endResult.found ? endResult.endIndex : len;
           if (line == cursorLine && targetIndex >= i && targetIndex < endPos) return null;
           if (!endResult.found) break;
@@ -193,7 +194,7 @@ final class BracketMatchManager {
           continue;
         }
 
-        if (view.isLineCommentStartForMatch(text, i)) {
+        if (view.highlightManager.isLineCommentStart(text, i)) {
           if (line == cursorLine && targetIndex >= i) return null;
           inLineComment = true;
           break;
@@ -203,8 +204,8 @@ final class BracketMatchManager {
             && i + 1 < len
             && text.charAt(i) == '/'
             && text.charAt(i + 1) == '*'
-            && !view.isTokenEscapedForMatch(text, i)) {
-          int end = view.findBlockCommentEndForMatch(text, i + 2);
+            && !HighlightManager.isTokenEscaped(text, i)) {
+          int end = HighlightManager.findBlockCommentEnd(text, i + 2);
           int endPos = (end < 0) ? len : end + 2;
           if (line == cursorLine && targetIndex >= i && targetIndex < endPos) return null;
           if (end < 0) {
@@ -215,8 +216,8 @@ final class BracketMatchManager {
           continue;
         }
 
-        if (view.isTripleQuoteStartForMatch(text, i) && !view.isEscapedForMatch(text, i)) {
-          int end = view.findTripleQuoteEndForMatch(text, i + 3);
+        if (view.highlightManager.isTripleQuoteStart(text, i) && !HighlightManager.isEscaped(text, i)) {
+          int end = HighlightManager.findTripleQuoteEnd(text, i + 3);
           int endPos = end >= 0 ? end + 3 : len;
           if (line == cursorLine && targetIndex >= i && targetIndex < endPos) return null;
           if (end < 0) {
@@ -230,13 +231,13 @@ final class BracketMatchManager {
         }
 
         char c = text.charAt(i);
-        if (view.isStringDelimiterForMatch(c) && !view.isEscapedForMatch(text, i)) {
-          int end = view.findStringEndForMatch(text, i + 1, c);
+        if (view.highlightManager.isStringDelimiter(c) && !HighlightManager.isEscaped(text, i)) {
+          int end = HighlightManager.findStringEnd(text, i + 1, c);
           int endPos = end >= 0 ? end + 1 : len;
           if (line == cursorLine && targetIndex >= i && targetIndex < endPos) return null;
           if (end < 0) {
             if (view.isMultiLineStringsEnabledForMatch()) {
-              stringState = view.getStringStateForDelimiterForMatch(c);
+              stringState = view.highlightManager.getStringStateForDelimiter(c);
             }
             break;
           }
@@ -244,7 +245,7 @@ final class BracketMatchManager {
           continue;
         }
 
-        if (isBracketChar(c) && !view.isEscapedForMatch(text, i)) {
+        if (isBracketChar(c) && !HighlightManager.isEscaped(text, i)) {
           BracketToken token = new BracketToken(line, i, c);
           if (isOpeningBracket(c)) {
             stack.push(token);
@@ -270,10 +271,10 @@ final class BracketMatchManager {
   private void drawBracketBox(Canvas canvas, String line, int globalLine, int index) {
     if (index < 0 || index >= line.length()) return;
 
-    float left = view.measureTextForMatch(line, index, globalLine);
-    float right = view.measureTextForMatch(line, index + 1, globalLine);
+    float left = view.highlightManager.measureText(line, index, globalLine);
+    float right = view.highlightManager.measureText(line, index + 1, globalLine);
     if (right <= left)
-      right = left + view.measureTextWithVisualSpacesForMatch(line, index, index + 1);
+      right = left + view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, index, index + 1, view.paint);
 
     drawBracketBoxRect(canvas, globalLine, left, right);
   }
@@ -285,10 +286,10 @@ final class BracketMatchManager {
     if (endIndex >= line.length()) endIndex = line.length() - 1;
     if (endIndex < startIndex) return;
 
-    float left = view.measureTextForMatch(line, startIndex, globalLine);
-    float right = view.measureTextForMatch(line, endIndex + 1, globalLine);
+    float left = view.highlightManager.measureText(line, startIndex, globalLine);
+    float right = view.highlightManager.measureText(line, endIndex + 1, globalLine);
     if (right <= left)
-      right = left + view.measureTextWithVisualSpacesForMatch(line, startIndex, endIndex + 1);
+      right = left + view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, startIndex, endIndex + 1, view.paint);
     drawBracketBoxRect(canvas, globalLine, left, right);
   }
 
