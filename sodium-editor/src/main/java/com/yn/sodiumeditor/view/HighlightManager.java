@@ -2144,7 +2144,7 @@ public final class HighlightManager {
       char c = line.charAt(charIndex);
       float adv =
           view.whitespaceGuideManager.getCharAdvanceWidth(
-              c, widths[i], segmentPaint, SodiumEditorView.DEFAULT_TAB_SIZE_SPACES);
+              c, widths[i], segmentPaint, WordWrapManager.DEFAULT_TAB_SIZE_SPACES);
       boolean isVirtualSpace = (c == ' ' || c == '\t');
       if (isVirtualSpace) {
         if (runStart < charIndex) {

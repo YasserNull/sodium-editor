@@ -197,9 +197,9 @@ final class UndoRedo {
       if (onComplete != null) view.post(onComplete);
       return;
     }
-    if (view.hasComposing) {
+    if (view.cursorManager.getHasComposing()) {
       Log.d("SodiumEditorViewSave", "commitComposing before save");
-      view.commitComposing(true);
+      view.cursorManager.commitComposing(true);
     }
     final ArrayList<EditOp> ops = new ArrayList<>();
     synchronized (pendingEdits) {
@@ -450,12 +450,12 @@ final class UndoRedo {
   }
 
   void updateComposingPendingOp(@Nullable String text, int beforeLine, int beforeChar) {
-    if (!view.hasComposing) return;
+    if (!view.cursorManager.getHasComposing()) return;
     if (text == null) text = "";
     if (text.length() > UNDO_TEXT_LIMIT) return;
 
-    int startLine = view.composingStartActive ? view.composingStartLine : view.composingLine;
-    int startChar = view.composingStartActive ? view.composingStartChar : view.composingOffset;
+    int startLine = view.cursorManager.getComposingStartActive() ? view.cursorManager.getComposingStartLine() : view.cursorManager.getComposingLine();
+    int startChar = view.cursorManager.getComposingStartActive() ? view.cursorManager.getComposingStartChar() : view.cursorManager.getComposingOffset();
 
     if (composingPendingOp == null) {
       if (text.isEmpty()) return;
@@ -561,9 +561,9 @@ final class UndoRedo {
     view.setSelectionInternal(sL, sC, eL, eC);
     view.replaceSelectionWithText(text);
     view.cursorManager.setPosition(cursorLine, cursorChar);
-    if (view.isWordWrapEnabled) {
-      view.invalidateWrapMetricsForUndo(true);
-      view.requestWrapPrefixRebuildForUndo();
+    if (view.wordWrapManager.isWordWrapEnabled) {
+      view.wordWrapManager.invalidateWrapMetrics(view, true);
+      view.wordWrapManager.requestWrapPrefixRebuild(view);
     }
     view.lineNumberManager.invalidateCache();
     view.invalidate();

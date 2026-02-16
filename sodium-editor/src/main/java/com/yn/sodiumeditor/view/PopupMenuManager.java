@@ -62,6 +62,7 @@ public final class PopupMenuManager {
   private float popupAlpha = 0f;
   @Nullable private ValueAnimator popupFadeAnimator;
   private int popupPressedAction = 0;
+  private boolean pendingPopupAfterDoubleTap = false;
 
   private boolean popupRippleActive = false;
   private final RectF popupRippleRect = new RectF();
@@ -81,7 +82,7 @@ public final class PopupMenuManager {
   PopupMenuManager(SodiumEditorView view) {
     this.view = view;
     popupTextPaint.setTextAlign(Paint.Align.LEFT);
-    popupTextPaint.setTypeface(view.getEditorTypefaceForPopup());
+    popupTextPaint.setTypeface(getEditorTypefaceForPopup());
     popupRipplePaint.setColor(0xFFFFFFFF);
     applyPopupConfig();
   }
@@ -96,7 +97,7 @@ public final class PopupMenuManager {
     popupLabelPadding = popupLabelPaddingDp * density;
     popupBgPaint.setColor(popupBackgroundColor);
     popupTextPaint.setColor(popupTextColor);
-    popupTextPaint.setTextSize(view.spToPxForPopup(popupTextSizeSp));
+    popupTextPaint.setTextSize(spToPx(popupTextSizeSp));
   }
 
   public void setPopupBackgroundColor(int color) {
@@ -113,7 +114,7 @@ public final class PopupMenuManager {
 
   public void setPopupTextSize(float sp) {
     popupTextSizeSp = sp;
-    popupTextPaint.setTextSize(view.spToPxForPopup(sp));
+    popupTextPaint.setTextSize(spToPx(sp));
     if (showPopup) view.invalidate();
   }
 
@@ -127,7 +128,7 @@ public final class PopupMenuManager {
   public void setPopupTextFollowsEditorTypeface(boolean follow) {
     popupTextFollowsEditorTypeface = follow;
     if (follow) {
-      popupTextPaint.setTypeface(view.getEditorTypefaceForPopup());
+      popupTextPaint.setTypeface(getEditorTypefaceForPopup());
     }
     if (showPopup) view.invalidate();
   }
@@ -153,6 +154,14 @@ public final class PopupMenuManager {
     }
   }
 
+  void setPendingPopupAfterDoubleTap(boolean pending) {
+    pendingPopupAfterDoubleTap = pending;
+  }
+
+  boolean isPendingPopupAfterDoubleTap() {
+    return pendingPopupAfterDoubleTap;
+  }
+
   void drawPopup(Canvas canvas) {
     if (popupAlpha <= 0f) return;
     applyPopupConfig();
@@ -171,7 +180,7 @@ public final class PopupMenuManager {
         actions.add(POPUP_ACTION_PASTE);
       }
     } else {
-      final boolean hideCopyCut = view.shouldHideCopyCutForPopup();
+      final boolean hideCopyCut = shouldHideCopyCutForSelection();
       actions.add(POPUP_ACTION_SELECT_ALL);
       if (!hideCopyCut) {
         if (!view.isReadOnly) {
@@ -230,8 +239,8 @@ public final class PopupMenuManager {
     float anchorX, anchorYTop, anchorYBottom;
     if (isMinimalPopup || !view.selectionManager.hasSelection()) {
       String cursorLineText = view.getLineTextForRender(view.cursorManager.getLine());
-      anchorX = view.getViewXForPopup(cursorLineText, view.cursorManager.getLine(), view.cursorManager.getChar());
-      anchorYTop = view.getViewYTopForPopup(view.cursorManager.getLine(), view.cursorManager.getChar());
+      anchorX = getViewXForLineChar(cursorLineText, view.cursorManager.getLine(), view.cursorManager.getChar());
+      anchorYTop = getViewYTopForLineChar(view.cursorManager.getLine(), view.cursorManager.getChar());
       anchorYBottom = anchorYTop + view.lineHeight;
     } else {
       int nStartLine, nEndLine, nEndChar;
@@ -249,9 +258,9 @@ public final class PopupMenuManager {
         endLineText = view.getLineTextForRender(nEndLine);
       }
 
-      anchorYTop = view.getViewYTopForPopup(nStartLine, 0);
-      anchorYBottom = view.getViewYTopForPopup(nEndLine, nEndChar) + view.lineHeight;
-      anchorX = view.getViewXForPopup(endLineText, nEndLine, nEndChar);
+      anchorYTop = getViewYTopForLineChar(nStartLine, 0);
+      anchorYBottom = getViewYTopForLineChar(nEndLine, nEndChar) + view.lineHeight;
+      anchorX = getViewXForLineChar(endLineText, nEndLine, nEndChar);
     }
 
     float proposedLeft = anchorX - totalWidth / 2f;
@@ -540,5 +549,40 @@ public final class PopupMenuManager {
     float cx = r.centerX();
     float cy = r.centerY() - ((txtPaint.descent() + txtPaint.ascent()) / 2f);
     canvas.drawText(drawLabel, cx - textWidth / 2f, cy, txtPaint);
+  }
+
+  private float spToPx(float sp) {
+    return sp * view.getResources().getDisplayMetrics().scaledDensity;
+  }
+
+  @Nullable
+  private android.graphics.Typeface getEditorTypefaceForPopup() {
+    return view.paint.getTypeface();
+  }
+
+  private boolean shouldHideCopyCutForSelection() {
+    return view.shouldHideCopyCutForSelection();
+  }
+
+  private float getViewXForLineChar(String line, int globalLine, int ch) {
+    if (line == null) line = "";
+    int safeChar = Math.max(0, Math.min(ch, view.getLogicalLineLength(globalLine, line)));
+    if (!view.wordWrapManager.isWordWrapEnabled) {
+      return view.getTextStartX()
+          + view.highlightManager.measureText(line, safeChar, globalLine)
+          - view.getEffectiveScrollX();
+    }
+    int[] starts = view.wordWrapManager.getWrapStartsForLine(view, globalLine, line);
+    int seg = view.wordWrapManager.getWrapSegmentIndexForChar(starts, safeChar);
+    int segStart = view.wordWrapManager.getWrapSegmentStart(starts, seg);
+    float x =
+        view.whitespaceGuideManager.measureTextWithVisualSpaces(
+            view, line, segStart, safeChar, view.paint);
+    return view.getTextStartX() + x - view.getEffectiveScrollX();
+  }
+
+  private float getViewYTopForLineChar(int globalLine, int ch) {
+    int v = view.getVisualIndexForLineAndChar(globalLine, ch);
+    return v * view.lineHeight - view.scrollManager.scrollY;
   }
 }

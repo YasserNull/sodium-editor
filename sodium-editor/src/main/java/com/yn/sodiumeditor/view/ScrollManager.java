@@ -153,13 +153,13 @@ public final class ScrollManager {
           }
         }
         view.checkAndLoadWindow();
-        if (view.isWordWrapEnabled
+        if (view.wordWrapManager.isWordWrapEnabled
             && view.wordWrapManager.wrapPrefixRebuildPending
             && !view.wordWrapManager.wrapPrefixBuilding) {
           view.wordWrapManager.wrapPrefixRebuildPending = false;
-          view.scheduleWrapPrefixRebuildUpToWindow();
+          view.wordWrapManager.scheduleWrapPrefixRebuildUpToWindow(view);
         }
-        if (view.selectionManager.hasSelection()) view.showPopupAtSelection();
+        if (view.selectionManager.hasSelection()) view.popupMenuManager.showPopupAtSelection();
       }
     }
   }
@@ -167,16 +167,16 @@ public final class ScrollManager {
   boolean onFling(float velocityX, float velocityY) {
     if (view.zoomManager.isScaling() || view.zoomManager.isScaleInProgress()) return true;
     if (view.zoomManager.isJustFinishedScale()) return true;
-    if (view.isWordWrapEnabled && view.wordWrapManager.wrapPrefixBuilding) {
-      view.cancelWrapPrefixRebuildForInteraction();
+    if (view.wordWrapManager.isWordWrapEnabled && view.wordWrapManager.wrapPrefixBuilding) {
+      view.wordWrapManager.cancelWrapPrefixRebuildForInteraction();
     }
-    if (view.suggestionAcceptedThisTouch) return false;
+    if (view.autoSuggestionManager.isSuggestionAcceptedThisTouch()) return false;
 
     int startX = Math.round(scrollX);
     int startY = Math.round(scrollY);
     int minX = 0;
     int maxX =
-        view.isWordWrapEnabled
+        view.wordWrapManager.isWordWrapEnabled
             ? 0
             : Math.max(
                 0,
@@ -188,8 +188,8 @@ public final class ScrollManager {
         (view.keyboardHeight > 0) ? view.getHeight() - view.keyboardHeight : view.getHeight();
 
     int lineCount =
-        view.isWordWrapEnabled
-            ? view.getTotalVisualLineCount()
+        view.wordWrapManager.isWordWrapEnabled
+            ? view.wordWrapManager.getTotalVisualLineCount(view)
             : (view.foldManager.isCodeFoldingEnabled
                 ? view.getVisibleLineCount()
                 : Math.max(1, view.getLinesCount()));
@@ -219,16 +219,16 @@ public final class ScrollManager {
       if (Math.abs(vx) >= Math.abs(vy)) vy = 0f;
       else vx = 0f;
     }
-    if (view.isWordWrapEnabled) {
+    if (view.wordWrapManager.isWordWrapEnabled) {
       vx = 0f;
     }
-    if (view.isRtl && !view.isWordWrapEnabled) {
+    if (view.isRtl && !view.wordWrapManager.isWordWrapEnabled) {
       vx = -vx;
     }
     int overX = 0;
     int overY = 0;
     if (flingBounceEnabled) {
-      if (!view.isWordWrapEnabled) overX = Math.max(overX, getFlingOverScrollX());
+      if (!view.wordWrapManager.isWordWrapEnabled) overX = Math.max(overX, getFlingOverScrollX());
       overY = Math.max(overY, getFlingOverScrollY());
     }
     scroller.fling(
@@ -241,10 +241,10 @@ public final class ScrollManager {
     if (e2.getPointerCount() > 1) return true;
     if (view.zoomManager.isScaling() || view.zoomManager.isScaleInProgress()) return true;
     if (view.zoomManager.isJustFinishedScale()) return true;
-    if (view.isWordWrapEnabled && view.wordWrapManager.wrapPrefixBuilding) {
-      view.cancelWrapPrefixRebuildForInteraction();
+    if (view.wordWrapManager.isWordWrapEnabled && view.wordWrapManager.wrapPrefixBuilding) {
+      view.wordWrapManager.cancelWrapPrefixRebuildForInteraction();
     }
-    if (view.suggestionAcceptedThisTouch) return false;
+    if (view.autoSuggestionManager.isSuggestionAcceptedThisTouch()) return false;
 
     view.movedSinceDown = true;
     float dx = distanceX * scrollSensitivity;
@@ -259,14 +259,14 @@ public final class ScrollManager {
       if (Math.abs(dx) >= Math.abs(dy)) dy = 0f;
       else dx = 0f;
     }
-    if (view.isWordWrapEnabled) {
+    if (view.wordWrapManager.isWordWrapEnabled) {
       dx = 0f;
     }
-    if (view.isRtl && !view.isWordWrapEnabled) {
+    if (view.isRtl && !view.wordWrapManager.isWordWrapEnabled) {
       dx = -dx;
     }
     float maxX = 0f;
-    if (!view.isWordWrapEnabled) {
+    if (!view.wordWrapManager.isWordWrapEnabled) {
       if (dragMaxScrollX < 0f) {
         dragMaxScrollX = getMaxScrollXForClamp();
       } else {
@@ -280,7 +280,7 @@ public final class ScrollManager {
     float nextX = scrollX + dx;
     float nextY = scrollY + dy;
     if (stretchOverscrollEnabled) {
-      if (!view.isWordWrapEnabled) {
+      if (!view.wordWrapManager.isWordWrapEnabled) {
         if (nextX < 0f && dx < 0f) {
           view.pullStretchX(dx, false);
           nextX = 0f;
@@ -297,7 +297,7 @@ public final class ScrollManager {
         nextY = maxY;
       }
     } else {
-      if (!view.isWordWrapEnabled) {
+      if (!view.wordWrapManager.isWordWrapEnabled) {
         if ((scrollX <= 0f && dx < 0f) || (scrollX >= maxX && dx > 0f)) {
           dx = 0f;
           nextX = scrollX;
@@ -318,7 +318,7 @@ public final class ScrollManager {
       view.postDelayed(view.delayedWindowCheck, 60);
     }
 
-    if (view.isPopupVisibleForScroll()) view.hidePopup();
+    if (view.popupMenuManager.isPopupVisible()) view.popupMenuManager.hidePopup();
     view.cursorAnimationManager.resetCursorBlink();
     view.invalidate();
     return true;
@@ -337,7 +337,7 @@ public final class ScrollManager {
   }
 
   float getMaxScrollYForClamp() {
-    if (view.isWordWrapEnabled
+    if (view.wordWrapManager.isWordWrapEnabled
         && !view.wordWrapManager.wrapMetricsReady
         && (view.zoomManager.isScaling() || view.zoomManager.isJustFinishedScale())) {
       return scrollY;
@@ -345,12 +345,12 @@ public final class ScrollManager {
 
     float effectiveHeight = (view.keyboardHeight > 0) ? view.getHeight() - view.keyboardHeight : view.getHeight();
     int lineCount =
-        view.isWordWrapEnabled
-            ? view.getTotalVisualLineCount()
+        view.wordWrapManager.isWordWrapEnabled
+            ? view.wordWrapManager.getTotalVisualLineCount(view)
             : (view.foldManager.isCodeFoldingEnabled
                 ? view.getVisibleLineCount()
                 : Math.max(1, view.getLinesCount()));
-    if (view.isWordWrapEnabled && (view.selectionManager.isSelectAllActive() || view.selectionManager.isEntireFileSelected())) {
+    if (view.wordWrapManager.isWordWrapEnabled && (view.selectionManager.isSelectAllActive() || view.selectionManager.isEntireFileSelected())) {
       lineCount = Math.max(lineCount, view.selectionManager.selEndLine + 1);
     }
     if (view.isEof) {
@@ -365,7 +365,7 @@ public final class ScrollManager {
   }
 
   void clampScrollY() {
-    if (!view.isWordWrapEnabled && view.isWindowLoading && scrollY < view.windowStartLine * view.lineHeight) {
+    if (!view.wordWrapManager.isWordWrapEnabled && view.isWindowLoading && scrollY < view.windowStartLine * view.lineHeight) {
       boolean allowAboveWindow = scrollerIsScrolling || view.flingStopAnimator != null;
       if (!allowAboveWindow) {
         scrollY = view.windowStartLine * view.lineHeight;
@@ -390,7 +390,7 @@ public final class ScrollManager {
   }
 
   float getMaxScrollXForClamp() {
-    if (view.isWordWrapEnabled) return 0f;
+    if (view.wordWrapManager.isWordWrapEnabled) return 0f;
     float rawMaxWidth = getMaxLineWidthInWindowInternal();
     if (rawMaxWidth > maxLineWidthForScroll) {
       maxLineWidthForScroll = rawMaxWidth;
@@ -408,7 +408,7 @@ public final class ScrollManager {
   }
 
   void clampScrollX() {
-    if (view.isWordWrapEnabled) {
+    if (view.wordWrapManager.isWordWrapEnabled) {
       scrollX = 0f;
       return;
     }
@@ -551,7 +551,7 @@ public final class ScrollManager {
     }
     clampScrollY();
 
-    if (!view.isWordWrapEnabled) {
+    if (!view.wordWrapManager.isWordWrapEnabled) {
       String line = view.getLineTextForRender(view.cursorManager.getLine());
       int safeChar =
           Math.min(view.cursorManager.getChar(), view.getLogicalLineLength(view.cursorManager.getLine(), line));
@@ -584,7 +584,7 @@ public final class ScrollManager {
   }
 
   void scrollToLineFastForSelectAll(int line, int ch) {
-    if (view.isWordWrapEnabled
+    if (view.wordWrapManager.isWordWrapEnabled
         && (!view.wordWrapManager.wrapMetricsReady || view.wordWrapManager.wrapLinePrefix == null)) {
       scrollY = Math.max(0f, (line - 5) * view.lineHeight);
     } else {
@@ -613,7 +613,7 @@ public final class ScrollManager {
   }
 
   void ensureLineInWindow(int globalLine, boolean blockingIfAbsent) {
-    view.clearActiveSuggestion();
+    view.autoSuggestionManager.clearActiveSuggestion();
     if (globalLine >= view.windowStartLine
         && globalLine < view.windowStartLine + view.linesWindow.size()) return;
     if (view.sourceFile != null) {

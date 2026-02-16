@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-final class WhitespaceGuideManager {
+public final class WhitespaceGuideManager {
   final Paint whitespaceGuidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   final Paint whitespaceGuideDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   float whitespaceGuideSpaceWidth = 0f;
@@ -18,6 +18,8 @@ final class WhitespaceGuideManager {
   float[] measureWidthBuffer;
   int whitespaceGuideSpaceStep = 1;
 
+  private boolean isWhitespaceGuidesEnabled = false;
+
   static final class WhitespaceDrawState {
     int syntaxIndex;
   }
@@ -25,6 +27,52 @@ final class WhitespaceGuideManager {
   final WhitespaceDrawState whitespaceDrawState = new WhitespaceDrawState();
   HighlightManager.HighlightRule whitespaceStringRule;
   HighlightManager.HighlightRule whitespaceCommentRule;
+
+  public boolean isWhitespaceGuidesEnabled() { // Getter for the field
+    return isWhitespaceGuidesEnabled;
+  }
+
+  public void setWhitespaceGuidesEnabled(SodiumEditorView view, boolean enabled) {
+    if (this.isWhitespaceGuidesEnabled == enabled) return;
+    this.isWhitespaceGuidesEnabled = enabled;
+    view.bracketGuideManager.invalidateCache();
+    view.invalidateHighlightEnsureRange();
+    synchronized (view.lineWidthCache) {
+      view.lineWidthCache.clear();
+    }
+    view.currentMaxWindowLineWidth = 0f;
+    view.globalMaxLineWidth = 0f;
+    view.scrollManager.maxLineWidthForScroll = 0f;
+    view.scrollManager.maxTextStartXForScroll = 0f;
+    view.scrollManager.maxScrollXForScroll = 0f;
+    view.recalculateMaxLineWidth();
+    if (view.wordWrapManager.isWordWrapEnabled) view.wordWrapManager.invalidateWrapMetrics(view, true);
+    view.wordWrapManager.requestWrapPrefixRebuild(view);
+    view.invalidate();
+  }
+
+  public void setWhitespaceGuidesColor(SodiumEditorView view, int color) {
+    this.setColor(color);
+    if (this.isWhitespaceGuidesEnabled()) view.invalidate();
+  }
+
+  public void setWhitespaceGuidesSpaceStep(SodiumEditorView view, int spacesPerDot) {
+    int safeStep = Math.max(1, spacesPerDot);
+    if (!this.setSpaceStep(safeStep)) return;
+    view.bracketGuideManager.invalidateCache();
+    view.invalidateHighlightEnsureRange();
+    synchronized (view.lineWidthCache) {
+      view.lineWidthCache.clear();
+    }
+    view.currentMaxWindowLineWidth = 0f;
+    view.globalMaxLineWidth = 0f;
+    view.scrollManager.maxLineWidthForScroll = 0f;
+    view.scrollManager.maxTextStartXForScroll = 0f;
+    view.scrollManager.maxScrollXForScroll = 0f;
+    view.recalculateMaxLineWidth();
+    if (view.wordWrapManager.isWordWrapEnabled) view.wordWrapManager.invalidateWrapMetrics(view, true);
+    if (this.isWhitespaceGuidesEnabled()) view.invalidate();
+  }
 
   void initPaints(int color) {
     whitespaceGuidePaint.setColor(color);
@@ -192,7 +240,7 @@ final class WhitespaceGuideManager {
       char c = text.charAt(start + i);
       total +=
           getCharAdvanceWidth(
-              c, widths[i], p, SodiumEditorView.DEFAULT_TAB_SIZE_SPACES);
+              c, widths[i], p, WordWrapManager.DEFAULT_TAB_SIZE_SPACES);
     }
     return total;
   }
@@ -270,7 +318,7 @@ final class WhitespaceGuideManager {
       int start,
       int end,
       float y) {
-    if (!view.isWhitespaceGuidesEnabled
+    if (!view.isWhitespaceGuidesEnabledForBracket()
         || view.isHeavyDrawSuppressed()
         || line == null
         || line.isEmpty())
@@ -370,7 +418,7 @@ final class WhitespaceGuideManager {
 
   void drawWhitespaceGuidesForLine(
       SodiumEditorView view, Canvas canvas, String line, int globalLine, float y) {
-    if (!view.isWhitespaceGuidesEnabled
+    if (!view.isWhitespaceGuidesEnabledForBracket()
         || view.isHeavyDrawSuppressed()
         || line.isEmpty()) return;
     if (line.indexOf(' ') < 0 && line.indexOf('\t') < 0) return;
@@ -477,7 +525,7 @@ final class WhitespaceGuideManager {
     Paint.FontMetrics dotFm = getGuidePaint().getFontMetrics();
     float dotY = y + (dotFm.ascent + dotFm.descent) * 0.5f;
     int spaceStep = getSpaceStep();
-    int tabSpaces = SodiumEditorView.DEFAULT_TAB_SIZE_SPACES;
+    int tabSpaces = WordWrapManager.DEFAULT_TAB_SIZE_SPACES;
     String tabGlyph = SodiumEditorView.WHITESPACE_GUIDE_TAB;
 
     String sub = line.substring(start, end);
@@ -576,7 +624,7 @@ final class WhitespaceGuideManager {
     segmentPaint.getTextWidths(line, start, end, widths);
 
     final int spaceStep = getSpaceStep();
-    int tabSpaces = SodiumEditorView.DEFAULT_TAB_SIZE_SPACES;
+    int tabSpaces = WordWrapManager.DEFAULT_TAB_SIZE_SPACES;
     String tabGlyph = SodiumEditorView.WHITESPACE_GUIDE_TAB;
     float currentX = x;
     int localSyntaxIndex = hasSyntaxSpans ? state.syntaxIndex : 0;

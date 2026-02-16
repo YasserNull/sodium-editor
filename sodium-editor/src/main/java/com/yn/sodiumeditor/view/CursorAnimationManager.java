@@ -30,7 +30,7 @@ public final class CursorAnimationManager {
         public void run() {
           if (view.isFocused() && !view.selectionManager.hasSelection()) {
             isCursorVisible = !isCursorVisible;
-            view.invalidateCursorArea();
+            view.cursorManager.invalidateCursorArea();
             view.mainHandler.postDelayed(this, 500);
           }
         }
@@ -58,7 +58,7 @@ public final class CursorAnimationManager {
             cursorDrawX = cursorAnimX;
             cursorDrawY = cursorAnimY;
             cursorAnimRunning = false;
-            view.invalidateCursorArea();
+            view.cursorManager.invalidateCursorArea();
             return;
           }
 
@@ -73,7 +73,7 @@ public final class CursorAnimationManager {
           cursorAnimY += dy * alpha;
           cursorDrawX = cursorAnimX;
           cursorDrawY = cursorAnimY;
-          view.invalidateCursorArea();
+          view.cursorManager.invalidateCursorArea();
           view.postOnAnimation(this);
         }
       };

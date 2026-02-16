@@ -62,7 +62,7 @@ public final class FoldManager {
     foldMarkerTextScale = size / base;
     foldMarkerPaint.setTextSize(base * foldMarkerTextScale);
     view.requestLayout();
-    if (view.isWordWrapEnabled) view.invalidateWrapMetrics(true);
+    if (view.wordWrapManager.isWordWrapEnabled) view.wordWrapManager.invalidateWrapMetrics(view, true);
     view.invalidate();
   }
 

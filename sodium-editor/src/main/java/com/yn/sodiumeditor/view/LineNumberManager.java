@@ -52,8 +52,8 @@ public final class LineNumberManager {
     view.scrollManager.maxTextStartXForScroll = 0f;
     invalidateCache();
     view.requestLayout();
-    if (view.isWordWrapEnabled) {
-      view.invalidateWrapMetrics(true);
+    if (view.wordWrapManager.isWordWrapEnabled) {
+      view.wordWrapManager.invalidateWrapMetrics(view, true);
     }
     view.invalidate();
   }
@@ -118,8 +118,8 @@ public final class LineNumberManager {
     if (gutterSeparatorWidth == safe) return;
     gutterSeparatorWidth = safe;
     view.requestLayout();
-    if (view.isWordWrapEnabled) {
-      view.invalidateWrapMetrics(true);
+    if (view.wordWrapManager.isWordWrapEnabled) {
+      view.wordWrapManager.invalidateWrapMetrics(view, true);
     }
     if (showLineNumbers) {
       view.invalidate();
@@ -378,7 +378,7 @@ public final class LineNumberManager {
     }
 
     int drawLastIndex = lastVisualIndex;
-    int totalVisual = view.getTotalVisualLineCount();
+    int totalVisual = view.wordWrapManager.getTotalVisualLineCount(view);
     if (totalVisual > 0) {
       drawLastIndex = Math.min(lastVisualIndex + 1, totalVisual - 1);
     }
@@ -419,7 +419,8 @@ public final class LineNumberManager {
       float lineNumXLocal = lineNumX - view.getGutterStartX();
 
       for (int v = firstVisualIndex; v <= drawLastIndex; v++) {
-        SodiumEditorView.VisualLinePosition pos = view.getVisualPositionForIndex(v);
+        SodiumEditorView.VisualLinePosition pos =
+            view.wordWrapManager.getVisualPositionForIndex(view, v);
         if (pos.segment != 0) continue;
         int start = writeIntToChars(pos.line + 1, lineNumberChars);
         int count = lineNumberChars.length - start;
@@ -528,11 +529,12 @@ public final class LineNumberManager {
                 - GUTTER_TEXT_PADDING;
 
     int drawLastIndex = lastVisualIndex;
-    int totalVisual = view.getTotalVisualLineCount();
+    int totalVisual = view.wordWrapManager.getTotalVisualLineCount(view);
     if (totalVisual > 0) drawLastIndex = Math.min(lastVisualIndex + 1, totalVisual - 1);
 
     for (int v = firstVisualIndex; v <= drawLastIndex; v++) {
-      SodiumEditorView.VisualLinePosition pos = view.getVisualPositionForIndex(v);
+      SodiumEditorView.VisualLinePosition pos =
+          view.wordWrapManager.getVisualPositionForIndex(view, v);
       if (pos.segment != 0) continue;
       int start = writeIntToChars(pos.line + 1, lineNumberChars);
       int count = lineNumberChars.length - start;
@@ -556,7 +558,7 @@ public final class LineNumberManager {
   void drawCurrentLineNumberUnwrapped(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex) {
     if (!showLineNumbers) return;
     if (view.foldManager.isCodeFoldingEnabled
-        && view.isLineHiddenByFold(view.cursorManager.getLine())) return;
+        && view.foldManager.isLineHiddenByFold(view.cursorManager.getLine())) return;
 
     int cursorLine = view.cursorManager.getLine();
     int visibleIndex =

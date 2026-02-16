@@ -46,7 +46,7 @@ public final class ZoomManager {
                 lastFocusX = detector.getFocusX();
                 lastFocusY = detector.getFocusY();
                 view.abortScrollAnimationForZoom();
-                if (view.isWordWrapEnabled && deferWrapReflowDuringPinch) {
+                if (view.wordWrapManager.isWordWrapEnabled && deferWrapReflowDuringPinch) {
                   pinchVisualZoomActive = true;
                   pinchVisualScale = 1f;
                   pinchStartTextSizePx = view.getPaintTextSizePxForZoom();
@@ -95,7 +95,7 @@ public final class ZoomManager {
                 }
 
                 int anchorGlobalLineAtFocus = -1;
-                if (view.isWordWrapEnabled) {
+                if (view.wordWrapManager.isWordWrapEnabled) {
                   anchorGlobalLineAtFocus = view.getGlobalLineForY(view.scrollManager.scrollY + focusY);
                 }
 
@@ -118,7 +118,7 @@ public final class ZoomManager {
                   view.scrollManager.scrollX = view.isRtl ? -effectiveScrollX : effectiveScrollX;
                   view.scrollManager.scrollY =
                       (view.scrollManager.scrollY + focusY) * effectiveScaleY - focusY;
-                  if (view.isWordWrapEnabled) {
+                  if (view.wordWrapManager.isWordWrapEnabled) {
                     pendingZoomScrollAdjustGlobalLine = anchorGlobalLineAtFocus;
                     pendingZoomScrollAdjustFocusY = focusY;
                   }
@@ -150,7 +150,7 @@ public final class ZoomManager {
 
                   if (Math.abs(targetSize - oldSize) > 0.1f) {
                     float scaleX = (oldSize > 0f) ? (targetSize / oldSize) : 1f;
-                    view.applyZoomTextSizePx(targetSize, view.isWordWrapEnabled);
+                    view.applyZoomTextSizePx(targetSize, view.wordWrapManager.isWordWrapEnabled);
                     float newLineHeight = view.getPaintFontSpacingPxForZoom();
                     float effectiveScaleY =
                         (oldLineHeight > 0) ? newLineHeight / oldLineHeight : 1f;
@@ -163,7 +163,7 @@ public final class ZoomManager {
                     view.scrollManager.scrollY =
                         (view.scrollManager.scrollY + focusY) * effectiveScaleY - focusY;
 
-                    if (view.isWordWrapEnabled && anchorLine >= 0) {
+                    if (view.wordWrapManager.isWordWrapEnabled && anchorLine >= 0) {
                       pendingZoomScrollAdjustGlobalLine = anchorLine;
                       pendingZoomScrollAdjustFocusY = focusY;
                     }
@@ -174,12 +174,12 @@ public final class ZoomManager {
                 }
                 if (view.wordWrapManager.wrapPrefixRebuildPending) {
                   view.wordWrapManager.wrapPrefixRebuildPending = false;
-                  view.scheduleWrapPrefixRebuildUpToWindow();
+                  view.wordWrapManager.scheduleWrapPrefixRebuildUpToWindow(view);
                 }
 
-                view.applyPendingWrapPrefixUpdateForZoom();
+                view.wordWrapManager.applyPendingWrapPrefixUpdateForZoom(view);
 
-                if (view.isWordWrapEnabled && pendingZoomScrollAdjustGlobalLine != -1) {
+                if (view.wordWrapManager.isWordWrapEnabled && pendingZoomScrollAdjustGlobalLine != -1) {
                   final int targetGlobalLine = pendingZoomScrollAdjustGlobalLine;
                   final float targetFocusY = pendingZoomScrollAdjustFocusY;
 

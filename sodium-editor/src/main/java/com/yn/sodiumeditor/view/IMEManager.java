@@ -77,11 +77,11 @@ final class IMEManager {
     int selEnd = lineCharToOffsetInContext(ctx, eLine, eChar);
     int compStart = -1;
     int compEnd = -1;
-    if (view.hasComposing) {
-      compStart = lineCharToOffsetInContext(ctx, view.composingLine, view.composingOffset);
+    if (view.cursorManager.getHasComposing()) {
+      compStart = lineCharToOffsetInContext(ctx, view.cursorManager.getComposingLine(), view.cursorManager.getComposingOffset());
       compEnd =
           lineCharToOffsetInContext(
-              ctx, view.composingLine, view.composingOffset + view.composingLength);
+              ctx, view.cursorManager.getComposingLine(), view.cursorManager.getComposingOffset() + view.cursorManager.getComposingLength());
     }
     imm.updateSelection(view, selStart, selEnd, compStart, compEnd);
     if (imeExtractedTextMonitor) {
@@ -199,7 +199,7 @@ final class IMEManager {
         view.cursorManager.setLineAndChar(e.line, e.ch);
         view.cursorAnimationManager.resetCursorBlink();
         view.invalidate();
-        view.updateSuggestion();
+        view.autoSuggestionManager.updateSuggestion();
         return true;
       }
 
@@ -223,30 +223,29 @@ final class IMEManager {
           view.cursorManager.setLineAndChar(e.line, e.ch);
           view.cursorAnimationManager.resetCursorBlink();
           view.invalidate();
-          view.updateSuggestion();
+          view.autoSuggestionManager.updateSuggestion();
           return true;
         }
-        view.composingLine = s.line;
-        view.composingOffset = s.ch;
-        view.composingLength = Math.max(0, e.ch - s.ch);
-        view.hasComposing = true;
-        view.composingStartLine = view.composingLine;
-        view.composingStartChar = view.composingOffset;
-        view.composingStartActive = true;
-        view.clearLastComposingTextForCharAnim();
-        view.invalidate();
-        view.updateSuggestion();
+        view.cursorManager.setComposingLine(s.line);
+        view.cursorManager.setComposingOffset(s.ch);
+        view.cursorManager.setComposingLength(Math.max(0, e.ch - s.ch));
+        view.cursorManager.setHasComposing(true);
+        view.cursorManager.setComposingStartLine(view.cursorManager.getComposingLine());
+        view.cursorManager.setComposingStartChar(view.cursorManager.getComposingOffset());
+        view.cursorManager.setComposingStartActive(true);
+        view.charAnimationManager.clearLastComposingTextForCharAnim();        view.invalidate();
+        view.autoSuggestionManager.updateSuggestion();
         return true;
       }
 
       @Override
       public boolean finishComposingText() {
         if (view.isDisabled || view.isReadOnly) return true;
-        if (view.getLastComposingTextForCharAnim() != null
-            && !view.getLastComposingTextForCharAnim().isEmpty()) {
-          markImeCommit(view.getLastComposingTextForCharAnim());
+        if (view.charAnimationManager.getLastComposingTextForCharAnim() != null
+            && !view.charAnimationManager.getLastComposingTextForCharAnim().isEmpty()) {
+          markImeCommit(view.charAnimationManager.getLastComposingTextForCharAnim());
         }
-        view.commitComposing(true);
+        view.cursorManager.commitComposing(true);
         return true;
       }
 
@@ -254,7 +253,7 @@ final class IMEManager {
       public boolean commitCompletion(android.view.inputmethod.CompletionInfo text) {
         if (view.isDisabled || view.isReadOnly) return true;
         if (text == null || text.getText() == null) return true;
-        if (!view.hasComposing && !view.selectionManager.hasSelection() && replaceWordAtCursorWith(text.getText())) {
+        if (!view.cursorManager.getHasComposing() && !view.selectionManager.hasSelection() && replaceWordAtCursorWith(text.getText())) {
           markImeCommit(text.getText());
           return true;
         }
@@ -265,7 +264,7 @@ final class IMEManager {
       public boolean commitCorrection(android.view.inputmethod.CorrectionInfo correctionInfo) {
         if (view.isDisabled || view.isReadOnly) return true;
         if (correctionInfo == null || correctionInfo.getNewText() == null) return true;
-        if (!view.hasComposing
+        if (!view.cursorManager.getHasComposing()
             && !view.selectionManager.hasSelection()
             && replaceWordAtCursorWith(correctionInfo.getNewText())) {
           markImeCommit(correctionInfo.getNewText());
@@ -283,18 +282,18 @@ final class IMEManager {
         String str = text.toString();
         if ("\n".equals(str)) {
           view.insertNewlineAtCursor();
-          view.commitComposing(true);
+          view.cursorManager.commitComposing(true);
           view.charAnimationManager.startCharAnimationFromText(text);
-          view.updateSuggestion();
+          view.autoSuggestionManager.updateSuggestion();
           return true;
         }
 
         if (tryReplaceWordFromImeCommit(str)) {
-          view.updateSuggestion();
+          view.autoSuggestionManager.updateSuggestion();
           return true;
         }
 
-        if (!view.hasComposing && !view.selectionManager.hasSelection() && view.lastImeCommitText != null) {
+        if (!view.cursorManager.getHasComposing() && !view.selectionManager.hasSelection() && view.lastImeCommitText != null) {
           long now = SystemClock.uptimeMillis();
           if (now - view.lastImeCommitUptime < 700 && str.trim().isEmpty()) {
             int[] bounds = getWordBoundsAtCursor();
@@ -316,7 +315,7 @@ final class IMEManager {
           }
         }
 
-        if (!view.hasComposing && !view.selectionManager.hasSelection()) {
+        if (!view.cursorManager.getHasComposing() && !view.selectionManager.hasSelection()) {
           long now = SystemClock.uptimeMillis();
           boolean recentIme =
               view.suppressNextCommitText
@@ -348,10 +347,10 @@ final class IMEManager {
                       return true;
                     }
                     view.insertTextAtCursor(suffix);
-                    view.commitComposing(true);
+                    view.cursorManager.commitComposing(true);
                     view.charAnimationManager.startCharAnimationFromText(suffix);
                     view.handleAutoPairing(suffix);
-                    view.updateSuggestion();
+                    view.autoSuggestionManager.updateSuggestion();
                   }
                   return true;
                 }
@@ -363,32 +362,32 @@ final class IMEManager {
 
         if (view.selectionManager.hasSelection()) {
           view.replaceSelectionWithText(str);
-          view.commitComposing(true);
+          view.cursorManager.commitComposing(true);
           view.charAnimationManager.startCharAnimationFromText(text);
           view.handleAutoPairing(str);
-          view.updateSuggestion();
+          view.autoSuggestionManager.updateSuggestion();
           return true;
         }
 
-        if (view.hasComposing) {
-          int startLine = view.composingStartActive ? view.composingStartLine : view.composingLine;
-          int startChar = view.composingStartActive ? view.composingStartChar : view.composingOffset;
-          view.replaceComposingWith(text);
-          view.updateComposingPendingOp(str, startLine, startChar);
-          view.commitComposing(true);
+        if (view.cursorManager.getHasComposing()) {
+          int startLine = view.cursorManager.getComposingStartActive() ? view.cursorManager.getComposingStartLine() : view.cursorManager.getComposingLine();
+          int startChar = view.cursorManager.getComposingStartActive() ? view.cursorManager.getComposingStartChar() : view.cursorManager.getComposingOffset();
+          view.cursorManager.replaceComposingWith(text);
+          view.updateComposingPendingOpPublic(str, startLine, startChar);
+          view.cursorManager.commitComposing(true);
           markImeCommit(str);
           view.charAnimationManager.startCharAnimationFromText(text);
           view.handleAutoPairing(str);
-          view.updateSuggestion();
+          view.autoSuggestionManager.updateSuggestion();
           return true;
         }
 
         view.insertTextAtCursor(str);
-        view.commitComposing(true);
+        view.cursorManager.commitComposing(true);
         view.charAnimationManager.startCharAnimationFromText(text);
         view.handleAutoPairing(str);
 
-        view.updateSuggestion();
+        view.autoSuggestionManager.updateSuggestion();
         return true;
       }
 
@@ -401,31 +400,31 @@ final class IMEManager {
         if (view.selectionManager.hasSelection()) {
           view.replaceSelectionWithText(text.toString());
           view.charAnimationManager.startCharAnimationFromText(text);
-          view.updateSuggestion();
+          view.autoSuggestionManager.updateSuggestion();
           return true;
         }
 
         view.scrollManager.ensureLineInWindow(view.cursorManager.getLine(), true);
-        if (!view.hasComposing) {
-          view.composingLine = view.cursorManager.getLine();
-          view.composingOffset = view.cursorManager.getChar();
-          view.composingLength = 0;
-          view.hasComposing = true;
-          view.composingStartLine = view.composingLine;
-          view.composingStartChar = view.composingOffset;
-          view.composingStartActive = true;
+        if (!view.cursorManager.getHasComposing()) {
+          view.cursorManager.setComposingLine(view.cursorManager.getLine());
+          view.cursorManager.setComposingOffset(view.cursorManager.getChar());
+          view.cursorManager.setComposingLength(0);
+          view.cursorManager.setHasComposing(true);
+          view.cursorManager.setComposingStartLine(view.cursorManager.getComposingLine());
+          view.cursorManager.setComposingStartChar(view.cursorManager.getComposingOffset());
+          view.cursorManager.setComposingStartActive(true);
         }
         String newText = text.toString();
         String oldText =
-            (view.getLastComposingTextForCharAnim() == null)
+            (view.charAnimationManager.getLastComposingTextForCharAnim() == null)
                 ? ""
-                : view.getLastComposingTextForCharAnim();
+                : view.charAnimationManager.getLastComposingTextForCharAnim();
         boolean shouldAnim = newText.length() >= oldText.length() && !newText.equals(oldText);
-        view.replaceComposingWith(newText);
-        view.updateComposingPendingOp(newText, view.composingStartLine, view.composingStartChar);
-        view.setLastComposingTextForCharAnim(newText);
+        view.cursorManager.replaceComposingWith(newText);
+        view.updateComposingPendingOpPublic(newText, view.cursorManager.getComposingStartLine(), view.cursorManager.getComposingStartChar());
+        view.charAnimationManager.setLastComposingTextForCharAnim(newText);
         if (shouldAnim) view.charAnimationManager.startCharAnimationFromText(newText);
-        view.updateSuggestion();
+        view.autoSuggestionManager.updateSuggestion();
         return true;
       }
 
@@ -436,12 +435,12 @@ final class IMEManager {
 
         if (view.selectionManager.hasSelection()) {
           view.replaceSelectionWithText("");
-          view.updateSuggestion();
+          view.autoSuggestionManager.updateSuggestion();
           return true;
         }
         for (int i = 0; i < beforeLength; i++) view.deleteCharAtCursor();
         for (int i = 0; i < afterLength; i++) view.deleteForwardAtCursor();
-        view.updateSuggestion();
+        view.autoSuggestionManager.updateSuggestion();
         return true;
       }
     };
@@ -725,7 +724,7 @@ final class IMEManager {
   }
 
   private boolean tryReplaceWordFromImeCommit(String insert) {
-    if (view.selectionManager.hasSelection() || view.hasComposing) return false;
+    if (view.selectionManager.hasSelection() || view.cursorManager.getHasComposing()) return false;
     if (insert == null || insert.isEmpty()) return false;
     if (insert.length() <= 1) return false;
     int end = insert.length();

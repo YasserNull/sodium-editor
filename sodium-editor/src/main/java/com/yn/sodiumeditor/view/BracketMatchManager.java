@@ -373,4 +373,20 @@ final class BracketMatchManager {
       this.stringState = stringState;
     }
   }
+
+  public void setBracketMatchingEnabled(SodiumEditorView view, boolean enabled) {
+    this.setEnabled(enabled);
+    view.invalidate();
+  }
+
+  public void setBracketMatchColor(SodiumEditorView view, int color) {
+    this.setColor(color);
+    view.invalidate();
+  }
+
+  public void setBracketMatchStrokeWidth(SodiumEditorView view, float width) {
+    this.setStrokeWidth(width);
+    view.updateTextSizeDependentMetrics();
+    view.invalidate();
+  }
 }

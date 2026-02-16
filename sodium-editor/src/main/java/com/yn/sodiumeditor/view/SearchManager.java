@@ -341,7 +341,7 @@ public final class SearchManager {
 
     view.ensureLineInWindowForSearch(match.line, true);
     view.setSelectionInternal(match.line, match.start, match.line, match.end);
-    view.setCursorPositionNoClearForSearch(match.line, match.end);
+    view.cursorManager.setPositionNoClear(match.line, match.end);
     return true;
   }
 
@@ -368,7 +368,7 @@ public final class SearchManager {
         || view.comparePos(match.line, match.end, startLine, startChar) >= 0) {
       view.ensureLineInWindowForSearch(match.line, true);
       view.setSelectionInternal(match.line, match.start, match.line, match.end);
-      view.setCursorPositionNoClearForSearch(match.line, match.end);
+      view.cursorManager.setPositionNoClear(match.line, match.end);
       return true;
     }
     return false;
@@ -379,8 +379,7 @@ public final class SearchManager {
     if (atCursor != null) {
       view.ensureLineInWindowForSearch(atCursor.line, true);
       view.setSelectionInternal(atCursor.line, atCursor.start, atCursor.line, atCursor.end);
-      view.setCursorPositionNoClearForSearch(atCursor.line, atCursor.end);
-      return true;
+              view.cursorManager.setPositionNoClear(atCursor.line, atCursor.end);      return true;
     }
     return selectSearchMatchInclusive(true);
   }
@@ -496,6 +495,34 @@ public final class SearchManager {
 
   boolean selectPrevSearchMatchInclusive() {
     return selectSearchMatchInclusive(false);
+  }
+
+  public boolean goToNextSearchMatch(SodiumEditorView view) {
+    return goToSearchMatch(true);
+  }
+
+  public boolean goToPrevSearchMatch(SodiumEditorView view) {
+    return goToSearchMatch(false);
+  }
+
+  public boolean selectNextSearchMatch(SodiumEditorView view) {
+    return selectSearchMatch(true);
+  }
+
+  public boolean selectPrevSearchMatch(SodiumEditorView view) {
+    return selectSearchMatch(false);
+  }
+
+  public boolean selectNextSearchMatchInclusive(SodiumEditorView view) {
+    return selectSearchMatchInclusive(true);
+  }
+
+  public boolean selectPrevSearchMatchInclusive(SodiumEditorView view) {
+    return selectSearchMatchInclusive(false);
+  }
+
+  public boolean selectSearchMatchAtCursorOrNext(SodiumEditorView view) {
+    return selectSearchMatchAtCursorOrNext();
   }
 
   static final class SearchMatch {

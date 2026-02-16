@@ -488,4 +488,20 @@ final class BracketGuideManager {
       this.stringState = stringState;
     }
   }
+
+  public void setBracketGuidesEnabled(SodiumEditorView view, boolean enabled) {
+    this.setEnabled(enabled);
+    view.invalidate();
+  }
+
+  public void setBracketGuidesColor(SodiumEditorView view, int color) {
+    this.setColor(color);
+    view.invalidate();
+  }
+
+  public void setBracketGuidesStrokeWidth(SodiumEditorView view, float width) {
+    this.setStrokeWidth(width);
+    view.updateTextSizeDependentMetrics();
+    view.invalidate();
+  }
 }
