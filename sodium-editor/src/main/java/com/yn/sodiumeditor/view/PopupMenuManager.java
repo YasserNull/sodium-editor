@@ -148,6 +148,12 @@ public final class PopupMenuManager {
     if (showPopup) view.invalidate();
   }
 
+  public void showSelectionPopup() {
+    if (view.selectionManager.hasSelection()) {
+      showPopupAtSelection();
+    }
+  }
+
   void onEditorTypefaceChanged(@Nullable android.graphics.Typeface tf) {
     if (popupTextFollowsEditorTypeface) {
       popupTextPaint.setTypeface((tf != null) ? tf : android.graphics.Typeface.DEFAULT);

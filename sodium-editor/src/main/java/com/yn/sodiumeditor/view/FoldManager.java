@@ -578,7 +578,7 @@ public final class FoldManager {
         continue;
       }
 
-      if (view.isOpeningBracket(c) && !HighlightManager.isEscaped(line, i)) {
+      if (BracketMatchManager.isOpeningBracket(c) && !HighlightManager.isEscaped(line, i)) {
         if (c == '{') return new FoldToken(i, false, c);
       }
       i++;
@@ -635,7 +635,7 @@ public final class FoldManager {
     if (inBlockComment || stringState != 0) return null;
 
     int depth = 1;
-    char closeChar = view.matchingBracket(openChar);
+    char closeChar = BracketMatchManager.matchingBracket(openChar);
 
     for (int line = startLine; line < totalLines; line++) {
       String text = getLineTextForFoldScan(line, raf);

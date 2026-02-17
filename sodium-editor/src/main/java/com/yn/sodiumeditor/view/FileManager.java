@@ -239,7 +239,7 @@ public class FileManager {
         }
     }
 
-    private void buildFileIndex() {
+    public void buildFileIndex() {
         if (view.sourceFile == null || !view.sourceFile.exists()) {
             isIndexReady = false;
             isIndexBuilding = false;
@@ -478,7 +478,7 @@ public class FileManager {
         return baos.toString(fileCharset.name());
     }
 
-    private String bytesToControlVisible(byte[] buf, int len) {
+    public String bytesToControlVisible(byte[] buf, int len) {
         if (len <= 0) return "";
         StringBuilder sb = new StringBuilder(len * 2);
         for (int i = 0; i < len; i++) {
@@ -548,17 +548,7 @@ public class FileManager {
         return new String(buf, fileCharset);
     }
 
-    public static class StreamedCharSlice {
-        final String text;
-        final int length;
-
-        StreamedCharSlice(String text, int length) {
-            this.text = text;
-            this.length = length;
-        }
-    }
-
-    public StreamedCharSlice readLineSliceByChars(
+    public SodiumEditorView.StreamedCharSlice readLineSliceByChars(
             RandomAccessFile raf, long lineStart, int startChar, int endChar, boolean needTotalLength)
             throws Exception {
         int safeStart = Math.max(0, startChar);
@@ -608,8 +598,7 @@ public class FileManager {
             if (hitNewline) {
                 done = true;
             } else if (!needTotalLength && charIndex >= safeEnd) {
-                // We have enough chars for the slice; stop early if length isn't needed.
-                return new StreamedCharSlice(sb.toString(), -1);
+                return new SodiumEditorView.StreamedCharSlice(sb.toString(), -1);
             }
         }
 
@@ -623,7 +612,7 @@ public class FileManager {
             charIndex++;
         }
 
-        return new StreamedCharSlice(sb.toString(), charIndex);
+        return new SodiumEditorView.StreamedCharSlice(sb.toString(), charIndex);
     }
 
     public long computeByteOffsetInLineUtf8(String lineText, int charIndex) {
@@ -648,5 +637,413 @@ public class FileManager {
 
     public void setFileOpened(boolean opened) {
         isFileOpened = opened;
+    }
+
+    public long findLineStartByteByScanning(RandomAccessFile raf, int targetLine) throws Exception {
+        if (targetLine <= 0) return 0L;
+        long[] starts = findTwoLineStartBytesByScanning(raf, targetLine, targetLine);
+        return (starts != null && starts.length > 0) ? starts[0] : 0L;
+    }
+
+    public long[] findTwoLineStartBytesByScanning(RandomAccessFile raf, int lineA, int lineB)
+        throws Exception {
+        if (lineA < 0) lineA = 0;
+        if (lineB < 0) lineB = 0;
+
+        int a = Math.min(lineA, lineB);
+        int b = Math.max(lineA, lineB);
+
+        long offA = (a == 0) ? 0L : -1L;
+        long offB = (b == 0) ? 0L : -1L;
+
+        raf.seek(0);
+        byte[] buf = new byte[8192];
+        long pos = 0;
+        int line = 0;
+
+        while (true) {
+            int n = raf.read(buf);
+            if (n <= 0) break;
+
+            for (int i = 0; i < n; i++) {
+                if (buf[i] == '\n') {
+                    line++;
+                    long nextLineStart = pos + i + 1;
+
+                    if (line == a && offA < 0) offA = nextLineStart;
+                    if (line == b && offB < 0) offB = nextLineStart;
+
+                    if (offA >= 0 && offB >= 0) {
+                        if (lineA <= lineB) return new long[] {offA, offB};
+                        return new long[] {offB, offA};
+                    }
+                }
+            }
+            pos += n;
+        }
+
+        long len = raf.length();
+        if (offA < 0) offA = len;
+        if (offB < 0) offB = len;
+
+        if (lineA <= lineB) return new long[] {offA, offB};
+        return new long[] {offB, offA};
+    }
+
+    public interface LineCountCallback {
+        void onResult(int count);
+    }
+
+    public void countTotalLines(LineCountCallback callback) {
+        final int taskVersion = view.ioTaskVersion.get();
+        view.ioHandler.post(
+            () -> {
+                if (taskVersion != view.ioTaskVersion.get()) {
+                    view.post(() -> callback.onResult(-1));
+                    return;
+                }
+                if (isIndexReady() && view.sourceFile != null) {
+                    synchronized (lineOffsetsLock) {
+                        view.post(() -> callback.onResult(getLineOffsets().length));
+                    }
+                    return;
+                }
+                int count = 0;
+                if (view.sourceFile != null && view.sourceFile.exists()) {
+                    try (java.io.FileInputStream is = new java.io.FileInputStream(view.sourceFile)) {
+                        byte[] buffer = new byte[8192];
+                        int len;
+                        boolean empty = true;
+                        while ((len = is.read(buffer)) != -1) {
+                            empty = false;
+                            for (int i = 0; i < len; i++) if (buffer[i] == '\n') count++;
+                        }
+                        if (!empty) count++;
+                    } catch (Exception e) {
+                        count = -1;
+                    }
+                }
+                final int finalCount = count;
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> callback.onResult(finalCount));
+            });
+    }
+
+    public String readRangeText(int sL, int sC, int eL, int eC) {
+        int startL = sL, startC = sC, endL = eL, endC = eC;
+        if (view.comparePos(startL, startC, endL, endC) > 0) {
+            int tL = startL, tC = startC;
+            startL = endL;
+            startC = endC;
+            endL = tL;
+            endC = tC;
+        }
+
+        if (startL >= view.windowStartLine && endL < view.windowStartLine + view.linesWindow.size()) {
+            StringBuilder sb = new StringBuilder();
+            for (int line = startL; line <= endL; line++) {
+                String ln = view.getLineFromWindowLocal(line - view.windowStartLine);
+                if (ln == null) ln = "";
+                int from = (line == startL) ? Math.min(startC, ln.length()) : 0;
+                int to = (line == endL) ? Math.min(endC, ln.length()) : ln.length();
+                if (from < to) sb.append(ln, from, to);
+                if (line < endL) sb.append('\n');
+            }
+            return sb.toString();
+        }
+
+        if (view.sourceFile == null || !view.sourceFile.exists()) return "";
+        FileManager.RangeBytes range = view.fileManager.computeByteRangeFastOrScan(view.sourceFile, startL, startC, endL, endC);
+        if (range == null) return "";
+        try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(view.sourceFile, "r")) {
+            long len = raf.length();
+            long startByte = Math.max(0, Math.min(range.startByte, len));
+            long endByte = Math.max(0, Math.min(range.endByte, len));
+            if (endByte < startByte) {
+                long t = startByte;
+                startByte = endByte;
+                endByte = t;
+            }
+            int size = (int) Math.min(Integer.MAX_VALUE, endByte - startByte);
+            byte[] buf = new byte[size];
+            raf.seek(startByte);
+            raf.readFully(buf);
+            return new String(buf, fileCharset);
+        } catch (Exception ignore) {
+            return "";
+        }
+    }
+
+    public void rewriteReplaceRangeAsync(
+        int opToken,
+        File inFile,
+        int sL,
+        int sC,
+        int eL,
+        int eC,
+        String insertText,
+        SodiumEditorView.CursorTarget target,
+        boolean finishLargeEditUi) {
+        view.ioHandler.post(
+            () -> {
+                try {
+                    if (inFile == null || !inFile.exists()) {
+                        view.post(
+                            () -> {
+                                if (finishLargeEditUi) view.endLargeEditUiPublic(true);
+                            });
+                        return;
+                    }
+
+                    FileManager.RangeBytes range = view.fileManager.computeByteRangeFastOrScan(inFile, sL, sC, eL, eC);
+                    if (range == null) {
+                        view.post(
+                            () -> {
+                                if (finishLargeEditUi) view.endLargeEditUiPublic(true);
+                            });
+                        return;
+                    }
+
+                    File outFile = File.createTempFile("popedit_", ".tmp", view.getContext().getCacheDir());
+                    byte[] insertBytes =
+                        (insertText == null) ? new byte[0] : insertText.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+                    try (java.io.RandomAccessFile rafIn = new java.io.RandomAccessFile(inFile, "r");
+                        java.nio.channels.FileChannel inCh = rafIn.getChannel();
+                        java.io.RandomAccessFile rafOut = new java.io.RandomAccessFile(outFile, "rw");
+                        java.nio.channels.FileChannel outCh = rafOut.getChannel()) {
+
+                        long fileLen = rafIn.length();
+                        long startByte = Math.max(0, Math.min(range.startByte, fileLen));
+                        long endByte = Math.max(0, Math.min(range.endByte, fileLen));
+                        if (endByte < startByte) {
+                            long t = startByte;
+                            startByte = endByte;
+                            endByte = t;
+                        }
+
+                        transferRange(inCh, outCh, 0, startByte);
+
+                        if (insertBytes.length > 0) {
+                            outCh.write(java.nio.ByteBuffer.wrap(insertBytes));
+                        }
+
+                        transferRange(inCh, outCh, endByte, fileLen - endByte);
+                        outCh.force(true);
+                    }
+
+                    view.post(
+                        () -> {
+                            if (opToken != view.undoRedo.getEditVersion()) return;
+
+                            view.invalidatePendingIO();
+
+                            if (inFile != null) {
+                                try (java.io.FileInputStream fis = new java.io.FileInputStream(outFile);
+                                    java.io.FileOutputStream fos = new java.io.FileOutputStream(inFile)) {
+                                    byte[] buf = new byte[8192];
+                                    int r;
+                                    while ((r = fis.read(buf)) > 0) {
+                                        fos.write(buf, 0, r);
+                                    }
+                                    fos.flush();
+                                } catch (Exception ignore) {
+                                }
+                                outFile.delete();
+                                updateSourceFile(inFile);
+                            } else {
+                                updateSourceFile(outFile);
+                            }
+                            setFileCleared(false);
+
+                            synchronized (view.modifiedLines) {
+                                view.modifiedLines.clear();
+                            }
+                            synchronized (view.lineWidthCache) {
+                                view.lineWidthCache.clear();
+                            }
+                            view.currentMaxWindowLineWidth = 0f;
+                            view.globalMaxLineWidth = 0f;
+                            view.scrollManager.maxLineWidthForScroll = 0f;
+                            view.scrollManager.maxTextStartXForScroll = 0f;
+                            view.scrollManager.maxScrollXForScroll = 0f;
+                            view.undoRedo.resetLineCountDelta();
+
+                            synchronized (view.lineOffsetsLock) {
+                                view.lineOffsets = new long[0];
+                            }
+                            isIndexReady = false;
+                            isIndexBuilding = false;
+                            isIndexDisabled = false;
+                            indexDisabledPath = null;
+                            indexDisabledFileLength = -1L;
+                            setEof(false);
+
+                            view.ioHandler.post(view::buildFileIndex);
+                            view.wordWrapManager.onLineCountChanged(view);
+
+                            view.cursorManager.setLineAndChar(Math.max(0, target.line), Math.max(0, target.ch));
+
+                            boolean cursorInsideWindow =
+                                (view.cursorManager.getLine() >= view.windowStartLine
+                                    && view.cursorManager.getLine() < view.windowStartLine + view.linesWindow.size());
+
+                            if (cursorInsideWindow) {
+                                synchronized (view.linesWindow) {
+                                    view.isEof = view.linesWindow.size() < view.windowSize + (view.prefetchLines * 2);
+                                }
+                                view.recalculateMaxLineWidth();
+                                view.requestFocus();
+                                android.view.inputmethod.InputMethodManager imm =
+                                    (android.view.inputmethod.InputMethodManager)
+                                        view.getContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+                                if (imm != null) imm.restartInput(view);
+                                if (finishLargeEditUi) view.endLargeEditUiPublic(false);
+                                view.invalidate();
+                            } else {
+                                int targetStart = Math.max(0, view.cursorManager.getLine() - view.prefetchLines);
+                                view.loadWindowAround(
+                                    targetStart,
+                                    () -> {
+                                        String ln = view.getLineTextForRender(view.cursorManager.getLine());
+                                        view.cursorManager.clampCharToLineLength(view.cursorManager.getLine());
+                                        view.clampScrollY();
+                                        view.scrollManager.keepCursorVisibleHorizontally();
+                                        view.requestFocus();
+                                        android.view.inputmethod.InputMethodManager imm =
+                                            (android.view.inputmethod.InputMethodManager)
+                                                view.getContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+                                        if (imm != null) imm.restartInput(view);
+                                        if (finishLargeEditUi) view.endLargeEditUiPublic(false);
+                                    });
+                            }
+                        });
+                } catch (Exception ignore) {
+                    view.post(
+                        () -> {
+                            if (finishLargeEditUi) view.endLargeEditUiPublic(true);
+                        });
+                }
+            });
+    }
+
+    private void transferRange(java.nio.channels.FileChannel inCh, java.nio.channels.FileChannel outCh, long position, long count)
+        throws Exception {
+        long remaining = count;
+        long pos = position;
+        while (remaining > 0) {
+            long sent = inCh.transferTo(pos, remaining, outCh);
+            if (sent <= 0) break;
+            pos += sent;
+            remaining -= sent;
+        }
+    }
+
+    public static final class RangeBytes {
+        final long startByte, endByte;
+
+        RangeBytes(long s, long e) {
+            startByte = s;
+            endByte = e;
+        }
+    }
+
+    public RangeBytes computeByteRangeFastOrScan(File file, int sL, int sC, int eL, int eC) {
+        if (view.comparePos(sL, sC, eL, eC) > 0) {
+            int tl = sL, tc = sC;
+            sL = eL;
+            sC = eC;
+            eL = tl;
+            eC = tc;
+        }
+
+        if (view.isIndexReady && file != null) {
+            RangeBytes fast = computeByteRangeUsingIndex(file, sL, sC, eL, eC);
+            if (fast != null) return fast;
+        }
+
+        return computeByteRangeByScanning(file, sL, sC, eL, eC);
+    }
+
+    public RangeBytes computeByteRangeFastOrScanForUndo(File file, int sL, int sC, int eL, int eC) {
+        return computeByteRangeFastOrScan(file, sL, sC, eL, eC);
+    }
+
+    private RangeBytes computeByteRangeUsingIndex(File file, int sL, int sC, int eL, int eC) {
+        try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(file, "r")) {
+            long startLineByte, endLineByte;
+            synchronized (lineOffsetsLock) {
+                if (!isIndexReady()) return null;
+                if (sL < 0 || eL < 0) return null;
+                if (sL >= getLineOffsets().length || eL >= getLineOffsets().length) return null;
+                startLineByte = getLineOffsets()[sL];
+                endLineByte = getLineOffsets()[eL];
+            }
+
+            String startLineText = readLineUtf8AtByte(raf, startLineByte);
+            String endLineText = (eL == sL) ? startLineText : readLineUtf8AtByte(raf, endLineByte);
+
+            long startByte = startLineByte + computeByteOffsetInLineUtf8(startLineText, sC);
+            long endByte = endLineByte + computeByteOffsetInLineUtf8(endLineText, eC);
+
+            return new RangeBytes(startByte, endByte);
+        } catch (Exception ignore) {
+            return null;
+        }
+    }
+
+    private RangeBytes computeByteRangeByScanning(File file, int sL, int sC, int eL, int eC) {
+        if (view.comparePos(sL, sC, eL, eC) > 0) {
+            int tl = sL, tc = sC;
+            sL = eL;
+            sC = eC;
+            eL = tl;
+            eC = tc;
+        }
+
+        try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(file, "r")) {
+            long[] starts = findTwoLineStartBytesByScanning(raf, sL, eL);
+            long startLineByte = starts[0];
+            long endLineByte = starts[1];
+
+            String startLineText = readLineUtf8AtByte(raf, startLineByte);
+            String endLineText = (eL == sL) ? startLineText : readLineUtf8AtByte(raf, endLineByte);
+
+            long startByte = startLineByte + computeByteOffsetInLineUtf8(startLineText, sC);
+            long endByte = endLineByte + computeByteOffsetInLineUtf8(endLineText, eC);
+
+            return new RangeBytes(startByte, endByte);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public void onUndoRedoRewriteSuccess(File inFile) {
+        updateSourceFile(inFile);
+        synchronized (lineOffsetsLock) {
+            setLineOffsets(new long[0]);
+        }
+        isIndexReady = false;
+        isIndexBuilding = false;
+        isIndexDisabled = false;
+        indexDisabledPath = null;
+        indexDisabledFileLength = -1L;
+        view.ioHandler.post(view::buildFileIndex);
+    }
+
+    public String getTextSnapshot() {
+        int total = view.getLinesCount();
+        if (total <= 0) return "";
+        java.util.HashMap<Integer, String> direct = new java.util.HashMap<>();
+        if (isIndexReady() && view.sourceFile != null && view.sourceFile.exists()) {
+            view.populateDirectLinesForRange(0, total - 1, direct);
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < total; i++) {
+            String line = view.getLineTextForRenderWithDirect(i, direct);
+            if (line == null) line = "";
+            sb.append(line);
+            if (i < total - 1) sb.append('\n');
+        }
+        return sb.toString();
     }
 }

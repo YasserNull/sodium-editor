@@ -402,7 +402,7 @@ final class CursorManager {
       view.mainHandler.postDelayed(view.largeEditUiWatchdog, 30_000);
       SodiumEditorView.CursorTarget target = view.computeCursorAfterInsert(getLine(), getChar(), text);
       final java.io.File inFile = view.sourceFile;
-      view.rewriteReplaceRangeAsync(
+      view.rewriteReplaceRangeAsyncPublic(
           opToken, inFile, getLine(), getChar(), getLine(), getChar(), text, target, true);
       view.autoSuggestionManager.updateSuggestion();
       view.undoRedo.addLineCountDelta(view.countNewlines(text));
@@ -512,5 +512,74 @@ final class CursorManager {
     op.cursorCharAfter = getChar();
     op.timestamp = System.currentTimeMillis();
     view.recordEdit(op);
+  }
+
+  public void proceedGoToLineClamped(
+      final int currentGoToLineVersion, final int targetLine, final int targetCol) {
+    if (view.isWindowLoading
+        && view.fileManager.getSourceFile() != null
+        && !(targetLine >= view.windowStartLine && targetLine < view.windowStartLine + view.linesWindow.size())) {
+      view.mainHandler.postDelayed(
+          () -> {
+            if (currentGoToLineVersion != view.getGoToLineVersion()) return;
+            proceedGoToLineClamped(currentGoToLineVersion, targetLine, targetCol);
+          },
+          30);
+      return;
+    }
+
+    Runnable completionAction =
+        () -> {
+          if (currentGoToLineVersion != view.getGoToLineVersion()) return;
+
+          int finalLine = targetLine;
+          int finalChar;
+          if (finalLine >= view.windowStartLine && finalLine < view.windowStartLine + view.linesWindow.size()) {
+            String lineText = view.getLineTextForRender(finalLine);
+            finalChar = Math.max(0, Math.min(targetCol, lineText.length()));
+          } else if (view.isEof) {
+            int lastLineInDoc = view.windowStartLine + view.linesWindow.size() - 1;
+            if (finalLine > lastLineInDoc) finalLine = Math.max(0, lastLineInDoc);
+            String lineText = view.getLineTextForRender(finalLine);
+            finalChar = Math.max(0, Math.min(targetCol, lineText.length()));
+          } else {
+            finalChar = 0;
+          }
+          setLineAndChar(finalLine, finalChar);
+
+          view.scrollManager.keepCursorVisibleHorizontally();
+          view.setDisable(false);
+          view.loadingCircleManager.show(false);
+
+          view.requestFocus();
+          view.post(
+              () -> {
+                view.imeManager.showKeyboard();
+                view.requestFocus();
+                android.view.inputmethod.InputMethodManager imm =
+                    (android.view.inputmethod.InputMethodManager)
+                        view.getContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+                if (imm != null) imm.restartInput(view);
+              });
+        };
+
+    if (view.fileManager.isFileCleared()
+        || view.fileManager.getSourceFile() == null
+        || (targetLine >= view.windowStartLine && targetLine < view.windowStartLine + view.linesWindow.size())) {
+      completionAction.run();
+    } else {
+      int targetStart = Math.max(0, targetLine - view.prefetchLines);
+      view.loadWindowAround(targetStart, completionAction);
+    }
+  }
+
+  public void insertTextAt(int line, int col, String text) {
+    if (text == null) return;
+    if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+      view.mainHandler.post(() -> insertTextAt(line, col, text));
+      return;
+    }
+    setPosition(line, col);
+    insertTextAtCursor(text);
   }
 }

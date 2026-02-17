@@ -22,6 +22,18 @@ final class ViewRender {
         "<CAN>", "<EM>", "<SUB>", "<ESC>", "<FS>", "<GS>", "<RS>", "<US>"
       };
 
+  static final class StreamedSliceRequest {
+    final int line;
+    final int start;
+    final int end;
+
+    StreamedSliceRequest(int line, int start, int end) {
+      this.line = line;
+      this.start = start;
+      this.end = end;
+    }
+  }
+
   ViewRender(SodiumEditorView view) {
     this.view = view;
   }
@@ -151,6 +163,25 @@ final class ViewRender {
     view.reloadWindowAroundVisible(false);
   }
 
+  public int computeMinWindowSizeForPrefetch(int prefetch) {
+    if (view.lineHeight <= 0f || view.getHeight() <= 0) return 10;
+    float effectiveHeight = (view.keyboardHeight > 0) ? view.getHeight() - view.keyboardHeight : view.getHeight();
+    int visibleLines = Math.max(1, (int) Math.ceil(effectiveHeight / view.lineHeight) + 2);
+    int minTotal = Math.max(visibleLines * 2, visibleLines + 6);
+    int minWindow = minTotal - (Math.max(0, prefetch) * 2);
+    return Math.max(10, minWindow);
+  }
+
+  public void reloadWindowAroundVisible(boolean recalcWidthSync) {
+    if (view.getWidth() == 0 || view.getHeight() == 0) {
+      view.invalidate();
+      return;
+    }
+    int firstVisibleLine = Math.max(0, view.getGlobalLineForY(view.scrollManager.scrollY));
+    int targetStart = Math.max(0, firstVisibleLine - view.prefetchLines);
+    view.loadWindowAround(targetStart, null, recalcWidthSync);
+  }
+
   public void setLineWidthCacheSize(int size) {
     int safe = Math.max(10, size);
     if (view.lineWidthCacheSize == safe) return;
@@ -187,6 +218,537 @@ final class ViewRender {
         }
       }
     }
+  }
+
+  public boolean isWhitespaceAtX(String line, int globalLine, float x) {
+    if (line == null || line.isEmpty()) return true;
+    if (x <= 0f) return Character.isWhitespace(line.charAt(0));
+
+    java.util.List<HighlightManager.HighlightSpan> spans = view.highlightManager.highlightCache.get(globalLine);
+    if (spans == null) {
+      spans = view.highlightManager.calculateSpansForLine(line, globalLine);
+      view.highlightManager.highlightCache.put(globalLine, spans);
+    }
+
+    final int len = line.length();
+    float currentX = 0f;
+    final float eps = 0.25f;
+
+    int pos = 0;
+    if (spans != null && !spans.isEmpty()) {
+      for (HighlightManager.HighlightSpan span : spans) {
+        if (pos >= len) break;
+        if (span.end <= pos) continue;
+        if (span.start > pos) {
+          for (int i = pos; i < Math.min(span.start, len); i++) {
+            float adv = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, i, i + 1, view.paint);
+            if (x >= currentX - eps && x <= currentX + adv + eps) {
+              return Character.isWhitespace(line.charAt(i));
+            }
+            currentX += adv;
+          }
+        }
+        int start = Math.max(pos, span.start);
+        int end = Math.min(len, span.end);
+        for (int i = start; i < end; i++) {
+          float adv = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, i, i + 1, view.paint);
+          if (x >= currentX - eps && x <= currentX + adv + eps) {
+            return Character.isWhitespace(line.charAt(i));
+          }
+          currentX += adv;
+        }
+        pos = Math.max(pos, end);
+      }
+    }
+
+    if (pos < len) {
+      for (int i = pos; i < len; i++) {
+        float adv = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, i, i + 1, view.paint);
+        if (x >= currentX - eps && x <= currentX + adv + eps) {
+          return Character.isWhitespace(line.charAt(i));
+        }
+        currentX += adv;
+      }
+    }
+
+    return true;
+  }
+
+  public void checkAndLoadWindow() {
+    if (view.fileManager.getSourceFile() == null || view.fileManager.isFileCleared()) return;
+    if (view.getWidth() == 0 || view.getHeight() == 0) return;
+    if (view.isWindowLoading) return;
+
+    int firstVisibleIndex = (int) (view.scrollManager.scrollY / view.lineHeight);
+    int lastVisibleIndex = firstVisibleIndex + (int) Math.ceil(view.getHeight() / view.lineHeight);
+    int firstVisibleLine;
+    int lastVisibleLine;
+    if (view.wordWrapManager.isWordWrapEnabled) {
+      firstVisibleLine = view.wordWrapManager.getVisualPositionForIndex(view, firstVisibleIndex).line;
+      lastVisibleLine = view.wordWrapManager.getVisualPositionForIndex(view, lastVisibleIndex).line;
+    } else {
+      firstVisibleLine = view.mapVisibleIndexToGlobal(firstVisibleIndex);
+      lastVisibleLine = view.mapVisibleIndexToGlobal(lastVisibleIndex);
+    }
+    firstVisibleLine = Math.max(0, firstVisibleLine);
+    lastVisibleLine = Math.max(firstVisibleLine, lastVisibleLine);
+    int winEnd;
+    synchronized (view.linesWindow) {
+      winEnd = view.windowStartLine + view.linesWindow.size() - 1;
+    }
+
+    int topMargin = Math.max(0, view.prefetchLines);
+    int bottomMargin = Math.max(0, view.prefetchLines);
+
+    boolean needTop = view.windowStartLine > 0 && firstVisibleLine < view.windowStartLine + topMargin;
+    boolean needBottom = !view.isEof && lastVisibleLine > winEnd - bottomMargin;
+    boolean outside = firstVisibleLine < view.windowStartLine || firstVisibleLine > winEnd;
+
+    if (needTop || needBottom || outside) {
+      int targetStart = Math.max(0, firstVisibleLine - view.prefetchLines);
+      loadWindowAround(targetStart, null, false);
+    }
+  }
+
+  public void loadWindowAround(int startLine, @Nullable Runnable onComplete) {
+    loadWindowAround(startLine, onComplete, true);
+  }
+
+  public void loadWindowAround(
+      int startLine, @Nullable Runnable onComplete, boolean recalculateWidthSync) {
+    if (view.isWindowLoading) return;
+    view.maxWidthRecalcToken++;
+
+    if (view.fileManager.isFileCleared()) {
+      if (onComplete != null) {
+        view.post(onComplete);
+      }
+      return;
+    }
+
+    if (view.fileManager.getSourceFile() == null) {
+      if (onComplete != null) view.post(onComplete);
+      return;
+    }
+
+    view.isWindowLoading = true;
+    final int taskVersion = view.ioTaskVersion.incrementAndGet();
+    final int requestedStart = Math.max(0, startLine);
+
+    view.ioHandler.post(
+        () -> {
+          try {
+            if (taskVersion != view.ioTaskVersion.get()) {
+              view.post(
+                  () -> {
+                    view.isWindowLoading = false;
+                    checkAndLoadWindow();
+                  });
+              return;
+            }
+
+            int actualStart = requestedStart;
+
+            if (view.isIndexReady) {
+              synchronized (view.lineOffsetsLock) {
+                if (view.lineOffsets.length > 0 && actualStart >= view.lineOffsets.length) {
+                  actualStart = Math.max(0, view.lineOffsets.length - 1);
+                }
+              }
+            }
+
+            java.util.List<String> newWin = new java.util.ArrayList<>();
+            android.util.SparseIntArray newStreamedLengths = new android.util.SparseIntArray();
+            android.util.SparseIntArray newStreamedSliceStarts = new android.util.SparseIntArray();
+            boolean fileEndsWithNewline = false;
+            boolean reachedEof = false;
+            boolean trailingEmptyFromIndex = false;
+
+            if (view.fileManager.isIndexReady()) {
+              try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(view.fileManager.getSourceFile(), "r")) {
+                long fileLen = raf.length();
+                if (fileLen > 0) {
+                  raf.seek(fileLen - 1);
+                  fileEndsWithNewline = (raf.read() == '\n');
+                }
+                int limit = view.windowSize + (view.prefetchLines * 2);
+                int lineIndex = actualStart;
+                int maxLine;
+                synchronized (view.fileManager.lineOffsetsLock) {
+                  maxLine = view.fileManager.getLineOffsets().length;
+                }
+                while (newWin.size() < limit) {
+                  if (lineIndex >= maxLine) {
+                    reachedEof = true;
+                    break;
+                  }
+                  long lineStart;
+                  synchronized (view.lineOffsetsLock) {
+                    lineStart = view.lineOffsets[lineIndex];
+                  }
+                  long lineByteLen = view.getLineByteLengthFromIndex(raf, lineIndex, fileLen);
+                  int lineLen = (int) Math.min(Integer.MAX_VALUE, lineByteLen);
+                  if (view.fileManager.shouldStreamLineLength(lineLen)) {
+                    int sliceStart = 0;
+                    int sliceEnd =
+                        Math.max(1, Math.min(lineLen, view.getInitialStreamedSliceSize()));
+                    if (view.fileManager.isSingleByteCharset()) {
+                      String slice =
+                          view.readLineSliceAtByte(raf, lineStart, lineByteLen, sliceStart, sliceEnd);
+                      newWin.add(slice);
+                      newStreamedLengths.put(lineIndex, lineLen);
+                      newStreamedSliceStarts.put(lineIndex, sliceStart);
+                    } else {
+                      sliceEnd = Math.max(1, view.getInitialStreamedSliceSize());
+                      SodiumEditorView.StreamedCharSlice slice =
+                          view.readLineSliceByChars(raf, lineStart, sliceStart, sliceEnd, true);
+                      newWin.add(slice.text);
+                      newStreamedLengths.put(lineIndex, slice.length);
+                      newStreamedSliceStarts.put(lineIndex, sliceStart);
+                    }
+                  } else {
+                    String ln = view.readLineUtf8AtByte(raf, lineStart);
+                    newWin.add(ln);
+                  }
+                  lineIndex++;
+                }
+                if (fileEndsWithNewline) {
+                  synchronized (view.fileManager.lineOffsetsLock) {
+                    trailingEmptyFromIndex =
+                        view.fileManager.getLineOffsets().length > 0 && view.fileManager.getLineOffsets()[view.fileManager.getLineOffsets().length - 1] == fileLen;
+                  }
+                }
+              }
+            } else {
+              try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(view.fileManager.getSourceFile(), "r")) {
+                long fileLen = raf.length();
+                if (fileLen > 0) {
+                  raf.seek(fileLen - 1);
+                  fileEndsWithNewline = (raf.read() == '\n');
+                }
+                raf.seek(0);
+                int skipped = 0;
+                while (skipped < actualStart) {
+                  SodiumEditorView.LineScanResult scan = view.scanLineLength(raf);
+                  if (scan.reachedEof) break;
+                  skipped++;
+                }
+                actualStart = skipped;
+
+                int limit = view.windowSize + (view.prefetchLines * 2);
+                int lineIndex = actualStart;
+                while (newWin.size() < limit) {
+                  long lineStart = raf.getFilePointer();
+                  if (lineStart >= fileLen) {
+                    reachedEof = true;
+                    break;
+                  }
+                  SodiumEditorView.LineScanResult scan = view.scanLineLength(raf);
+                  long afterPos = raf.getFilePointer();
+                  long lineByteLen = scan.length;
+                  int lineLen = (int) Math.min(Integer.MAX_VALUE, lineByteLen);
+                  if (view.fileManager.shouldStreamLineLength(lineLen)) {
+                    int sliceStart = 0;
+                    int sliceEnd =
+                        Math.max(1, Math.min(lineLen, view.getInitialStreamedSliceSize()));
+                    if (view.fileManager.isSingleByteCharset()) {
+                      String slice =
+                          view.fileManager.readLineSliceAtByte(raf, lineStart, lineByteLen, sliceStart, sliceEnd);
+                      newWin.add(slice);
+                      newStreamedLengths.put(lineIndex, lineLen);
+                      newStreamedSliceStarts.put(lineIndex, sliceStart);
+                    } else {
+                      sliceEnd = Math.max(1, view.getInitialStreamedSliceSize());
+                      SodiumEditorView.StreamedCharSlice slice =
+                          view.fileManager.readLineSliceByChars(raf, lineStart, sliceStart, sliceEnd, true);
+                      newWin.add(slice.text);
+                      newStreamedLengths.put(lineIndex, slice.length);
+                      newStreamedSliceStarts.put(lineIndex, sliceStart);
+                    }
+                  } else {
+                    raf.seek(lineStart);
+                    byte[] buf = new byte[lineLen];
+                    if (lineLen > 0) raf.readFully(buf);
+                    String ln =
+                        (lineLen > 0)
+                            ? (view.binarySafeRenderingEnabled
+                                ? view.bytesToControlVisible(buf, buf.length)
+                                : new String(buf, view.fileManager.fileCharset))
+                            : "";
+                    newWin.add(ln);
+                  }
+                  raf.seek(afterPos);
+                  if (scan.reachedEof) {
+                    reachedEof = true;
+                    break;
+                  }
+                  lineIndex++;
+                }
+              } catch (Exception ignored) {
+              }
+            }
+
+            if (newWin.isEmpty()) {
+              newWin.add("");
+              actualStart = 0;
+            }
+            if (reachedEof && fileEndsWithNewline && !trailingEmptyFromIndex) {
+              newWin.add("");
+            }
+
+            boolean eof = newWin.size() < view.windowSize + (view.prefetchLines * 2);
+
+            synchronized (view.modifiedLines) {
+              for (int i = 0; i < newWin.size(); i++) {
+                int globalLineNum = actualStart + i;
+                if (view.modifiedLines.containsKey(globalLineNum)) {
+                  String modifiedLine = view.modifiedLines.get(globalLineNum);
+                  if (modifiedLine != null) newWin.set(i, modifiedLine);
+                  newStreamedLengths.delete(globalLineNum);
+                  newStreamedSliceStarts.delete(globalLineNum);
+                }
+              }
+            }
+
+            if (taskVersion != view.ioTaskVersion.get()) {
+              view.post(
+                  () -> {
+                    view.isWindowLoading = false;
+                    checkAndLoadWindow();
+                  });
+              return;
+            }
+
+            final int finalStart = actualStart;
+            final android.util.SparseIntArray finalStreamedLengths = newStreamedLengths;
+            final android.util.SparseIntArray finalStreamedSliceStarts = newStreamedSliceStarts;
+            view.post(
+                () -> {
+                  view.isWindowLoading = false;
+                  if (taskVersion != view.ioTaskVersion.get()) {
+                    checkAndLoadWindow();
+                    return;
+                  }
+                  synchronized (view.linesWindow) {
+                    view.linesWindow.clear();
+                    view.linesWindow.addAll(newWin);
+                    view.windowStartLine = finalStart;
+                    view.isEof = eof;
+                  }
+                  synchronized (view.streamedLinesLock) {
+                    view.streamedLineLengths.clear();
+                    view.streamedLineSliceStarts.clear();
+                    for (int i = 0; i < finalStreamedLengths.size(); i++) {
+                      int key = finalStreamedLengths.keyAt(i);
+                      view.streamedLineLengths.put(key, finalStreamedLengths.valueAt(i));
+                      view.streamedLineSliceStarts.put(
+                          key, finalStreamedSliceStarts.get(key, 0));
+                    }
+                  }
+                  view.lineNumberManager.invalidateCache();
+                  view.invalidateHighlightEnsureRange();
+                  view.bracketGuideManager.invalidateCache();
+                  if (recalculateWidthSync) {
+                    view.recalculateMaxLineWidth();
+                  } else {
+                    synchronized (view.lineWidthCache) {
+                      view.lineWidthCache.clear();
+                    }
+                    view.currentMaxWindowLineWidth = 0f;
+                    view.globalMaxLineWidth = 0f;
+                    view.recalculateMaxLineWidthAsync();
+                  }
+                  if (view.wordWrapManager.isWordWrapEnabled) {
+                    if (view.wordWrapManager.shouldSuppressWrapMetricsForFastSelectAll(view)) {
+                      view.wordWrapManager.wrapMetricsReady = false;
+                    } else {
+                      if (!view.wordWrapManager.wrapMetricsReady || view.wordWrapManager.wrapLineCounts == null || view.wordWrapManager.wrapLinePrefix == null) {
+                        if (view.getWidth() > 0) {
+                          view.wordWrapManager.buildWrapMetricsForWindowSnapshot(view);
+                        }
+                      }
+                      view.wordWrapManager.scheduleWrapMetricsSnapshotIfNeeded(view, Math.max(1, Math.round(view.wordWrapManager.getWrapWidth(view))));
+                      view.wordWrapManager.requestWrapPrefixRebuild(view);
+                    }
+                  }
+                  view.invalidate();
+                  if (onComplete != null) onComplete.run();
+                });
+          } catch (Exception e) {
+            e.printStackTrace();
+            view.post(
+                () -> {
+                  view.isWindowLoading = false;
+                  if (onComplete != null) onComplete.run();
+                });
+          }
+        });
+  }
+
+  public void maybeUpdateStreamedSlicesForVisibleRange(int firstVisibleLine, int lastVisibleLine) {
+    if (view.wordWrapManager.isWordWrapEnabled) return;
+    if (!view.fileManager.isIndexReady() || view.fileManager.getSourceFile() == null || !view.fileManager.getSourceFile().exists()) return;
+    if (view.isWindowLoading) return;
+
+    java.util.ArrayList<StreamedSliceRequest> requests = new java.util.ArrayList<>();
+    synchronized (view.linesWindow) {
+      int winStart = view.windowStartLine;
+      int winEnd = view.windowStartLine + view.linesWindow.size() - 1;
+      int start = Math.max(firstVisibleLine, winStart);
+      int end = Math.min(lastVisibleLine, winEnd);
+      if (start > end) return;
+      for (int line = start; line <= end; line++) {
+        if (view.modifiedLines.containsKey(line)) continue;
+        int len = view.fileManager.getStreamedLineLength(line);
+        if (len <= 0) continue;
+        String slice = view.linesWindow.get(line - winStart);
+        int sliceStart = view.fileManager.getStreamedLineSliceStart(line);
+        int sliceEnd = sliceStart + ((slice == null) ? 0 : slice.length());
+        view.computeStreamedSliceBounds(slice, line, len, view.streamedSliceTmp);
+        int desiredStart = view.streamedSliceTmp[0];
+        int desiredEnd = view.streamedSliceTmp[1];
+        if (sliceStart <= desiredStart && sliceEnd >= desiredEnd) continue;
+        requests.add(new StreamedSliceRequest(line, desiredStart, desiredEnd));
+      }
+    }
+
+    if (requests.isEmpty()) return;
+    if (view.streamedSliceUpdatePending) return;
+    view.streamedSliceUpdatePending = true;
+    final int token = ++view.streamedSliceUpdateToken;
+    final int taskVersion = view.ioTaskVersion.get();
+
+    view.ioHandler.post(
+        () -> {
+          if (token != view.streamedSliceUpdateToken) return;
+          if (taskVersion != view.ioTaskVersion.get()) return;
+          if (view.fileManager.getSourceFile() == null || !view.fileManager.getSourceFile().exists()) {
+            view.post(() -> view.fileManager.streamedSliceUpdatePending = false);
+            return;
+          }
+          java.util.LinkedHashMap<Integer, String> results = new java.util.LinkedHashMap<>();
+          android.util.SparseIntArray starts = new android.util.SparseIntArray();
+          try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(view.fileManager.getSourceFile(), "r")) {
+            long fileLen = raf.length();
+            for (StreamedSliceRequest req : requests) {
+              long lineStart;
+              synchronized (view.lineOffsetsLock) {
+                if (req.line < 0 || req.line >= view.lineOffsets.length) continue;
+                lineStart = view.lineOffsets[req.line];
+              }
+              if (view.fileManager.isSingleByteCharset()) {
+                long lineByteLen = view.getLineByteLengthFromIndex(raf, req.line, fileLen);
+                String slice =
+                    view.readLineSliceAtByte(raf, lineStart, lineByteLen, req.start, req.end);
+                results.put(req.line, slice);
+                starts.put(req.line, req.start);
+              } else {
+                SodiumEditorView.StreamedCharSlice slice =
+                    view.readLineSliceByChars(raf, lineStart, req.start, req.end, false);
+                results.put(req.line, slice.text);
+                starts.put(req.line, req.start);
+              }
+            }
+          } catch (Exception ignored) {
+          }
+
+          view.post(
+              () -> {
+                if (token != view.streamedSliceUpdateToken) {
+                  view.streamedSliceUpdatePending = false;
+                  return;
+                }
+                if (taskVersion != view.ioTaskVersion.get()) {
+                  view.streamedSliceUpdatePending = false;
+                  return;
+                }
+                synchronized (view.linesWindow) {
+                  int winStart = view.windowStartLine;
+                  int winEnd = view.windowStartLine + view.linesWindow.size() - 1;
+                  for (java.util.Map.Entry<Integer, String> e : results.entrySet()) {
+                    int line = e.getKey();
+                    if (line < winStart || line > winEnd) continue;
+                    if (view.modifiedLines.containsKey(line)) continue;
+                    int local = line - winStart;
+                    if (local < 0 || local >= view.linesWindow.size()) continue;
+                    view.linesWindow.set(local, (e.getValue() == null) ? "" : e.getValue());
+                    int len = view.fileManager.getStreamedLineLength(line);
+                    if (len > 0) {
+                      view.fileManager.setStreamedLineInfo(line, len, starts.get(line));
+                    }
+                  }
+                }
+                view.streamedSliceUpdatePending = false;
+                view.invalidate();
+              });
+        });
+  }
+
+  public void recalculateMaxLineWidth() {
+    final int startLine;
+    final java.util.ArrayList<String> snapshot;
+    synchronized (view.linesWindow) {
+      startLine = view.windowStartLine;
+      snapshot = new java.util.ArrayList<>(view.linesWindow);
+    }
+    if (snapshot.isEmpty()) return;
+
+    float mx = 0f;
+    for (int i = 0; i < snapshot.size(); i++) {
+      String line = snapshot.get(i);
+      if (line == null) line = "";
+      float w = getWidthForLine(startLine + i, line);
+      synchronized (view.lineWidthCache) {
+        view.lineWidthCache.put(startLine + i, w);
+      }
+      if (w > mx) mx = w;
+    }
+    view.currentMaxWindowLineWidth = mx;
+    view.globalMaxLineWidth = Math.max(view.globalMaxLineWidth, mx);
+    view.scrollManager.clampScrollX();
+    view.invalidate();
+  }
+
+  public void recalculateMaxLineWidthAsync() {
+    final int token = ++view.maxWidthRecalcToken;
+    final int startLine;
+    final java.util.ArrayList<String> snapshot;
+    synchronized (view.linesWindow) {
+      startLine = view.windowStartLine;
+      snapshot = new java.util.ArrayList<>(view.linesWindow);
+    }
+    if (snapshot.isEmpty()) return;
+
+    final int chunkSize = 120;
+    view.post(
+        new Runnable() {
+          int index = 0;
+          float mx = 0f;
+
+          @Override
+          public void run() {
+            if (token != view.maxWidthRecalcToken) return;
+            int end = Math.min(snapshot.size(), index + chunkSize);
+            for (int i = index; i < end; i++) {
+              String line = snapshot.get(i);
+              if (line == null) line = "";
+              float w = getWidthForLine(startLine + i, line);
+              synchronized (view.lineWidthCache) {
+                view.lineWidthCache.put(startLine + i, w);
+              }
+              if (w > mx) mx = w;
+            }
+            view.currentMaxWindowLineWidth = mx;
+            view.globalMaxLineWidth = Math.max(view.globalMaxLineWidth, mx);
+            index = end;
+            if (index < snapshot.size()) {
+              view.post(this);
+            } else {
+              view.scrollManager.clampScrollX();
+              view.invalidate();
+            }
+          }
+        });
   }
 
   public void drawFoldMarkersForVisibleLines(
@@ -472,60 +1034,6 @@ final class ViewRender {
     return -1;
   }
 
-  private boolean isWhitespaceAtX(String line, int globalLine, float x) {
-    if (line == null || line.isEmpty()) return true;
-    if (x <= 0f) return Character.isWhitespace(line.charAt(0));
-
-    List<HighlightManager.HighlightSpan> spans = view.highlightManager.highlightCache.get(globalLine);
-    if (spans == null) {
-      spans = view.highlightManager.calculateSpansForLine(line, globalLine);
-      view.highlightManager.highlightCache.put(globalLine, spans);
-    }
-
-    final int len = line.length();
-    float currentX = 0f;
-    final float eps = 0.25f;
-
-    int pos = 0;
-    if (spans != null && !spans.isEmpty()) {
-      for (HighlightManager.HighlightSpan span : spans) {
-        if (pos >= len) break;
-        if (span.end <= pos) continue;
-        if (span.start > pos) {
-          for (int i = pos; i < Math.min(span.start, len); i++) {
-            float adv = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, i, i + 1, view.paint);
-            if (x >= currentX - eps && x <= currentX + adv + eps) {
-              return Character.isWhitespace(line.charAt(i));
-            }
-            currentX += adv;
-          }
-        }
-        int start = Math.max(pos, span.start);
-        int end = Math.min(len, span.end);
-        for (int i = start; i < end; i++) {
-          float adv = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, i, i + 1, view.paint);
-          if (x >= currentX - eps && x <= currentX + adv + eps) {
-            return Character.isWhitespace(line.charAt(i));
-          }
-          currentX += adv;
-        }
-        pos = Math.max(pos, end);
-      }
-    }
-
-    if (pos < len) {
-      for (int i = pos; i < len; i++) {
-        float adv = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, i, i + 1, view.paint);
-        if (x >= currentX - eps && x <= currentX + adv + eps) {
-          return Character.isWhitespace(line.charAt(i));
-        }
-        currentX += adv;
-      }
-    }
-
-    return true;
-  }
-
   private int getBraceGuideColumnForLine(
       String line, int globalLine, int braceIndex, int firstNonSpace) {
     int column = (firstNonSpace >= 0) ? firstNonSpace : braceIndex;
@@ -551,7 +1059,65 @@ final class ViewRender {
     return -1;
   }
 
-  private boolean applySmartDoubleTapSelection(int line, int charIndex, String lineText) {
+  public void updateLocalLine(int localIdx, String text) {
+    if (localIdx >= 0 && localIdx < view.linesWindow.size()) {
+      view.linesWindow.set(localIdx, text);
+      view.wordWrapManager.onLineContentChanged(view, view.windowStartLine + localIdx, text);
+      view.clearStreamedLineInfo(view.windowStartLine + localIdx);
+    }
+  }
+
+  public String getLineFromWindowLocal(int localIdx) {
+    if (localIdx < 0 || localIdx >= view.linesWindow.size()) return null;
+    return view.linesWindow.get(localIdx);
+  }
+
+  public boolean isWordChar(char c) {
+    return Character.isLetterOrDigit(c) || c == '_' || c == '$';
+  }
+
+  public int[] computeWordBounds(String line, int pos) {
+    pos = Math.max(0, Math.min(pos, line.length()));
+    if (line.length() == 0) return new int[] {0, 0};
+    if (pos == line.length()) pos = Math.max(0, pos - 1);
+    if (Character.isWhitespace(line.charAt(pos))) {
+      int i = pos;
+      while (i < line.length() && Character.isWhitespace(line.charAt(i))) i++;
+      if (i >= line.length()) {
+        i = pos - 1;
+        while (i >= 0 && Character.isWhitespace(line.charAt(i))) i--;
+      }
+      if (i < 0) return new int[] {pos, pos};
+      pos = i;
+    }
+    int start = pos;
+    int end = pos;
+    while (start > 0 && !Character.isWhitespace(line.charAt(start - 1))) start--;
+    while (end < line.length() - 1 && !Character.isWhitespace(line.charAt(end + 1))) end++;
+    return new int[] {start, end + 1};
+  }
+
+  public int[] computeWordBoundsSmart(String line, int pos) {
+    if (line == null || line.isEmpty()) return new int[] {0, 0};
+    int len = line.length();
+    int idx = Math.max(0, Math.min(pos, len - 1));
+    if (!isWordChar(line.charAt(idx))) {
+      if (idx > 0 && isWordChar(line.charAt(idx - 1))) {
+        idx = idx - 1;
+      } else if (idx + 1 < len && isWordChar(line.charAt(idx + 1))) {
+        idx = idx + 1;
+      } else {
+        return new int[] {idx, idx};
+      }
+    }
+    int start = idx;
+    int end = idx;
+    while (start > 0 && isWordChar(line.charAt(start - 1))) start--;
+    while (end < len - 1 && isWordChar(line.charAt(end + 1))) end++;
+    return new int[] {start, end + 1};
+  }
+
+  public boolean applySmartDoubleTapSelection(int line, int charIndex, String lineText) {
     if (lineText == null) return false;
     int[] bounds = computeWordBoundsSmart(lineText, charIndex);
     ArrayList<SodiumEditorView.TextRange> candidates =
@@ -583,85 +1149,6 @@ final class ViewRender {
     view.lastDoubleTapWordEnd = bounds[1];
     view.lastDoubleTapStage = nextIdx;
     return true;
-  }
-
-  private void updateLocalLine(int localIdx, String text) {
-    if (localIdx >= 0 && localIdx < view.linesWindow.size()) {
-      view.linesWindow.set(localIdx, text);
-      view.wordWrapManager.onLineContentChanged(view, view.windowStartLine + localIdx, text);
-      view.clearStreamedLineInfo(view.windowStartLine + localIdx);
-    }
-  }
-
-  String getLineFromWindowLocal(int localIdx) {
-    if (localIdx < 0 || localIdx >= view.linesWindow.size()) return null;
-    return view.linesWindow.get(localIdx);
-  }
-
-  private boolean isWordChar(char c) {
-    return Character.isLetterOrDigit(c) || c == '_' || c == '$';
-  }
-
-  int[] computeWordBounds(String line, int pos) {
-    pos = Math.max(0, Math.min(pos, line.length()));
-    if (line.length() == 0) return new int[] {0, 0};
-    if (pos == line.length()) pos = Math.max(0, pos - 1);
-    if (Character.isWhitespace(line.charAt(pos))) {
-      int i = pos;
-      while (i < line.length() && Character.isWhitespace(line.charAt(i))) i++;
-      if (i >= line.length()) {
-        i = pos - 1;
-        while (i >= 0 && Character.isWhitespace(line.charAt(i))) i--;
-      }
-      if (i < 0) return new int[] {pos, pos};
-      pos = i;
-    }
-    int start = pos;
-    int end = pos;
-    while (start > 0 && !Character.isWhitespace(line.charAt(start - 1))) start--;
-    while (end < line.length() - 1 && !Character.isWhitespace(line.charAt(end + 1))) end++;
-    return new int[] {start, end + 1};
-  }
-
-  private int[] computeWordBoundsSmart(String line, int pos) {
-    if (line == null || line.isEmpty()) return new int[] {0, 0};
-    int len = line.length();
-    int idx = Math.max(0, Math.min(pos, len - 1));
-    if (!isWordChar(line.charAt(idx))) {
-      if (idx > 0 && isWordChar(line.charAt(idx - 1))) {
-        idx = idx - 1;
-      } else if (idx + 1 < len && isWordChar(line.charAt(idx + 1))) {
-        idx = idx + 1;
-      } else {
-        return new int[] {idx, idx};
-      }
-    }
-    int start = idx;
-    int end = idx;
-    while (start > 0 && isWordChar(line.charAt(start - 1))) start--;
-    while (end < len - 1 && isWordChar(line.charAt(end + 1))) end++;
-    return new int[] {start, end + 1};
-  }
-
-  private String bytesToControlVisible(byte[] buf, int len) {
-    if (len <= 0) return "";
-    StringBuilder sb = new StringBuilder(len * 2);
-    for (int i = 0; i < len; i++) {
-      int b = buf[i] & 0xFF;
-      if (b >= 0x20 && b <= 0x7E) {
-        sb.append((char) b);
-      } else if (b <= 0x1F) {
-        sb.append(CONTROL_TOKENS[b]);
-      } else if (b == 0x7F) {
-        sb.append("<DEL>");
-      } else {
-        sb.append("<0x");
-        String hx = Integer.toHexString(b).toUpperCase();
-        if (hx.length() < 2) sb.append('0');
-        sb.append(hx).append('>');
-      }
-    }
-    return sb.toString();
   }
 
   public long[] buildIndexJava(String path) {
@@ -785,7 +1272,7 @@ final class ViewRender {
     }
   }
 
-  private ArrayList<SodiumEditorView.TextRange> buildDoubleTapCandidates(String line, int charIndex, int wStart, int wEnd) {
+  public ArrayList<SodiumEditorView.TextRange> buildDoubleTapCandidates(String line, int charIndex, int wStart, int wEnd) {
     ArrayList<SodiumEditorView.TextRange> out = new ArrayList<>(6);
     if (line == null) return out;
     int len = line.length();
@@ -805,7 +1292,7 @@ final class ViewRender {
     return out;
   }
 
-  private void addSelectionCandidate(List<SodiumEditorView.TextRange> out, int start, int end, int lineLen) {
+  public void addSelectionCandidate(List<SodiumEditorView.TextRange> out, int start, int end, int lineLen) {
     if (out == null) return;
     int s = Math.max(0, Math.min(start, lineLen));
     int e = Math.max(0, Math.min(end, lineLen));
@@ -816,7 +1303,7 @@ final class ViewRender {
     out.add(new SodiumEditorView.TextRange(s, e));
   }
 
-  private int findSelectionCandidateIndex(int line, List<SodiumEditorView.TextRange> candidates) {
+  public int findSelectionCandidateIndex(int line, List<SodiumEditorView.TextRange> candidates) {
     if (!view.selectionManager.hasSelection() || candidates == null || candidates.isEmpty()) return -1;
     int sL = view.selectionManager.selStartLine;
     int sC = view.selectionManager.selStartChar;
@@ -836,12 +1323,12 @@ final class ViewRender {
     return -1;
   }
 
-  private boolean isQuoteChar(char c) {
+  public boolean isQuoteChar(char c) {
     return c == '"' || c == '\'' || c == '`';
   }
 
   @Nullable
-  private SodiumEditorView.TextRange findEnclosingQuoteRange(String line, int index) {
+  public SodiumEditorView.TextRange findEnclosingQuoteRange(String line, int index) {
     if (line == null || line.isEmpty()) return null;
     int len = line.length();
     if (index < 0 || index > len) return null;
@@ -878,7 +1365,7 @@ final class ViewRender {
   }
 
   @Nullable
-  private SodiumEditorView.TextRange findEnclosingBracketRange(String line, int index) {
+  public SodiumEditorView.TextRange findEnclosingBracketRange(String line, int index) {
     if (line == null || line.isEmpty()) return null;
     int len = line.length();
     if (index < 0 || index > len) return null;
@@ -1075,18 +1562,18 @@ final class ViewRender {
         view.directLinesTmp.clear();
         directLines = view.directLinesTmp;
         if (firstVisibleLine < view.windowStartLine) {
-          view.populateDirectLinesForRange(
+          populateDirectLinesForRange(
               firstVisibleLine, Math.min(lastVisibleLine, view.windowStartLine - 1), directLines);
         }
         int winEnd = view.windowStartLine + view.linesWindow.size() - 1;
         if (lastVisibleLine > winEnd) {
-          view.populateDirectLinesForRange(
+          populateDirectLinesForRange(
               Math.max(firstVisibleLine, winEnd + 1), lastVisibleLine, directLines);
         }
         if (directLines.isEmpty()
             && (firstVisibleLine < view.windowStartLine
                 || firstVisibleLine >= view.windowStartLine + view.linesWindow.size())) {
-          view.populateDirectLinesForRange(firstVisibleLine, lastVisibleLine, directLines);
+          populateDirectLinesForRange(firstVisibleLine, lastVisibleLine, directLines);
         }
       }
     }
@@ -1571,7 +2058,7 @@ final class ViewRender {
       directLines = view.directLinesTmp;
       int rangeStart = Math.max(0, firstPos.line - 1);
       int rangeEnd = Math.min(totalLines - 1, lastPos.line + 1);
-      view.populateDirectLinesForRange(rangeStart, rangeEnd, directLines);
+      populateDirectLinesForRange(rangeStart, rangeEnd, directLines);
     }
 
     // Safety: after zoom/fast scroll, wordWrapManager.wrapLineCounts might be stale for some visible lines.
@@ -1603,7 +2090,7 @@ final class ViewRender {
         view.directLinesTmp.clear();
         int rangeStart = Math.max(0, firstPos.line - 1);
         int rangeEnd = Math.min(totalLines - 1, lastPos.line + 1);
-        view.populateDirectLinesForRange(rangeStart, rangeEnd, directLines);
+        populateDirectLinesForRange(rangeStart, rangeEnd, directLines);
       }
     }
 
@@ -1876,7 +2363,7 @@ final class ViewRender {
     if (view.isIndexReady && view.sourceFile != null && view.sourceFile.exists()) {
       view.directLinesTmp.clear();
       directLines = view.directLinesTmp;
-      view.populateDirectLinesForRange(firstLine, lastLine, directLines);
+      populateDirectLinesForRange(firstLine, lastLine, directLines);
     }
 
     float baseY = firstIndex * view.lineHeight;
@@ -2147,5 +2634,94 @@ final class ViewRender {
     if (view.popupMenuManager.isPopupVisible()) view.popupMenuManager.drawPopup(canvas);
 
     view.loadingCircleManager.draw(canvas);
+  }
+
+  public float getRtlLineBaseX(@Nullable String line, int globalLine) {
+    if (!view.isRtl || line == null) return 0f;
+    int logicalLen = view.getLogicalLineLength(globalLine, line);
+    float w = view.highlightManager.measureHighlightedSegmentWidth(line, globalLine, 0, logicalLen);
+    float area = view.getTextAreaWidth();
+    return area - w;
+  }
+
+  public float getRtlSegmentBaseX(@Nullable String line, int globalLine, int segStart, int segEnd) {
+    if (!view.isRtl || line == null) return 0f;
+    float w = view.highlightManager.measureHighlightedSegmentWidth(line, globalLine, segStart, segEnd);
+    float area = view.getTextAreaWidth();
+    return area - w;
+  }
+
+  public float getCaretXForLine(String line, int globalLine, int charIndex) {
+    float x = view.highlightManager.measureText(line, charIndex, globalLine);
+    if (!view.isRtl) return x;
+    int logicalLen = view.getLogicalLineLength(globalLine, line);
+    float w = view.highlightManager.measureHighlightedSegmentWidth(line, globalLine, 0, logicalLen);
+    float baseX = getRtlLineBaseX(line, globalLine);
+    return baseX + (w - x);
+  }
+
+  public float getCaretXForSegment(
+      String line, int globalLine, int segStart, int segEnd, int charIndex) {
+    float xRel = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, segStart, charIndex, view.paint);
+    if (!view.isRtl) return xRel;
+    float w = view.highlightManager.measureHighlightedSegmentWidth(line, globalLine, segStart, segEnd);
+    float baseX = getRtlSegmentBaseX(line, globalLine, segStart, segEnd);
+    return baseX + (w - xRel);
+  }
+
+  public int getCharIndexForXInRange(String text, int globalLine, int start, int end, float x) {
+    if (text == null || text.isEmpty()) return 0;
+    start = Math.max(0, Math.min(start, text.length()));
+    end = Math.max(start, Math.min(end, text.length()));
+    if (view.isRtl) {
+      float baseX = getRtlSegmentBaseX(text, globalLine, start, end);
+      x -= baseX;
+      float w = view.highlightManager.measureHighlightedSegmentWidth(text, globalLine, start, end);
+      x = w - x;
+    }
+    if (x <= 0f) return start;
+    int len = end - start;
+    if (len <= 0) return start;
+    if (view.getVisualSpaceScale() == 1) {
+      int count = view.paint.breakText(text, start, end, true, x, null);
+      int idx = start + Math.max(0, count);
+      return Math.min(idx, end);
+    }
+    float[] widths = view.whitespaceGuideManager.ensureMeasureWidthBuffer(len);
+    view.paint.getTextWidths(text, start, end, widths);
+    float current = 0f;
+    for (int i = 0; i < len; i++) {
+      float adv = view.whitespaceGuideManager.getCharAdvanceWidth(text.charAt(start + i), widths[i], view.paint, WordWrapManager.DEFAULT_TAB_SIZE_SPACES);
+      float mid = current + adv * 0.5f;
+      if (x < mid) return start + i;
+      if (x < current + adv) return start + i + 1;
+      current += adv;
+    }
+    return end;
+  }
+
+  public SodiumEditorView.CursorTarget getCursorTargetForPosition(
+      float viewX, float viewY, @Nullable java.util.Map<Integer, String> directLines) {
+    float y = viewY + view.scrollManager.scrollY;
+    int visualIndex = Math.max(0, (int) (y / view.lineHeight));
+    SodiumEditorView.VisualLinePosition pos =
+        view.wordWrapManager.isWordWrapEnabled
+            ? view.wordWrapManager.getVisualPositionForIndex(view, visualIndex)
+            : new SodiumEditorView.VisualLinePosition(view.mapVisibleIndexToGlobal(visualIndex), 0);
+    String line = view.getLineTextForRenderWithDirect(pos.line, directLines);
+    if (!view.wordWrapManager.isWordWrapEnabled) {
+      float x = view.viewToTextXPublic(viewX);
+      int charIndex = view.getCharIndexForXPublic(line, x, pos.line);
+      int clamped = Math.max(0, Math.min(charIndex, view.getLogicalLineLength(pos.line, line)));
+      return new SodiumEditorView.CursorTarget(pos.line, clamped);
+    }
+    int[] starts = view.wordWrapManager.getWrapStartsForLine(view, pos.line, line);
+    int seg = Math.min(Math.max(0, pos.segment), Math.max(0, starts.length - 1));
+    int segStart = view.wordWrapManager.getWrapSegmentStart(starts, seg);
+    int segEnd = view.wordWrapManager.getWrapSegmentEnd(starts, seg, line.length());
+    float x = view.viewToTextXPublic(viewX);
+    int charIndex = getCharIndexForXInRange(line, pos.line, segStart, segEnd, x);
+    int clamped = Math.max(0, Math.min(charIndex, line.length()));
+    return new SodiumEditorView.CursorTarget(pos.line, clamped);
   }
 }

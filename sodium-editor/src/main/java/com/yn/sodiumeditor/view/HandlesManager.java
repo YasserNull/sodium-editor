@@ -104,7 +104,8 @@ final class HandlesManager {
   }
 
   void setCursorWidth(float width) {
-    cursorWidth = width;
+    baseCursorWidthPx = width;
+    view.invalidate();
   }
 
   float getBaseHandleRadiusPx() {

@@ -311,15 +311,15 @@ final class BracketMatchManager {
     return c == '(' || c == ')' || c == '[' || c == ']' || c == '{' || c == '}';
   }
 
-  private static boolean isOpeningBracket(char c) {
+  public static boolean isOpeningBracket(char c) {
     return c == '(' || c == '[' || c == '{';
   }
 
-  private static boolean isClosingBracket(char c) {
+  public static boolean isClosingBracket(char c) {
     return c == ')' || c == ']' || c == '}';
   }
 
-  private static char matchingBracket(char c) {
+  public static char matchingBracket(char c) {
     switch (c) {
       case '(':
         return ')';

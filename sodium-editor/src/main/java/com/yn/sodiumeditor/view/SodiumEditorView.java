@@ -112,12 +112,12 @@ public class SodiumEditorView extends View {
           return size() > colsWidthCacheSize;
         }
       };
-  private final Object streamedLinesLock = new Object();
-  private final SparseIntArray streamedLineLengths = new SparseIntArray();
-  private final SparseIntArray streamedLineSliceStarts = new SparseIntArray();
-  private boolean streamedSliceUpdatePending = false;
-  private int streamedSliceUpdateToken = 0;
-  private final int[] streamedSliceTmp = new int[2];
+  public final Object streamedLinesLock = new Object();
+  public final SparseIntArray streamedLineLengths = new SparseIntArray();
+  public final SparseIntArray streamedLineSliceStarts = new SparseIntArray();
+  public boolean streamedSliceUpdatePending = false;
+  public int streamedSliceUpdateToken = 0;
+  public final int[] streamedSliceTmp = new int[2];
   // Charset is now managed by FileManager
 
   // --- Cursor Animation State (moved to CursorAnimationManager) ---
@@ -179,7 +179,7 @@ public class SodiumEditorView extends View {
   
   public final HandlesManager handlesManager = new HandlesManager(this);
   public final CursorManager cursorManager = new CursorManager(this);
-  public final SelectionManager selectionManager = new SelectionManager();
+  public final SelectionManager selectionManager = new SelectionManager(this);
   public final HighlightManager highlightManager = new HighlightManager(this);
   public final LineNumberManager lineNumberManager = new LineNumberManager(this);
   final BracketGuideManager bracketGuideManager = new BracketGuideManager(this);
@@ -207,7 +207,7 @@ public class SodiumEditorView extends View {
   static final String WHITESPACE_GUIDE_SPACE = "\u00B7";
   static final String WHITESPACE_GUIDE_TAB = "\u2192";
   static final String FOLD_PLACEHOLDER_TEXT = "<—>";
-  private static final String INDENT_BLOCK_UNIT = "  ";
+  public static final String INDENT_BLOCK_UNIT = "  ";
   static final int INDENT_FOLD_SCAN_LIMIT = 2000;
 
 
@@ -222,11 +222,11 @@ public class SodiumEditorView extends View {
   // Loading circle variables
   // loading circle state moved to LoadingCircleManager
   private boolean showLoadingOnFileOpen = true;
-  private boolean isInitialFileOpenLoading = false;
-  private int initialFileOpenToken = 0;
-  @Nullable private Runnable initialFileOpenShowSpinner;
+  public boolean isInitialFileOpenLoading = false;
+  public int initialFileOpenToken = 0;
+  public Runnable initialFileOpenShowSpinner = null;
   public final java.util.ArrayList<Runnable> initialLoadCallbacks = new java.util.ArrayList<>();
-  private int maxWidthRecalcToken = 0;
+  public int maxWidthRecalcToken = 0;
 
   // index
   final Object lineOffsetsLock = new Object();
@@ -267,10 +267,10 @@ public class SodiumEditorView extends View {
   private boolean isPerformanceModeEnabled = false;
   boolean isStableGlyphPositionsEnabled = false;
   private boolean isClickAfterEndToAddLineEnabled = false;
-  private boolean isAutoPairingEnabled = true;
-  private boolean isAutoBracketNewlineEnabled = true;
-  private boolean isAutoBracketNewlineIndentEnabled = true;
-  private boolean isAutoIndentAfterClosingBracketEnabled = true;
+  public boolean isAutoPairingEnabled = true;
+  public boolean isAutoBracketNewlineEnabled = true;
+  public boolean isAutoBracketNewlineIndentEnabled = true;
+  public boolean isAutoIndentAfterClosingBracketEnabled = true;
   boolean isIndentationBlocksEnabled = false;
 
   // Zoom scroll adjustment for word wrap
@@ -417,11 +417,9 @@ public class SodiumEditorView extends View {
     bracketGuideManager.invalidateCache();
     if (wordWrapManager.isWordWrapEnabled) wordWrapManager.invalidateWrapMetrics(this, true);
     wordWrapManager.requestWrapPrefixRebuild(this);
-    reloadWindowAroundVisible(false);
+    viewRender.reloadWindowAroundVisible(false);
     invalidate();
   }
-
-
 
   public void setVisibleCharPadding(int paddingChars) {
     int safe = Math.max(0, paddingChars);
@@ -567,7 +565,7 @@ public class SodiumEditorView extends View {
 
 
   public void replaceSelectionText(String text) {
-    replaceSelectionWithText(text == null ? "" : text);
+    inputManager.replaceSelectionWithText(text == null ? "" : text);
   }
 
 
@@ -626,26 +624,15 @@ public class SodiumEditorView extends View {
   }
 
   public int computeMinWindowSize() {
-    return computeMinWindowSizeForPrefetch(prefetchLines);
+    return viewRender.computeMinWindowSizeForPrefetch(prefetchLines);
   }
 
   public int computeMinWindowSizeForPrefetch(int prefetch) {
-    if (lineHeight <= 0f || getHeight() <= 0) return 10;
-    float effectiveHeight = (keyboardHeight > 0) ? getHeight() - keyboardHeight : getHeight();
-    int visibleLines = Math.max(1, (int) Math.ceil(effectiveHeight / lineHeight) + 2);
-    int minTotal = Math.max(visibleLines * 2, visibleLines + 6);
-    int minWindow = minTotal - (Math.max(0, prefetch) * 2);
-    return Math.max(10, minWindow);
+    return viewRender.computeMinWindowSizeForPrefetch(prefetch);
   }
 
   public void reloadWindowAroundVisible(boolean recalcWidthSync) {
-    if (getWidth() == 0 || getHeight() == 0) {
-      invalidate();
-      return;
-    }
-    int firstVisibleLine = Math.max(0, getGlobalLineForY(scrollManager.scrollY));
-    int targetStart = Math.max(0, firstVisibleLine - prefetchLines);
-    loadWindowAround(targetStart, null, recalcWidthSync);
+    viewRender.reloadWindowAroundVisible(recalcWidthSync);
   }
 
   public void setCursorWidth(float width) {
@@ -727,10 +714,7 @@ public class SodiumEditorView extends View {
 
 
   public void setBacktickStringsEnabled(boolean enabled) {
-    if (isBacktickStringsEnabled == enabled) return;
-    isBacktickStringsEnabled = enabled;
-    highlightManager.clearHighlightCaches();
-    invalidate();
+    highlightManager.setBacktickStringsEnabled(enabled);
   }
 
 
@@ -800,14 +784,11 @@ public class SodiumEditorView extends View {
 
 
   public void restoreSelection(int sL, int sC, int eL, int eC, int cursorLine, int cursorChar) {
-    setSelectionInternal(sL, sC, eL, eC);
-    cursorManager.setPositionNoClear(cursorLine, cursorChar);
+    selectionManager.restoreSelection(sL, sC, eL, eC, cursorLine, cursorChar);
   }
 
   public void showSelectionPopup() {
-    if (selectionManager.hasSelection()) {
-      popupMenuManager.showPopupAtSelection();
-    }
+    popupMenuManager.showSelectionPopup();
   }
 
   // --- Convenience cursor/line accessors ---
@@ -818,31 +799,11 @@ public class SodiumEditorView extends View {
 
 
   public void insertTextAt(int line, int col, String text) {
-    if (text == null) return;
-    if (Looper.myLooper() != Looper.getMainLooper()) {
-      post(() -> insertTextAt(line, col, text));
-      return;
-    }
-    cursorManager.setPosition(line, col);
-    cursorManager.insertTextAtCursor(text);
+    cursorManager.insertTextAt(line, col, text);
   }
 
-
   public String getTextSnapshot() {
-    int total = getLinesCount();
-    if (total <= 0) return "";
-    java.util.HashMap<Integer, String> direct = new java.util.HashMap<>();
-    if (fileManager.isIndexReady() && fileManager.getSourceFile() != null && fileManager.getSourceFile().exists()) {
-      populateDirectLinesForRange(0, total - 1, direct);
-    }
-    StringBuilder sb = new StringBuilder();
-    for (int i = 0; i < total; i++) {
-      String line = getLineTextForRenderWithDirect(i, direct);
-      if (line == null) line = "";
-      sb.append(line);
-      if (i < total - 1) sb.append('\n');
-    }
-    return sb.toString();
+    return fileManager.getTextSnapshot();
   }
 
   float spToPx(float sp) {
@@ -1119,12 +1080,7 @@ public class SodiumEditorView extends View {
   }
 
   void abortScrollerForInput() {
-    if (!scrollManager.scroller.isFinished()) {
-      scrollManager.scroller.computeScrollOffset();
-      scrollManager.scrollX = scrollManager.scroller.getCurrX();
-      scrollManager.scrollY = scrollManager.scroller.getCurrY();
-      scrollManager.scroller.abortAnimation();
-    }
+    scrollManager.abortScroller();
   }
 
   void setDownForInput(float x, float y) {
@@ -1423,108 +1379,38 @@ public class SodiumEditorView extends View {
     return viewX + getEffectiveScrollX() - getTextStartX();
   }
 
+  float viewToTextXPublic(float viewX) {
+    return viewToTextX(viewX);
+  }
+
   public float getTextAreaWidth() {
     return lineNumberManager.getTextAvailableWidth(getWidth(), paddingLeft);
   }
 
   public float getRtlLineBaseX(@Nullable String line, int globalLine) {
-    if (!isRtl || line == null) return 0f;
-    int logicalLen = getLogicalLineLength(globalLine, line);
-    float w = highlightManager.measureHighlightedSegmentWidth(line, globalLine, 0, logicalLen);
-    float area = getTextAreaWidth();
-    return area - w;
+    return viewRender.getRtlLineBaseX(line, globalLine);
   }
 
   public float getRtlSegmentBaseX(@Nullable String line, int globalLine, int segStart, int segEnd) {
-    if (!isRtl || line == null) return 0f;
-    float w = highlightManager.measureHighlightedSegmentWidth(line, globalLine, segStart, segEnd);
-    float area = getTextAreaWidth();
-    return area - w;
+    return viewRender.getRtlSegmentBaseX(line, globalLine, segStart, segEnd);
   }
 
   public float getCaretXForLine(String line, int globalLine, int charIndex) {
-    float x = highlightManager.measureText(line, charIndex, globalLine);
-    if (!isRtl) return x;
-    int logicalLen = getLogicalLineLength(globalLine, line);
-    float w = highlightManager.measureHighlightedSegmentWidth(line, globalLine, 0, logicalLen);
-    float baseX = getRtlLineBaseX(line, globalLine);
-    return baseX + (w - x);
+    return viewRender.getCaretXForLine(line, globalLine, charIndex);
   }
 
   public float getCaretXForSegment(
       String line, int globalLine, int segStart, int segEnd, int charIndex) {
-    float xRel = whitespaceGuideManager.measureTextWithVisualSpaces(this, line, segStart, charIndex, paint);
-    if (!isRtl) return xRel;
-    float w = highlightManager.measureHighlightedSegmentWidth(line, globalLine, segStart, segEnd);
-    float baseX = getRtlSegmentBaseX(line, globalLine, segStart, segEnd);
-    return baseX + (w - xRel);
+    return viewRender.getCaretXForSegment(line, globalLine, segStart, segEnd, charIndex);
   }
 
-  
-
-
-
-
-
-
-
-
-
-
   private int getCharIndexForXInRange(String text, int globalLine, int start, int end, float x) {
-    if (text == null || text.isEmpty()) return 0;
-    start = Math.max(0, Math.min(start, text.length()));
-    end = Math.max(start, Math.min(end, text.length()));
-    if (isRtl) {
-      float baseX = getRtlSegmentBaseX(text, globalLine, start, end);
-      x -= baseX;
-      float w = highlightManager.measureHighlightedSegmentWidth(text, globalLine, start, end);
-      x = w - x;
-    }
-    if (x <= 0f) return start;
-    int len = end - start;
-    if (len <= 0) return start;
-    if (getVisualSpaceScale() == 1) {
-      int count = paint.breakText(text, start, end, true, x, null);
-      int idx = start + Math.max(0, count);
-      return Math.min(idx, end);
-    }
-    float[] widths = whitespaceGuideManager.ensureMeasureWidthBuffer(len);
-    paint.getTextWidths(text, start, end, widths);
-    float current = 0f;
-    for (int i = 0; i < len; i++) {
-      float adv = whitespaceGuideManager.getCharAdvanceWidth(text.charAt(start + i), widths[i], paint, WordWrapManager.DEFAULT_TAB_SIZE_SPACES);
-      float mid = current + adv * 0.5f;
-      if (x < mid) return start + i;
-      if (x < current + adv) return start + i + 1;
-      current += adv;
-    }
-    return end;
+    return viewRender.getCharIndexForXInRange(text, globalLine, start, end, x);
   }
 
   private CursorTarget getCursorTargetForPosition(
       float viewX, float viewY, @Nullable java.util.Map<Integer, String> directLines) {
-    float y = viewY + scrollManager.scrollY;
-    int visualIndex = Math.max(0, (int) (y / lineHeight));
-    VisualLinePosition pos =
-        wordWrapManager.isWordWrapEnabled
-            ? wordWrapManager.getVisualPositionForIndex(this, visualIndex)
-            : new VisualLinePosition(mapVisibleIndexToGlobal(visualIndex), 0);
-    String line = getLineTextForRenderWithDirect(pos.line, directLines);
-    if (!wordWrapManager.isWordWrapEnabled) {
-      float x = viewToTextX(viewX);
-      int charIndex = getCharIndexForX(line, x, pos.line);
-      int clamped = Math.max(0, Math.min(charIndex, getLogicalLineLength(pos.line, line)));
-      return new CursorTarget(pos.line, clamped);
-    }
-    int[] starts = wordWrapManager.getWrapStartsForLine(this, pos.line, line);
-    int seg = Math.min(Math.max(0, pos.segment), Math.max(0, starts.length - 1));
-    int segStart = wordWrapManager.getWrapSegmentStart(starts, seg);
-    int segEnd = wordWrapManager.getWrapSegmentEnd(starts, seg, line.length());
-    float x = viewToTextX(viewX);
-    int charIndex = getCharIndexForXInRange(line, pos.line, segStart, segEnd, x);
-    int clamped = Math.max(0, Math.min(charIndex, line.length()));
-    return new CursorTarget(pos.line, clamped);
+    return viewRender.getCursorTargetForPosition(viewX, viewY, directLines);
   }
 
   public int getWindowEndLine() {
@@ -1551,25 +1437,9 @@ public class SodiumEditorView extends View {
     return lineNumberManager.isInLineNumberGutter(x, getGutterStartX());
   }
 
-  private int clampLineForSelection(int line) {
-    if (line < 0) return 0;
-    if (isEof) {
-      int last = windowStartLine + linesWindow.size() - 1;
-      if (last < 0) return 0;
-      return Math.min(line, last);
-    }
-    return line;
-  }
-
-  private boolean isLineSelectable(int line) {
-    scrollManager.ensureLineInWindow(line, true);
-    String ln = getLineTextForRender(line);
-    return ln != null && ln.length() > 0;
-  }
-
   private void beginLineNumberSelection(int line) {
-    int clamped = clampLineForSelection(line);
-    if (!isLineSelectable(clamped)) return;
+    int clamped = selectionManager.clampLineForSelection(this, line);
+    if (!selectionManager.isLineSelectable(this, clamped)) return;
     autoSuggestionManager.clearActiveSuggestion();
     selectionManager.setLineNumberSelecting(true, clamped);
     selectionManager.setSelectAllState(false, false);
@@ -1583,8 +1453,8 @@ public class SodiumEditorView extends View {
 
   private void updateLineNumberSelection(int line) {
     if (!selectionManager.isLineNumberSelecting()) return;
-    int clamped = clampLineForSelection(line);
-    if (!isLineSelectable(clamped)) return;
+    int clamped = selectionManager.clampLineForSelection(this, line);
+    if (!selectionManager.isLineSelectable(this, clamped)) return;
     int anchorLine = selectionManager.getLineNumberSelectAnchorLine();
     int startLine = Math.min(anchorLine, clamped);
     int endLine = Math.max(anchorLine, clamped);
@@ -1684,7 +1554,7 @@ public class SodiumEditorView extends View {
     viewRender.getVisibleCharRangeForLineFast(line, globalLine, lineLength, out);
   }
 
-  private void computeStreamedSliceBounds(
+  public void computeStreamedSliceBounds(
       @Nullable String lineText, int globalLine, int lineLength, int[] out) {
     if (out == null || out.length < 2) return;
     int len = Math.max(0, lineLength);
@@ -1726,7 +1596,7 @@ public class SodiumEditorView extends View {
     out[1] = end;
   }
 
-  private int getInitialStreamedSliceSize() {
+  public int getInitialStreamedSliceSize() {
     int base = Math.max(128, colsWidthCacheSize);
     int pad = Math.max(0, prefetchCols) * 2;
     return Math.max(base, pad);
@@ -1805,57 +1675,7 @@ public class SodiumEditorView extends View {
   }
 
   private boolean isWhitespaceAtX(String line, int globalLine, float x) {
-    if (line == null || line.isEmpty()) return true;
-    if (x <= 0f) return Character.isWhitespace(line.charAt(0));
-
-    List<HighlightManager.HighlightSpan> spans = highlightManager.highlightCache.get(globalLine);
-    if (spans == null) {
-      spans = highlightManager.calculateSpansForLine(line, globalLine);
-      highlightManager.highlightCache.put(globalLine, spans);
-    }
-
-    final int len = line.length();
-    float currentX = 0f;
-    final float eps = 0.25f;
-
-    int pos = 0;
-    if (spans != null && !spans.isEmpty()) {
-      for (HighlightManager.HighlightSpan span : spans) {
-        if (pos >= len) break;
-        if (span.end <= pos) continue;
-        if (span.start > pos) {
-          for (int i = pos; i < Math.min(span.start, len); i++) {
-            float adv = whitespaceGuideManager.measureTextWithVisualSpaces(this, line, i, i + 1, paint);
-            if (x >= currentX - eps && x <= currentX + adv + eps) {
-              return Character.isWhitespace(line.charAt(i));
-            }
-            currentX += adv;
-          }
-        }
-        int start = Math.max(pos, span.start);
-        int end = Math.min(len, span.end);
-        for (int i = start; i < end; i++) {
-          float adv = whitespaceGuideManager.measureTextWithVisualSpaces(this, line, i, i + 1, paint);
-          if (x >= currentX - eps && x <= currentX + adv + eps) {
-            return Character.isWhitespace(line.charAt(i));
-          }
-          currentX += adv;
-        }
-        pos = Math.max(pos, end);
-      }
-    }
-
-    if (pos < len) {
-      for (int i = pos; i < len; i++) {
-        float adv = whitespaceGuideManager.measureTextWithVisualSpaces(this, line, i, i + 1, paint);
-        if (x >= currentX - eps && x <= currentX + adv + eps) {
-          return Character.isWhitespace(line.charAt(i));
-        }
-        currentX += adv;
-      }
-    }
-
-    return true;
+    return viewRender.isWhitespaceAtX(line, globalLine, x);
   }
 
   boolean isIndentationBlocksEnabledForIndentGuides() {
@@ -1951,7 +1771,7 @@ public class SodiumEditorView extends View {
     }
   }
 
-  private static final class LineScanResult {
+  public static final class LineScanResult {
     final long length;
     final boolean reachedEof;
 
@@ -1961,7 +1781,7 @@ public class SodiumEditorView extends View {
     }
   }
 
-  private LineScanResult scanLineLength(RandomAccessFile raf) throws Exception {
+  public LineScanResult scanLineLength(RandomAccessFile raf) throws Exception {
     byte[] buf = new byte[8192];
     long lineLen = 0L;
     int prev = -1;
@@ -1986,108 +1806,12 @@ public class SodiumEditorView extends View {
   }
 
   public void maybeUpdateStreamedSlicesForVisibleRange(int firstVisibleLine, int lastVisibleLine) {
-    if (wordWrapManager.isWordWrapEnabled) return;
-    if (!fileManager.isIndexReady() || fileManager.getSourceFile() == null || !fileManager.getSourceFile().exists()) return;
-    if (isWindowLoading) return;
-
-    ArrayList<StreamedSliceRequest> requests = new ArrayList<>();
-    synchronized (linesWindow) {
-      int winStart = windowStartLine;
-      int winEnd = windowStartLine + linesWindow.size() - 1;
-      int start = Math.max(firstVisibleLine, winStart);
-      int end = Math.min(lastVisibleLine, winEnd);
-      if (start > end) return;
-      for (int line = start; line <= end; line++) {
-        if (modifiedLines.containsKey(line)) continue;
-        int len = getStreamedLineLength(line);
-        if (len <= 0) continue;
-        String slice = linesWindow.get(line - winStart);
-        int sliceStart = getStreamedLineSliceStart(line);
-        int sliceEnd = sliceStart + ((slice == null) ? 0 : slice.length());
-        computeStreamedSliceBounds(slice, line, len, streamedSliceTmp);
-        int desiredStart = streamedSliceTmp[0];
-        int desiredEnd = streamedSliceTmp[1];
-        if (sliceStart <= desiredStart && sliceEnd >= desiredEnd) continue;
-        requests.add(new StreamedSliceRequest(line, desiredStart, desiredEnd));
-      }
-    }
-
-    if (requests.isEmpty()) return;
-    if (streamedSliceUpdatePending) return;
-    streamedSliceUpdatePending = true;
-    final int token = ++streamedSliceUpdateToken;
-    final int taskVersion = ioTaskVersion.get();
-
-    ioHandler.post(
-        () -> {
-          if (token != streamedSliceUpdateToken) return;
-          if (taskVersion != ioTaskVersion.get()) return;
-          if (fileManager.getSourceFile() == null || !fileManager.getSourceFile().exists()) {
-            post(() -> fileManager.streamedSliceUpdatePending = false);
-            return;
-          }
-          LinkedHashMap<Integer, String> results = new LinkedHashMap<>();
-          SparseIntArray starts = new SparseIntArray();
-          try (RandomAccessFile raf = new RandomAccessFile(fileManager.getSourceFile(), "r")) {
-            long fileLen = raf.length();
-            for (StreamedSliceRequest req : requests) {
-              long lineStart;
-              synchronized (lineOffsetsLock) {
-                if (req.line < 0 || req.line >= lineOffsets.length) continue;
-                lineStart = lineOffsets[req.line];
-              }
-              if (isSingleByteCharset()) {
-                long lineByteLen = getLineByteLengthFromIndex(raf, req.line, fileLen);
-                String slice =
-                    readLineSliceAtByte(raf, lineStart, lineByteLen, req.start, req.end);
-                results.put(req.line, slice);
-                starts.put(req.line, req.start);
-              } else {
-                StreamedCharSlice slice =
-                    readLineSliceByChars(raf, lineStart, req.start, req.end, false);
-                results.put(req.line, slice.text);
-                starts.put(req.line, req.start);
-              }
-            }
-          } catch (Exception ignored) {
-          }
-
-          post(
-              () -> {
-                if (token != streamedSliceUpdateToken) {
-                  streamedSliceUpdatePending = false;
-                  return;
-                }
-                if (taskVersion != ioTaskVersion.get()) {
-                  streamedSliceUpdatePending = false;
-                  return;
-                }
-                synchronized (linesWindow) {
-                  int winStart = windowStartLine;
-                  int winEnd = windowStartLine + linesWindow.size() - 1;
-                  for (Map.Entry<Integer, String> e : results.entrySet()) {
-                    int line = e.getKey();
-                    if (line < winStart || line > winEnd) continue;
-                    if (modifiedLines.containsKey(line)) continue;
-                    int local = line - winStart;
-                    if (local < 0 || local >= linesWindow.size()) continue;
-                    linesWindow.set(local, (e.getValue() == null) ? "" : e.getValue());
-                    int len = getStreamedLineLength(line);
-                    if (len > 0) {
-                      setStreamedLineInfo(line, len, starts.get(line));
-                    }
-                  }
-                }
-                streamedSliceUpdatePending = false;
-                invalidate();
-              });
-        });
+    viewRender.maybeUpdateStreamedSlicesForVisibleRange(firstVisibleLine, lastVisibleLine);
   }
 
   public void maybeKickWindowLoad(int firstVisibleLine) {
     if (zoomManager.isZoomGestureActive()) return;
     if (fileManager.getSourceFile() == null || fileManager.isFileCleared()) {
-      // in-memory only: no need
       return;
     }
     if (isWindowLoading) return;
@@ -2099,6 +1823,19 @@ public class SodiumEditorView extends View {
       int targetStart = Math.max(0, firstVisibleLine - prefetchLines);
       loadWindowAround(targetStart, null, false);
     }
+  }
+
+  void checkAndLoadWindow() {
+    viewRender.checkAndLoadWindow();
+  }
+
+  void loadWindowAround(int startLine, @Nullable Runnable onComplete) {
+    viewRender.loadWindowAround(startLine, onComplete);
+  }
+
+  void loadWindowAround(
+      int startLine, @Nullable Runnable onComplete, boolean recalculateWidthSync) {
+    viewRender.loadWindowAround(startLine, onComplete, recalculateWidthSync);
   }
 
   boolean shouldHideCopyCutForSelection() {
@@ -2171,475 +1908,6 @@ public class SodiumEditorView extends View {
   void abortScrollAnimationForZoom() {
     if (!scrollManager.scroller.isFinished()) {
       scrollManager.scroller.abortAnimation();
-    }
-  }
-
-  void checkAndLoadWindow() {
-    if (fileManager.getSourceFile() == null || fileManager.isFileCleared()) return;
-    if (getWidth() == 0 || getHeight() == 0) return;
-    if (isWindowLoading) return;
-
-    int firstVisibleIndex = (int) (scrollManager.scrollY / lineHeight);
-    int lastVisibleIndex = firstVisibleIndex + (int) Math.ceil(getHeight() / lineHeight);
-    int firstVisibleLine;
-    int lastVisibleLine;
-    if (wordWrapManager.isWordWrapEnabled) {
-      firstVisibleLine = wordWrapManager.getVisualPositionForIndex(this, firstVisibleIndex).line;
-      lastVisibleLine = wordWrapManager.getVisualPositionForIndex(this, lastVisibleIndex).line;
-    } else {
-      firstVisibleLine = mapVisibleIndexToGlobal(firstVisibleIndex);
-      lastVisibleLine = mapVisibleIndexToGlobal(lastVisibleIndex);
-    }
-    firstVisibleLine = Math.max(0, firstVisibleLine);
-    lastVisibleLine = Math.max(firstVisibleLine, lastVisibleLine);
-    int winEnd;
-    synchronized (linesWindow) {
-      winEnd = windowStartLine + linesWindow.size() - 1;
-    }
-
-    int topMargin = Math.max(0, prefetchLines);
-    int bottomMargin = Math.max(0, prefetchLines);
-
-    boolean needTop = windowStartLine > 0 && firstVisibleLine < windowStartLine + topMargin;
-    boolean needBottom = !isEof && lastVisibleLine > winEnd - bottomMargin;
-    boolean outside = firstVisibleLine < windowStartLine || firstVisibleLine > winEnd;
-
-    if (needTop || needBottom || outside) {
-      int targetStart = Math.max(0, firstVisibleLine - prefetchLines);
-      loadWindowAround(targetStart, null, false);
-    }
-  }
-
-  void loadWindowAround(int startLine, @Nullable Runnable onComplete) {
-    loadWindowAround(startLine, onComplete, true);
-  }
-
-  void loadWindowAround(
-      int startLine, @Nullable Runnable onComplete, boolean recalculateWidthSync) {
-    if (isWindowLoading) return;
-    // Cancel any in-flight async width calculation for a previous window.
-    maxWidthRecalcToken++;
-
-    // FIX: If the file has been "cleared" (e.g., via select-all -> delete),
-    // the editor is in a pure in-memory state. The `linesWindow` holds the
-    // entire document. There is nothing to "load" from a file, so we should
-    // simply do nothing. The previous logic incorrectly reset the window.
-    if (fileManager.isFileCleared()) {
-      if (onComplete != null) {
-        post(onComplete);
-      }
-      return;
-    }
-
-    if (fileManager.getSourceFile() == null) {
-      if (onComplete != null) post(onComplete);
-      return;
-    }
-
-    isWindowLoading = true;
-    final int taskVersion = ioTaskVersion.incrementAndGet();
-    final int requestedStart = Math.max(0, startLine);
-
-    ioHandler.post(
-        () -> {
-          try {
-            if (taskVersion != ioTaskVersion.get()) {
-              post(
-                  () -> {
-                    isWindowLoading = false;
-                    checkAndLoadWindow();
-                  });
-              return;
-            }
-
-            int actualStart = requestedStart;
-
-            // If we have an index, clamp the window start to the last existing line.
-            if (isIndexReady) {
-              synchronized (lineOffsetsLock) {
-                if (lineOffsets.length > 0 && actualStart >= lineOffsets.length) {
-                  actualStart = Math.max(0, lineOffsets.length - 1);
-                }
-              }
-            }
-
-            List<String> newWin = new ArrayList<>();
-            SparseIntArray newStreamedLengths = new SparseIntArray();
-            SparseIntArray newStreamedSliceStarts = new SparseIntArray();
-            boolean fileEndsWithNewline = false;
-            boolean reachedEof = false;
-            boolean trailingEmptyFromIndex = false;
-
-            if (fileManager.isIndexReady()) {
-              try (RandomAccessFile raf = new RandomAccessFile(fileManager.getSourceFile(), "r")) {
-                long fileLen = raf.length();
-                if (fileLen > 0) {
-                  raf.seek(fileLen - 1);
-                  fileEndsWithNewline = (raf.read() == '\n');
-                }
-                int limit = windowSize + (prefetchLines * 2);
-                int lineIndex = actualStart;
-                int maxLine;
-                synchronized (fileManager.lineOffsetsLock) {
-                  maxLine = fileManager.getLineOffsets().length;
-                }
-                while (newWin.size() < limit) {
-                  if (lineIndex >= maxLine) {
-                    reachedEof = true;
-                    break;
-                  }
-                  long lineStart;
-                  synchronized (lineOffsetsLock) {
-                    lineStart = lineOffsets[lineIndex];
-                  }
-                  long lineByteLen = getLineByteLengthFromIndex(raf, lineIndex, fileLen);
-                  int lineLen = (int) Math.min(Integer.MAX_VALUE, lineByteLen);
-                  if (shouldStreamLineLength(lineLen)) {
-                    int sliceStart = 0;
-                    int sliceEnd =
-                        Math.max(1, Math.min(lineLen, getInitialStreamedSliceSize()));
-                    if (isSingleByteCharset()) {
-                      String slice =
-                          readLineSliceAtByte(raf, lineStart, lineByteLen, sliceStart, sliceEnd);
-                      newWin.add(slice);
-                      newStreamedLengths.put(lineIndex, lineLen);
-                      newStreamedSliceStarts.put(lineIndex, sliceStart);
-                    } else {
-                      sliceEnd = Math.max(1, getInitialStreamedSliceSize());
-                      StreamedCharSlice slice =
-                          readLineSliceByChars(raf, lineStart, sliceStart, sliceEnd, true);
-                      newWin.add(slice.text);
-                      newStreamedLengths.put(lineIndex, slice.length);
-                      newStreamedSliceStarts.put(lineIndex, sliceStart);
-                    }
-                  } else {
-                    String ln = readLineUtf8AtByte(raf, lineStart);
-                    newWin.add(ln);
-                  }
-                  lineIndex++;
-                }
-                if (fileEndsWithNewline) {
-                  synchronized (fileManager.lineOffsetsLock) {
-                    trailingEmptyFromIndex =
-                        fileManager.getLineOffsets().length > 0 && fileManager.getLineOffsets()[fileManager.getLineOffsets().length - 1] == fileLen;
-                  }
-                }
-              }
-            } else {
-              // fallback: sequential scan without building full lines in memory
-              try (RandomAccessFile raf = new RandomAccessFile(fileManager.getSourceFile(), "r")) {
-                long fileLen = raf.length();
-                if (fileLen > 0) {
-                  raf.seek(fileLen - 1);
-                  fileEndsWithNewline = (raf.read() == '\n');
-                }
-                raf.seek(0);
-                int skipped = 0;
-                while (skipped < actualStart) {
-                  LineScanResult scan = scanLineLength(raf);
-                  if (scan.reachedEof) break;
-                  skipped++;
-                }
-                actualStart = skipped;
-
-                int limit = windowSize + (prefetchLines * 2);
-                int lineIndex = actualStart;
-                while (newWin.size() < limit) {
-                  long lineStart = raf.getFilePointer();
-                  if (lineStart >= fileLen) {
-                    reachedEof = true;
-                    break;
-                  }
-                  LineScanResult scan = scanLineLength(raf);
-                  long afterPos = raf.getFilePointer();
-                  long lineByteLen = scan.length;
-                  int lineLen = (int) Math.min(Integer.MAX_VALUE, lineByteLen);
-                  if (fileManager.shouldStreamLineLength(lineLen)) {
-                    int sliceStart = 0;
-                    int sliceEnd =
-                        Math.max(1, Math.min(lineLen, getInitialStreamedSliceSize()));
-                    if (fileManager.isSingleByteCharset()) {
-                      String slice =
-                          fileManager.readLineSliceAtByte(raf, lineStart, lineByteLen, sliceStart, sliceEnd);
-                      newWin.add(slice);
-                      newStreamedLengths.put(lineIndex, lineLen);
-                      newStreamedSliceStarts.put(lineIndex, sliceStart);
-                    } else {
-                      sliceEnd = Math.max(1, getInitialStreamedSliceSize());
-                      FileManager.StreamedCharSlice slice =
-                          fileManager.readLineSliceByChars(raf, lineStart, sliceStart, sliceEnd, true);
-                      newWin.add(slice.text);
-                      newStreamedLengths.put(lineIndex, slice.length);
-                      newStreamedSliceStarts.put(lineIndex, sliceStart);
-                    }
-                  } else {
-                    raf.seek(lineStart);
-                    byte[] buf = new byte[lineLen];
-                    if (lineLen > 0) raf.readFully(buf);
-                    String ln =
-                        (lineLen > 0)
-                            ? (binarySafeRenderingEnabled
-                                ? bytesToControlVisible(buf, buf.length)
-                                : new String(buf, fileManager.fileCharset))
-                            : "";
-                    newWin.add(ln);
-                  }
-                  raf.seek(afterPos);
-                  if (scan.reachedEof) {
-                    reachedEof = true;
-                    break;
-                  }
-                  lineIndex++;
-                }
-              } catch (Exception ignored) {
-              }
-            }
-
-            // Guarantee a non-empty window.
-            if (newWin.isEmpty()) {
-              newWin.add("");
-              actualStart = 0;
-            }
-            if (reachedEof && fileEndsWithNewline && !trailingEmptyFromIndex) {
-              newWin.add("");
-            }
-
-            boolean eof = newWin.size() < windowSize + (prefetchLines * 2);
-
-            // Overlay in-memory edits for currently loaded lines
-            synchronized (modifiedLines) {
-              for (int i = 0; i < newWin.size(); i++) {
-                int globalLineNum = actualStart + i;
-                if (modifiedLines.containsKey(globalLineNum)) {
-                  String modifiedLine = modifiedLines.get(globalLineNum);
-                  if (modifiedLine != null) newWin.set(i, modifiedLine);
-                  newStreamedLengths.delete(globalLineNum);
-                  newStreamedSliceStarts.delete(globalLineNum);
-                }
-              }
-            }
-
-            if (taskVersion != ioTaskVersion.get()) {
-              post(
-                  () -> {
-                    isWindowLoading = false;
-                    checkAndLoadWindow();
-                  });
-              return;
-            }
-
-            final int finalStart = actualStart;
-            final SparseIntArray finalStreamedLengths = newStreamedLengths;
-            final SparseIntArray finalStreamedSliceStarts = newStreamedSliceStarts;
-            post(
-                () -> {
-                  isWindowLoading = false;
-                  if (taskVersion != ioTaskVersion.get()) {
-                    checkAndLoadWindow();
-                    return;
-                  }
-                  synchronized (linesWindow) {
-                    linesWindow.clear();
-                    linesWindow.addAll(newWin);
-                    windowStartLine = finalStart;
-                    isEof = eof;
-                  }
-                  synchronized (streamedLinesLock) {
-                    streamedLineLengths.clear();
-                    streamedLineSliceStarts.clear();
-                    for (int i = 0; i < finalStreamedLengths.size(); i++) {
-                      int key = finalStreamedLengths.keyAt(i);
-                      streamedLineLengths.put(key, finalStreamedLengths.valueAt(i));
-                      streamedLineSliceStarts.put(
-                          key, finalStreamedSliceStarts.get(key, 0));
-                    }
-                  }
-                  lineNumberManager.invalidateCache();
-                  invalidateHighlightEnsureRange();
-                  bracketGuideManager.invalidateCache();
-                  if (recalculateWidthSync) {
-                    recalculateMaxLineWidth();
-                  } else {
-                    synchronized (lineWidthCache) {
-                      lineWidthCache.clear();
-                    }
-                    currentMaxWindowLineWidth = 0f;
-                    globalMaxLineWidth = 0f;
-                    recalculateMaxLineWidthAsync();
-                  }
-                  if (wordWrapManager.isWordWrapEnabled) {
-                    if (wordWrapManager.shouldSuppressWrapMetricsForFastSelectAll(this)) {
-                      wordWrapManager.wrapMetricsReady = false;
-                    } else {
-                      if (!wordWrapManager.wrapMetricsReady || wordWrapManager.wrapLineCounts == null || wordWrapManager.wrapLinePrefix == null) {
-                        if (getWidth() > 0) {
-                          wordWrapManager.buildWrapMetricsForWindowSnapshot(this);
-                        }
-                      }
-                      wordWrapManager.scheduleWrapMetricsSnapshotIfNeeded(this, Math.max(1, Math.round(wordWrapManager.getWrapWidth(this))));
-                      wordWrapManager.requestWrapPrefixRebuild(this);
-                    }
-                  }
-                  invalidate();
-                  if (onComplete != null) onComplete.run();
-                });
-          } catch (Exception e) {
-            e.printStackTrace();
-            post(
-                () -> {
-                  isWindowLoading = false;
-                  if (onComplete != null) onComplete.run();
-                });
-          }
-        });
-  }
-
-  private void finishInitialFileOpenWarmup(final int token) {
-    if (!isInitialFileOpenLoading) return;
-    if (token != initialFileOpenToken) return;
-    if (getHeight() <= 0 || lineHeight <= 0f) {
-      postDelayed(() -> finishInitialFileOpenWarmup(token), 16);
-      return;
-    }
-
-    int firstVisibleLine = Math.max(0, getGlobalLineForY(scrollManager.scrollY));
-    int viewHeight = getHeight() - keyboardHeight;
-    if (viewHeight <= 0) viewHeight = getHeight();
-    int visibleLines = Math.max(1, (int) Math.ceil(viewHeight / lineHeight) + 2);
-    int lastVisibleLine = firstVisibleLine + visibleLines;
-
-    ensureHighlightCacheForVisibleRange(firstVisibleLine, lastVisibleLine, null);
-    isInitialFileOpenLoading = false;
-    if (initialFileOpenShowSpinner != null) {
-      mainHandler.removeCallbacks(initialFileOpenShowSpinner);
-      initialFileOpenShowSpinner = null;
-    }
-    setDisable(false);
-    loadingCircleManager.show(false);
-    invalidate();
-
-    java.util.ArrayList<Runnable> callbacks;
-    synchronized (initialLoadCallbacks) {
-      if (initialLoadCallbacks.isEmpty()) return;
-      callbacks = new java.util.ArrayList<>(initialLoadCallbacks);
-      initialLoadCallbacks.clear();
-    }
-    for (Runnable cb : callbacks) {
-      post(cb);
-    }
-  }
-
-  public void runAfterInitialLoad(@Nullable Runnable action) {
-    if (action == null) return;
-    if (!isInitialFileOpenLoading) {
-      post(action);
-      return;
-    }
-    synchronized (initialLoadCallbacks) {
-      initialLoadCallbacks.add(action);
-    }
-  }
-
-  public void recalculateMaxLineWidth() {
-    recalculateMaxLineWidthAsync();
-  }
-
-  private void recalculateMaxLineWidthAsync() {
-    final int token = ++maxWidthRecalcToken;
-    final int startLine;
-    final ArrayList<String> snapshot;
-    synchronized (linesWindow) {
-      startLine = windowStartLine;
-      snapshot = new ArrayList<>(linesWindow);
-    }
-    if (snapshot.isEmpty()) return;
-
-    final int chunkSize = 120;
-    post(
-        new Runnable() {
-          int index = 0;
-          float mx = 0f;
-
-          @Override
-          public void run() {
-            if (token != maxWidthRecalcToken) return;
-            int end = Math.min(snapshot.size(), index + chunkSize);
-            for (int i = index; i < end; i++) {
-              String line = snapshot.get(i);
-              if (line == null) line = "";
-              float w = getWidthForLine(startLine + i, line);
-              synchronized (lineWidthCache) {
-                lineWidthCache.put(startLine + i, w);
-              }
-              if (w > mx) mx = w;
-            }
-            currentMaxWindowLineWidth = mx;
-            globalMaxLineWidth = Math.max(globalMaxLineWidth, mx);
-            index = end;
-            if (index < snapshot.size()) {
-              post(this);
-            } else {
-              scrollManager.clampScrollX();
-              invalidate();
-            }
-          }
-        });
-  }
-
-  private void buildFileIndex() {
-    if (fileManager.getSourceFile() == null || !fileManager.getSourceFile().exists()) {
-      fileManager.isIndexReady = false;
-      fileManager.isIndexBuilding = false;
-      return;
-    }
-    if (fileManager.isIndexDisabled()) {
-      String path = fileManager.getSourceFile().getAbsolutePath();
-      long len = fileManager.getSourceFile().length();
-      if (path.equals(fileManager.indexDisabledPath) && len == fileManager.indexDisabledFileLength) {
-        fileManager.isIndexReady = false;
-        fileManager.isIndexBuilding = false;
-        return;
-      }
-      fileManager.setIndexDisabled(false);
-      fileManager.indexDisabledPath = null;
-      fileManager.indexDisabledFileLength = -1L;
-    }
-    fileManager.isIndexBuilding = true;
-    final int taskVersion = ioTaskVersion.get();
-    ioHandler.post(
-        () -> {
-          long[] offsets = buildIndexJava(fileManager.getSourceFile().getAbsolutePath());
-          if (taskVersion != ioTaskVersion.get()) {
-            fileManager.isIndexBuilding = false;
-            return;
-          }
-          if (offsets != null) {
-            synchronized (fileManager.lineOffsetsLock) {
-              if (taskVersion == ioTaskVersion.get()) {
-                fileManager.setLineOffsets(offsets);
-                fileManager.isIndexReady = true;
-                // When index is ready, we know the true line count.
-                // We must re-measure to calculate the correct gutter width.
-                post(SodiumEditorView.this::requestLayout);
-                if (wordWrapManager.isWordWrapEnabled) post(() -> wordWrapManager.scheduleWrapMetricsBuild(this));
-              }
-            }
-          } else {
-            synchronized (fileManager.lineOffsetsLock) {
-              fileManager.isIndexReady = false;
-            }
-          }
-          fileManager.isIndexBuilding = false;
-        });
-  }
-
-  private void invalidatePendingIO() {
-    ioTaskVersion.incrementAndGet();
-    ioHandler.removeCallbacksAndMessages(null);
-    highlightManager.clearHighlightCaches();
-    if (wordWrapManager.isWordWrapEnabled) wordWrapManager.invalidateWrapMetrics(this);
-    if (foldManager.isCodeFoldingEnabled) {
-      foldManager.clearAllFolds();
     }
   }
 
@@ -2741,12 +2009,32 @@ public class SodiumEditorView extends View {
   }
 
   private void endLargeEditUi(boolean invalidate) {
-    // Advance token so any pending watchdog is ignored, then hide.
     largeEditUiToken.incrementAndGet();
     mainHandler.removeCallbacks(largeEditUiWatchdog);
     setDisable(false);
     loadingCircleManager.show(false);
     if (invalidate) invalidate();
+  }
+
+  public void endLargeEditUiPublic(boolean invalidate) {
+    endLargeEditUi(invalidate);
+  }
+
+  public void clearSelectionStateAfterDeletePublic() {
+    selectionManager.clearSelectionStateAfterDelete(this);
+  }
+
+  public void recordReplaceSelectionEditPublic(int sL, int sC, int eL, int eC, String removedText, String insertText, int beforeLine, int beforeChar) {
+    undoRedo.recordReplaceSelectionEdit(
+        sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
+  }
+
+  public void rewriteReplaceRangeAsyncPublic(int opToken, File inFile, int sL, int sC, int eL, int eC, String insertText, CursorTarget target, boolean finishLargeEditUi) {
+    fileManager.rewriteReplaceRangeAsync(opToken, inFile, sL, sC, eL, eC, insertText, target, finishLargeEditUi);
+  }
+
+  public void setSelectionInternal(int sL, int sC, int eL, int eC) {
+    selectionManager.setSelectionInternal(sL, sC, eL, eC);
   }
 
   public static final int LARGE_PASTE_LINES = 1500;
@@ -2799,291 +2087,47 @@ public class SodiumEditorView extends View {
 
     if (knownTotal != null) {
       int clampedLine = Math.min(requestedLine, Math.max(0, knownTotal - 1));
-      proceedGoToLineClamped(currentGoToLineVersion, clampedLine, requestedCol);
+      cursorManager.proceedGoToLineClamped(currentGoToLineVersion, clampedLine, requestedCol);
     } else {
-      // Index not ready and not at EOF: count lines once to clamp the target line.
       countTotalLines(
           totalLines -> {
             if (currentGoToLineVersion != goToLineVersion.get()) return;
             int total = (totalLines > 0) ? totalLines : (requestedLine + 1);
             int clampedLine = Math.min(requestedLine, Math.max(0, total - 1));
-            proceedGoToLineClamped(currentGoToLineVersion, clampedLine, requestedCol);
+            cursorManager.proceedGoToLineClamped(currentGoToLineVersion, clampedLine, requestedCol);
           });
     }
   }
 
-  private void proceedGoToLineClamped(
-      final int currentGoToLineVersion, final int targetLine, final int targetCol) {
-    // If a window load is already in progress, retry shortly to avoid getting stuck in a
-    // disabled/loading state.
-    if (isWindowLoading
-        && fileManager.getSourceFile() != null
-        && !(targetLine >= windowStartLine && targetLine < windowStartLine + linesWindow.size())) {
-      mainHandler.postDelayed(
-          () -> {
-            if (currentGoToLineVersion != goToLineVersion.get()) return;
-            proceedGoToLineClamped(currentGoToLineVersion, targetLine, targetCol);
-          },
-          30);
-      return;
-    }
-
-    Runnable completionAction =
-        () -> {
-          if (currentGoToLineVersion != goToLineVersion.get()) return;
-
-          int finalLine = targetLine;
-          int finalChar;
-          if (finalLine >= windowStartLine && finalLine < windowStartLine + linesWindow.size()) {
-            String lineText = getLineTextForRender(finalLine);
-            finalChar = Math.max(0, Math.min(targetCol, lineText.length()));
-          } else if (isEof) {
-            int lastLineInDoc = windowStartLine + linesWindow.size() - 1;
-            if (finalLine > lastLineInDoc) finalLine = Math.max(0, lastLineInDoc);
-            String lineText = getLineTextForRender(finalLine);
-            finalChar = Math.max(0, Math.min(targetCol, lineText.length()));
-          } else {
-            finalChar = 0;
-          }
-          cursorManager.setLineAndChar(finalLine, finalChar);
-
-          scrollManager.keepCursorVisibleHorizontally();
-          setDisable(false);
-          loadingCircleManager.show(false);
-
-          requestFocus();
-          post(
-              () -> {
-                imeManager.showKeyboard();
-                requestFocus();
-                InputMethodManager imm =
-                    (InputMethodManager)
-                        getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-                if (imm != null) imm.restartInput(this);
-              });
-        };
-
-    // In-memory mode (sourceFile == null): no window loads.
-    if (fileManager.isFileCleared()
-        || fileManager.getSourceFile() == null
-        || (targetLine >= windowStartLine && targetLine < windowStartLine + linesWindow.size())) {
-      completionAction.run();
-    } else {
-      int targetStart = Math.max(0, targetLine - prefetchLines);
-      loadWindowAround(targetStart, completionAction);
-    }
-  }
-
   public void insertCharAtCursor(char c) {
-    if (isReadOnly) return;
-    invalidatePendingIOForEdit();
-    undoRedo.incrementEditVersion();
-
-    // FIX: لو فيه تحديد، لازم يكون استبدال ذري (خصوصاً خارج الشاشة)
-    if (cursorManager.getHasComposing()) {
-      cursorManager.setHasComposing(false);
-      cursorManager.setComposingLength(0);
-    }
-
-    final int beforeLine = cursorManager.getLine();
-    final int beforeChar = cursorManager.getChar();
-
-    scrollManager.ensureLineInWindow(cursorManager.getLine(), true);
-    if (isWindowLoading
-        && (cursorManager.getLine() < windowStartLine || cursorManager.getLine() >= windowStartLine + linesWindow.size())) {
-      post(() -> insertCharAtCursor(c));
-      return;
-    }
-
-    int localIdx = cursorManager.getLine() - windowStartLine;
-    if (localIdx < 0 || localIdx >= linesWindow.size()) {
-      synchronized (linesWindow) {
-        if (linesWindow.isEmpty()) linesWindow.add("");
-      }
-      localIdx = Math.max(0, Math.min(localIdx, linesWindow.size() - 1));
-    }
-
-    synchronized (linesWindow) {
-      String base = getLineFromWindowLocal(localIdx);
-      if (base == null) base = "";
-
-      if (c == '\n') {
-        int oldLineCount = getLinesCount();
-        String before = base.substring(0, Math.min(cursorManager.getChar(), base.length()));
-        String after = base.substring(Math.min(cursorManager.getChar(), base.length()));
-        Float oldWidth = lineWidthCache.get(cursorManager.getLine());
-
-        updateLocalLine(localIdx, before);
-        linesWindow.add(localIdx + 1, after);
-
-        modifiedLines.put(cursorManager.getLine(), before);
-        modifiedLines.put(cursorManager.getLine() + 1, after);
-
-        computeWidthForLine(cursorManager.getLine(), before);
-        computeWidthForLine(cursorManager.getLine() + 1, after);
-
-        if (oldWidth != null && oldWidth >= currentMaxWindowLineWidth)
-          recalculateMaxLineWidthAsync();
-        highlightManager.clearHighlightCaches();
-        cursorManager.setLineAndChar(cursorManager.getLine() + 1, 0);
-        undoRedo.addLineCountDelta(1);
-
-        int newLineCount = getLinesCount();
-        if (lineNumberManager.isShowLineNumbers()
-            && String.valueOf(oldLineCount).length() != String.valueOf(newLineCount).length()) {
-          requestLayout();
-        }
-        wordWrapManager.onLineCountChanged(this);
-      } else {
-        int pos = Math.max(0, Math.min(cursorManager.getChar(), base.length()));
-        String modified = base.substring(0, pos) + c + base.substring(pos);
-        updateLocalLine(localIdx, modified);
-        modifiedLines.put(cursorManager.getLine(), modified);
-        highlightManager.invalidateHighlightCacheForLine(cursorManager.getLine());
-        cursorManager.moveCharDelta(1);
-        float newWidth =
-            whitespaceGuideManager.measureTextWithVisualSpaces(
-                this, modified, 0, modified.length(), paint);
-        synchronized (lineWidthCache) {
-          lineWidthCache.put(cursorManager.getLine(), newWidth);
-        }
-        currentMaxWindowLineWidth = Math.max(currentMaxWindowLineWidth, newWidth);
-        globalMaxLineWidth = Math.max(globalMaxLineWidth, currentMaxWindowLineWidth);
-      }
-      invalidate();
-      scrollManager.keepCursorVisibleHorizontally();
-    }
-    autoSuggestionManager.updateSuggestion();
-
-    UndoRedo.EditOp op = new UndoRedo.EditOp();
-    op.startLine = beforeLine;
-    op.startChar = beforeChar;
-    op.endLine = beforeLine;
-    op.endChar = beforeChar;
-    op.removedText = "";
-    op.insertedText = String.valueOf(c);
-    CursorTarget insertedEnd = computeCursorAfterInsert(beforeLine, beforeChar, op.insertedText);
-    op.insertedEndLine = insertedEnd.line;
-    op.insertedEndChar = insertedEnd.ch;
-    op.cursorLineBefore = beforeLine;
-    op.cursorCharBefore = beforeChar;
-    op.cursorLineAfter = cursorManager.getLine();
-    op.cursorCharAfter = cursorManager.getChar();
-    op.timestamp = System.currentTimeMillis();
-    recordEdit(op);
+    inputManager.insertCharAtCursor(c);
   }
 
   public void insertNewlineAtCursor() {
-    if (isReadOnly) return;
-    if (selectionManager.hasSelection()) {
-      replaceSelectionWithText("\n");
-      return;
-    }
-
-    BracketPairType pairType = cursorManager.getCursorBracketPairType();
-    if (isAutoBracketNewlineEnabled && pairType != BracketPairType.NONE) {
-      String baseIndent = "";
-      String innerIndent = "";
-      if (isAutoBracketNewlineIndentEnabled) {
-        baseIndent = getLineLeadingWhitespace(cursorManager.getLine());
-        innerIndent = baseIndent + "  ";
-      }
-
-      String closeIndent = (pairType == BracketPairType.CURLY) ? baseIndent : innerIndent;
-      String insertText = "\n" + innerIndent + "\n" + closeIndent;
-
-      int targetLine = cursorManager.getLine() + 1;
-      int targetChar = innerIndent.length();
-      insertTextAtCursor(insertText);
-
-      cursorManager.setLineAndChar(targetLine, targetChar);
-      cursorAnimationManager.resetCursorBlink();
-      scrollManager.keepCursorVisibleHorizontally();
-      invalidate();
-      autoSuggestionManager.updateSuggestion();
-      return;
-    }
-
-    if (isAutoIndentAfterClosingBracketEnabled) {
-      String ln = getLineTextForRender(cursorManager.getLine());
-      if (ln == null) ln = "";
-      int safeChar = Math.max(0, Math.min(cursorManager.getChar(), ln.length()));
-      String before = ln.substring(0, safeChar);
-      int prevNonWs = findPrevNonWhitespaceIndex(before, before.length() - 1);
-      if (prevNonWs >= 0) {
-        char c = before.charAt(prevNonWs);
-        if (c == '{' || c == '}') {
-          String baseIndent = getLineLeadingWhitespace(cursorManager.getLine());
-          int baseWidth = getIndentWidth(baseIndent);
-          int unit = INDENT_BLOCK_UNIT.length();
-          int targetWidth = baseWidth;
-          if (c == '{') {
-            int firstNonSpace = getFirstNonSpaceIndex(before);
-            boolean startsWithClosingParenOrBracket =
-                firstNonSpace >= 0
-                    && (before.charAt(firstNonSpace) == ')' || before.charAt(firstNonSpace) == ']');
-            if (!startsWithClosingParenOrBracket) {
-              targetWidth = baseWidth + unit;
-            }
-          } else {
-            targetWidth = Math.max(0, baseWidth - unit);
-          }
-          insertTextAtCursor("\n" + buildIndentFromWidth(targetWidth));
-          return;
-        }
-      }
-    }
-
-    if (isIndentationBlocksEnabled) {
-      String ln = getLineTextForRender(cursorManager.getLine());
-      if (ln == null) ln = "";
-      int safeChar = Math.max(0, Math.min(cursorManager.getChar(), ln.length()));
-      String before = ln.substring(0, safeChar);
-      String trimmed = rstripWhitespace(before);
-      String baseIndent = getLineLeadingWhitespace(cursorManager.getLine());
-      String extraIndent = trimmed.endsWith(":") ? INDENT_BLOCK_UNIT : "";
-      insertTextAtCursor("\n" + baseIndent + extraIndent);
-      return;
-    }
-
-    if (isAutoBracketNewlineIndentEnabled) {
-      String baseIndent = getLineLeadingWhitespace(cursorManager.getLine());
-      insertTextAtCursor("\n" + baseIndent);
-      return;
-    }
-
-    insertCharAtCursor('\n');
+    inputManager.insertNewlineAtCursor();
   }
 
+  public void deleteCharAtCursor() {
+    inputManager.deleteCharAtCursor();
+  }
 
+  public void deleteForwardAtCursor() {
+    inputManager.deleteForwardAtCursor();
+  }
 
-  private static String rstripWhitespace(String text) {
-    if (text == null || text.isEmpty()) return "";
-    int end = text.length();
-    while (end > 0) {
-      char c = text.charAt(end - 1);
+  public String getLineLeadingWhitespace(int line) {
+    String ln = getLineTextForRender(line);
+    if (ln == null || ln.isEmpty()) return "";
+    int i = 0;
+    while (i < ln.length()) {
+      char c = ln.charAt(i);
       if (c != ' ' && c != '\t') break;
-      end--;
+      i++;
     }
-    return (end == text.length()) ? text : text.substring(0, end);
+    return (i == 0) ? "" : ln.substring(0, i);
   }
 
-  private static int findPrevNonWhitespaceIndex(String text, int start) {
-    if (text == null || text.isEmpty()) return -1;
-    for (int i = Math.min(start, text.length() - 1); i >= 0; i--) {
-      if (!Character.isWhitespace(text.charAt(i))) return i;
-    }
-    return -1;
-  }
-
-  private static String buildIndentFromWidth(int width) {
-    if (width <= 0) return "";
-    char[] buf = new char[width];
-    for (int i = 0; i < width; i++) buf[i] = ' ';
-    return new String(buf);
-  }
-
-  int getIndentWidth(String line) {
+  public int getIndentWidth(String line) {
     if (line == null || line.isEmpty()) return 0;
     int width = 0;
     for (int i = 0; i < line.length(); i++) {
@@ -3097,229 +2141,6 @@ public class SodiumEditorView extends View {
       }
     }
     return width;
-  }
-
-  private String getLineLeadingWhitespace(int line) {
-    String ln = getLineTextForRender(line);
-    if (ln == null || ln.isEmpty()) return "";
-    int i = 0;
-    while (i < ln.length()) {
-      char c = ln.charAt(i);
-      if (c != ' ' && c != '\t') break;
-      i++;
-    }
-    return (i == 0) ? "" : ln.substring(0, i);
-  }
-
-
-
-  public void deleteCharAtCursor() {
-    if (isReadOnly) return;
-    invalidatePendingIOForEdit();
-    undoRedo.incrementEditVersion();
-    autoSuggestionManager.clearActiveSuggestion(); // Clear suggestion on delete
-
-    if (cursorManager.getHasComposing()) {
-      cursorManager.deleteComposing();
-      return;
-    }
-
-    final int beforeLine = cursorManager.getLine();
-    final int beforeChar = cursorManager.getChar();
-
-    scrollManager.ensureLineInWindow(cursorManager.getLine(), true);
-    if (isWindowLoading
-        && (cursorManager.getLine() < windowStartLine || cursorManager.getLine() >= windowStartLine + linesWindow.size())) {
-      post(this::deleteCharAtCursor);
-      return;
-    }
-
-    int localIdx = cursorManager.getLine() - windowStartLine;
-    if (localIdx < 0 || localIdx >= linesWindow.size()) return;
-
-    synchronized (linesWindow) {
-      String base = getLineFromWindowLocal(localIdx);
-      if (base == null) base = "";
-
-      if (cursorManager.getChar() > 0) {
-        Float oldWidth = lineWidthCache.get(cursorManager.getLine());
-        int safeStart = Math.max(0, cursorManager.getChar() - 1);
-        String removed = base.substring(safeStart, Math.min(cursorManager.getChar(), base.length()));
-        boolean atLineEnd = cursorManager.getChar() >= base.length();
-        if (charAnimationManager.isEnabled() && atLineEnd) {
-          Paint p = highlightManager.getPaintForChar(cursorManager.getLine(), safeStart, base);
-          charAnimationManager.startDeleteAnimation(cursorManager.getLine(), safeStart, removed, p);
-        }
-        String modified = base.substring(0, safeStart) + base.substring(cursorManager.getChar());
-        updateLocalLine(localIdx, modified);
-        modifiedLines.put(cursorManager.getLine(), modified);
-        highlightManager.invalidateHighlightCacheForLine(cursorManager.getLine());
-        cursorManager.setChar(safeStart);
-        computeWidthForLine(cursorManager.getLine(), modified);
-        if (oldWidth != null && oldWidth >= currentMaxWindowLineWidth)
-          recalculateMaxLineWidthAsync();
-        invalidateLineGlobal(cursorManager.getLine());
-
-        UndoRedo.EditOp op = new UndoRedo.EditOp();
-        op.startLine = beforeLine;
-        op.startChar = safeStart;
-        op.endLine = beforeLine;
-        op.endChar = beforeChar;
-        op.removedText = removed;
-        op.insertedText = "";
-        op.insertedEndLine = beforeLine;
-        op.insertedEndChar = safeStart;
-        op.cursorLineBefore = beforeLine;
-        op.cursorCharBefore = beforeChar;
-        op.cursorLineAfter = cursorManager.getLine();
-        op.cursorCharAfter = cursorManager.getChar();
-        op.timestamp = System.currentTimeMillis();
-        recordEdit(op);
-      } else if (cursorManager.getLine() > 0) {
-        int oldLineCount = getLinesCount();
-        int prevGlobal = cursorManager.getLine() - 1;
-        scrollManager.ensureLineInWindow(prevGlobal, true);
-        int prevLocal = prevGlobal - windowStartLine;
-        if (prevLocal < 0 || prevLocal >= linesWindow.size()) return;
-
-        String prev = getLineFromWindowLocal(prevLocal);
-        if (prev == null) prev = "";
-
-        String merged = prev + base;
-        updateLocalLine(prevLocal, merged);
-        modifiedLines.put(prevGlobal, merged);
-        highlightManager.clearHighlightCaches();
-
-        if (localIdx < linesWindow.size()) linesWindow.remove(localIdx);
-
-        recalculateMaxLineWidth();
-        cursorManager.setLineAndChar(prevGlobal, prev.length());
-        computeWidthForLine(prevGlobal, merged);
-        undoRedo.addLineCountDelta(-1);
-
-        int newLineCount = getLinesCount();
-        if (lineNumberManager.isShowLineNumbers()
-            && String.valueOf(oldLineCount).length() != String.valueOf(newLineCount).length()) {
-          requestLayout();
-        }
-        wordWrapManager.onLineCountChanged(this);
-        invalidate();
-
-        UndoRedo.EditOp op = new UndoRedo.EditOp();
-        op.startLine = prevGlobal;
-        op.startChar = prev.length();
-        op.endLine = beforeLine;
-        op.endChar = 0;
-        op.removedText = "\n";
-        op.insertedText = "";
-        op.insertedEndLine = prevGlobal;
-        op.insertedEndChar = prev.length();
-        op.cursorLineBefore = beforeLine;
-        op.cursorCharBefore = beforeChar;
-        op.cursorLineAfter = cursorManager.getLine();
-        op.cursorCharAfter = cursorManager.getChar();
-        op.timestamp = System.currentTimeMillis();
-        recordEdit(op);
-      }
-    }
-    autoSuggestionManager.updateSuggestion(); // Update suggestion after deletion
-  }
-
-  public void deleteForwardAtCursor() {
-    if (isReadOnly) return;
-    invalidatePendingIOForEdit();
-    undoRedo.incrementEditVersion();
-    autoSuggestionManager.clearActiveSuggestion(); // Clear suggestion on delete forward
-
-    if (cursorManager.getHasComposing()) {
-      cursorManager.deleteComposing();
-      return;
-    }
-
-    final int beforeLine = cursorManager.getLine();
-    final int beforeChar = cursorManager.getChar();
-
-    scrollManager.ensureLineInWindow(cursorManager.getLine(), true);
-    if (isWindowLoading
-        && (cursorManager.getLine() < windowStartLine || cursorManager.getLine() >= windowStartLine + linesWindow.size())) {
-      post(this::deleteForwardAtCursor);
-      return;
-    }
-
-    int localIdx = cursorManager.getLine() - windowStartLine;
-    synchronized (linesWindow) {
-      String base = getLineFromWindowLocal(localIdx);
-      if (base == null) base = "";
-
-      if (cursorManager.getChar() < base.length()) {
-        Float oldWidth = lineWidthCache.get(cursorManager.getLine());
-        String removed = base.substring(cursorManager.getChar(), Math.min(cursorManager.getChar() + 1, base.length()));
-        boolean atLineEnd = cursorManager.getChar() == base.length() - 1;
-        if (charAnimationManager.isEnabled() && atLineEnd) {
-          Paint p = highlightManager.getPaintForChar(cursorManager.getLine(), cursorManager.getChar(), base);
-          charAnimationManager.startDeleteAnimation(cursorManager.getLine(), cursorManager.getChar(), removed, p);
-        }
-        String modified = base.substring(0, cursorManager.getChar()) + base.substring(cursorManager.getChar() + 1);
-        updateLocalLine(localIdx, modified);
-        modifiedLines.put(cursorManager.getLine(), modified);
-        computeWidthForLine(cursorManager.getLine(), modified);
-        if (oldWidth != null && oldWidth >= currentMaxWindowLineWidth)
-          recalculateMaxLineWidthAsync();
-        invalidateLineGlobal(cursorManager.getLine());
-
-        UndoRedo.EditOp op = new UndoRedo.EditOp();
-        op.startLine = beforeLine;
-        op.startChar = beforeChar;
-        op.endLine = beforeLine;
-        op.endChar = beforeChar + 1;
-        op.removedText = removed;
-        op.insertedText = "";
-        op.insertedEndLine = beforeLine;
-        op.insertedEndChar = beforeChar;
-        op.cursorLineBefore = beforeLine;
-        op.cursorCharBefore = beforeChar;
-        op.cursorLineAfter = cursorManager.getLine();
-        op.cursorCharAfter = cursorManager.getChar();
-        op.timestamp = System.currentTimeMillis();
-        recordEdit(op);
-      } else {
-        int nextGlobal = cursorManager.getLine() + 1;
-        if (isEof && nextGlobal >= windowStartLine + linesWindow.size()) return;
-
-        scrollManager.ensureLineInWindow(nextGlobal, true);
-        int nextLocal = nextGlobal - windowStartLine;
-        if (nextLocal >= 0 && nextLocal < linesWindow.size()) {
-          String next = getLineFromWindowLocal(nextLocal);
-          if (next == null) next = "";
-          String merged = base + next;
-          updateLocalLine(localIdx, merged);
-          linesWindow.remove(nextLocal);
-          modifiedLines.put(cursorManager.getLine(), merged);
-          recalculateMaxLineWidth();
-          computeWidthForLine(cursorManager.getLine(), merged);
-          wordWrapManager.onLineCountChanged(this);
-          invalidate();
-          undoRedo.addLineCountDelta(-1);
-
-          UndoRedo.EditOp op = new UndoRedo.EditOp();
-          op.startLine = beforeLine;
-          op.startChar = base.length();
-          op.endLine = nextGlobal;
-          op.endChar = 0;
-          op.removedText = "\n";
-          op.insertedText = "";
-          op.insertedEndLine = beforeLine;
-          op.insertedEndChar = base.length();
-          op.cursorLineBefore = beforeLine;
-          op.cursorCharBefore = beforeChar;
-          op.cursorLineAfter = cursorManager.getLine();
-          op.cursorCharAfter = cursorManager.getChar();
-          op.timestamp = System.currentTimeMillis();
-          recordEdit(op);
-        }
-      }
-    }
-    autoSuggestionManager.updateSuggestion(); // Update suggestion after delete forward
   }
 
 
@@ -3358,11 +2179,11 @@ public class SodiumEditorView extends View {
       eL = tL;
       eC = tC;
     }
-    return buildSelectedTextBlocking(sL, sC, eL, eC, copyCutMaxChars);
+    return selectionManager.buildSelectedTextBlocking(this, sL, sC, eL, eC, copyCutMaxChars);
   }
 
   public void copySelectionToClipboard() {
-    copyOrCutSelection(false);
+    selectionManager.copyOrCutSelection(this, false);
   }
 
   public void actionCopy() {
@@ -3370,148 +2191,11 @@ public class SodiumEditorView extends View {
   }
 
   public void cutSelectionToClipboard() {
-    copyOrCutSelection(true);
+    selectionManager.copyOrCutSelection(this, true);
   }
 
   public void actionCut() {
     cutSelectionToClipboard();
-  }
-
-  private void copyOrCutSelection(final boolean cut) {
-    if (!selectionManager.hasSelection()) return;
-    autoSuggestionManager.clearActiveSuggestion(); // Clear suggestion when copying/cutting
-
-    // Hidden/disabled for huge selections (requested behavior)
-    if (shouldHideCopyCutForSelection()) return;
-
-    int sL = selectionManager.selStartLine, sC = selectionManager.selStartChar, eL = selectionManager.selEndLine, eC = selectionManager.selEndChar;
-    if (comparePos(sL, sC, eL, eC) > 0) {
-      int tL = sL, tC = sC;
-      sL = eL;
-      sC = eC;
-      eL = tL;
-      eC = tC;
-    }
-
-    long lines = (long) eL - (long) sL + 1L;
-    if (lines > copyCutMaxLines) return;
-
-    final int fsL = sL, fsC = sC, feL = eL, feC = eC;
-
-    // Fast path: selection fully inside current window -> copy on UI thread.
-    boolean fullyInWindow =
-        (fsL >= windowStartLine) && (feL < windowStartLine + linesWindow.size());
-    if (fullyInWindow) {
-      String text = buildSelectedTextFromWindow(fsL, fsC, feL, feC, copyCutMaxChars);
-      ClipboardManager cm =
-          (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-      if (cm != null) cm.setPrimaryClip(ClipData.newPlainText("text", (text == null) ? "" : text));
-      if (cut) {
-        deleteSelection();
-      }
-      return;
-    }
-
-    if (wordWrapManager.isWordWrapEnabled) {
-      wordWrapManager.cancelWrapWorkForPriority(this);
-    }
-
-    ioHandler.post(
-        () -> {
-          final String text = buildSelectedTextBlocking(fsL, fsC, feL, feC, copyCutMaxChars);
-          post(
-              () -> {
-                ClipboardManager cm =
-                    (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-                if (cm != null)
-                  cm.setPrimaryClip(ClipData.newPlainText("text", (text == null) ? "" : text));
-
-                if (cut) {
-                  deleteSelection();
-                }
-              });
-        });
-  }
-
-  private String buildSelectedTextBlocking(int sL, int sC, int eL, int eC, int maxChars) {
-    if (comparePos(sL, sC, eL, eC) > 0) {
-      int tL = sL, tC = sC;
-      sL = eL;
-      sC = eC;
-      eL = tL;
-      eC = tC;
-    }
-
-    // In-memory (no file backing): build from render-safe access
-    if (fileManager.getSourceFile() == null || fileManager.isFileCleared()) {
-      return buildSelectedTextFromWindow(sL, sC, eL, eC, maxChars);
-    }
-
-    // If the selection is fully inside the current window, prefer the window snapshot to avoid
-    // stale file reads while edits are pending.
-    boolean fullyInWindow = (sL >= windowStartLine) && (eL < windowStartLine + linesWindow.size());
-    if (fullyInWindow) {
-      return buildSelectedTextFromWindow(sL, sC, eL, eC, maxChars);
-    }
-
-    // File-backed: sequential read from start line, overriding with modifiedLines when available
-    try (RandomAccessFile raf = new RandomAccessFile(fileManager.getSourceFile(), "r")) {
-      long startByte;
-      if (fileManager.isIndexReady()) {
-        synchronized (fileManager.lineOffsetsLock) {
-          if (sL >= 0 && sL < fileManager.getLineOffsets().length) startByte = fileManager.getLineOffsets()[sL];
-          else startByte = raf.length();
-        }
-      } else {
-        startByte = findLineStartByteByScanning(raf, sL);
-      }
-
-      raf.seek(startByte);
-      try (BufferedReader br =
-          new BufferedReader(
-              new java.io.InputStreamReader(new FileInputStream(raf.getFD()), fileManager.fileCharset), 8192)) {
-
-        StringBuilder sb = new StringBuilder();
-        for (int L = sL; L <= eL; L++) {
-          String fileLine = br.readLine();
-          if (fileLine == null) fileLine = "";
-
-          String ln;
-          synchronized (modifiedLines) {
-            ln = modifiedLines.containsKey(L) ? modifiedLines.get(L) : fileLine;
-          }
-          if (ln == null) ln = "";
-
-          int startIdx = (L == sL) ? Math.min(sC, ln.length()) : 0;
-          int endIdx = (L == eL) ? Math.min(eC, ln.length()) : ln.length();
-          if (endIdx > startIdx) sb.append(ln, startIdx, endIdx);
-          if (L < eL) sb.append('\n');
-
-          if (sb.length() > maxChars) return sb.substring(0, maxChars);
-        }
-        return sb.toString();
-      }
-    } catch (Exception e) {
-      return null;
-    }
-  }
-
-  private String buildSelectedTextFromWindow(int sL, int sC, int eL, int eC, int maxChars) {
-    StringBuilder sb = new StringBuilder();
-    synchronized (linesWindow) {
-      for (int L = sL; L <= eL; L++) {
-        int local = L - windowStartLine;
-        String ln = (local >= 0 && local < linesWindow.size()) ? linesWindow.get(local) : "";
-        if (ln == null) ln = "";
-        int startIdx = (L == sL) ? Math.min(sC, ln.length()) : 0;
-        int endIdx = (L == eL) ? Math.min(eC, ln.length()) : ln.length();
-        if (endIdx > startIdx) sb.append(ln, startIdx, endIdx);
-        if (L < eL) sb.append('\n');
-
-        if (sb.length() > maxChars) return sb.substring(0, maxChars);
-      }
-    }
-    return sb.toString();
   }
 
   public void pasteFromClipboard() {
@@ -3539,277 +2223,32 @@ public class SodiumEditorView extends View {
   }
 
   private void countTotalLines(LineCountCallback callback) {
-    final int taskVersion = ioTaskVersion.get();
-    ioHandler.post(
-        () -> {
-          if (taskVersion != ioTaskVersion.get()) {
-            post(() -> callback.onResult(-1));
-            return;
-          }
-          if (fileManager.isIndexReady() && fileManager.getSourceFile() != null) {
-            synchronized (fileManager.lineOffsetsLock) {
-              post(() -> callback.onResult(fileManager.getLineOffsets().length));
-            }
-            return;
-          }
-          int count = 0;
-          if (fileManager.getSourceFile() != null && fileManager.getSourceFile().exists()) {
-            try (FileInputStream is = new FileInputStream(fileManager.getSourceFile())) {
-              byte[] buffer = new byte[8192];
-              int len;
-              boolean empty = true;
-              while ((len = is.read(buffer)) != -1) {
-                empty = false;
-                for (int i = 0; i < len; i++) if (buffer[i] == '\n') count++;
-              }
-              if (!empty) count++;
-            } catch (Exception e) {
-              count = -1;
-            }
-          }
-          final int finalCount = count;
-          new Handler(Looper.getMainLooper()).post(() -> callback.onResult(finalCount));
-        });
+    fileManager.countTotalLines((total) -> callback.onResult(total));
+  }
+
+  public String readRangeText(int sL, int sC, int eL, int eC) {
+    return fileManager.readRangeText(sL, sC, eL, eC);
+  }
+
+  public long computeByteRangeFastOrScanPublic(File file, int sL, int sC, int eL, int eC) {
+    FileManager.RangeBytes range = fileManager.computeByteRangeFastOrScan(file, sL, sC, eL, eC);
+    return (range != null) ? range.startByte : 0;
+  }
+
+  public FileManager.RangeBytes computeByteRangeFastOrScanPublicFull(File file, int sL, int sC, int eL, int eC) {
+    return fileManager.computeByteRangeFastOrScan(file, sL, sC, eL, eC);
+  }
+
+  public boolean isIndexBuildingPublic() {
+    return isIndexBuilding;
+  }
+
+  public boolean isIndexDisabledPublic() {
+    return isIndexDisabled;
   }
 
   public void selectAll() {
-    autoSuggestionManager.clearActiveSuggestion(); // Clear suggestion when selectionManager.selecting all
-    final boolean keyboardWasVisible = keyboardHeight > 0;
-    if (wordWrapManager.isWordWrapEnabled) {
-      // Free the IO thread from wrap rebuilds so select-all can jump to end quickly.
-      int widthPx = Math.max(1, Math.round(wordWrapManager.getWrapWidth(this)));
-      if (wordWrapManager.isWrapMetricsUsableForWindow(this, widthPx)) {
-        wordWrapManager.cancelWrapWorkForPriority(this);
-      }
-    }
-    setDisable(true);
-    loadingCircleManager.show(true);
-
-    selectionManager.setSelectAllState(true, true);
-    selectionManager.setSelection(0, 0, 0, 0, false);
-    popupMenuManager.hidePopup();
-
-    // =========================
-    // In-memory mode (no file):
-    // - Happens after "select all -> delete" (file cleared), then user types new text
-    // - Also covers scenarios where content is edited but not persisted to disk
-    // =========================
-    if (sourceFile == null || isFileCleared) {
-      synchronized (linesWindow) {
-        if (linesWindow.isEmpty()) linesWindow.add("");
-        // With no file backing, treat current window as the whole document.
-        if (windowStartLine != 0) windowStartLine = 0;
-        isEof = true;
-      }
-
-      selectionManager.selEndLine = Math.max(0, windowStartLine + linesWindow.size() - 1);
-      String lastLineText = getLineTextForRender(selectionManager.selEndLine);
-      selectionManager.selEndChar = lastLineText.length();
-      cursorManager.setLineAndChar(selectionManager.selEndLine, selectionManager.selEndChar);
-
-      scrollManager.scrollToLineFastForSelectAll(selectionManager.selEndLine, selectionManager.selEndChar);
-
-      setDisable(false);
-      loadingCircleManager.show(false);
-      invalidate();
-      requestFocus();
-      popupMenuManager.showPopupAtSelection();
-
-      post(
-          () -> {
-            requestFocus();
-            if (keyboardWasVisible) imeManager.showKeyboard();
-            InputMethodManager imm =
-                (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-            if (imm != null) imm.restartInput(SodiumEditorView.this);
-          });
-      return;
-    }
-
-    // If we're already at EOF, we can select to the current visible logical end
-    // without waiting for the index (important when user appended lines after EOF).
-    if (isEof) {
-      int windowLast = Math.max(0, windowStartLine + linesWindow.size() - 1);
-      selectionManager.selEndLine = windowLast;
-      String lastLineText = getLineTextForRender(windowLast);
-      selectionManager.selEndChar = lastLineText.length();
-      cursorManager.setLineAndChar(windowLast, selectionManager.selEndChar);
-
-      scrollManager.scrollToLineFastForSelectAll(windowLast, selectionManager.selEndChar);
-
-      setDisable(false);
-      loadingCircleManager.show(false);
-      invalidate();
-      requestFocus();
-      popupMenuManager.showPopupAtSelection();
-
-      post(
-          () -> {
-            requestFocus();
-            if (keyboardWasVisible) imeManager.showKeyboard();
-            InputMethodManager imm =
-                (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-            if (imm != null) imm.restartInput(SodiumEditorView.this);
-          });
-      return;
-    }
-
-    // الأفضل: لو index جاهز نروح نهاية الملف بدقة (بدون قفزة غلط)
-    Runnable goToEndUsingIndex =
-        () -> {
-          if (!isIndexReady || sourceFile == null) return;
-
-          int fileLastLine;
-          synchronized (lineOffsetsLock) {
-            fileLastLine = Math.max(0, lineOffsets.length - 1);
-          }
-
-          // If the current window actually goes beyond file end (due to appended in-memory lines),
-          // prefer the window end and DO NOT reload from file (reload would drop the appended
-          // lines).
-          if (isEof) {
-            int windowLast = Math.max(0, windowStartLine + linesWindow.size() - 1);
-            if (windowLast > fileLastLine) {
-              selectionManager.selEndLine = windowLast;
-              String lastLineText = getLineTextForRender(windowLast);
-              selectionManager.selEndChar = lastLineText.length();
-              cursorManager.setLineAndChar(windowLast, selectionManager.selEndChar);
-
-              scrollManager.scrollToLineFastForSelectAll(windowLast, selectionManager.selEndChar);
-
-              setDisable(false);
-              loadingCircleManager.show(false);
-              invalidate();
-              requestFocus();
-              popupMenuManager.showPopupAtSelection();
-
-              post(
-                  () -> {
-                    requestFocus();
-                    if (keyboardWasVisible) imeManager.showKeyboard();
-                    InputMethodManager imm =
-                        (InputMethodManager)
-                            getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-                    if (imm != null) imm.restartInput(SodiumEditorView.this);
-                  });
-              return;
-            }
-          }
-
-          selectionManager.selEndLine = fileLastLine;
-
-          int targetStart = Math.max(0, fileLastLine - prefetchLines);
-
-          loadWindowAround(
-              targetStart,
-              () ->
-                  post(
-                      () -> {
-                        String lastLineText = getLineTextForRender(fileLastLine);
-                        selectionManager.selEndChar = lastLineText.length();
-                        cursorManager.setLineAndChar(fileLastLine, selectionManager.selEndChar);
-
-                        scrollManager.scrollToLineFastForSelectAll(fileLastLine, selectionManager.selEndChar);
-
-                        setDisable(false);
-                        loadingCircleManager.show(false);
-                        invalidate();
-                        requestFocus();
-                        popupMenuManager.showPopupAtSelection();
-
-                        post(
-                            () -> {
-                              requestFocus();
-                              if (keyboardWasVisible) imeManager.showKeyboard();
-                              InputMethodManager imm =
-                                  (InputMethodManager)
-                                      getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-                              if (imm != null) imm.restartInput(SodiumEditorView.this);
-                            });
-                      }));
-        };
-
-    if (isIndexReady) {
-      goToEndUsingIndex.run();
-      return;
-    }
-
-    // لو index مو جاهز: ابدأ بناءه ثم انتظر جاهزيته (بدل "قرب النهاية" الغلط)
-    if (!isIndexBuilding && !isIndexDisabled) ioHandler.post(this::buildFileIndex);
-
-    // نحدد selectionManager.selEndLine مؤقتاً للهايلايت بواسطة countTotalLines (سريع)
-    countTotalLines(
-        totalLines -> {
-          int lastLine = (totalLines > 0) ? totalLines - 1 : 0;
-          selectionManager.selEndLine = Math.max(0, lastLine);
-
-          Runnable goToEndWithoutIndex =
-              () -> {
-                int targetStart = Math.max(0, selectionManager.selEndLine - prefetchLines);
-                loadWindowAround(
-                    targetStart,
-                    () ->
-                        post(
-                            () -> {
-                              String lastLineText = getLineTextForRender(selectionManager.selEndLine);
-                              selectionManager.selEndChar = lastLineText.length();
-                              cursorManager.setLineAndChar(selectionManager.selEndLine, selectionManager.selEndChar);
-
-                              scrollManager.scrollToLineFastForSelectAll(selectionManager.selEndLine, selectionManager.selEndChar);
-
-                              setDisable(false);
-                              loadingCircleManager.show(false);
-                              invalidate();
-                              requestFocus();
-                              popupMenuManager.showPopupAtSelection();
-
-                              post(
-                                  () -> {
-                                    requestFocus();
-                                    if (keyboardWasVisible) imeManager.showKeyboard();
-                                    InputMethodManager imm =
-                                        (InputMethodManager)
-                                            getContext()
-                                                .getSystemService(Context.INPUT_METHOD_SERVICE);
-                                    if (imm != null) imm.restartInput(SodiumEditorView.this);
-                                  });
-                            }));
-              };
-
-          if (isIndexDisabled) {
-            goToEndWithoutIndex.run();
-            return;
-          }
-
-          final int ticket = undoRedo.incrementEditVersion();
-          Runnable poll =
-              new Runnable() {
-                @Override
-                public void run() {
-                  if (ticket != undoRedo.getEditVersion()) return;
-
-                  // Important: if file became unavailable (e.g. cleared and switched to memory),
-                  // stop waiting to avoid infinite spinner.
-                  if (fileManager.getSourceFile() == null) {
-                    setDisable(false);
-                    loadingCircleManager.show(false);
-                    invalidate();
-                    popupMenuManager.showPopupAtSelection();
-                    if (keyboardWasVisible) imeManager.showKeyboard();
-                    return;
-                  }
-
-                  if (isIndexDisabled) {
-                    goToEndWithoutIndex.run();
-                  } else if (isIndexReady) {
-                    goToEndUsingIndex.run();
-                  } else {
-                    mainHandler.postDelayed(this, 80);
-                  }
-                }
-              };
-          mainHandler.post(poll);
-        });
+    selectionManager.selectAll(this);
   }
 
   public void actionSelectAll() {
@@ -3922,19 +2361,6 @@ public class SodiumEditorView extends View {
     undoRedo.recordEditNoUndo(op);
   }
 
-  private void recordReplaceSelectionEdit(
-      int sL,
-      int sC,
-      int eL,
-      int eC,
-      @Nullable String removedText,
-      @Nullable String insertText,
-      int beforeLine,
-      int beforeChar) {
-    undoRedo.recordReplaceSelectionEdit(
-        sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
-  }
-
   public void undo() {
     undoRedo.undo();
   }
@@ -3943,505 +2369,19 @@ public class SodiumEditorView extends View {
     undoRedo.redo();
   }
 
-  private void applyEditForUndoRedo(
-      int sL, int sC, int eL, int eC, String text, int cursorLine, int cursorChar) {
-    setSelectionInternal(sL, sC, eL, eC);
-    replaceSelectionWithText(text);
-    cursorManager.setPosition(cursorLine, cursorChar);
-    if (wordWrapManager.isWordWrapEnabled) {
-      wordWrapManager.invalidateWrapMetrics(this, true);
-      wordWrapManager.requestWrapPrefixRebuild(this);
-    }
-    lineNumberManager.invalidateCache();
-    invalidate();
-  }
-
-  void setSelectionInternal(int sL, int sC, int eL, int eC) {
-    int startL = sL, startC = sC, endL = eL, endC = eC;
-    if (comparePos(startL, startC, endL, endC) > 0) {
-      int tL = startL, tC = startC;
-      startL = endL;
-      startC = endC;
-      endL = tL;
-      endC = tC;
-    }
-    selectionManager.setSelection(
-        startL,
-        Math.max(0, startC),
-        endL,
-        Math.max(0, endC),
-        false);
-    selectionManager.setSelectAllState(false, false);
-    popupMenuManager.hidePopup();
-  }
-
   void updateComposingPendingOp(@Nullable String text, int beforeLine, int beforeChar) {
     undoRedo.updateComposingPendingOp(text, beforeLine, beforeChar);
   }
 
-  private String readRangeText(int sL, int sC, int eL, int eC) {
-    int startL = sL, startC = sC, endL = eL, endC = eC;
-    if (comparePos(startL, startC, endL, endC) > 0) {
-      int tL = startL, tC = startC;
-      startL = endL;
-      startC = endC;
-      endL = tL;
-      endC = tC;
-    }
-
-    if (startL >= windowStartLine && endL < windowStartLine + linesWindow.size()) {
-      StringBuilder sb = new StringBuilder();
-      for (int line = startL; line <= endL; line++) {
-        String ln = getLineFromWindowLocal(line - windowStartLine);
-        if (ln == null) ln = "";
-        int from = (line == startL) ? Math.min(startC, ln.length()) : 0;
-        int to = (line == endL) ? Math.min(endC, ln.length()) : ln.length();
-        if (from < to) sb.append(ln, from, to);
-        if (line < endL) sb.append('\n');
-      }
-      return sb.toString();
-    }
-
-    if (fileManager.getSourceFile() == null || !fileManager.getSourceFile().exists()) return "";
-    RangeBytes range = computeByteRangeFastOrScan(fileManager.getSourceFile(), startL, startC, endL, endC);
-    if (range == null) return "";
-    try (RandomAccessFile raf = new RandomAccessFile(fileManager.getSourceFile(), "r")) {
-      long len = raf.length();
-      long startByte = Math.max(0, Math.min(range.startByte, len));
-      long endByte = Math.max(0, Math.min(range.endByte, len));
-      if (endByte < startByte) {
-        long t = startByte;
-        startByte = endByte;
-        endByte = t;
-      }
-      int size = (int) Math.min(Integer.MAX_VALUE, endByte - startByte);
-      byte[] buf = new byte[size];
-      raf.seek(startByte);
-      raf.readFully(buf);
-      return new String(buf, fileManager.fileCharset);
-    } catch (Exception ignore) {
-      return "";
-    }
-  }
-
   void replaceSelectionWithText(String insertText) {
-    if (isReadOnly) return;
-    invalidatePendingIOForEdit();
-    final int opToken = undoRedo.incrementEditVersion();
-    autoSuggestionManager.clearActiveSuggestion(); // Clear suggestion when replacing selection
-
-    if (insertText == null) insertText = "";
-
-    if (!selectionManager.hasSelection()) {
-      if (!insertText.isEmpty()) cursorManager.insertTextAtCursor(insertText);
-      // No selection means no large edit UI was started for it.
-      autoSuggestionManager.updateSuggestion();
-      return;
-    }
-
-    // Normalize selection
-    int sL = selectionManager.selStartLine, sC = selectionManager.selStartChar, eL = selectionManager.selEndLine, eC = selectionManager.selEndChar;
-    if (comparePos(sL, sC, eL, eC) > 0) {
-      int tL = sL, tC = sC;
-      sL = eL;
-      sC = eC;
-      eL = tL;
-      eC = tC;
-    }
-    final int beforeLine = cursorManager.getLine();
-    final int beforeChar = cursorManager.getChar();
-    String removedText = null;
-    if (Math.abs(eL - sL) <= 5000) {
-      removedText = readRangeText(sL, sC, eL, eC);
-      if (removedText != null && removedText.length() > undoRedo.getUndoTextLimit()) {
-        removedText = null;
-      }
-    }
-    int removedNewlines = countNewlines(removedText);
-    if (removedText == null && eL >= sL) {
-      removedNewlines = Math.max(0, eL - sL);
-    }
-    int insertedNewlines = countNewlines(insertText);
-
-    final boolean selectAllLike =
-        selectionManager.isSelectAllActive() || selectionManager.isEntireFileSelected();
-    beginLargeEditUiIfNeeded(true, sL, eL, selectAllLike);
-
-    // This is the critical fix: The "Select All" path now correctly cleans up and finalizes the UI
-    // state.
-    if (selectAllLike) {
-      // Reset all data structures to represent an empty document.
-      synchronized (linesWindow) {
-        linesWindow.clear();
-        linesWindow.add("");
-        windowStartLine = 0;
-        isEof = true;
-      }
-      synchronized (modifiedLines) {
-        modifiedLines.clear();
-      }
-      synchronized (lineWidthCache) {
-        lineWidthCache.clear();
-      }
-    currentMaxWindowLineWidth = 0f;
-    globalMaxLineWidth = 0f;
-    scrollManager.maxLineWidthForScroll = 0f;
-    scrollManager.maxTextStartXForScroll = 0f;
-    scrollManager.maxScrollXForScroll = 0f;
-
-      // Transition to in-memory mode for cleared content.
-      fileManager.setFileCleared(true);
-      synchronized (fileManager.lineOffsetsLock) {
-        fileManager.setLineOffsets(new long[0]);
-      }
-      fileManager.isIndexReady = false;
-      fileManager.isIndexBuilding = false;
-      fileManager.isIndexDisabled = false;
-      fileManager.indexDisabledPath = null;
-      fileManager.indexDisabledFileLength = -1L;
-
-      // Reset cursor, selection, and scroll position.
-      cursorManager.setLineAndChar(0, 0);
-      selectionManager.setSelection(0, 0, 0, 0, false);
-      scrollManager.scrollY = 0;
-      scrollManager.scrollX = 0;
-      clearSelectionStateAfterDelete();
-
-      // Perform insertion if replacing text.
-      if (!insertText.isEmpty()) {
-        String[] newLines = insertText.split("\n", -1);
-        synchronized (linesWindow) {
-          linesWindow.set(0, newLines[0]);
-          for (int i = 1; i < newLines.length; i++) {
-            linesWindow.add(i, newLines[i]);
-          }
-        }
-        CursorTarget newPos = computeCursorAfterInsert(0, 0, insertText);
-        cursorManager.setLineAndChar(newPos.line, newPos.ch);
-      }
-
-      // Crucially, end the large edit UI and force a redraw.
-      wordWrapManager.onLineCountChanged(this);
-      endLargeEditUi(true);
-      recalculateMaxLineWidth();
-      scrollManager.keepCursorVisibleHorizontally();
-      requestLayout(); // Request layout to update gutter width after content cleared
-      autoSuggestionManager.updateSuggestion();
-      undoRedo.addLineCountDelta((insertedNewlines - removedNewlines));
-      recordReplaceSelectionEdit(sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
-      return;
-    }
-
-    // same line + no '\n' => window-only fast path
-    if (sL == eL && insertText.indexOf('\n') < 0) {
-      scrollManager.ensureLineInWindow(sL, true);
-      if (isWindowLoading && (sL < windowStartLine || sL >= windowStartLine + linesWindow.size())) {
-        final String txtFinal = insertText;
-        post(() -> replaceSelectionWithText(txtFinal));
-        return;
-      }
-
-      int local = sL - windowStartLine;
-      if (local >= 0 && local < linesWindow.size()) {
-        synchronized (linesWindow) {
-          String line = getLineFromWindowLocal(local);
-          if (line == null) line = "";
-
-          int a = Math.max(0, Math.min(sC, line.length()));
-          int b = Math.max(0, Math.min(eC, line.length()));
-          if (b < a) {
-            int t = a;
-            a = b;
-            b = t;
-          }
-
-          String merged = line.substring(0, a) + insertText + line.substring(b);
-          updateLocalLine(local, merged);
-          modifiedLines.put(sL, merged);
-
-          cursorManager.setLineAndChar(sL, a + insertText.length());
-
-          computeWidthForLine(sL, merged);
-          recalculateMaxLineWidth();
-        }
-      }
-
-      clearSelectionStateAfterDelete();
-      invalidate();
-      scrollManager.keepCursorVisibleHorizontally();
-      endLargeEditUi(false);
-      autoSuggestionManager.updateSuggestion();
-      undoRedo.addLineCountDelta((insertedNewlines - removedNewlines));
-      recordReplaceSelectionEdit(sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
-      return;
-    }
-
-    // multi-line or inserted text contains '\n'
-    final CursorTarget target = computeCursorAfterInsert(sL, sC, insertText);
-
-    // Optional immediate UI update if fully in window
-    boolean fullyInWindow = (sL >= windowStartLine) && (eL < windowStartLine + linesWindow.size());
-    if (fullyInWindow) {
-      applyMultiLineReplaceInWindowNow(sL, sC, eL, eC, insertText, target);
-    } else {
-      cursorManager.setLineAndChar(sL, sC);
-    }
-
-    clearSelectionStateAfterDelete();
-    scrollManager.keepCursorVisibleHorizontally(); // This scrolls to the new cursor and invalidates.
-    endLargeEditUi(false);
-
-    if (fileManager.getSourceFile() == null || fileManager.isFileCleared()) {
-      if (!fullyInWindow) {
-        scrollManager.ensureLineInWindow(sL, true);
-        scrollManager.ensureLineInWindow(eL, true);
-        applyMultiLineReplaceInWindowNow(sL, sC, eL, eC, insertText, target);
-      }
-      autoSuggestionManager.updateSuggestion();
-      undoRedo.addLineCountDelta((insertedNewlines - removedNewlines));
-      recordReplaceSelectionEdit(sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
-      return;
-    }
-
-    final File inFile = fileManager.getSourceFile();
-    // ابدأ إعادة كتابة الملف في الخلفية بدون تعطيل الواجهة وبدون دائرة تحميل.
-    rewriteReplaceRangeAsync(opToken, inFile, sL, sC, eL, eC, insertText, target, false);
-    autoSuggestionManager.updateSuggestion();
-    undoRedo.addLineCountDelta((insertedNewlines - removedNewlines));
-    recordReplaceSelectionEdit(sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
+    inputManager.replaceSelectionWithText(insertText);
   }
 
-  private void applyMultiLineReplaceInWindowNow(
-      int sL, int sC, int eL, int eC, String insertText, CursorTarget target) {
-    synchronized (linesWindow) {
-      int oldLineCount = getLinesCount();
-      int sLocal = sL - windowStartLine;
-      int eLocal = eL - windowStartLine;
-      if (sLocal < 0 || eLocal < 0 || sLocal >= linesWindow.size() || eLocal >= linesWindow.size())
-        return;
-      if (sLocal > eLocal) {
-        int t = sLocal;
-        sLocal = eLocal;
-        eLocal = t;
-      }
-
-      String startLine = linesWindow.get(sLocal);
-      String endLine = linesWindow.get(eLocal);
-      if (startLine == null) startLine = "";
-      if (endLine == null) endLine = "";
-
-      int startIdx = Math.max(0, Math.min(sC, startLine.length()));
-      int endIdx = Math.max(0, Math.min(eC, endLine.length()));
-
-      String left = startLine.substring(0, startIdx);
-      String right = endLine.substring(endIdx);
-
-      String mergedText = left + (insertText == null ? "" : insertText) + right;
-      String[] parts = mergedText.split("\n", -1);
-
-      linesWindow.set(sLocal, parts[0]);
-      if (eLocal >= sLocal + 1) {
-        linesWindow.subList(sLocal + 1, eLocal + 1).clear();
-      }
-
-      if (parts.length > 1) {
-        List<String> toInsert = new ArrayList<>(parts.length - 1);
-        for (int i = 1; i < parts.length; i++) toInsert.add(parts[i]);
-        linesWindow.addAll(sLocal + 1, toInsert);
-      }
-
-      cursorManager.setLineAndChar(Math.max(0, target.line), Math.max(0, target.ch));
-
-      int newLineCount = getLinesCount();
-      if (lineNumberManager.isShowLineNumbers()
-          && oldLineCount > 0
-          && String.valueOf(oldLineCount).length() != String.valueOf(newLineCount).length()) {
-        requestLayout();
-      }
-      wordWrapManager.onLineCountChanged(this);
-
-      recalculateMaxLineWidth();
-    }
+  private FileManager.RangeBytes computeByteRangeFastOrScan(File file, int sL, int sC, int eL, int eC) {
+    return fileManager.computeByteRangeFastOrScan(file, sL, sC, eL, eC);
   }
 
-  public void rewriteReplaceRangeAsync(
-      int opToken,
-      File inFile,
-      int sL,
-      int sC,
-      int eL,
-      int eC,
-      String insertText,
-      CursorTarget target,
-      boolean finishLargeEditUi) {
-    ioHandler.post(
-        () -> {
-          try {
-            if (inFile == null || !inFile.exists()) {
-              post(
-                  () -> {
-                    if (finishLargeEditUi) endLargeEditUi(true);
-                  });
-              return;
-            }
-
-            RangeBytes range = computeByteRangeFastOrScan(inFile, sL, sC, eL, eC);
-            if (range == null) {
-              post(
-                  () -> {
-                    if (finishLargeEditUi) endLargeEditUi(true);
-                  });
-              return;
-            }
-
-            File outFile = File.createTempFile("popedit_", ".tmp", getContext().getCacheDir());
-            byte[] insertBytes =
-                (insertText == null) ? new byte[0] : insertText.getBytes(StandardCharsets.UTF_8);
-
-            try (RandomAccessFile rafIn = new RandomAccessFile(inFile, "r");
-                FileChannel inCh = rafIn.getChannel();
-                RandomAccessFile rafOut = new RandomAccessFile(outFile, "rw");
-                FileChannel outCh = rafOut.getChannel()) {
-
-              long fileLen = rafIn.length();
-              long startByte = Math.max(0, Math.min(range.startByte, fileLen));
-              long endByte = Math.max(0, Math.min(range.endByte, fileLen));
-              if (endByte < startByte) {
-                long t = startByte;
-                startByte = endByte;
-                endByte = t;
-              }
-
-              transferRange(inCh, outCh, 0, startByte);
-
-              if (insertBytes.length > 0) {
-                outCh.write(ByteBuffer.wrap(insertBytes));
-              }
-
-              transferRange(inCh, outCh, endByte, fileLen - endByte);
-              outCh.force(true);
-            }
-
-            post(
-                () -> {
-                  if (opToken != undoRedo.getEditVersion()) return;
-
-                  invalidatePendingIO();
-
-                  if (inFile != null) {
-                    try (FileInputStream fis = new FileInputStream(outFile);
-                        java.io.FileOutputStream fos = new java.io.FileOutputStream(inFile)) {
-                      byte[] buf = new byte[8192];
-                      int r;
-                      while ((r = fis.read(buf)) > 0) {
-                        fos.write(buf, 0, r);
-                      }
-                      fos.flush();
-                    } catch (Exception ignore) {
-                    }
-                    outFile.delete();
-                    fileManager.updateSourceFile(inFile);
-                  } else {
-                    fileManager.updateSourceFile(outFile);
-                  }
-                  fileManager.setFileCleared(false);
-
-                  synchronized (modifiedLines) {
-                    modifiedLines.clear();
-                  }
-                  synchronized (lineWidthCache) {
-                    lineWidthCache.clear();
-                  }
-                  currentMaxWindowLineWidth = 0f;
-                  globalMaxLineWidth = 0f;
-                  scrollManager.maxLineWidthForScroll = 0f;
-                  scrollManager.maxTextStartXForScroll = 0f;
-                  scrollManager.maxScrollXForScroll = 0f;
-                  undoRedo.resetLineCountDelta();
-
-                  synchronized (lineOffsetsLock) {
-                    lineOffsets = new long[0];
-                  }
-                  fileManager.isIndexReady = false;
-                  fileManager.isIndexBuilding = false;
-                  fileManager.isIndexDisabled = false;
-                  fileManager.indexDisabledPath = null;
-                  fileManager.indexDisabledFileLength = -1L;
-                  fileManager.setEof(false);
-
-                  ioHandler.post(this::buildFileIndex);
-                  wordWrapManager.onLineCountChanged(this);
-
-                  cursorManager.setLineAndChar(Math.max(0, target.line), Math.max(0, target.ch));
-
-                  // لا تعمل "Reload" للنافذة بعد الحذف/الاستبدال إذا كانت النتيجة ضمن النافذة
-                  // الحالية.
-                  // هذا يمنع دائرة التحميل ويمنع القفز/الزمن الطويل مع الملفات الضخمة.
-                  boolean cursorInsideWindow =
-                      (cursorManager.getLine() >= windowStartLine
-                          && cursorManager.getLine() < windowStartLine + linesWindow.size());
-
-                  if (cursorInsideWindow) {
-                    // النافذة الحالية تم تعديلها مسبقاً (fast path)، فقط أعد حساب العرض وحدث الرسم.
-                    synchronized (linesWindow) {
-                      isEof = linesWindow.size() < windowSize + (prefetchLines * 2);
-                    }
-                    recalculateMaxLineWidth();
-                    requestFocus();
-                    InputMethodManager imm =
-                        (InputMethodManager)
-                            getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-                    if (imm != null) imm.restartInput(this);
-                    if (finishLargeEditUi) endLargeEditUi(false);
-                    invalidate();
-                  } else {
-                    int targetStart = Math.max(0, cursorManager.getLine() - prefetchLines);
-                    loadWindowAround(
-                        targetStart,
-                        () -> {
-                          String ln = getLineTextForRender(cursorManager.getLine());
-                          cursorManager.clampCharToLineLength(cursorManager.getLine());
-                          clampScrollY();
-                          scrollManager.keepCursorVisibleHorizontally();
-                          requestFocus();
-                          InputMethodManager imm =
-                              (InputMethodManager)
-                                  getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-                          if (imm != null) imm.restartInput(this);
-                          if (finishLargeEditUi) endLargeEditUi(false);
-                          invalidate();
-                        });
-                  }
-                });
-
-          } catch (Exception ex) {
-            ex.printStackTrace();
-            post(
-                () -> {
-                  if (finishLargeEditUi) endLargeEditUi(true);
-                });
-          }
-        });
-  }
-
-  private RangeBytes computeByteRangeFastOrScan(File file, int sL, int sC, int eL, int eC) {
-    if (comparePos(sL, sC, eL, eC) > 0) {
-      int tl = sL, tc = sC;
-      sL = eL;
-      sC = eC;
-      eL = tl;
-      eC = tc;
-    }
-
-    if (isIndexReady && file != null) {
-      RangeBytes fast = computeByteRangeUsingIndex(file, sL, sC, eL, eC);
-      if (fast != null) return fast;
-    }
-
-    return computeByteRangeByScanning(file, sL, sC, eL, eC);
-  }
-
-  RangeBytes computeByteRangeFastOrScanForUndo(File file, int sL, int sC, int eL, int eC) {
+  FileManager.RangeBytes computeByteRangeFastOrScanForUndo(File file, int sL, int sC, int eL, int eC) {
     return computeByteRangeFastOrScan(file, sL, sC, eL, eC);
   }
 
@@ -4450,236 +2390,29 @@ public class SodiumEditorView extends View {
   }
 
   void onUndoRedoRewriteSuccess(File inFile) {
-    fileManager.updateSourceFile(inFile);
-    synchronized (fileManager.lineOffsetsLock) {
-      fileManager.setLineOffsets(new long[0]);
-    }
-    fileManager.isIndexReady = false;
-    fileManager.isIndexBuilding = false;
-    fileManager.isIndexDisabled = false;
-    fileManager.indexDisabledPath = null;
-    fileManager.indexDisabledFileLength = -1L;
-    ioHandler.post(this::buildFileIndex);
+    fileManager.onUndoRedoRewriteSuccess(inFile);
   }
 
-  private RangeBytes computeByteRangeUsingIndex(File file, int sL, int sC, int eL, int eC) {
-    try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
-      long startLineByte, endLineByte;
-      synchronized (fileManager.lineOffsetsLock) {
-        if (!fileManager.isIndexReady()) return null;
-        if (sL < 0 || eL < 0) return null;
-        if (sL >= fileManager.getLineOffsets().length || eL >= fileManager.getLineOffsets().length) return null;
-        startLineByte = fileManager.getLineOffsets()[sL];
-        endLineByte = fileManager.getLineOffsets()[eL];
-      }
-
-      String startLineText = fileManager.readLineUtf8AtByte(raf, startLineByte);
-      String endLineText = (eL == sL) ? startLineText : fileManager.readLineUtf8AtByte(raf, endLineByte);
-
-      long startByte = startLineByte + fileManager.computeByteOffsetInLineUtf8(startLineText, sC);
-      long endByte = endLineByte + fileManager.computeByteOffsetInLineUtf8(endLineText, eC);
-
-      return new RangeBytes(startByte, endByte);
-    } catch (Exception ignore) {
-      return null;
-    }
-  }
-
-  private void applyMultiLineDeleteInWindowNow(int sL, int sC, int eL, int eC) {
-    synchronized (linesWindow) {
-      int oldLineCount = getLinesCount();
-      int sLocal = sL - windowStartLine;
-      int eLocal = eL - windowStartLine;
-      if (sLocal < 0 || eLocal >= linesWindow.size() || sLocal > eLocal) return;
-
-      String startLine = linesWindow.get(sLocal);
-      String endLine = linesWindow.get(eLocal);
-      if (startLine == null) startLine = "";
-      if (endLine == null) endLine = "";
-
-      int startIdx = Math.max(0, Math.min(sC, startLine.length()));
-      int endIdx = Math.max(0, Math.min(eC, endLine.length()));
-
-      String left = startLine.substring(0, startIdx);
-      String right = endLine.substring(endIdx);
-
-      String merged = left + right;
-
-      linesWindow.set(sLocal, merged);
-      if (eLocal > sLocal) {
-        linesWindow.subList(sLocal + 1, eLocal + 1).clear();
-      }
-
-      modifiedLines.put(windowStartLine + sLocal, merged);
-      for (int i = sLocal + 1; i < linesWindow.size(); i++) {
-        modifiedLines.put(windowStartLine + i, linesWindow.get(i));
-      }
-
-      cursorManager.setLineAndChar(sL, left.length());
-
-      recalculateMaxLineWidth();
-      int newLineCount = getLinesCount();
-      if (oldLineCount != newLineCount) {
-        wordWrapManager.onLineCountChanged(this);
-      }
-    }
-  }
-
-  private void clearSelectionStateAfterDelete() {
-    selectionManager.clearSelection();
-    popupMenuManager.hidePopup();
-    cursorAnimationManager.resetCursorBlink();
-  }
-
-  static final class RangeBytes {
-    final long startByte, endByte;
-
-    RangeBytes(long s, long e) {
-      startByte = s;
-      endByte = e;
-    }
-  }
-
-  private void transferRange(FileChannel inCh, FileChannel outCh, long position, long count)
-      throws Exception {
-    long remaining = count;
-    long pos = position;
-    while (remaining > 0) {
-      long sent = inCh.transferTo(pos, remaining, outCh);
-      if (sent <= 0) break;
-      pos += sent;
-      remaining -= sent;
-    }
-  }
-
-  private RangeBytes computeByteRangeByScanning(File file, int sL, int sC, int eL, int eC) {
-    if (comparePos(sL, sC, eL, eC) > 0) {
-      int tl = sL, tc = sC;
-      sL = eL;
-      sC = eC;
-      eL = tl;
-      eC = tc;
-    }
-
-    try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
-      long[] starts = findTwoLineStartBytesByScanning(raf, sL, eL);
-      long startLineByte = starts[0];
-      long endLineByte = starts[1];
-
-      String startLineText = readLineUtf8AtByte(raf, startLineByte);
-      String endLineText = (eL == sL) ? startLineText : readLineUtf8AtByte(raf, endLineByte);
-
-      long startByte = startLineByte + computeByteOffsetInLineUtf8(startLineText, sC);
-      long endByte = endLineByte + computeByteOffsetInLineUtf8(endLineText, eC);
-
-      return new RangeBytes(startByte, endByte);
-    } catch (Exception e) {
-      return null;
-    }
-  }
-
-  /**
-   * Fallback helper used when the line index is not ready. Returns the byte offset at which the
-   * given 0-based line starts. This scans the file sequentially (O(n)) so it should only be used
-   * for occasional operations like copy/cut when index isn't available.
-   */
   private long findLineStartByteByScanning(RandomAccessFile raf, int targetLine) throws Exception {
-    if (targetLine <= 0) return 0L;
-    long[] starts = findTwoLineStartBytesByScanning(raf, targetLine, targetLine);
-    return (starts != null && starts.length > 0) ? starts[0] : 0L;
-  }
-
-  private long[] findTwoLineStartBytesByScanning(RandomAccessFile raf, int lineA, int lineB)
-      throws Exception {
-    if (lineA < 0) lineA = 0;
-    if (lineB < 0) lineB = 0;
-
-    int a = Math.min(lineA, lineB);
-    int b = Math.max(lineA, lineB);
-
-    long offA = (a == 0) ? 0L : -1L;
-    long offB = (b == 0) ? 0L : -1L;
-
-    raf.seek(0);
-    byte[] buf = new byte[8192];
-    long pos = 0;
-    int line = 0;
-
-    while (true) {
-      int n = raf.read(buf);
-      if (n <= 0) break;
-
-      for (int i = 0; i < n; i++) {
-        if (buf[i] == '\n') {
-          line++;
-          long nextLineStart = pos + i + 1;
-
-          if (line == a && offA < 0) offA = nextLineStart;
-          if (line == b && offB < 0) offB = nextLineStart;
-
-          if (offA >= 0 && offB >= 0) {
-            if (lineA <= lineB) return new long[] {offA, offB};
-            return new long[] {offB, offA};
-          }
-        }
-      }
-      pos += n;
-    }
-
-    long len = raf.length();
-    if (offA < 0) offA = len;
-    if (offB < 0) offB = len;
-
-    if (lineA <= lineB) return new long[] {offA, offB};
-    return new long[] {offB, offA};
+    return fileManager.findLineStartByteByScanning(raf, targetLine);
   }
 
   String readLineUtf8AtByte(RandomAccessFile raf, long byteOffset) throws Exception {
     return fileManager.readLineUtf8AtByte(raf, byteOffset);
   }
 
-  private long getLineByteLengthFromIndex(RandomAccessFile raf, int line, long fileLen)
+  public long getLineByteLengthFromIndex(RandomAccessFile raf, int line, long fileLen)
       throws Exception {
-    long start;
-    long end;
-    synchronized (fileManager.lineOffsetsLock) {
-      if (line < 0 || line >= fileManager.getLineOffsets().length) return 0L;
-      start = fileManager.getLineOffsets()[line];
-      end = (line + 1 < fileManager.getLineOffsets().length) ? fileManager.getLineOffsets()[line + 1] : fileLen;
-    }
-    long len = Math.max(0L, end - start);
-    if (len <= 0L) return 0L;
-    if (line + 1 < fileManager.getLineOffsets().length) {
-      len -= 1L; // drop '\n'
-      if (len > 0L) {
-        raf.seek(Math.max(start, end - 2));
-        int last = raf.read();
-        if (last == '\r') {
-          len -= 1L; // drop '\r' in CRLF
-        }
-      }
-    }
-    return Math.max(0L, len);
+    return fileManager.getLineByteLengthFromIndex(raf, line, fileLen);
   }
 
-  private String readLineSliceAtByte(
+  public String readLineSliceAtByte(
       RandomAccessFile raf, long lineStart, long lineByteLen, int startChar, int endChar)
       throws Exception {
-    int safeStart = Math.max(0, Math.min(startChar, (int) Math.min(Integer.MAX_VALUE, lineByteLen)));
-    int safeEnd = Math.max(safeStart, Math.min(endChar, (int) Math.min(Integer.MAX_VALUE, lineByteLen)));
-    int len = safeEnd - safeStart;
-    if (len <= 0) return "";
-    long startByte = lineStart + safeStart;
-    raf.seek(startByte);
-    byte[] buf = new byte[len];
-    raf.readFully(buf);
-    if (binarySafeRenderingEnabled) {
-      return bytesToControlVisible(buf, buf.length);
-    }
-    return new String(buf, fileManager.fileCharset);
+    return fileManager.readLineSliceAtByte(raf, lineStart, lineByteLen, startChar, endChar);
   }
 
-  private static final class StreamedCharSlice {
+  public static final class StreamedCharSlice {
     final String text;
     final int length;
 
@@ -4689,72 +2422,10 @@ public class SodiumEditorView extends View {
     }
   }
 
-  private StreamedCharSlice readLineSliceByChars(
+  public StreamedCharSlice readLineSliceByChars(
       RandomAccessFile raf, long lineStart, int startChar, int endChar, boolean needTotalLength)
       throws Exception {
-    int safeStart = Math.max(0, startChar);
-    int safeEnd = Math.max(safeStart, endChar);
-    CharsetDecoder decoder = fileManager.fileCharset.newDecoder();
-    decoder.onMalformedInput(CodingErrorAction.REPLACE);
-    decoder.onUnmappableCharacter(CodingErrorAction.REPLACE);
-
-    StringBuilder sb = new StringBuilder(Math.max(0, safeEnd - safeStart));
-    byte[] buf = new byte[8192];
-    CharBuffer charBuf = CharBuffer.allocate(4096);
-    int charIndex = 0;
-    boolean done = false;
-    raf.seek(lineStart);
-
-    while (!done) {
-      int n = raf.read(buf);
-      if (n <= 0) break;
-
-      int limit = n;
-      boolean hitNewline = false;
-      for (int i = 0; i < n; i++) {
-        if (buf[i] == '\n') {
-          limit = i;
-          if (limit > 0 && buf[limit - 1] == '\r') limit -= 1;
-          hitNewline = true;
-          break;
-        }
-      }
-
-      ByteBuffer byteBuf = ByteBuffer.wrap(buf, 0, limit);
-      while (true) {
-        CoderResult cr = decoder.decode(byteBuf, charBuf, hitNewline);
-        charBuf.flip();
-        int remaining = charBuf.remaining();
-        for (int i = 0; i < remaining; i++) {
-          char c = charBuf.get();
-          if (charIndex >= safeStart && charIndex < safeEnd) {
-            sb.append(c);
-          }
-          charIndex++;
-        }
-        charBuf.clear();
-        if (!cr.isOverflow()) break;
-      }
-
-      if (hitNewline) {
-        done = true;
-      } else if (!needTotalLength && charIndex >= safeEnd) {
-        // We have enough chars for the slice; stop early if length isn't needed.
-        return new StreamedCharSlice(sb.toString(), -1);
-      }
-    }
-
-    decoder.flush(charBuf);
-    charBuf.flip();
-    while (charBuf.hasRemaining()) {
-      char c = charBuf.get();
-      if (charIndex >= safeStart && charIndex < safeEnd) {
-        sb.append(c);
-      }
-      charIndex++;
-    }
-
-    return new StreamedCharSlice(sb.toString(), charIndex);
+    return fileManager.readLineSliceByChars(raf, lineStart, startChar, endChar, needTotalLength);
   }
 
   private long computeByteOffsetInLineUtf8(String lineText, int charIndex) {
@@ -4765,211 +2436,32 @@ public class SodiumEditorView extends View {
     return viewRender.getCharIndexForX(text, x, globalLine);
   }
 
+  int getCharIndexForXPublic(String text, float x, int globalLine) {
+    return getCharIndexForX(text, x, globalLine);
+  }
+
   int[] computeWordBounds(String line, int pos) {
-    pos = Math.max(0, Math.min(pos, line.length()));
-    if (line.length() == 0) return new int[] {0, 0};
-    if (pos == line.length()) pos = Math.max(0, pos - 1);
-    if (Character.isWhitespace(line.charAt(pos))) {
-      int i = pos;
-      while (i < line.length() && Character.isWhitespace(line.charAt(i))) i++;
-      if (i >= line.length()) {
-        i = pos - 1;
-        while (i >= 0 && Character.isWhitespace(line.charAt(i))) i--;
-      }
-      if (i < 0) return new int[] {pos, pos};
-      pos = i;
-    }
-    int start = pos;
-    int end = pos;
-    while (start > 0 && !Character.isWhitespace(line.charAt(start - 1))) start--;
-    while (end < line.length() - 1 && !Character.isWhitespace(line.charAt(end + 1))) end++;
-    return new int[] {start, end + 1};
+    return viewRender.computeWordBounds(line, pos);
   }
 
   private boolean isWordChar(char c) {
-    return Character.isLetterOrDigit(c) || c == '_' || c == '$';
+    return viewRender.isWordChar(c);
   }
 
   private int[] computeWordBoundsSmart(String line, int pos) {
-    if (line == null || line.isEmpty()) return new int[] {0, 0};
-    int len = line.length();
-    int idx = Math.max(0, Math.min(pos, len - 1));
-    if (!isWordChar(line.charAt(idx))) {
-      if (idx > 0 && isWordChar(line.charAt(idx - 1))) {
-        idx = idx - 1;
-      } else if (idx + 1 < len && isWordChar(line.charAt(idx + 1))) {
-        idx = idx + 1;
-      } else {
-        return new int[] {idx, idx};
-      }
-    }
-    int start = idx;
-    int end = idx;
-    while (start > 0 && isWordChar(line.charAt(start - 1))) start--;
-    while (end < len - 1 && isWordChar(line.charAt(end + 1))) end++;
-    return new int[] {start, end + 1};
+    return viewRender.computeWordBoundsSmart(line, pos);
   }
 
-  private static final String[] CONTROL_TOKENS =
-      new String[] {
-        "<NUL>", "<SOH>", "<STX>", "<ETX>", "<EOT>", "<ENQ>", "<ACK>", "<BEL>",
-        "<BS>", "<TAB>", "<LF>", "<VT>", "<FF>", "<CR>", "<SO>", "<SI>",
-        "<DLE>", "<DC1>", "<DC2>", "<DC3>", "<DC4>", "<NAK>", "<SYN>", "<ETB>",
-        "<CAN>", "<EM>", "<SUB>", "<ESC>", "<FS>", "<GS>", "<RS>", "<US>"
-      };
-
-  private String bytesToControlVisible(byte[] buf, int len) {
-    if (len <= 0) return "";
-    StringBuilder sb = new StringBuilder(len * 2);
-    for (int i = 0; i < len; i++) {
-      int b = buf[i] & 0xFF;
-      if (b >= 0x20 && b <= 0x7E) {
-        sb.append((char) b);
-      } else if (b <= 0x1F) {
-        sb.append(CONTROL_TOKENS[b]);
-      } else if (b == 0x7F) {
-        sb.append("<DEL>");
-      } else {
-        sb.append("<0x");
-        String hx = Integer.toHexString(b).toUpperCase();
-        if (hx.length() < 2) sb.append('0');
-        sb.append(hx).append('>');
-      }
-    }
-    return sb.toString();
+  public String bytesToControlVisible(byte[] buf, int len) {
+    return fileManager.bytesToControlVisible(buf, len);
   }
 
   private boolean applySmartDoubleTapSelection(int line, int charIndex, String lineText) {
-    if (lineText == null) return false;
-    int[] bounds = computeWordBoundsSmart(lineText, charIndex);
-    ArrayList<TextRange> candidates =
-        buildDoubleTapCandidates(lineText, charIndex, bounds[0], bounds[1]);
-    if (candidates.isEmpty()) return false;
-
-    boolean sameAnchor =
-        line == lastDoubleTapLine
-            && bounds[0] == lastDoubleTapWordStart
-            && bounds[1] == lastDoubleTapWordEnd;
-    int currentIdx = findSelectionCandidateIndex(line, candidates);
-    int nextIdx;
-    if (sameAnchor) {
-      if (currentIdx >= 0) {
-        nextIdx = Math.min(currentIdx + 1, candidates.size() - 1);
-      } else {
-        nextIdx = Math.min(lastDoubleTapStage + 1, candidates.size() - 1);
-      }
-    } else {
-      nextIdx = 0;
-    }
-
-    TextRange pick = candidates.get(nextIdx);
-    selectionManager.setSelection(line, pick.start, line, pick.end, true);
-    selectionManager.setSelectAllState(false, false);
-    cursorManager.setLineAndChar(line, selectionManager.selEndChar);
-    lastDoubleTapLine = line;
-    lastDoubleTapWordStart = bounds[0];
-    lastDoubleTapWordEnd = bounds[1];
-    lastDoubleTapStage = nextIdx;
-    return true;
-  }
-
-  void cancelStretchRelease() {
-    if (scrollManager.stretchReleaseAnimator != null) {
-      scrollManager.stretchReleaseAnimator.cancel();
-      scrollManager.stretchReleaseAnimator = null;
-    }
-  }
-
-  void releaseStretch() {
-    if (!scrollManager.stretchOverscrollEnabled) return;
-    if (scrollManager.stretchX == 0f && scrollManager.stretchY == 0f) return;
-    cancelStretchRelease();
-    final float startX = scrollManager.stretchX;
-    final float startY = scrollManager.stretchY;
-    scrollManager.stretchReleaseAnimator = ValueAnimator.ofFloat(0f, 1f);
-    scrollManager.stretchReleaseAnimator.setDuration(220);
-    scrollManager.stretchReleaseAnimator.setInterpolator(new DecelerateInterpolator());
-    scrollManager.stretchReleaseAnimator.addUpdateListener(
-        a -> {
-          float t = (float) a.getAnimatedValue();
-          float inv = 1f - t;
-          scrollManager.stretchX = startX * inv;
-          scrollManager.stretchY = startY * inv;
-          if (scrollManager.stretchX == 0f) scrollManager.stretchDirX = 0;
-          if (scrollManager.stretchY == 0f) scrollManager.stretchDirY = 0;
-          invalidate();
-        });
-    scrollManager.stretchReleaseAnimator.addListener(
-        new AnimatorListenerAdapter() {
-          @Override
-          public void onAnimationEnd(Animator animation) {
-            scrollManager.stretchReleaseAnimator = null;
-            scrollManager.stretchX = 0f;
-            scrollManager.stretchY = 0f;
-            scrollManager.stretchDirX = 0;
-            scrollManager.stretchDirY = 0;
-          }
-
-          @Override
-          public void onAnimationCancel(Animator animation) {
-            scrollManager.stretchReleaseAnimator = null;
-          }
-        });
-    scrollManager.stretchReleaseAnimator.start();
-  }
-
-
-  void pullStretchX(float deltaPx, boolean toRight) {
-    if (!scrollManager.stretchOverscrollEnabled || wordWrapManager.isWordWrapEnabled) return;
-    if (getWidth() <= 0) return;
-    cancelStretchRelease();
-    float norm = Math.abs(deltaPx) / (float) getWidth();
-    float gain = norm * 0.6f * scrollManager.stretchOverscrollStrength;
-    scrollManager.stretchDirX = toRight ? 1 : -1;
-    scrollManager.stretchX = Math.min(1f, scrollManager.stretchX + gain);
-  }
-
-  void pullStretchY(float deltaPx, boolean toBottom) {
-    if (!scrollManager.stretchOverscrollEnabled) return;
-    if (getHeight() <= 0) return;
-    cancelStretchRelease();
-    float norm = Math.abs(deltaPx) / (float) getHeight();
-    float gain = norm * 0.6f * scrollManager.stretchOverscrollStrength;
-    scrollManager.stretchDirY = toBottom ? 1 : -1;
-    scrollManager.stretchY = Math.min(1f, scrollManager.stretchY + gain);
-  }
-
-
-  private void absorbStretchX(float velocityPxPerSec, boolean toRight) {
-    if (!scrollManager.stretchOverscrollEnabled || wordWrapManager.isWordWrapEnabled) return;
-    cancelStretchRelease();
-    float v = Math.min(1f, Math.abs(velocityPxPerSec) / 6000f);
-    scrollManager.stretchDirX = toRight ? 1 : -1;
-    scrollManager.stretchX = Math.min(1f, scrollManager.stretchX + v * 0.8f * scrollManager.stretchOverscrollStrength);
-  }
-
-  private void absorbStretchY(float velocityPxPerSec, boolean toBottom) {
-    if (!scrollManager.stretchOverscrollEnabled) return;
-    cancelStretchRelease();
-    float v = Math.min(1f, Math.abs(velocityPxPerSec) / 6000f);
-    scrollManager.stretchDirY = toBottom ? 1 : -1;
-    scrollManager.stretchY = Math.min(1f, scrollManager.stretchY + v * 0.8f * scrollManager.stretchOverscrollStrength);
+    return viewRender.applySmartDoubleTapSelection(line, charIndex, lineText);
   }
 
   private boolean isPositionInsideSelection(int line, int ch) {
-    if (!selectionManager.hasSelection()) return false;
-    int sL = selectionManager.selStartLine;
-    int sC = selectionManager.selStartChar;
-    int eL = selectionManager.selEndLine;
-    int eC = selectionManager.selEndChar;
-    if (comparePos(sL, sC, eL, eC) > 0) {
-      sL = selectionManager.selEndLine;
-      sC = selectionManager.selEndChar;
-      eL = selectionManager.selStartLine;
-      eC = selectionManager.selStartChar;
-    }
-    if (comparePos(line, ch, sL, sC) < 0) return false;
-    return comparePos(line, ch, eL, eC) <= 0;
+    return selectionManager.isPositionInsideSelection(line, ch);
   }
 
   public static final class TextRange {
@@ -4983,155 +2475,29 @@ public class SodiumEditorView extends View {
   }
 
   private void addSelectionCandidate(List<TextRange> out, int start, int end, int lineLen) {
-    if (out == null) return;
-    int s = Math.max(0, Math.min(start, lineLen));
-    int e = Math.max(0, Math.min(end, lineLen));
-    if (e <= s) return;
-    for (TextRange r : out) {
-      if (r.start == s && r.end == e) return;
-    }
-    out.add(new TextRange(s, e));
+    viewRender.addSelectionCandidate(out, start, end, lineLen);
   }
 
   private int findSelectionCandidateIndex(int line, List<TextRange> candidates) {
-    if (!selectionManager.hasSelection() || candidates == null || candidates.isEmpty()) return -1;
-    int sL = selectionManager.selStartLine;
-    int sC = selectionManager.selStartChar;
-    int eL = selectionManager.selEndLine;
-    int eC = selectionManager.selEndChar;
-    if (comparePos(sL, sC, eL, eC) > 0) {
-      sL = selectionManager.selEndLine;
-      sC = selectionManager.selEndChar;
-      eL = selectionManager.selStartLine;
-      eC = selectionManager.selStartChar;
-    }
-    if (sL != line || eL != line) return -1;
-    for (int i = 0; i < candidates.size(); i++) {
-      TextRange r = candidates.get(i);
-      if (r.start == sC && r.end == eC) return i;
-    }
-    return -1;
+    return viewRender.findSelectionCandidateIndex(line, candidates);
   }
 
   private ArrayList<TextRange> buildDoubleTapCandidates(String line, int charIndex, int wStart, int wEnd) {
-    ArrayList<TextRange> out = new ArrayList<>(6);
-    if (line == null) return out;
-    int len = line.length();
-    addSelectionCandidate(out, wStart, wEnd, len);
-
-    TextRange quote = findEnclosingQuoteRange(line, charIndex);
-    if (quote != null) {
-      addSelectionCandidate(out, quote.start + 1, quote.end, len);
-      addSelectionCandidate(out, quote.start, quote.end + 1, len);
-    }
-
-    TextRange bracket = findEnclosingBracketRange(line, charIndex);
-    if (bracket != null) {
-      addSelectionCandidate(out, bracket.start + 1, bracket.end, len);
-      addSelectionCandidate(out, bracket.start, bracket.end + 1, len);
-    }
-    return out;
+    return viewRender.buildDoubleTapCandidates(line, charIndex, wStart, wEnd);
   }
 
   private boolean isQuoteChar(char c) {
-    return c == '"' || c == '\'' || c == '`';
+    return viewRender.isQuoteChar(c);
   }
 
   @Nullable
   private TextRange findEnclosingQuoteRange(String line, int index) {
-    if (line == null || line.isEmpty()) return null;
-    int len = line.length();
-    if (index < 0 || index > len) return null;
-    ArrayList<TextRange> ranges = new ArrayList<>();
-    char current = 0;
-    int start = -1;
-    for (int i = 0; i < len; i++) {
-      char c = line.charAt(i);
-      if (current == 0) {
-        if (isQuoteChar(c) && !HighlightManager.isEscaped(line, i)) {
-          current = c;
-          start = i;
-        }
-      } else {
-        if (c == current && !HighlightManager.isEscaped(line, i)) {
-          ranges.add(new TextRange(start, i));
-          current = 0;
-          start = -1;
-        }
-      }
-    }
-    TextRange best = null;
-    int bestLen = Integer.MAX_VALUE;
-    for (TextRange r : ranges) {
-      if (index >= r.start && index <= r.end) {
-        int span = r.end - r.start;
-        if (span < bestLen) {
-          bestLen = span;
-          best = r;
-        }
-      }
-    }
-    return best;
+    return viewRender.findEnclosingQuoteRange(line, index);
   }
 
   @Nullable
   private TextRange findEnclosingBracketRange(String line, int index) {
-    if (line == null || line.isEmpty()) return null;
-    int len = line.length();
-    if (index < 0 || index > len) return null;
-    ArrayList<TextRange> ranges = new ArrayList<>();
-    int[] stackIdx = new int[Math.max(8, len / 4)];
-    char[] stackType = new char[stackIdx.length];
-    int sp = 0;
-    char currentQuote = 0;
-    for (int i = 0; i < len; i++) {
-      char c = line.charAt(i);
-      if (currentQuote != 0) {
-        if (c == currentQuote && !HighlightManager.isEscaped(line, i)) {
-          currentQuote = 0;
-        }
-        continue;
-      }
-      if (isQuoteChar(c) && !HighlightManager.isEscaped(line, i)) {
-        currentQuote = c;
-        continue;
-      }
-      if (c == '(' || c == '[' || c == '{') {
-        if (sp >= stackIdx.length) {
-          int newSize = stackIdx.length * 2;
-          int[] newIdx = new int[newSize];
-          char[] newType = new char[newSize];
-          System.arraycopy(stackIdx, 0, newIdx, 0, stackIdx.length);
-          System.arraycopy(stackType, 0, newType, 0, stackType.length);
-          stackIdx = newIdx;
-          stackType = newType;
-        }
-        stackIdx[sp] = i;
-        stackType[sp] = c;
-        sp++;
-        continue;
-      }
-      if (c == ')' || c == ']' || c == '}') {
-        char want = (c == ')') ? '(' : (c == ']') ? '[' : '{';
-        if (sp > 0 && stackType[sp - 1] == want) {
-          int start = stackIdx[sp - 1];
-          sp--;
-          ranges.add(new TextRange(start, i));
-        }
-      }
-    }
-    TextRange best = null;
-    int bestLen = Integer.MAX_VALUE;
-    for (TextRange r : ranges) {
-      if (index >= r.start && index <= r.end) {
-        int span = r.end - r.start;
-        if (span < bestLen) {
-          bestLen = span;
-          best = r;
-        }
-      }
-    }
-    return best;
+    return viewRender.findEnclosingBracketRange(line, index);
   }
 
   void insertTextAtCursor(String text) {
@@ -5139,37 +2505,16 @@ public class SodiumEditorView extends View {
   }
 
   BufferedReader reopenReaderAtStart() {
-    try {
-      if (readerForFile != null) {
-        try {
-          readerForFile.close();
-        } catch (Exception ignored) {
-        }
-        readerForFile = null;
-      }
-      if (fileManager.getSourceFile() != null) {
-        readerForFile =
-            new BufferedReader(new InputStreamReader(new FileInputStream(fileManager.getSourceFile()), fileManager.fileCharset));
-        return readerForFile;
-      }
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-    return null;
+    return fileManager.reopenReaderAtStart();
   }
 
 
   private void updateLocalLine(int localIdx, String text) {
-    if (localIdx >= 0 && localIdx < linesWindow.size()) {
-      linesWindow.set(localIdx, text);
-      wordWrapManager.onLineContentChanged(this, windowStartLine + localIdx, text);
-      clearStreamedLineInfo(windowStartLine + localIdx);
-    }
+    viewRender.updateLocalLine(localIdx, text);
   }
 
   String getLineFromWindowLocal(int localIdx) {
-    if (localIdx < 0 || localIdx >= linesWindow.size()) return null;
-    return linesWindow.get(localIdx);
+    return viewRender.getLineFromWindowLocal(localIdx);
   }
 
   private int getStreamLineThreshold() {
@@ -5217,31 +2562,7 @@ public class SodiumEditorView extends View {
   }
 
   void handleAutoPairing(String text) {
-    if (!isAutoPairingEnabled || text == null || text.length() == 0 || text.length() >= 100) return;
-
-    char c = text.charAt(text.length() - 1);
-    String closing = null;
-    if (c == '(') closing = ")";
-    else if (c == '{') closing = "}";
-    else if (c == '[') closing = "]";
-    else if (c == '"') closing = "\"";
-    else if (c == '\'') closing = "'";
-    else if (c == '`') closing = "`";
-    else if (c == '*') {
-      if (cursorManager.getChar() >= 2) {
-        String ln = getLineTextForRender(cursorManager.getLine());
-        if (ln != null && ln.length() >= cursorManager.getChar() && ln.charAt(cursorManager.getChar() - 2) == '/') {
-          closing = "*/";
-        }
-      }
-    }
-
-    if (closing != null) {
-      cursorManager.insertTextAtCursor(closing);
-      for (int i = 0; i < closing.length(); i++) {
-        cursorManager.moveCursorLeft();
-      }
-    }
+    inputManager.handleAutoPairing(text);
   }
 
   @Override
@@ -5307,6 +2628,21 @@ public class SodiumEditorView extends View {
     return viewRender.buildIndexJava(path);
   }
 
+  public void buildFileIndex() {
+    fileManager.buildFileIndex();
+  }
+
+  public void recalculateMaxLineWidth() {
+    viewRender.recalculateMaxLineWidth();
+  }
+
+  public void recalculateMaxLineWidthAsync() {
+    viewRender.recalculateMaxLineWidthAsync();
+  }
+
+  public void invalidatePendingIO() {
+    invalidatePendingIOForEdit();
+  }
 
   public String getLineTextForRender(int line) {
     return viewRender.getLineTextForRender(line);
@@ -5323,29 +2659,15 @@ public class SodiumEditorView extends View {
   }
 
   boolean isOpeningBracket(char c) {
-    return c == '{' || c == '(' || c == '[';
+    return BracketMatchManager.isOpeningBracket(c);
   }
 
   char matchingBracket(char c) {
-    if (c == '{') return '}';
-    if (c == '(') return ')';
-    if (c == '[') return ']';
-    if (c == '}') return '{';
-    if (c == ')') return '(';
-    if (c == ']') return '[';
-    return c;
+    return BracketMatchManager.matchingBracket(c);
   }
 
   public void populateDirectLinesForRange(int startLine, int endLine, java.util.Map<Integer, String> direct) {
-    if (direct == null) return;
-    int s = Math.max(0, Math.min(startLine, endLine));
-    int e = Math.max(startLine, endLine);
-    for (int line = s; line <= e; line++) {
-      if (direct.containsKey(line)) continue;
-      String text = getLineTextForRender(line);
-      if (text == null) text = "";
-      direct.put(line, text);
-    }
+    viewRender.populateDirectLinesForRange(startLine, endLine, direct);
   }
 
   
@@ -5354,9 +2676,7 @@ public class SodiumEditorView extends View {
   }
 
   public int mapVisibleIndexToGlobal(int visibleIndex) {
-    int total = getLinesCount();
-    if (total <= 0) total = windowStartLine + linesWindow.size();
-    return foldManager.mapVisibleIndexToGlobal(visibleIndex, total);
+    return foldManager.mapVisibleIndexToGlobal(visibleIndex, getLinesCount());
   }
 
   public int getVisibleIndexForGlobalLine(int globalLine) {
@@ -5364,16 +2684,7 @@ public class SodiumEditorView extends View {
   }
 
   int getVisualIndexForLineAndChar(int line, int ch) {
-    if (!wordWrapManager.isWrapMetricsUsableForLine(this, line)) {
-      if (foldManager.isCodeFoldingEnabled) return getVisibleIndexForGlobalLine(line);
-      return Math.max(0, line);
-    }
-    int totalLines = wordWrapManager.wrapLinePrefix.length - 1;
-    int safeLine = Math.max(0, Math.min(line, Math.max(0, totalLines - 1)));
-    String text = getLineTextForRender(safeLine);
-    int[] starts = wordWrapManager.getWrapStartsForLine(this, safeLine, text);
-    int seg = wordWrapManager.getWrapSegmentIndexForChar(starts, Math.max(0, Math.min(ch, text.length())));
-    return wordWrapManager.wrapLinePrefix[safeLine] + seg;
+    return viewRender.getVisualIndexForLineAndChar(line, ch);
   }
 
   public int getLinesCount() {
@@ -5454,5 +2765,21 @@ public class SodiumEditorView extends View {
 
   public boolean superOnTouchEventPublic(MotionEvent event) {
     return super.onTouchEvent(event);
+  }
+
+  public int getGoToLineVersion() {
+    return goToLineVersion.get();
+  }
+
+  public int getCopyCutMaxChars() {
+    return copyCutMaxChars;
+  }
+
+  public long getCopyCutMaxLines() {
+    return copyCutMaxLines;
+  }
+
+  public long findLineStartByteByScanningPublic(RandomAccessFile raf, int targetLine) throws Exception {
+    return findLineStartByteByScanning(raf, targetLine);
   }
 }

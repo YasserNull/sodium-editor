@@ -629,7 +629,7 @@ final class UndoRedo {
       File inFile, int sL, int sC, int eL, int eC, @Nullable String insertText) {
     if (inFile == null || !inFile.exists()) return false;
     try {
-      SodiumEditorView.RangeBytes range = view.computeByteRangeFastOrScanForUndo(inFile, sL, sC, eL, eC);
+      FileManager.RangeBytes range = view.fileManager.computeByteRangeFastOrScanForUndo(inFile, sL, sC, eL, eC);
       if (range == null) return false;
       byte[] insertBytes =
           (insertText == null) ? new byte[0] : insertText.getBytes(StandardCharsets.UTF_8);

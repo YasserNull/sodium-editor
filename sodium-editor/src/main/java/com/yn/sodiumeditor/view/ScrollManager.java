@@ -138,7 +138,7 @@ public final class ScrollManager {
         scrollerIsScrolling = false;
         showScrollBar();
         if (stretchOverscrollEnabled) {
-          view.releaseStretch();
+          releaseStretch();
         }
         if (flingBounceEnabled) {
           int maxX = Math.round(getMaxScrollXForClamp());
@@ -282,18 +282,18 @@ public final class ScrollManager {
     if (stretchOverscrollEnabled) {
       if (!view.wordWrapManager.isWordWrapEnabled) {
         if (nextX < 0f && dx < 0f) {
-          view.pullStretchX(dx, false);
+          pullStretchX(dx, false);
           nextX = 0f;
         } else if (nextX > maxX && dx > 0f) {
-          view.pullStretchX(dx, true);
+          pullStretchX(dx, true);
           nextX = maxX;
         }
       }
       if (nextY < 0f && dy < 0f) {
-        view.pullStretchY(dy, false);
+        pullStretchY(dy, false);
         nextY = 0f;
       } else if (nextY > maxY && dy > 0f) {
-        view.pullStretchY(dy, true);
+        pullStretchY(dy, true);
         nextY = maxY;
       }
     } else {
@@ -730,7 +730,7 @@ public final class ScrollManager {
       stretchY = 0f;
       stretchDirX = 0;
       stretchDirY = 0;
-      view.cancelStretchRelease();
+      cancelStretchRelease();
       view.invalidate();
     }
   }
@@ -763,5 +763,95 @@ public final class ScrollManager {
 
   private float getBottomBarrierPaddingInternal() {
     return SodiumEditorView.BOTTOM_SCROLL_OFFSET;
+  }
+
+  void cancelStretchRelease() {
+    if (stretchReleaseAnimator != null) {
+      stretchReleaseAnimator.cancel();
+      stretchReleaseAnimator = null;
+    }
+  }
+
+  void releaseStretch() {
+    if (!stretchOverscrollEnabled) return;
+    if (stretchX == 0f && stretchY == 0f) return;
+    cancelStretchRelease();
+    final float startX = stretchX;
+    final float startY = stretchY;
+    stretchReleaseAnimator = ValueAnimator.ofFloat(0f, 1f);
+    stretchReleaseAnimator.setDuration(220);
+    stretchReleaseAnimator.setInterpolator(new DecelerateInterpolator());
+    stretchReleaseAnimator.addUpdateListener(
+        a -> {
+          float t = (float) a.getAnimatedValue();
+          float inv = 1f - t;
+          stretchX = startX * inv;
+          stretchY = startY * inv;
+          if (stretchX == 0f) stretchDirX = 0;
+          if (stretchY == 0f) stretchDirY = 0;
+          view.invalidate();
+        });
+    stretchReleaseAnimator.addListener(
+        new AnimatorListenerAdapter() {
+          @Override
+          public void onAnimationEnd(Animator animation) {
+            stretchReleaseAnimator = null;
+            stretchX = 0f;
+            stretchY = 0f;
+            stretchDirX = 0;
+            stretchDirY = 0;
+          }
+
+          @Override
+          public void onAnimationCancel(Animator animation) {
+            stretchReleaseAnimator = null;
+          }
+        });
+    stretchReleaseAnimator.start();
+  }
+
+  void pullStretchX(float deltaPx, boolean toRight) {
+    if (!stretchOverscrollEnabled || view.wordWrapManager.isWordWrapEnabled) return;
+    if (view.getWidth() <= 0) return;
+    cancelStretchRelease();
+    float norm = Math.abs(deltaPx) / (float) view.getWidth();
+    float gain = norm * 0.6f * stretchOverscrollStrength;
+    stretchDirX = toRight ? 1 : -1;
+    stretchX = Math.min(1f, stretchX + gain);
+  }
+
+  void pullStretchY(float deltaPx, boolean toBottom) {
+    if (!stretchOverscrollEnabled) return;
+    if (view.getHeight() <= 0) return;
+    cancelStretchRelease();
+    float norm = Math.abs(deltaPx) / (float) view.getHeight();
+    float gain = norm * 0.6f * stretchOverscrollStrength;
+    stretchDirY = toBottom ? 1 : -1;
+    stretchY = Math.min(1f, stretchY + gain);
+  }
+
+  void absorbStretchX(float velocityPxPerSec, boolean toRight) {
+    if (!stretchOverscrollEnabled || view.wordWrapManager.isWordWrapEnabled) return;
+    cancelStretchRelease();
+    float v = Math.min(1f, Math.abs(velocityPxPerSec) / 6000f);
+    stretchDirX = toRight ? 1 : -1;
+    stretchX = Math.min(1f, stretchX + v * 0.8f * stretchOverscrollStrength);
+  }
+
+  void absorbStretchY(float velocityPxPerSec, boolean toBottom) {
+    if (!stretchOverscrollEnabled) return;
+    cancelStretchRelease();
+    float v = Math.min(1f, Math.abs(velocityPxPerSec) / 6000f);
+    stretchDirY = toBottom ? 1 : -1;
+    stretchY = Math.min(1f, stretchY + v * 0.8f * stretchOverscrollStrength);
+  }
+
+  void abortScroller() {
+    if (!scroller.isFinished()) {
+      scroller.computeScrollOffset();
+      scrollX = scroller.getCurrX();
+      scrollY = scroller.getCurrY();
+      scroller.abortAnimation();
+    }
   }
 }
