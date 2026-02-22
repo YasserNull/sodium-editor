@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor;
 
 import android.util.Log;
 import androidx.annotation.Nullable;
@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-final class UndoRedo {
+public final class UndoRedo {
   private static final int UNDO_STACK_LIMIT = 200;
   private static final int UNDO_TEXT_LIMIT = 1_000_000;
 
@@ -32,31 +32,31 @@ final class UndoRedo {
     this.view = view;
   }
 
-  static final class EditOp {
-    int startLine;
-    int startChar;
-    int endLine;
-    int endChar;
-    int insertedEndLine;
-    int insertedEndChar;
-    String removedText;
-    String insertedText;
-    int cursorLineBefore;
-    int cursorCharBefore;
-    int cursorLineAfter;
-    int cursorCharAfter;
-    long timestamp;
+  public static final class EditOp {
+    public int startLine;
+    public int startChar;
+    public int endLine;
+    public int endChar;
+    public int insertedEndLine;
+    public int insertedEndChar;
+    public String removedText;
+    public String insertedText;
+    public int cursorLineBefore;
+    public int cursorCharBefore;
+    public int cursorLineAfter;
+    public int cursorCharAfter;
+    public long timestamp;
   }
 
-  int getEditVersion() {
-    return editVersion.get();
-  }
-
-  int getUndoTextLimit() {
+  public int getUndoTextLimit() {
     return UNDO_TEXT_LIMIT;
   }
 
-  int incrementEditVersion() {
+  public int getEditVersion() {
+    return editVersion.get();
+  }
+
+  public int incrementEditVersion() {
     return editVersion.incrementAndGet();
   }
 
@@ -72,7 +72,7 @@ final class UndoRedo {
     lineCountDelta = value;
   }
 
-  void addLineCountDelta(int delta) {
+  public void addLineCountDelta(int delta) {
     lineCountDelta += delta;
   }
 

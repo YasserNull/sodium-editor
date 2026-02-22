@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -16,50 +16,50 @@ public final class ScrollManager {
   public static final int SCROLL_MODE_GRID = 1;
   public static final int SCROLL_MODE_FREE = 2;
   private final SodiumEditorView view;
-  float scrollY = 0f;
-  float scrollX = 0f;
-  float maxLineWidthForScroll = 0f;
-  float maxTextStartXForScroll = 0f;
-  float maxScrollXForScroll = 0f;
-  float dragMaxScrollX = -1f;
-  final OverScroller scroller;
-  boolean scrollerIsScrolling = false;
-  float autoScrollX = 0f;
-  float autoScrollY = 0f;
-  int scrollMode = SCROLL_MODE_FREE;
-  float scrollSensitivity = 1f;
-  float flingSensitivity = 1f;
-  boolean flingBounceEnabled = false;
-  int flingBounceOverScrollPx = -1;
-  float flingBounceOverScrollFactor = 0.2f;
-  boolean stretchOverscrollEnabled = false;
-  float stretchOverscrollStrength = 1f;
-  float stretchX = 0f;
-  float stretchY = 0f;
-  int stretchDirX = 0;
-  int stretchDirY = 0;
+  public float scrollY = 0f;
+  public float scrollX = 0f;
+  public float maxLineWidthForScroll = 0f;
+  public float maxTextStartXForScroll = 0f;
+  public float maxScrollXForScroll = 0f;
+  public float dragMaxScrollX = -1f;
+  public final OverScroller scroller;
+  public boolean scrollerIsScrolling = false;
+  public float autoScrollX = 0f;
+  public float autoScrollY = 0f;
+  public int scrollMode = SCROLL_MODE_FREE;
+  public float scrollSensitivity = 1f;
+  public float flingSensitivity = 1f;
+  public boolean flingBounceEnabled = false;
+  public int flingBounceOverScrollPx = -1;
+  public float flingBounceOverScrollFactor = 0.2f;
+  public boolean stretchOverscrollEnabled = false;
+  public float stretchOverscrollStrength = 1f;
+  public float stretchX = 0f;
+  public float stretchY = 0f;
+  public int stretchDirX = 0;
+  public int stretchDirY = 0;
   @Nullable ValueAnimator stretchReleaseAnimator;
-  int scrollLockAxis = 0;
+  public int scrollLockAxis = 0;
 
-  boolean scrollBarEnabled = true;
-  int scrollBarColor = 0x80FFFFFF;
-  float scrollBarWidthPx = 6f;
-  float scrollBarMinThumbPx = 24f;
-  float scrollBarCornerRadiusPx = 6f;
-  float scrollBarMarginPx = 2f;
-  boolean scrollBarFadeEnabled = true;
-  long scrollBarFadeDelayMs = 1000;
-  long scrollBarFadeDurationMs = 200;
-  float scrollBarAlpha = 0f;
-  int scrollBarHaloColor = 0x40FFFFFF;
-  float scrollBarHaloSizePx = 8f;
+  public boolean scrollBarEnabled = true;
+  public int scrollBarColor = 0x80FFFFFF;
+  public float scrollBarWidthPx = 6f;
+  public float scrollBarMinThumbPx = 24f;
+  public float scrollBarCornerRadiusPx = 6f;
+  public float scrollBarMarginPx = 2f;
+  public boolean scrollBarFadeEnabled = true;
+  public long scrollBarFadeDelayMs = 1000;
+  public long scrollBarFadeDurationMs = 200;
+  public float scrollBarAlpha = 0f;
+  public int scrollBarHaloColor = 0x40FFFFFF;
+  public float scrollBarHaloSizePx = 8f;
   @Nullable ValueAnimator scrollBarFadeAnimator;
-  final Runnable scrollBarHideRunnable;
-  final Paint scrollBarPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  final Paint scrollBarHaloPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  final RectF scrollBarThumbRect = new RectF();
-  boolean draggingScrollBar = false;
-  float scrollBarDragOffset = 0f;
+  public final Runnable scrollBarHideRunnable;
+  public final Paint scrollBarPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+  public final Paint scrollBarHaloPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+  public final RectF scrollBarThumbRect = new RectF();
+  public boolean draggingScrollBar = false;
+  public float scrollBarDragOffset = 0f;
 
   ScrollManager(SodiumEditorView view) {
     this.view = view;
@@ -164,7 +164,7 @@ public final class ScrollManager {
     }
   }
 
-  boolean onFling(float velocityX, float velocityY) {
+  public boolean onFling(float velocityX, float velocityY) {
     if (view.zoomManager.isScaling() || view.zoomManager.isScaleInProgress()) return true;
     if (view.zoomManager.isJustFinishedScale()) return true;
     if (view.wordWrapManager.isWordWrapEnabled && view.wordWrapManager.wrapPrefixBuilding) {
@@ -237,7 +237,7 @@ public final class ScrollManager {
     return true;
   }
 
-  boolean onScroll(MotionEvent e2, float distanceX, float distanceY) {
+  public boolean onScroll(MotionEvent e2, float distanceX, float distanceY) {
     if (e2.getPointerCount() > 1) return true;
     if (view.zoomManager.isScaling() || view.zoomManager.isScaleInProgress()) return true;
     if (view.zoomManager.isJustFinishedScale()) return true;
@@ -336,7 +336,7 @@ public final class ScrollManager {
     return Math.max(24, Math.round(view.getHeight() * flingBounceOverScrollFactor));
   }
 
-  float getMaxScrollYForClamp() {
+  public float getMaxScrollYForClamp() {
     if (view.wordWrapManager.isWordWrapEnabled
         && !view.wordWrapManager.wrapMetricsReady
         && (view.zoomManager.isScaling() || view.zoomManager.isJustFinishedScale())) {
@@ -364,7 +364,7 @@ public final class ScrollManager {
     return Math.max(0f, lineCount * view.lineHeight + virtualExtraSpace - effectiveHeight);
   }
 
-  void clampScrollY() {
+  public void clampScrollY() {
     if (!view.wordWrapManager.isWordWrapEnabled && view.isWindowLoading && scrollY < view.windowStartLine * view.lineHeight) {
       boolean allowAboveWindow = scrollerIsScrolling || view.flingStopAnimator != null;
       if (!allowAboveWindow) {
@@ -389,7 +389,7 @@ public final class ScrollManager {
     }
   }
 
-  float getMaxScrollXForClamp() {
+  public float getMaxScrollXForClamp() {
     if (view.wordWrapManager.isWordWrapEnabled) return 0f;
     float rawMaxWidth = getMaxLineWidthInWindowInternal();
     if (rawMaxWidth > maxLineWidthForScroll) {
@@ -407,7 +407,7 @@ public final class ScrollManager {
     return maxScrollXForScroll;
   }
 
-  void clampScrollX() {
+  public void clampScrollX() {
     if (view.wordWrapManager.isWordWrapEnabled) {
       scrollX = 0f;
       return;
@@ -468,7 +468,7 @@ public final class ScrollManager {
         scrollBarPaint);
   }
 
-  void showScrollBar() {
+  public void showScrollBar() {
     if (!scrollBarEnabled) return;
     if (!scrollBarFadeEnabled) {
       scrollBarAlpha = 1f;
@@ -481,7 +481,7 @@ public final class ScrollManager {
     view.mainHandler.postDelayed(scrollBarHideRunnable, scrollBarFadeDelayMs);
   }
 
-  void startScrollBarFadeOut() {
+  public void startScrollBarFadeOut() {
     if (!scrollBarFadeEnabled || draggingScrollBar) return;
     cancelScrollBarFade();
     final float start = scrollBarAlpha;
@@ -517,7 +517,7 @@ public final class ScrollManager {
     }
   }
 
-  void keepCursorVisibleHorizontally() {
+  public void keepCursorVisibleHorizontally() {
     if (view.zoomManager.isScaleInProgress()
         || view.zoomManager.isScaling()
         || view.zoomManager.isMultiTouchActive()) {
@@ -594,7 +594,7 @@ public final class ScrollManager {
     clampScrollY();
   }
 
-  float getDrawLineTop(int globalLine) {
+  public float getDrawLineTop(int globalLine) {
     int drawIndex = globalLine;
     if (view.foldManager.isCodeFoldingEnabled) {
       drawIndex = view.getVisibleIndexForGlobalLine(globalLine);
@@ -606,13 +606,13 @@ public final class ScrollManager {
     return getDrawLineTop(globalLine) + view.lineHeight;
   }
 
-  float getHitTestBaseY() {
+  public float getHitTestBaseY() {
     int baseLine = (int) (scrollY / view.lineHeight);
     if (baseLine < 0) baseLine = 0;
     return baseLine * view.lineHeight;
   }
 
-  void ensureLineInWindow(int globalLine, boolean blockingIfAbsent) {
+  public void ensureLineInWindow(int globalLine, boolean blockingIfAbsent) {
     view.autoSuggestionManager.clearActiveSuggestion();
     if (globalLine >= view.windowStartLine
         && globalLine < view.windowStartLine + view.linesWindow.size()) return;
@@ -846,7 +846,7 @@ public final class ScrollManager {
     stretchY = Math.min(1f, stretchY + v * 0.8f * stretchOverscrollStrength);
   }
 
-  void abortScroller() {
+  public void abortScroller() {
     if (!scroller.isFinished()) {
       scroller.computeScrollOffset();
       scrollX = scroller.getCurrX();

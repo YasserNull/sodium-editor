@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -15,11 +15,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class PopupMenuManager {
-  static final int POPUP_ACTION_COPY = 1;
-  static final int POPUP_ACTION_CUT = 2;
-  static final int POPUP_ACTION_PASTE = 3;
-  static final int POPUP_ACTION_DELETE = 4;
-  static final int POPUP_ACTION_SELECT_ALL = 5;
+  public static final int POPUP_ACTION_COPY = 1;
+  public static final int POPUP_ACTION_CUT = 2;
+  public static final int POPUP_ACTION_PASTE = 3;
+  public static final int POPUP_ACTION_DELETE = 4;
+  public static final int POPUP_ACTION_SELECT_ALL = 5;
   private static final long POPUP_FADE_IN_MS = 140;
   private static final long POPUP_FADE_OUT_MS = 110;
 
@@ -160,11 +160,11 @@ public final class PopupMenuManager {
     }
   }
 
-  void setPendingPopupAfterDoubleTap(boolean pending) {
+  public void setPendingPopupAfterDoubleTap(boolean pending) {
     pendingPopupAfterDoubleTap = pending;
   }
 
-  boolean isPendingPopupAfterDoubleTap() {
+  public boolean isPendingPopupAfterDoubleTap() {
     return pendingPopupAfterDoubleTap;
   }
 
@@ -329,7 +329,7 @@ public final class PopupMenuManager {
     popupTextPaint.setAlpha(textBaseAlpha);
   }
 
-  int getPopupActionAt(float x, float y) {
+  public int getPopupActionAt(float x, float y) {
     if (btnCopyRect.contains(x, y)) return POPUP_ACTION_COPY;
     if (btnCutRect.contains(x, y)) return POPUP_ACTION_CUT;
     if (btnPasteRect.contains(x, y)) return POPUP_ACTION_PASTE;
@@ -338,7 +338,7 @@ public final class PopupMenuManager {
     return 0;
   }
 
-  void startPopupRipple(int action, float x, float y) {
+  public void startPopupRipple(int action, float x, float y) {
     RectF r = getPopupRectForAction(action);
     if (r.isEmpty()) return;
     popupRippleHoldActive = false;
@@ -381,7 +381,7 @@ public final class PopupMenuManager {
     popupRippleAnimator.start();
   }
 
-  void startPopupRippleHold(int action, float x, float y) {
+  public void startPopupRippleHold(int action, float x, float y) {
     RectF r = getPopupRectForAction(action);
     if (r.isEmpty()) return;
     popupRippleHoldActive = true;
@@ -396,7 +396,7 @@ public final class PopupMenuManager {
     view.invalidate();
   }
 
-  void cancelPopupRipple() {
+  public void cancelPopupRipple() {
     if (popupRippleAnimator != null) popupRippleAnimator.cancel();
     popupRippleHoldActive = false;
     popupRippleActive = false;
@@ -411,37 +411,37 @@ public final class PopupMenuManager {
     showPopupAnimated();
   }
 
-  void showPopupAtSelection() {
+  public void showPopupAtSelection() {
     if (!view.selectionManager.hasSelection()) return;
     isMinimalPopup = false;
     showPopupAnimated();
   }
 
-  void hidePopup() {
+  public void hidePopup() {
     hidePopupAnimated();
   }
 
-  boolean isPopupRippleHoldActive() {
+  public boolean isPopupRippleHoldActive() {
     return popupRippleHoldActive;
   }
 
-  boolean isPopupVisible() {
+  public boolean isPopupVisible() {
     return showPopup;
   }
 
-  int getPressedAction() {
+  public int getPressedAction() {
     return popupPressedAction;
   }
 
-  void setPressedAction(int action) {
+  public void setPressedAction(int action) {
     popupPressedAction = action;
   }
 
-  void clearPressedAction() {
+  public void clearPressedAction() {
     popupPressedAction = 0;
   }
 
-  RectF getPopupRectForAction(int action) {
+  public RectF getPopupRectForAction(int action) {
     switch (action) {
       case POPUP_ACTION_COPY:
         return btnCopyRect;
@@ -456,7 +456,7 @@ public final class PopupMenuManager {
     }
   }
 
-  void performPopupAction(int action) {
+  public void performPopupAction(int action) {
     switch (action) {
       case POPUP_ACTION_COPY:
         view.copySelectionToClipboard();

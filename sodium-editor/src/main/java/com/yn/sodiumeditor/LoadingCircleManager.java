@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor;
 
 import android.animation.ValueAnimator;
 import android.graphics.Canvas;

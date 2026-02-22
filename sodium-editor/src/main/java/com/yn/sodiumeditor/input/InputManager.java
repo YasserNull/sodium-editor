@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor.input;
 
 import android.content.Context;
 import android.graphics.RectF;
@@ -8,12 +8,13 @@ import android.view.GestureDetector;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.animation.ValueAnimator; // Added for ValueAnimator type
+import com.yn.sodiumeditor.*;
 
-final class InputManager {
+public final class InputManager {
   private final SodiumEditorView view;
   private final GestureDetector gestureDetector;
 
-  InputManager(SodiumEditorView view, Context context) {
+  public InputManager(SodiumEditorView view, Context context) {
     this.view = view;
     this.gestureDetector =
         new GestureDetector(
@@ -214,7 +215,7 @@ final class InputManager {
     return gestureDetector.onTouchEvent(event);
   }
 
-  boolean handleTouchEvent(MotionEvent event) {
+  public boolean handleTouchEvent(MotionEvent event) {
     if (view.isDisabled) return true;
 
     int action = event.getActionMasked();
@@ -497,7 +498,7 @@ final class InputManager {
     return view.superOnTouchEventPublic(event); // Changed
   }
 
-  boolean handleKeyDown(int keyCode, KeyEvent event) {
+  public boolean handleKeyDown(int keyCode, KeyEvent event) {
     if (view.isDisabled) return true;
     if (view.isReadOnly) {
       switch (keyCode) {

@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -540,7 +540,7 @@ public final class HighlightManager {
 
 
 
-  void clearHighlightCaches() {
+  public void clearHighlightCaches() {
     highlightCache.clear();
     blockCommentEndStateCache.clear();
     stringEndStateCache.clear();
@@ -551,7 +551,7 @@ public final class HighlightManager {
     view.bracketGuideManager.invalidateCache();
   }
 
-  void invalidateHighlightCacheForLine(int line) {
+  public void invalidateHighlightCacheForLine(int line) {
     highlightCache.remove(line);
     blockCommentEndStateCache.clear();
     stringEndStateCache.clear();
@@ -1287,7 +1287,7 @@ public final class HighlightManager {
     return totalWidth;
   }
   
-  Paint getPaintForChar(int lineIndex, int charIndex, String lineText) {
+  public Paint getPaintForChar(int lineIndex, int charIndex, String lineText) {
     List<HighlightSpan> spans = highlightCache.get(lineIndex);
     if (spans == null) {
       spans = calculateSpansForLine(lineText, lineIndex);
@@ -1301,7 +1301,7 @@ public final class HighlightManager {
     return view.paint;
   }
 
-  float getAverageCharWidthForLine(String line, int lineIndex) {
+  public float getAverageCharWidthForLine(String line, int lineIndex) {
     if (line == null || line.isEmpty()) return view.paint.measureText(" ");
     if (lineIndex >= 0) {
       synchronized (view.avgCharWidthCache) {

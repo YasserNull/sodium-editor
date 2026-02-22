@@ -1,9 +1,9 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
 
-final class CursorManager {
+public final class CursorManager {
   private final SodiumEditorView view;
   private final Paint caretPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -23,11 +23,11 @@ final class CursorManager {
     caretPaint.setStrokeCap(Paint.Cap.BUTT);
   }
 
-  int getLine() {
+  public int getLine() {
     return cursorLine;
   }
 
-  int getChar() {
+  public int getChar() {
     return cursorChar;
   }
 
@@ -35,11 +35,11 @@ final class CursorManager {
     cursorLine = line;
   }
 
-  void setChar(int ch) {
+  public void setChar(int ch) {
     cursorChar = ch;
   }
 
-  void moveCharDelta(int delta) {
+  public void moveCharDelta(int delta) {
     cursorChar = Math.max(0, cursorChar + delta);
   }
 
@@ -50,70 +50,70 @@ final class CursorManager {
     }
   }
 
-  void setLineAndChar(int line, int ch) {
+  public void setLineAndChar(int line, int ch) {
     cursorLine = Math.max(0, line);
     cursorChar = Math.max(0, ch);
   }
 
   // Getters for composing state
-  boolean getHasComposing() {
+  public boolean getHasComposing() {
     return hasComposing;
   }
 
-  int getComposingLine() {
+  public int getComposingLine() {
     return composingLine;
   }
 
-  int getComposingOffset() {
+  public int getComposingOffset() {
     return composingOffset;
   }
 
-  int getComposingLength() {
+  public int getComposingLength() {
     return composingLength;
   }
 
-  int getComposingStartLine() {
+  public int getComposingStartLine() {
     return composingStartLine;
   }
 
-  int getComposingStartChar() {
+  public int getComposingStartChar() {
     return composingStartChar;
   }
 
-  boolean getComposingStartActive() {
+  public boolean getComposingStartActive() {
     return composingStartActive;
   }
 
   // Setters for composing state
-  void setHasComposing(boolean value) {
+  public void setHasComposing(boolean value) {
     hasComposing = value;
   }
 
-  void setComposingLine(int value) {
+  public void setComposingLine(int value) {
     composingLine = value;
   }
 
-  void setComposingOffset(int value) {
+  public void setComposingOffset(int value) {
     composingOffset = value;
   }
 
-  void setComposingLength(int value) {
+  public void setComposingLength(int value) {
     composingLength = value;
   }
 
-  void setComposingStartLine(int value) {
+  public void setComposingStartLine(int value) {
     composingStartLine = value;
   }
 
-  void setComposingStartChar(int value) {
+  public void setComposingStartChar(int value) {
     composingStartChar = value;
   }
 
-  void setComposingStartActive(boolean value) {
+  public void setComposingStartActive(boolean value) {
     composingStartActive = value;
   }
 
-  void deleteComposing() {
+  public void deleteComposing() {
     if (!hasComposing) return;
     this.replaceComposingWith(""); // This will also update composingLength and hasComposing
     hasComposing = false;
@@ -122,7 +122,7 @@ final class CursorManager {
     view.charAnimationManager.clearLastComposingTextForCharAnim();
   }
 
-  void commitComposing(boolean keepInText) {
+  public void commitComposing(boolean keepInText) {
     if (!hasComposing) return;
     hasComposing = false;
     composingLength = 0;
@@ -133,7 +133,7 @@ final class CursorManager {
     view.autoSuggestionManager.updateSuggestion();
   }
 
-  void replaceComposingWith(CharSequence textSeq) {
+  public void replaceComposingWith(CharSequence textSeq) {
     if (view.isReadOnly) return;
     view.invalidatePendingIOForEditPublic();
     view.incrementEditVersionPublic();

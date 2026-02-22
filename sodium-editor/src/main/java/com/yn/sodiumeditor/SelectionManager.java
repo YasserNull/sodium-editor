@@ -1,11 +1,11 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
 
-final class SelectionManager {
+public final class SelectionManager {
   private final SodiumEditorView view;
   private final Paint selectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   private int selectionHighlightColor = 0x8033B5E5;
@@ -13,30 +13,30 @@ final class SelectionManager {
   private final Path selectionPathTmp = new Path();
   private final float[] selectionRadiiTmp = new float[8];
 
-  boolean hasSelection = false;
-  int selStartLine = 0;
-  int selStartChar = 0;
-  int selEndLine = 0;
-  int selEndChar = 0;
-  boolean selecting = false;
-  boolean isSelectAllActive = false;
-  boolean isEntireFileSelected = false;
-  boolean isLineNumberSelecting = false;
-  int lineNumberSelectAnchorLine = -1;
+  public boolean hasSelection = false;
+  public int selStartLine = 0;
+  public int selStartChar = 0;
+  public int selEndLine = 0;
+  public int selEndChar = 0;
+  public boolean selecting = false;
+  public boolean isSelectAllActive = false;
+  public boolean isEntireFileSelected = false;
+  public boolean isLineNumberSelecting = false;
+  public int lineNumberSelectAnchorLine = -1;
 
   SelectionManager(SodiumEditorView view) {
     this.view = view;
   }
 
-  boolean hasSelection() {
+  public boolean hasSelection() {
     return hasSelection;
   }
 
-  boolean isSelectAllActive() {
+  public boolean isSelectAllActive() {
     return isSelectAllActive;
   }
 
-  boolean isEntireFileSelected() {
+  public boolean isEntireFileSelected() {
     return isEntireFileSelected;
   }
 
@@ -44,7 +44,7 @@ final class SelectionManager {
     return selecting;
   }
 
-  boolean isLineNumberSelecting() {
+  public boolean isLineNumberSelecting() {
     return isLineNumberSelecting;
   }
 
@@ -52,7 +52,7 @@ final class SelectionManager {
     return lineNumberSelectAnchorLine;
   }
 
-  void clearSelection() {
+  public void clearSelection() {
     hasSelection = false;
     isSelectAllActive = false;
     isEntireFileSelected = false;
@@ -61,14 +61,14 @@ final class SelectionManager {
     lineNumberSelectAnchorLine = -1;
   }
 
-  void clearSelectionKeepLineNumberState() {
+  public void clearSelectionKeepLineNumberState() {
     hasSelection = false;
     isSelectAllActive = false;
     isEntireFileSelected = false;
     selecting = false;
   }
 
-  void setSelection(
+  public void setSelection(
       int startLine, int startChar, int endLine, int endChar, boolean selectingNow) {
     selStartLine = startLine;
     selStartChar = startChar;
@@ -83,11 +83,11 @@ final class SelectionManager {
     isEntireFileSelected = entireFile;
   }
 
-  void setSelecting(boolean selectingNow) {
+  public void setSelecting(boolean selectingNow) {
     selecting = selectingNow;
   }
 
-  void setLineNumberSelecting(boolean enabled, int anchorLine) {
+  public void setLineNumberSelecting(boolean enabled, int anchorLine) {
     isLineNumberSelecting = enabled;
     lineNumberSelectAnchorLine = enabled ? anchorLine : -1;
   }

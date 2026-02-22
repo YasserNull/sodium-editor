@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor.renderer;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -10,7 +10,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-final class ViewRender {
+import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.TextRender;
+
+public final class ViewRender {
   private final SodiumEditorView view;
   final TextRender textRender;
 
@@ -26,7 +29,7 @@ final class ViewRender {
     }
   }
 
-  ViewRender(SodiumEditorView view) {
+  public ViewRender(SodiumEditorView view) {
     this.view = view;
     this.textRender = new TextRender(view);
   }
@@ -39,11 +42,11 @@ final class ViewRender {
     view.superOnDraw(canvas);
   }
 
-  void invalidateLineGlobal(int globalLine) {
+  public void invalidateLineGlobal(int globalLine) {
     textRender.invalidateLineGlobal(globalLine);
   }
 
-  boolean isHeavyDrawSuppressed() {
+  public boolean isHeavyDrawSuppressed() {
     return textRender.isHeavyDrawSuppressed();
   }
 
@@ -618,7 +621,7 @@ final class ViewRender {
     textRender.drawDeleteAnimationForSegment(canvas, line, globalLine, segStart, segEnd, y);
   }
 
-  void getVisibleCharRangeForLine(String line, int globalLine, int[] out) {
+  public void getVisibleCharRangeForLine(String line, int globalLine, int[] out) {
     textRender.getVisibleCharRangeForLine(line, globalLine, out);
   }
 
@@ -652,11 +655,11 @@ final class ViewRender {
     textRender.populateDirectLinesForRange(startLine, endLine, direct);
   }
 
-  int getGlobalLineForY(float y) {
+  public int getGlobalLineForY(float y) {
     return textRender.getGlobalLineForY(y);
   }
 
-  int getVisualIndexForLineAndChar(int line, int ch) {
+  public int getVisualIndexForLineAndChar(int line, int ch) {
     return textRender.getVisualIndexForLineAndChar(line, ch);
   }
 

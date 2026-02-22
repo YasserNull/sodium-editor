@@ -1,15 +1,15 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
 
-final class HandlesManager {
-  static final int HANDLE_NONE = 0;
-  static final int HANDLE_LEFT = 1;
-  static final int HANDLE_RIGHT = 2;
-  static final int HANDLE_CURSOR = 3;
+public final class HandlesManager {
+  public static final int HANDLE_NONE = 0;
+  public static final int HANDLE_LEFT = 1;
+  public static final int HANDLE_RIGHT = 2;
+  public static final int HANDLE_CURSOR = 3;
 
   private final RectF leftHandleRect = new RectF();
   private final RectF rightHandleRect = new RectF();
@@ -156,15 +156,15 @@ final class HandlesManager {
     selectionHandleColor = color;
   }
 
-  int getDraggingHandle() {
+  public int getDraggingHandle() {
     return draggingHandle;
   }
 
-  void setDraggingHandle(int handle) {
+  public void setDraggingHandle(int handle) {
     draggingHandle = handle;
   }
 
-  boolean isDragging() {
+  public boolean isDragging() {
     return draggingHandle != HANDLE_NONE;
   }
 
@@ -210,27 +210,27 @@ final class HandlesManager {
     }
   }
 
-  int hitTestHandle(float gx, float gy, boolean hasSelection, boolean focused) {
+  public int hitTestHandle(float gx, float gy, boolean hasSelection, boolean focused) {
     if (hasSelection && leftHandleRect.contains(gx, gy)) return HANDLE_LEFT;
     if (hasSelection && rightHandleRect.contains(gx, gy)) return HANDLE_RIGHT;
     if (focused && !hasSelection && cursorHandleRect.contains(gx, gy)) return HANDLE_CURSOR;
     return HANDLE_NONE;
   }
 
-  void stopDragging() {
+  public void stopDragging() {
     draggingHandle = HANDLE_NONE;
     view.scrollManager.autoScrollX = 0;
     view.scrollManager.autoScrollY = 0;
     view.mainHandler.removeCallbacks(autoScrollRunnable);
   }
 
-  void stopAutoScroll() {
+  public void stopAutoScroll() {
     view.scrollManager.autoScrollX = 0;
     view.scrollManager.autoScrollY = 0;
     view.mainHandler.removeCallbacks(autoScrollRunnable);
   }
 
-  void handleDrag(float touchX, float touchY) {
+  public void handleDrag(float touchX, float touchY) {
     updateHandlePosition(touchX, touchY);
     int handle = getDraggingHandle();
     if (handle == HANDLE_LEFT || handle == HANDLE_RIGHT) {
@@ -262,7 +262,7 @@ final class HandlesManager {
     view.invalidate();
   }
 
-  void onTouchMove(float x, float y) {
+  public void onTouchMove(float x, float y) {
     lastDragTouchX = x;
     lastDragTouchY = y;
   }

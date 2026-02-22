@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -231,11 +231,11 @@ public final class LineNumberManager {
     return rtl ? viewWidth - lineNumbersGutterWidth : viewWidth;
   }
 
-  float getContentViewLeft(boolean rtl) {
+  public float getContentViewLeft(boolean rtl) {
     return rtl ? 0f : lineNumbersGutterWidth;
   }
 
-  float getContentViewRight(float viewWidth, boolean rtl) {
+  public float getContentViewRight(float viewWidth, boolean rtl) {
     return rtl ? (viewWidth - lineNumbersGutterWidth) : viewWidth;
   }
 
@@ -650,7 +650,7 @@ public final class LineNumberManager {
     }
   }
 
-  void invalidateCache() {
+  public void invalidateCache() {
     lineNumberCacheBitmap = null;
     lineNumberCacheCanvas = null;
   }

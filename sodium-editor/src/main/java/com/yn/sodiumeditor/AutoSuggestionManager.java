@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -13,7 +13,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-final class AutoSuggestionManager {
+public final class AutoSuggestionManager {
   private static final long SUGGESTION_UPDATE_DEBOUNCE_MS = 40L;
 
   private final SodiumEditorView view;
@@ -88,19 +88,19 @@ final class AutoSuggestionManager {
     view.invalidate();
   }
 
-  boolean isAutoCompletionEnabled() {
+  public boolean isAutoCompletionEnabled() {
     return isAutoCompletionEnabled;
   }
 
-  boolean isAutoPathCompletionEnabled() {
+  public boolean isAutoPathCompletionEnabled() {
     return isAutoPathCompletionEnabled;
   }
 
-  boolean isSuggestionAcceptedThisTouch() {
+  public boolean isSuggestionAcceptedThisTouch() {
     return suggestionAcceptedThisTouch;
   }
 
-  void clearSuggestionAcceptedThisTouch() {
+  public void clearSuggestionAcceptedThisTouch() {
     suggestionAcceptedThisTouch = false;
   }
 
@@ -159,7 +159,7 @@ final class AutoSuggestionManager {
     view.invalidate();
   }
 
-  void clearActiveSuggestion() {
+  public void clearActiveSuggestion() {
     if (activeSuggestion != null) {
       activeSuggestion = null;
       activeSuggestionRect.setEmpty();
@@ -168,7 +168,7 @@ final class AutoSuggestionManager {
     }
   }
 
-  void updateSuggestion() {
+  public void updateSuggestion() {
     if (Looper.myLooper() != Looper.getMainLooper()) {
       view.post(this::updateSuggestion);
       return;
@@ -186,7 +186,7 @@ final class AutoSuggestionManager {
     updateSuggestionInternal();
   }
 
-  boolean maybeAcceptSuggestionTap(float ex, float ey, int line, boolean isEmptyArea) {
+  public boolean maybeAcceptSuggestionTap(float ex, float ey, int line, boolean isEmptyArea) {
     boolean allowSuggestionTap =
         activeSuggestionIsPath ? isAutoPathCompletionEnabled : isAutoCompletionEnabled;
     if (!allowSuggestionTap || activeSuggestion == null || activeSuggestionRect.isEmpty()) {

@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -55,7 +55,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher; // Added for Matcher
-import com.yn.sodiumeditor.view.CursorManager.BracketPairType;
+import com.yn.sodiumeditor.CursorManager.BracketPairType;
+import com.yn.sodiumeditor.input.InputManager;
+import com.yn.sodiumeditor.input.IMEManager;
+import com.yn.sodiumeditor.renderer.ViewRender;
 
 public class SodiumEditorView extends View {
 
@@ -81,14 +84,14 @@ public class SodiumEditorView extends View {
       50f; // Minimum space to show below last line
 
   // sliding window
-  final List<String> linesWindow = new ArrayList<>();
+  public final List<String> linesWindow = new ArrayList<>();
   public int windowStartLine = 0;
   public int windowSize = 30; // 2000 yyy
   public int prefetchLines = 10; // 1000 yyy
 
   // IO
   private final HandlerThread ioThread;
-  final Handler ioHandler;
+  public final Handler ioHandler;
   public final FileManager fileManager;
   public volatile boolean isEof = false;
   public final AtomicInteger ioTaskVersion = new AtomicInteger(0);
@@ -97,15 +100,15 @@ public class SodiumEditorView extends View {
   public BufferedReader readerForFile = null;
 
   // caches
-  final LinkedHashMap<Integer, String> modifiedLines = new LinkedHashMap<>();
+  public final LinkedHashMap<Integer, String> modifiedLines = new LinkedHashMap<>();
   public final LinkedHashMap<Integer, Float> lineWidthCache;
   public int lineWidthCacheSize = 200; // 2000 yyy
   public float currentMaxWindowLineWidth = 0f;
-  float globalMaxLineWidth = 0f;
+  public float globalMaxLineWidth = 0f;
   
   public int prefetchCols = 512;
   public int colsWidthCacheSize = 256;
-  final LinkedHashMap<Integer, Float> avgCharWidthCache =
+  public final LinkedHashMap<Integer, Float> avgCharWidthCache =
       new LinkedHashMap<Integer, Float>(colsWidthCacheSize, 0.75f, true) {
         @Override
         protected boolean removeEldestEntry(Map.Entry<Integer, Float> eldest) {
@@ -124,7 +127,7 @@ public class SodiumEditorView extends View {
   private final InputManager inputManager;
   @Nullable ValueAnimator flingStopAnimator;
   static final long FLING_STOP_ANIM_DURATION_MS = 90;
-  final IMEManager imeManager;
+  public final IMEManager imeManager;
   public final ScrollManager scrollManager;
   public final ZoomManager zoomManager;
   public final UndoRedo undoRedo;
@@ -136,7 +139,7 @@ public class SodiumEditorView extends View {
 
   // --- Search State (moved to SearchManager) ---
   // --- Zoom State (moved to ZoomManager) ---
-  final WordWrapManager wordWrapManager = new WordWrapManager();
+  public final WordWrapManager wordWrapManager = new WordWrapManager();
   // Search logic moved to SearchManager.
   // Search logic moved to SearchManager.
 
@@ -149,23 +152,23 @@ public class SodiumEditorView extends View {
   public int lastDoubleTapStage = 0;
 
   // touch helpers
-  boolean pointerDown = false;
-  boolean movedSinceDown = false;
-  private float downX = 0f, downY = 0f;
-  private final int touchSlop;
+  public boolean pointerDown = false;
+  public boolean movedSinceDown = false;
+  public float downX = 0f, downY = 0f;
+  public final int touchSlop;
   // Zoom multi-touch state moved to ZoomManager.
 
   // auto-scroll when dragging handles
-  final Handler mainHandler = new Handler(Looper.getMainLooper());
+  public final Handler mainHandler = new Handler(Looper.getMainLooper());
 
   // keyboard awareness
   private final Rect visibleDisplayFrame = new Rect();
-  int keyboardHeight = 0;
+  public int keyboardHeight = 0;
 
   // typed-character and deleted-character animations moved to CharAnimationManager.
-  boolean suppressNextCommitText = false;
-  @Nullable String lastImeCommitText;
-  long lastImeCommitUptime = 0L;
+  public boolean suppressNextCommitText = false;
+  @Nullable public String lastImeCommitText;
+  public long lastImeCommitUptime = 0L;
 
   // caret movement animation moved to CursorAnimationManager.
 
@@ -182,7 +185,7 @@ public class SodiumEditorView extends View {
   public final SelectionManager selectionManager = new SelectionManager(this);
   public final HighlightManager highlightManager = new HighlightManager(this);
   public final LineNumberManager lineNumberManager = new LineNumberManager(this);
-  final BracketGuideManager bracketGuideManager = new BracketGuideManager(this);
+  public final BracketGuideManager bracketGuideManager = new BracketGuideManager(this);
   public final BracketMatchManager bracketMatchManager = new BracketMatchManager(this);
   public final LoadingCircleManager loadingCircleManager;
   public final java.util.HashMap<Integer, String> directLinesTmp = new java.util.HashMap<>();
@@ -229,8 +232,8 @@ public class SodiumEditorView extends View {
   public int maxWidthRecalcToken = 0;
 
   // index
-  final Object lineOffsetsLock = new Object();
-  long[] lineOffsets = new long[0];
+  public final Object lineOffsetsLock = new Object();
+  public long[] lineOffsets = new long[0];
   public volatile boolean isIndexReady = false;
   private volatile boolean isIndexBuilding = false;
   private volatile boolean isIndexDisabled = false;
@@ -271,7 +274,7 @@ public class SodiumEditorView extends View {
   public boolean isAutoBracketNewlineEnabled = true;
   public boolean isAutoBracketNewlineIndentEnabled = true;
   public boolean isAutoIndentAfterClosingBracketEnabled = true;
-  boolean isIndentationBlocksEnabled = false;
+  public boolean isIndentationBlocksEnabled = false;
 
   // Zoom scroll adjustment for word wrap
 
@@ -1071,134 +1074,134 @@ public class SodiumEditorView extends View {
     return getBraceGuideColumnForLine(line, globalLine, braceIndex, firstNonSpace);
   }
 
-  void resetScrollLockAxisForInput() {
+  public void resetScrollLockAxisForInput() {
     scrollManager.scrollLockAxis = 0;
   }
 
-  void setJustFinishedScaleForInput(boolean finished) {
+  public void setJustFinishedScaleForInput(boolean finished) {
     zoomManager.setJustFinishedScale(finished);
   }
 
-  void abortScrollerForInput() {
+  public void abortScrollerForInput() {
     scrollManager.abortScroller();
   }
 
-  void setDownForInput(float x, float y) {
+  public void setDownForInput(float x, float y) {
     downX = x;
     downY = y;
   }
 
-  void setMovedSinceDown(boolean moved) {
+  public void setMovedSinceDown(boolean moved) {
     movedSinceDown = moved;
   }
 
-  boolean isMovedSinceDown() {
+  public boolean isMovedSinceDown() {
     return movedSinceDown;
   }
 
-  boolean isLineNumberSelectionEnabledForInput() {
+  public boolean isLineNumberSelectionEnabledForInput() {
     return lineNumberManager.isLineNumberSelectionEnabled();
   }
 
-  boolean isInLineNumberGutterForInput(float x) {
+  public boolean isInLineNumberGutterForInput(float x) {
     return isInLineNumberGutter(x);
   }
 
-  float getScrollYForInput() {
+  public float getScrollYForInput() {
     return scrollManager.scrollY;
   }
 
-  void beginLineNumberSelectionForInput(int line) {
+  public void beginLineNumberSelectionForInput(int line) {
     beginLineNumberSelection(line);
   }
 
-  CursorTarget getCursorTargetForInput(float x, float y) {
+  public CursorTarget getCursorTargetForInput(float x, float y) {
     return getCursorTargetForPosition(x, y, null);
   }
 
-  CursorTarget getCursorTargetForHandles(float x, float y) {
+  public CursorTarget getCursorTargetForHandles(float x, float y) {
     return getCursorTargetForPosition(x, y, null);
   }
 
-  HandlesManager getHandlesManagerForCursor() {
+  public HandlesManager getHandlesManagerForCursor() {
     return handlesManager;
   }
 
-  void ensureLineInWindowForInput(int line, boolean reload) {
+  public void ensureLineInWindowForInput(int line, boolean reload) {
     scrollManager.ensureLineInWindow(line, reload);
   }
 
-  String getLineFromWindowLocalForInput(int index) {
+  public String getLineFromWindowLocalForInput(int index) {
     return getLineFromWindowLocal(index);
   }
 
-  int getWindowStartLineForInput() {
+  public int getWindowStartLineForInput() {
     return windowStartLine;
   }
 
-  boolean applySmartDoubleTapSelectionForInput(int line, int ch, String ln) {
+  public boolean applySmartDoubleTapSelectionForInput(int line, int ch, String ln) {
     return applySmartDoubleTapSelection(line, ch, ln);
   }
 
-  void clearSelectionForInput() {
+  public void clearSelectionForInput() {
     if (selectionManager.hasSelection()) {
       selectionManager.clearSelectionKeepLineNumberState();
     }
   }
 
-  boolean isCodeFoldingEnabledForInput() {
+  public boolean isCodeFoldingEnabledForInput() {
     return foldManager.isCodeFoldingEnabled;
   }
 
-  void startFoldMarkerRippleForInput(int line) {
+  public void startFoldMarkerRippleForInput(int line) {
     startFoldMarkerRipple(line);
   }
 
-  float getLineHeightForInput() {
+  public float getLineHeightForInput() {
     return lineHeight;
   }
 
-  int getTotalVisualLineCountForInput() {
+  public int getTotalVisualLineCountForInput() {
     return wordWrapManager.getTotalVisualLineCount(this);
   }
 
-  int getVisibleLineCountForInput() {
+  public int getVisibleLineCountForInput() {
     return getVisibleLineCount();
   }
 
-  float viewToTextXForInput(float x) {
+  public float viewToTextXForInput(float x) {
     return viewToTextX(x);
   }
 
-  float measureTextWithVisualSpacesForInput(String s, int start, int end) {
+  public float measureTextWithVisualSpacesForInput(String s, int start, int end) {
     return whitespaceGuideManager.measureTextWithVisualSpaces(this, s, start, end, paint);
   }
 
-  boolean isFoldPlaceholderHitForInput(int line, String ln, float x) {
+  public boolean isFoldPlaceholderHitForInput(int line, String ln, float x) {
     return isFoldPlaceholderHit(line, ln, x);
   }
 
-  boolean isEofForInput() {
+  public boolean isEofForInput() {
     return isEof;
   }
 
-  int getLinesWindowSizeForInput() {
+  public int getLinesWindowSizeForInput() {
     return linesWindow.size();
   }
 
-  boolean isLinesWindowEmptyForInput() {
+  public boolean isLinesWindowEmptyForInput() {
     return linesWindow.isEmpty();
   }
 
-  boolean isClickAfterEndToAddLineEnabledForInput() {
+  public boolean isClickAfterEndToAddLineEnabledForInput() {
     return isClickAfterEndToAddLineEnabled;
   }
 
-  void setCursorPositionForInput(int line, int ch) {
+  public void setCursorPositionForInput(int line, int ch) {
     cursorManager.setLineAndChar(line, ch);
   }
 
-  void insertTextAtCursorForInput(String text) {
+  public void insertTextAtCursorForInput(String text) {
     cursorManager.insertTextAtCursor(text);
   }
 
@@ -1206,11 +1209,11 @@ public class SodiumEditorView extends View {
     cursorManager.insertTextAtCursor(text);
   }
 
-  void setSelectingForInput(boolean selectingNow) {
+  public void setSelectingForInput(boolean selectingNow) {
     selectionManager.setSelecting(selectingNow);
   }
 
-  void updateSuggestionForInput() {
+  public void updateSuggestionForInput() {
     autoSuggestionManager.updateSuggestion();
   }
 
@@ -1218,15 +1221,15 @@ public class SodiumEditorView extends View {
     restartInput();
   }
 
-  void restartInputForSuggestion() {
+  public void restartInputForSuggestion() {
     restartInput();
   }
 
-  boolean handleScrollFromInput(MotionEvent e2, float distanceX, float distanceY) {
+  public boolean handleScrollFromInput(MotionEvent e2, float distanceX, float distanceY) {
     return scrollManager.onScroll(e2, distanceX, distanceY);
   }
 
-  boolean handleFlingFromInput(float velocityX, float velocityY) {
+  public boolean handleFlingFromInput(float velocityX, float velocityY) {
     return scrollManager.onFling(velocityX, velocityY);
   }
 
@@ -1419,11 +1422,11 @@ public class SodiumEditorView extends View {
     }
   }
 
-  static final class VisualLinePosition {
-    final int line;
-    final int segment;
+  public static final class VisualLinePosition {
+    public final int line;
+    public final int segment;
 
-    VisualLinePosition(int line, int segment) {
+    public VisualLinePosition(int line, int segment) {
       this.line = line;
       this.segment = segment;
     }
@@ -1772,10 +1775,10 @@ public class SodiumEditorView extends View {
   }
 
   public static final class LineScanResult {
-    final long length;
-    final boolean reachedEof;
+    public final long length;
+    public final boolean reachedEof;
 
-    LineScanResult(long length, boolean reachedEof) {
+    public LineScanResult(long length, boolean reachedEof) {
       this.length = length;
       this.reachedEof = reachedEof;
     }
@@ -1829,11 +1832,11 @@ public class SodiumEditorView extends View {
     viewRender.checkAndLoadWindow();
   }
 
-  void loadWindowAround(int startLine, @Nullable Runnable onComplete) {
+  public void loadWindowAround(int startLine, @Nullable Runnable onComplete) {
     viewRender.loadWindowAround(startLine, onComplete);
   }
 
-  void loadWindowAround(
+  public void loadWindowAround(
       int startLine, @Nullable Runnable onComplete, boolean recalculateWidthSync) {
     viewRender.loadWindowAround(startLine, onComplete, recalculateWidthSync);
   }
@@ -2267,11 +2270,11 @@ public class SodiumEditorView extends View {
     deleteSelection();
   }
 
-  static final class CursorTarget {
-    final int line;
-    final int ch;
+  public static final class CursorTarget {
+    public final int line;
+    public final int ch;
 
-    CursorTarget(int line, int ch) {
+    public CursorTarget(int line, int ch) {
       this.line = line;
       this.ch = ch;
     }
@@ -2373,7 +2376,7 @@ public class SodiumEditorView extends View {
     undoRedo.updateComposingPendingOp(text, beforeLine, beforeChar);
   }
 
-  void replaceSelectionWithText(String insertText) {
+  public void replaceSelectionWithText(String insertText) {
     inputManager.replaceSelectionWithText(insertText);
   }
 
@@ -2397,7 +2400,7 @@ public class SodiumEditorView extends View {
     return fileManager.findLineStartByteByScanning(raf, targetLine);
   }
 
-  String readLineUtf8AtByte(RandomAccessFile raf, long byteOffset) throws Exception {
+  public String readLineUtf8AtByte(RandomAccessFile raf, long byteOffset) throws Exception {
     return fileManager.readLineUtf8AtByte(raf, byteOffset);
   }
 
@@ -2413,10 +2416,10 @@ public class SodiumEditorView extends View {
   }
 
   public static final class StreamedCharSlice {
-    final String text;
-    final int length;
+    public final String text;
+    public final int length;
 
-    StreamedCharSlice(String text, int length) {
+    public StreamedCharSlice(String text, int length) {
       this.text = text;
       this.length = length;
     }
@@ -2440,7 +2443,7 @@ public class SodiumEditorView extends View {
     return getCharIndexForX(text, x, globalLine);
   }
 
-  int[] computeWordBounds(String line, int pos) {
+  public int[] computeWordBounds(String line, int pos) {
     return viewRender.computeWordBounds(line, pos);
   }
 
@@ -2500,7 +2503,7 @@ public class SodiumEditorView extends View {
     return viewRender.findEnclosingBracketRange(line, index);
   }
 
-  void insertTextAtCursor(String text) {
+  public void insertTextAtCursor(String text) {
     cursorManager.insertTextAtCursor(text);
   }
 
@@ -2513,7 +2516,7 @@ public class SodiumEditorView extends View {
     viewRender.updateLocalLine(localIdx, text);
   }
 
-  String getLineFromWindowLocal(int localIdx) {
+  public String getLineFromWindowLocal(int localIdx) {
     return viewRender.getLineFromWindowLocal(localIdx);
   }
 
@@ -2561,7 +2564,7 @@ public class SodiumEditorView extends View {
     return viewRender.getWidthForLine(globalIndex, line);
   }
 
-  void handleAutoPairing(String text) {
+  public void handleAutoPairing(String text) {
     inputManager.handleAutoPairing(text);
   }
 
@@ -2591,7 +2594,7 @@ public class SodiumEditorView extends View {
 
 
   
-  protected void superOnDraw(Canvas canvas) {
+  public void superOnDraw(Canvas canvas) {
     super.onDraw(canvas);
   }
 
@@ -2613,7 +2616,7 @@ public class SodiumEditorView extends View {
     }
   }
 
-  void invalidateLineGlobal(int globalLine) {
+  public void invalidateLineGlobal(int globalLine) {
     viewRender.invalidateLineGlobal(globalLine);
   }
 
@@ -2654,7 +2657,7 @@ public class SodiumEditorView extends View {
   }
 
 
-  int getGlobalLineForY(float y) {
+  public int getGlobalLineForY(float y) {
     return viewRender.getGlobalLineForY(y);
   }
 

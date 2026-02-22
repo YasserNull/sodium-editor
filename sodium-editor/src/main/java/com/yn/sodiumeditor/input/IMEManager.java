@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor.input;
 
 import android.content.Context;
 import android.text.Editable;
@@ -13,8 +13,9 @@ import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.SurroundingText;
 import androidx.annotation.Nullable;
 import java.io.RandomAccessFile;
+import com.yn.sodiumeditor.SodiumEditorView;
 
-final class IMEManager {
+public final class IMEManager {
   private static final int IME_CONTEXT_BEFORE_CHARS = 2048;
   private static final int IME_CONTEXT_AFTER_CHARS = 2048;
 
@@ -25,15 +26,15 @@ final class IMEManager {
   private int imeExtractedBeforeChars = IME_CONTEXT_BEFORE_CHARS;
   private int imeExtractedAfterChars = IME_CONTEXT_AFTER_CHARS;
 
-  IMEManager(SodiumEditorView view) {
+  public IMEManager(SodiumEditorView view) {
     this.view = view;
   }
 
-  boolean onCheckIsTextEditor() {
+  public boolean onCheckIsTextEditor() {
     return !view.isDisabled && !view.isReadOnly;
   }
 
-  void restartInput() {
+  public void restartInput() {
     InputMethodManager imm =
         (InputMethodManager) view.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
     if (imm != null) {
@@ -41,7 +42,7 @@ final class IMEManager {
     }
   }
 
-  void showKeyboard() {
+  public void showKeyboard() {
     if (view.isReadOnly) return;
     view.requestFocus();
     InputMethodManager imm =
@@ -49,7 +50,7 @@ final class IMEManager {
     if (imm != null) imm.showSoftInput(view, 0);
   }
 
-  void updateImeSelection() {
+  public void updateImeSelection() {
     if (view.isDisabled || view.isReadOnly) return;
     if (!view.isFocused()) return;
     InputMethodManager imm =
@@ -90,7 +91,7 @@ final class IMEManager {
     }
   }
 
-  InputConnection onCreateInputConnection(EditorInfo outAttrs) {
+  public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
     if (view.isDisabled || view.isReadOnly) return null;
     outAttrs.inputType =
         EditorInfo.TYPE_CLASS_TEXT

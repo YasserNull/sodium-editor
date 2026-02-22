@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor;
 
 import android.content.Context;
 import android.view.MotionEvent;
@@ -209,7 +209,7 @@ public final class ZoomManager {
     return scaleGestureDetector;
   }
 
-  boolean isZoomGestureActive() {
+  public boolean isZoomGestureActive() {
     return isScaling
         || pinchVisualZoomActive
         || multiTouchActive
@@ -236,51 +236,51 @@ public final class ZoomManager {
     return pinchFocusY;
   }
 
-  boolean isScaling() {
+  public boolean isScaling() {
     return isScaling;
   }
 
-  boolean isJustFinishedScale() {
+  public boolean isJustFinishedScale() {
     return mJustFinishedScale;
   }
 
-  void setJustFinishedScale(boolean finished) {
+  public void setJustFinishedScale(boolean finished) {
     mJustFinishedScale = finished;
   }
 
-  boolean isMultiTouchActive() {
+  public boolean isMultiTouchActive() {
     return multiTouchActive;
   }
 
-  boolean hadMultiTouch() {
+  public boolean hadMultiTouch() {
     return hadMultiTouch;
   }
 
-  void resetMultiTouchState() {
+  public void resetMultiTouchState() {
     multiTouchActive = false;
     hadMultiTouch = false;
   }
 
-  void onPointerDown() {
+  public void onPointerDown() {
     multiTouchActive = true;
     hadMultiTouch = true;
     mJustFinishedScale = true;
   }
 
-  void onPointerUp(int remainingPointerCount) {
+  public void onPointerUp(int remainingPointerCount) {
     if (remainingPointerCount <= 1) {
       multiTouchActive = false;
       mJustFinishedScale = true;
     }
   }
 
-  void onScaleTouchEvent(MotionEvent event) {
+  public void onScaleTouchEvent(MotionEvent event) {
     if (isZoomEnabled) {
       scaleGestureDetector.onTouchEvent(event);
     }
   }
 
-  boolean isScaleInProgress() {
+  public boolean isScaleInProgress() {
     return scaleGestureDetector != null && scaleGestureDetector.isInProgress();
   }
 

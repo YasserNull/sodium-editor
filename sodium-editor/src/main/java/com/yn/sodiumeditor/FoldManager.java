@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor;
 
 import android.animation.ValueAnimator;
 import android.graphics.Paint;
@@ -377,7 +377,7 @@ public final class FoldManager {
     return Math.max(0, visible);
   }
 
-  boolean toggleFoldAtLine(int line) {
+  public boolean toggleFoldAtLine(int line) {
     if (!isCodeFoldingEnabled) return false;
     FoldRange existing = foldRanges.get(line);
     if (existing != null) {

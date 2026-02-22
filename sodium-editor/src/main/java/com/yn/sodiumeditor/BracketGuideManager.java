@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-final class BracketGuideManager {
+public final class BracketGuideManager {
   private final SodiumEditorView view;
 
   private boolean isBracketGuidesEnabled = false;
@@ -75,7 +75,7 @@ final class BracketGuideManager {
     return bracketGuidePaint;
   }
 
-  void invalidateCache() {
+  public void invalidateCache() {
     bracketGuideCacheStartLine = -1;
     bracketGuideCacheEndLine = -1;
     bracketGuideCacheEditVersion = -1;

@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -221,7 +221,7 @@ public final class WhitespaceGuideManager {
     return measuredWidth;
   }
 
-  float measureTextWithVisualSpaces(
+  public float measureTextWithVisualSpaces(
       SodiumEditorView view, String text, int start, int end, Paint p) {
     if (text == null) return 0f;
     start = Math.max(0, Math.min(start, text.length()));

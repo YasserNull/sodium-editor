@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -36,7 +36,7 @@ public final class CharAnimationManager {
     this.view = view;
   }
 
-  boolean isEnabled() {
+  public boolean isEnabled() {
     return isCharAnimationEnabled;
   }
 
@@ -61,7 +61,7 @@ public final class CharAnimationManager {
     }
   }
 
-  void startCharAnimationFromText(@Nullable CharSequence committedText) {
+  public void startCharAnimationFromText(@Nullable CharSequence committedText) {
     if (!isCharAnimationEnabled) return;
     if (committedText == null) return;
 
@@ -133,7 +133,7 @@ public final class CharAnimationManager {
     else view.post(start);
   }
 
-  void startDeleteAnimation(
+  public void startDeleteAnimation(
       int targetLine, int atChar, @Nullable String removedText, @Nullable Paint paintToUse) {
     if (!isCharAnimationEnabled) return;
     if (removedText == null || removedText.isEmpty()) return;
@@ -204,15 +204,15 @@ public final class CharAnimationManager {
   }
 
   @Nullable
-  String getLastComposingTextForCharAnim() {
+  public String getLastComposingTextForCharAnim() {
     return lastComposingTextForCharAnim;
   }
 
-  void setLastComposingTextForCharAnim(@Nullable String text) {
+  public void setLastComposingTextForCharAnim(@Nullable String text) {
     lastComposingTextForCharAnim = text;
   }
 
-  void clearLastComposingTextForCharAnim() {
+  public void clearLastComposingTextForCharAnim() {
     lastComposingTextForCharAnim = null;
   }
 

@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor;
 
 import android.os.SystemClock;
 
@@ -172,7 +172,7 @@ public final class CursorAnimationManager {
     cursorDrawY = cursorAnimY;
   }
 
-  void resetCursorBlink() {
+  public void resetCursorBlink() {
     view.mainHandler.removeCallbacks(blinkRunnable);
     isCursorVisible = true;
     if (view.isFocused() && !view.selectionManager.hasSelection()) {

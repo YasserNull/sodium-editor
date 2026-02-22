@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.view;
+package com.yn.sodiumeditor;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -10,14 +10,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-final class TextRender {
+public final class TextRender {
   private final SodiumEditorView view;
 
-  TextRender(SodiumEditorView view) {
+  public TextRender(SodiumEditorView view) {
     this.view = view;
   }
 
-  void onDraw(Canvas canvas) {
+  public void onDraw(Canvas canvas) {
     view.superOnDraw(canvas);
     drawEditorBackground(canvas);
     if (view.scrollManager.stretchOverscrollEnabled
@@ -46,7 +46,7 @@ final class TextRender {
     view.superOnDraw(canvas);
   }
 
-  void invalidateLineGlobal(int globalLine) {
+  public void invalidateLineGlobal(int globalLine) {
     if (view.wordWrapManager.isWordWrapEnabled) {
       view.invalidate();
       return;
@@ -56,7 +56,7 @@ final class TextRender {
     view.invalidate(0, (int) Math.floor(top), view.getWidth(), (int) Math.ceil(top + view.lineHeight));
   }
 
-  boolean isHeavyDrawSuppressed() {
+  public boolean isHeavyDrawSuppressed() {
     return false;
   }
 
@@ -138,7 +138,7 @@ final class TextRender {
     canvas.drawText(view.charAnimationManager.getDelAnimText(), x, y, view.charAnimationManager.getTempPaint());
   }
 
-  void getVisibleCharRangeForLine(String line, int globalLine, int[] out) {
+  public void getVisibleCharRangeForLine(String line, int globalLine, int[] out) {
     if (line == null || out == null || out.length < 2) return;
     int len = view.getLogicalLineLength(globalLine, line);
     if (len <= 0) {
@@ -336,7 +336,7 @@ final class TextRender {
     }
   }
 
-  int getGlobalLineForY(float y) {
+  public int getGlobalLineForY(float y) {
     int idx = Math.max(0, (int) (y / view.lineHeight));
     if (view.wordWrapManager.isWordWrapEnabled) {
       return view.wordWrapManager.getVisualPositionForIndex(view, idx).line;
@@ -344,7 +344,7 @@ final class TextRender {
     return view.mapVisibleIndexToGlobal(idx);
   }
 
-  int getVisualIndexForLineAndChar(int line, int ch) {
+  public int getVisualIndexForLineAndChar(int line, int ch) {
     if (!view.wordWrapManager.isWrapMetricsUsableForLine(view, line)) {
       if (view.foldManager.isCodeFoldingEnabled) return view.getVisibleIndexForGlobalLine(line);
       return Math.max(0, line);
@@ -657,7 +657,7 @@ final class TextRender {
     }
   }
 
-  void drawContent(Canvas canvas) {
+  public void drawContent(Canvas canvas) {
     if (view.wordWrapManager.isWordWrapEnabled) {
       drawContentWrapped(canvas);
       return;
@@ -1217,7 +1217,7 @@ final class TextRender {
     view.loadingCircleManager.draw(canvas);
   }
 
-  void drawContentWrapped(Canvas canvas) {
+  public void drawContentWrapped(Canvas canvas) {
     int wrapWidthPx = Math.max(1, Math.round(view.wordWrapManager.getWrapWidth(view)));
     final boolean drawDecorations = view.zoomManager.shouldDrawDecorations();
     if (!view.zoomManager.isZoomGestureActive()) {
@@ -1530,7 +1530,7 @@ final class TextRender {
     view.loadingCircleManager.draw(canvas);
   }
 
-  void drawContentWrappedFallback(Canvas canvas, int wrapWidthPx) {
+  public void drawContentWrappedFallback(Canvas canvas, int wrapWidthPx) {
     final boolean drawDecorations = view.zoomManager.shouldDrawDecorations();
 
     int firstLine;
