@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor;
+package com.yn.sodiumeditor.renderer;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -9,6 +9,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.HighlightManager;
+import com.yn.sodiumeditor.BracketGuideManager;
+import com.yn.sodiumeditor.BracketMatchManager;
+import com.yn.sodiumeditor.FoldManager;
+import com.yn.sodiumeditor.LoadingCircleManager;
+import com.yn.sodiumeditor.WordWrapManager;
 
 public final class TextRender {
   private final SodiumEditorView view;

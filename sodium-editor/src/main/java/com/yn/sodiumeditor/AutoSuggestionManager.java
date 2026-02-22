@@ -209,7 +209,7 @@ public final class AutoSuggestionManager {
     return false;
   }
 
-  void drawAutoSuggestion(Canvas canvas, String lineContent, int globalLine, float textBaselineY) {
+  public void drawAutoSuggestion(Canvas canvas, String lineContent, int globalLine, float textBaselineY) {
     boolean allowSuggestion =
         activeSuggestionIsPath ? isAutoPathCompletionEnabled : isAutoCompletionEnabled;
     if (!allowSuggestion || activeSuggestion == null || globalLine != activeSuggestionLine) {
@@ -234,7 +234,7 @@ public final class AutoSuggestionManager {
     activeSuggestionRect.set(leftView, topView, rightView, bottomView);
   }
 
-  void drawAutoSuggestionWrapped(
+  public void drawAutoSuggestionWrapped(
       Canvas canvas,
       String lineContent,
       int globalLine,

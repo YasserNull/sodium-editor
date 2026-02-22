@@ -7,15 +7,15 @@ import androidx.annotation.Nullable;
 
 public final class WordWrapManager {
   public static final int DEFAULT_TAB_SIZE_SPACES = 4;
-  static final String WORD_WRAP_INDICATOR_TEXT = "\u21A9"; // ↩
+  public static final String WORD_WRAP_INDICATOR_TEXT = "\u21A9"; // ↩
   int wrapWidthPx = -1;
   final HashMap<Integer, int[]> wrapCache = new HashMap<>();
   public volatile int[] wrapLineCounts = null;
   public volatile int[] wrapLinePrefix = null;
-  volatile int wrapPrefixValidUpToLine = -1;
-  volatile int totalWrapVisualLines = 0;
+  public volatile int wrapPrefixValidUpToLine = -1;
+  public volatile int totalWrapVisualLines = 0;
   public volatile boolean wrapMetricsReady = false;
-  volatile int wrapMetricsWidth = -1;
+  public volatile int wrapMetricsWidth = -1;
   final AtomicInteger wrapMetricsToken = new AtomicInteger(0);
   volatile boolean wrapMetricsBuilding = false;
   final AtomicInteger wrapSnapshotToken = new AtomicInteger(0);
@@ -30,10 +30,10 @@ public final class WordWrapManager {
   public boolean wrapPrefixRebuildPending = false;
 
   public boolean isWordWrapEnabled = false;
-  boolean isWordWrapIndicatorEnabled = false;
-  final Paint wordWrapIndicatorPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  float wordWrapIndicatorPadPx = 0f;
-  float wordWrapIndicatorWidth = 0f;
+  public boolean isWordWrapIndicatorEnabled = false;
+  public final Paint wordWrapIndicatorPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+  public float wordWrapIndicatorPadPx = 0f;
+  public float wordWrapIndicatorWidth = 0f;
   float wordWrapIndicatorTextScale = 0.85f;
 
   @Nullable int[] pendingWrapPrefixCounts = null;
@@ -72,7 +72,7 @@ public final class WordWrapManager {
     view.invalidate();
   }
 
-  void applyPendingWrapPrefixUpdateIfAny(SodiumEditorView view) {
+  public void applyPendingWrapPrefixUpdateIfAny(SodiumEditorView view) {
     if (!pendingApplyWrapPrefixUpdate) return;
     if (!isWordWrapEnabled) {
       pendingApplyWrapPrefixUpdate = false;
@@ -279,7 +279,7 @@ public final class WordWrapManager {
     wordWrapIndicatorPaint.setTypeface(basePaint.getTypeface());
     wordWrapIndicatorWidth = wordWrapIndicatorPaint.measureText(WORD_WRAP_INDICATOR_TEXT);
   }
-  int clampSegmentEndForWrapIndicator(SodiumEditorView view, String line, int segStart, int segEnd, int wrapWidthPx) {
+  public int clampSegmentEndForWrapIndicator(SodiumEditorView view, String line, int segStart, int segEnd, int wrapWidthPx) {
     if (line == null || wrapWidthPx <= 0) return segEnd;
     float available =
         wrapWidthPx - this.wordWrapIndicatorWidth - this.wordWrapIndicatorPadPx;
@@ -661,7 +661,7 @@ public final class WordWrapManager {
     }
   }
 
-  void onLineContentChanged(SodiumEditorView view, int globalLine, @Nullable String newText) {
+  public void onLineContentChanged(SodiumEditorView view, int globalLine, @Nullable String newText) {
     if (!isWordWrapEnabled) return;
     wrapCache.remove(globalLine);
 
@@ -692,7 +692,7 @@ public final class WordWrapManager {
     view.lineNumberManager.invalidateCache();
   }
 
-  boolean isWrapMetricsUsableForWindow(SodiumEditorView view, int widthPx) {
+  public boolean isWrapMetricsUsableForWindow(SodiumEditorView view, int widthPx) {
     if (!isWordWrapEnabled) return false;
     if (!wrapMetricsReady || wrapLinePrefix == null || wrapLineCounts == null) return false;
     if (wrapMetricsWidth != widthPx) return false;
@@ -704,7 +704,7 @@ public final class WordWrapManager {
     return wrapPrefixValidUpToLine >= windowEnd;
   }
 
-  boolean isWrapMetricsUsableForLine(SodiumEditorView view, int line) {
+  public boolean isWrapMetricsUsableForLine(SodiumEditorView view, int line) {
     int widthPx = Math.max(1, Math.round(getWrapWidth(view)));
     if (!isWrapMetricsUsableForWindow(view, widthPx)) return false;
     return wrapPrefixValidUpToLine >= line;
@@ -985,14 +985,14 @@ public final class WordWrapManager {
     return starts[Math.min(segIndex, starts.length - 1)];
   }
 
-  int getWrapSegmentEnd(int[] starts, int segIndex, int lineLength) {
+  public int getWrapSegmentEnd(int[] starts, int segIndex, int lineLength) {
     if (starts == null || starts.length == 0) return lineLength;
     int next = segIndex + 1;
     if (next >= 0 && next < starts.length) return starts[next];
     return lineLength;
   }
 
-  boolean patchWrapMetricsForVisualRange(
+  public boolean patchWrapMetricsForVisualRange(
       SodiumEditorView view,
       int firstVisualIndex,
       int lastVisualIndex,

@@ -59,6 +59,7 @@ import com.yn.sodiumeditor.CursorManager.BracketPairType;
 import com.yn.sodiumeditor.input.InputManager;
 import com.yn.sodiumeditor.input.IMEManager;
 import com.yn.sodiumeditor.renderer.ViewRender;
+import com.yn.sodiumeditor.renderer.TextRender;
 
 public class SodiumEditorView extends View {
 
@@ -268,7 +269,7 @@ public class SodiumEditorView extends View {
   final int[] visibleCharRangeTmp = new int[2];
   public int visibleCharPadding = 2;
   private boolean isPerformanceModeEnabled = false;
-  boolean isStableGlyphPositionsEnabled = false;
+  public boolean isStableGlyphPositionsEnabled = false;
   private boolean isClickAfterEndToAddLineEnabled = false;
   public boolean isAutoPairingEnabled = true;
   public boolean isAutoBracketNewlineEnabled = true;
@@ -1382,7 +1383,7 @@ public class SodiumEditorView extends View {
     return viewX + getEffectiveScrollX() - getTextStartX();
   }
 
-  float viewToTextXPublic(float viewX) {
+  public float viewToTextXPublic(float viewX) {
     return viewToTextX(viewX);
   }
 
@@ -1673,7 +1674,7 @@ public class SodiumEditorView extends View {
         || block == Character.UnicodeBlock.LATIN_EXTENDED_ADDITIONAL;
   }
 
-  int getVisualSpaceScale() {
+  public int getVisualSpaceScale() {
     return 1;
   }
 
@@ -2439,7 +2440,7 @@ public class SodiumEditorView extends View {
     return viewRender.getCharIndexForX(text, x, globalLine);
   }
 
-  int getCharIndexForXPublic(String text, float x, int globalLine) {
+  public int getCharIndexForXPublic(String text, float x, int globalLine) {
     return getCharIndexForX(text, x, globalLine);
   }
 
@@ -2468,10 +2469,10 @@ public class SodiumEditorView extends View {
   }
 
   public static final class TextRange {
-    final int start;
-    final int end;
+    public final int start;
+    public final int end;
 
-    TextRange(int start, int end) {
+    public TextRange(int start, int end) {
       this.start = start;
       this.end = end;
     }
@@ -2686,7 +2687,7 @@ public class SodiumEditorView extends View {
     return foldManager.getVisibleIndexForGlobalLine(globalLine);
   }
 
-  int getVisualIndexForLineAndChar(int line, int ch) {
+  public int getVisualIndexForLineAndChar(int line, int ch) {
     return viewRender.getVisualIndexForLineAndChar(line, ch);
   }
 

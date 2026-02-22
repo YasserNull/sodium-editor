@@ -5,7 +5,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
 
-final class LoadingCircleManager {
+public final class LoadingCircleManager {
   private static final float DEFAULT_RADIUS = 40f;
   private static final int DEFAULT_COLOR = 0xFF3F51B5;
   private static final float DEFAULT_STROKE_WIDTH = 8f;
@@ -61,7 +61,7 @@ final class LoadingCircleManager {
     view.invalidate();
   }
 
-  void draw(Canvas canvas) {
+  public void draw(Canvas canvas) {
     if (!show) return;
     paint.setColor(color);
     paint.setStrokeWidth(DEFAULT_STROKE_WIDTH);

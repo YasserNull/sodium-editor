@@ -424,7 +424,7 @@ public final class ScrollManager {
     if (scrollX > max) scrollX = max;
   }
 
-  void drawScrollBar(Canvas canvas) {
+  public void drawScrollBar(Canvas canvas) {
     if (!scrollBarEnabled) return;
     if (scrollBarFadeEnabled && scrollBarAlpha <= 0f) return;
     int w = view.getWidth();
@@ -602,7 +602,7 @@ public final class ScrollManager {
     return (drawIndex - view.drawBaseLine) * view.lineHeight;
   }
 
-  float getDrawLineBottom(int globalLine) {
+  public float getDrawLineBottom(int globalLine) {
     return getDrawLineTop(globalLine) + view.lineHeight;
   }
 

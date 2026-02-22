@@ -150,15 +150,15 @@ public final class LineNumberManager {
     return lineNumbersPaint;
   }
 
-  Paint getGutterPaint() {
+  public Paint getGutterPaint() {
     return gutterPaint;
   }
 
-  Paint getGutterSeparatorPaint() {
+  public Paint getGutterSeparatorPaint() {
     return gutterSeparatorPaint;
   }
 
-  void drawCurrentLineHighlightInGutter(Canvas canvas, float top, float bottom, Paint paint) {
+  public void drawCurrentLineHighlightInGutter(Canvas canvas, float top, float bottom, Paint paint) {
     if (!showLineNumbers || !highlightCurrentLineInGutter || lineNumbersGutterWidth <= 0f) return;
     float left = view.getGutterStartX();
     float right = left + lineNumbersGutterWidth;
@@ -223,11 +223,11 @@ public final class LineNumberManager {
     return x >= startX && x <= startX + lineNumbersGutterWidth;
   }
 
-  float getContentClipLeft(boolean rtl) {
+  public float getContentClipLeft(boolean rtl) {
     return rtl ? 0f : lineNumbersGutterWidth;
   }
 
-  float getContentClipRight(float viewWidth, boolean rtl) {
+  public float getContentClipRight(float viewWidth, boolean rtl) {
     return rtl ? viewWidth - lineNumbersGutterWidth : viewWidth;
   }
 
@@ -239,11 +239,11 @@ public final class LineNumberManager {
     return rtl ? (viewWidth - lineNumbersGutterWidth) : viewWidth;
   }
 
-  float getSeparatorLeft(float gutterStartX) {
+  public float getSeparatorLeft(float gutterStartX) {
     return gutterStartX + lineNumbersGutterWidth - gutterSeparatorWidth;
   }
 
-  float getGutterRight(float gutterStartX) {
+  public float getGutterRight(float gutterStartX) {
     return gutterStartX + lineNumbersGutterWidth;
   }
 
@@ -263,7 +263,7 @@ public final class LineNumberManager {
     lineNumberCacheHeight = height;
   }
 
-  void drawLineNumbersCachedUnwrapped(
+  public void drawLineNumbersCachedUnwrapped(
       Canvas canvas,
       int firstVisibleIndex,
       int lastVisibleIndex,
@@ -371,7 +371,7 @@ public final class LineNumberManager {
     drawCurrentLineNumberUnwrapped(canvas, firstVisibleIndex, lastVisibleIndex);
   }
 
-  void drawLineNumbersCachedWrapped(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
+  public void drawLineNumbersCachedWrapped(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
     if (!shouldUseLineNumberCache()) {
       drawLineNumbersDirectWrapped(canvas, firstVisualIndex, lastVisualIndex);
       return;
@@ -637,7 +637,7 @@ public final class LineNumberManager {
     return i;
   }
 
-  void drawLineNumber(Canvas canvas, int line, float x, float y, int currentLineColor, boolean isCurrentLine) {
+  public void drawLineNumber(Canvas canvas, int line, float x, float y, int currentLineColor, boolean isCurrentLine) {
     int start = writeIntToChars(line + 1, lineNumberChars);
     int count = lineNumberChars.length - start;
     if (isCurrentLine) {

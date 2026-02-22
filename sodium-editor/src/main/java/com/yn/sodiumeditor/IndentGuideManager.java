@@ -4,7 +4,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import java.util.ArrayList;
 
-final class IndentGuideManager {
+public final class IndentGuideManager {
   private static final float DEFAULT_STROKE_WIDTH = 2f;
 
   private final SodiumEditorView view;
@@ -57,7 +57,7 @@ final class IndentGuideManager {
     indentGuideIntervalsDirty = true;
   }
 
-  void rebuildIntervalsIfNeeded() {
+  public void rebuildIntervalsIfNeeded() {
     if (!indentGuideIntervalsDirty) return;
     indentGuideIntervalsDirty = false;
     indentGuideIntervals.clear();
@@ -88,7 +88,7 @@ final class IndentGuideManager {
     }
   }
 
-  void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine) {
+  public void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine) {
     if (!isIndentGuidesEnabled
         || !view.isIndentationBlocksEnabledForIndentGuides()
         || view.isHeavyDrawSuppressedForIndentGuides()) {

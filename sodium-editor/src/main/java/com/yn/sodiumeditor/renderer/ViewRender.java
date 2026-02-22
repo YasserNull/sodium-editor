@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.yn.sodiumeditor.SodiumEditorView;
-import com.yn.sodiumeditor.TextRender;
+import com.yn.sodiumeditor.renderer.TextRender;
 
 public final class ViewRender {
   private final SodiumEditorView view;

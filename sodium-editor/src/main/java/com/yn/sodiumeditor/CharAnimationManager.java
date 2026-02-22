@@ -232,29 +232,29 @@ public final class CharAnimationManager {
     return charAnimAlpha;
   }
 
-  int getDelAnimLine() {
+  public int getDelAnimLine() {
     return delAnimLine;
   }
 
-  int getDelAnimAtChar() {
+  public int getDelAnimAtChar() {
     return delAnimAtChar;
   }
 
   @Nullable
-  String getDelAnimText() {
+  public String getDelAnimText() {
     return delAnimText;
   }
 
   @Nullable
-  Paint getDelAnimPaint() {
+  public Paint getDelAnimPaint() {
     return delAnimPaint;
   }
 
-  float getDelAnimAlpha() {
+  public float getDelAnimAlpha() {
     return delAnimAlpha;
   }
 
-  Paint getTempPaint() {
+  public Paint getTempPaint() {
     return charAnimTmpPaint;
   }
 }

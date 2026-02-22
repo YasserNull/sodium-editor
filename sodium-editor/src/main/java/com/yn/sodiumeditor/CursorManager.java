@@ -219,7 +219,7 @@ public final class CursorManager {
     view.imeManager.updateImeSelection();
   }
 
-  void drawCaret(Canvas canvas, float cursorX, float cursorY) {
+  public void drawCaret(Canvas canvas, float cursorX, float cursorY) {
     view.cursorAnimationManager.updateCursorDrawPosition(cursorX, cursorY);
     float drawX = view.cursorAnimationManager.getCursorDrawX();
     float drawY = view.cursorAnimationManager.getCursorDrawY();

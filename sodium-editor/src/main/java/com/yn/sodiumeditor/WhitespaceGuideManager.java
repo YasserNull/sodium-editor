@@ -177,7 +177,7 @@ public final class WhitespaceGuideManager {
     return whitespaceCommentRule;
   }
 
-  float[] ensureMeasureWidthBuffer(int len) {
+  public float[] ensureMeasureWidthBuffer(int len) {
     if (measureWidthBuffer == null || measureWidthBuffer.length < len) {
       measureWidthBuffer = new float[len];
     }
@@ -211,7 +211,7 @@ public final class WhitespaceGuideManager {
     return getVisualSpaceWidth(p) * tabSpaces;
   }
 
-  float getCharAdvanceWidth(char c, float measuredWidth, Paint p, int tabSpaces) {
+  public float getCharAdvanceWidth(char c, float measuredWidth, Paint p, int tabSpaces) {
     if (c == ' ') {
       return measuredWidth;
     }
@@ -310,7 +310,7 @@ public final class WhitespaceGuideManager {
     return syntaxSpans != null ? syntaxSpans : Collections.emptyList();
   }
 
-  void drawWhitespaceGuidesForSegment(
+  public void drawWhitespaceGuidesForSegment(
       SodiumEditorView view,
       Canvas canvas,
       String line,
@@ -416,7 +416,7 @@ public final class WhitespaceGuideManager {
     }
   }
 
-  void drawWhitespaceGuidesForLine(
+  public void drawWhitespaceGuidesForLine(
       SodiumEditorView view, Canvas canvas, String line, int globalLine, float y) {
     if (!view.isWhitespaceGuidesEnabledForBracket()
         || view.isHeavyDrawSuppressed()

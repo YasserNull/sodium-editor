@@ -39,7 +39,7 @@ public final class BracketGuideManager {
     invalidateCache();
   }
 
-  boolean isEnabled() {
+  public boolean isEnabled() {
     return isBracketGuidesEnabled;
   }
 
@@ -83,7 +83,7 @@ public final class BracketGuideManager {
     bracketGuideTokensWindow.clear();
   }
 
-  void ensureCacheForWindow(@Nullable java.util.Map<Integer, String> directLines) {
+  public void ensureCacheForWindow(@Nullable java.util.Map<Integer, String> directLines) {
     int start = view.getWindowStartLineForBracket();
     int end = view.getWindowEndLineForBracket();
     if (start < 0 || end < start) {
@@ -128,7 +128,7 @@ public final class BracketGuideManager {
     bracketGuideCacheConfigHash = cfg;
   }
 
-  List<BracketGuideToken> getTokensForLine(int globalLine) {
+  public List<BracketGuideToken> getTokensForLine(int globalLine) {
     if (!isBracketGuidesEnabled) return Collections.emptyList();
     int start = bracketGuideCacheStartLine;
     int end = bracketGuideCacheEndLine;
@@ -139,7 +139,7 @@ public final class BracketGuideManager {
     return (tokens != null) ? tokens : Collections.emptyList();
   }
 
-  void drawGuidesForLine(Canvas canvas, String line, int globalLine, List<BracketGuideToken> guideTokens) {
+  public void drawGuidesForLine(Canvas canvas, String line, int globalLine, List<BracketGuideToken> guideTokens) {
     if (!isBracketGuidesEnabled
         || view.isHeavyDrawSuppressedForBracket()
         || guideTokens == null
@@ -469,11 +469,11 @@ public final class BracketGuideManager {
     }
   }
 
-  static final class BracketGuideToken {
-    final int column;
-    final float x;
+  public static final class BracketGuideToken {
+    public final int column;
+    public final float x;
 
-    BracketGuideToken(int column, float x) {
+    public BracketGuideToken(int column, float x) {
       this.column = column;
       this.x = x;
     }

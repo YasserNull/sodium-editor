@@ -172,15 +172,15 @@ public final class HandlesManager {
     cursorHandleRect.setEmpty();
   }
 
-  void clearLeftHandleRect() {
+  public void clearLeftHandleRect() {
     leftHandleRect.setEmpty();
   }
 
-  void clearRightHandleRect() {
+  public void clearRightHandleRect() {
     rightHandleRect.setEmpty();
   }
 
-  void drawCursorHandle(Canvas canvas, float drawX, float drawY, float lineHeight) {
+  public void drawCursorHandle(Canvas canvas, float drawX, float drawY, float lineHeight) {
     handlePaint.setColor(cursorHandleColor);
     drawTeardropHandle(canvas, drawX, drawY + lineHeight, handlePaint);
     cursorHandleRect.set(
@@ -190,7 +190,7 @@ public final class HandlesManager {
         drawY + lineHeight + handleRadius * 2);
   }
 
-  void drawSelectionStartHandle(Canvas canvas, float x, float y, boolean isRtl) {
+  public void drawSelectionStartHandle(Canvas canvas, float x, float y, boolean isRtl) {
     handlePaint.setColor(selectionHandleColor);
     drawTeardropHandle(canvas, x, y, handlePaint);
     if (isRtl) {
@@ -200,7 +200,7 @@ public final class HandlesManager {
     }
   }
 
-  void drawSelectionEndHandle(Canvas canvas, float x, float y, boolean isRtl) {
+  public void drawSelectionEndHandle(Canvas canvas, float x, float y, boolean isRtl) {
     handlePaint.setColor(selectionHandleColor);
     drawTeardropHandle(canvas, x, y, handlePaint);
     if (isRtl) {

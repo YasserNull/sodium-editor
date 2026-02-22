@@ -216,23 +216,23 @@ public final class ZoomManager {
         || (scaleGestureDetector != null && scaleGestureDetector.isInProgress());
   }
 
-  boolean shouldDrawDecorations() {
+  public boolean shouldDrawDecorations() {
     return !(hideDecorationsWhileZooming && isZoomGestureActive());
   }
 
-  boolean isPinchVisualZoomActive() {
+  public boolean isPinchVisualZoomActive() {
     return pinchVisualZoomActive;
   }
 
-  float getPinchVisualScale() {
+  public float getPinchVisualScale() {
     return pinchVisualScale;
   }
 
-  float getPinchFocusX() {
+  public float getPinchFocusX() {
     return pinchFocusX;
   }
 
-  float getPinchFocusY() {
+  public float getPinchFocusY() {
     return pinchFocusY;
   }
 

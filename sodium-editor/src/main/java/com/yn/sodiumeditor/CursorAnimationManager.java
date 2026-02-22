@@ -86,11 +86,11 @@ public final class CursorAnimationManager {
     return isCursorVisible;
   }
 
-  float getCursorDrawX() {
+  public float getCursorDrawX() {
     return cursorDrawX;
   }
 
-  float getCursorDrawY() {
+  public float getCursorDrawY() {
     return cursorDrawY;
   }
 

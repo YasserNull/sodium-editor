@@ -64,7 +64,7 @@ public final class UndoRedo {
     lineCountDelta = 0;
   }
 
-  int getLineCountDelta() {
+  public int getLineCountDelta() {
     return lineCountDelta;
   }
 

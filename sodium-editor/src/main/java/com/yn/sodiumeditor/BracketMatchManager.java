@@ -7,7 +7,7 @@ import androidx.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 
-final class BracketMatchManager {
+public final class BracketMatchManager {
   private final SodiumEditorView view;
 
   private boolean enabled = false;
@@ -72,7 +72,7 @@ final class BracketMatchManager {
   }
 
   @Nullable
-  BracketMatch getMatch(int firstVisibleLine, int lastVisibleLine, HashMap<Integer, String> directLines) {
+  public BracketMatch getMatch(int firstVisibleLine, int lastVisibleLine, HashMap<Integer, String> directLines) {
     if (!enabled) return null;
     int v = view.getEditVersionForMatch();
     int line = view.cursorManager.getLine();
@@ -95,7 +95,7 @@ final class BracketMatchManager {
     return match;
   }
 
-  void drawMatchForLine(Canvas canvas, String line, int globalLine, BracketMatch match) {
+  public void drawMatchForLine(Canvas canvas, String line, int globalLine, BracketMatch match) {
     if (match == null) return;
     if (globalLine != match.openLine && globalLine != match.closeLine) return;
     if (line == null || line.isEmpty()) return;
@@ -350,7 +350,7 @@ final class BracketMatchManager {
     }
   }
 
-  static final class BracketMatch {
+  public static final class BracketMatch {
     final int openLine;
     final int openChar;
     final int closeLine;

@@ -78,7 +78,7 @@ public final class SelectionManager {
     selecting = selectingNow;
   }
 
-  void setSelectAllState(boolean selectAll, boolean entireFile) {
+  public void setSelectAllState(boolean selectAll, boolean entireFile) {
     isSelectAllActive = selectAll;
     isEntireFileSelected = entireFile;
   }
@@ -102,12 +102,12 @@ public final class SelectionManager {
     return true;
   }
 
-  Paint getSelectionPaint() {
+  public Paint getSelectionPaint() {
     selectionPaint.setColor(selectionHighlightColor);
     return selectionPaint;
   }
 
-  void drawSelectionSegment(
+  public void drawSelectionSegment(
       Canvas canvas,
       float left,
       float top,

@@ -168,7 +168,7 @@ public final class PopupMenuManager {
     return pendingPopupAfterDoubleTap;
   }
 
-  void drawPopup(Canvas canvas) {
+  public void drawPopup(Canvas canvas) {
     if (popupAlpha <= 0f) return;
     applyPopupConfig();
     Paint bgPaint = popupBgPaint;

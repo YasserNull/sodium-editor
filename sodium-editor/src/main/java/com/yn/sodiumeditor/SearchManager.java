@@ -105,7 +105,7 @@ public final class SearchManager {
     return spans;
   }
 
-  void drawSearchHighlightsForLine(
+  public void drawSearchHighlightsForLine(
       Canvas canvas, String line, int globalLine, float top, float bottom) {
     int[] spans = getSearchMatchSpansForLine(line, globalLine);
     if (spans.length == 0) return;
@@ -128,7 +128,7 @@ public final class SearchManager {
     }
   }
 
-  void drawSearchHighlightsForSegment(
+  public void drawSearchHighlightsForSegment(
       Canvas canvas,
       String line,
       int globalLine,

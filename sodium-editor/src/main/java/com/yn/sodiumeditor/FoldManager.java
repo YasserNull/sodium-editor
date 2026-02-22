@@ -27,7 +27,7 @@ public final class FoldManager {
   final HashMap<Integer, FoldRange> foldRanges = new HashMap<>();
   final ArrayList<int[]> foldIntervals = new ArrayList<>();
   boolean foldIntervalsDirty = true;
-  boolean isCodeFoldingEnabled = false;
+  public boolean isCodeFoldingEnabled = false;
 
   FoldManager(SodiumEditorView view) {
     this.view = view;
@@ -192,7 +192,7 @@ public final class FoldManager {
     return idx >= 0;
   }
 
-  void drawFoldMarkersForVisibleLines(
+  public void drawFoldMarkersForVisibleLines(
       android.graphics.Canvas canvas, int firstVisibleIndex, int lastVisibleIndex) {
     if (!isCodeFoldingEnabled) return;
 
@@ -293,7 +293,7 @@ public final class FoldManager {
     return localX >= left && localX <= right;
   }
 
-  boolean isLineHiddenByFold(int line) {
+  public boolean isLineHiddenByFold(int line) {
     if (!isCodeFoldingEnabled || foldRanges.isEmpty()) return false;
     rebuildFoldIntervalsIfNeeded();
     for (int[] interval : foldIntervals) {
@@ -303,7 +303,7 @@ public final class FoldManager {
     return false;
   }
 
-  FoldRange getFoldRangeAtStart(int line) {
+  public FoldRange getFoldRangeAtStart(int line) {
     if (!isCodeFoldingEnabled) return null;
     FoldRange range = foldRanges.get(line);
     return (range != null && range.collapsed) ? range : null;
@@ -340,7 +340,7 @@ public final class FoldManager {
     while (foldIntervals.size() > write) foldIntervals.remove(foldIntervals.size() - 1);
   }
 
-  int getHiddenLineCount(int totalLines) {
+  public int getHiddenLineCount(int totalLines) {
     if (!isCodeFoldingEnabled || foldRanges.isEmpty()) return 0;
     rebuildFoldIntervalsIfNeeded();
     int hidden = 0;
@@ -352,7 +352,7 @@ public final class FoldManager {
     return hidden;
   }
 
-  int mapVisibleIndexToGlobal(int visibleIndex, int totalLines) {
+  public int mapVisibleIndexToGlobal(int visibleIndex, int totalLines) {
     if (!isCodeFoldingEnabled) return visibleIndex;
     int visibleTotal = Math.max(1, totalLines - getHiddenLineCount(totalLines));
     int clamped = Math.max(0, Math.min(visibleIndex, Math.max(0, visibleTotal - 1)));
@@ -365,7 +365,7 @@ public final class FoldManager {
     return Math.max(0, Math.min(global, totalLines - 1));
   }
 
-  int getVisibleIndexForGlobalLine(int globalLine) {
+  public int getVisibleIndexForGlobalLine(int globalLine) {
     if (!isCodeFoldingEnabled) return globalLine;
     rebuildFoldIntervalsIfNeeded();
     int visible = globalLine;
@@ -709,17 +709,17 @@ public final class FoldManager {
     return null;
   }
 
-  static final class FoldRange {
-    final int startLine;
-    final int endLine;
-    final int openCharIndex;
-    final char openChar;
-    final char closeChar;
-    final boolean isBlockComment;
-    final boolean isIndentFold;
-    boolean collapsed;
+  public static final class FoldRange {
+    public final int startLine;
+    public final int endLine;
+    public final int openCharIndex;
+    public final char openChar;
+    public final char closeChar;
+    public final boolean isBlockComment;
+    public final boolean isIndentFold;
+    public boolean collapsed;
 
-    FoldRange(
+    public FoldRange(
         int startLine,
         int endLine,
         int openCharIndex,

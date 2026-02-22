@@ -23,14 +23,14 @@ public final class HighlightManager {
   public static final int STRING_STATE_TRIPLE = 4;
 
   // --- Fields copied from SodiumEditorView ---
-  boolean highlightCurrentLine = true;
+  public boolean highlightCurrentLine = true;
   private int currentLineHighlightColor = 0x202196F3; // Default: translucent gray (more visible)
-  final Paint currentLinePaint = new Paint();
+  public final Paint currentLinePaint = new Paint();
   boolean isMultiLineStringsEnabled = false;
   boolean isBacktickStringsEnabled = false;
   boolean isBlockCommentsEnabled = false;
   boolean isTripleQuoteStringsEnabled = false;
-  int maxSyntaxLineLength = 4096;
+  public int maxSyntaxLineLength = 4096;
   private int prefetchCols = 512;
 
   final java.util.ArrayList<String> lineCommentDelimiters = new java.util.ArrayList<>();
@@ -39,7 +39,7 @@ public final class HighlightManager {
   HighlightRule stringHighlightRule;
   HighlightRule blockCommentHighlightRule;
   final java.util.ArrayList<HighlightRule> regexHighlightRules = new java.util.ArrayList<>();
-  final java.util.LinkedHashMap<Integer, java.util.List<HighlightSpan>> highlightCache =
+  public final java.util.LinkedHashMap<Integer, java.util.List<HighlightSpan>> highlightCache =
       new java.util.LinkedHashMap<Integer, java.util.List<HighlightSpan>>(1000, 0.75f, true) {
         @Override
         protected boolean removeEldestEntry(
@@ -163,7 +163,7 @@ public final class HighlightManager {
         });
   }
 
-  void drawColorCodeBackgrounds(
+  public void drawColorCodeBackgrounds(
       Canvas canvas, String line, int globalLine, float lineTop, float lineBottom) {
     if (!isColorHighlightingEnabled || line.isEmpty()) {
       return;
@@ -713,7 +713,7 @@ public final class HighlightManager {
     return new HighlightLineState(inBlock, stringState);
   }
 
-  java.util.List<HighlightSpan> calculateSpansForLine(String line, int globalLine) {
+  public java.util.List<HighlightSpan> calculateSpansForLine(String line, int globalLine) {
     java.util.List<HighlightSpan> spans = new java.util.ArrayList<>();
     if (highlightRules.isEmpty()) {
       return spans;
@@ -889,7 +889,7 @@ public final class HighlightManager {
     return next < line.length() && isEscaped(line, next);
   }
 
-  static boolean isEscaped(String line, int index) {
+  public static boolean isEscaped(String line, int index) {
     int backslashes = 0;
     for (int i = index - 1; i >= 0; i--) {
       if (line.charAt(i) != '\\') break;
@@ -1165,7 +1165,7 @@ public final class HighlightManager {
     }
   }
 
-  void drawErrorUnderlinesForSegment(
+  public void drawErrorUnderlinesForSegment(
       Canvas canvas,
       String line,
       int globalLine,
@@ -1235,7 +1235,7 @@ public final class HighlightManager {
     canvas.drawPath(errorUnderlinePath, errorUnderlinePaint);
   }
 
-  float measureText(String line, int length, int globalLine) {
+  public float measureText(String line, int length, int globalLine) {
     int logicalLen = view.getLogicalLineLength(globalLine, line);
     int safeLen = Math.max(0, Math.min(length, logicalLen));
     if (logicalLen > maxSyntaxLineLength) {
@@ -1323,7 +1323,7 @@ public final class HighlightManager {
     return avg;
   }
 
-  void drawHighlightedLine(Canvas canvas, String line, int globalLine, float y) {
+  public void drawHighlightedLine(Canvas canvas, String line, int globalLine, float y) {
     if (line == null || line.isEmpty()) {
       if (view.charAnimationManager.isEnabled()
           && globalLine == view.charAnimationManager.getDelAnimLine()
@@ -1602,7 +1602,7 @@ public final class HighlightManager {
     }
   }
 
-  float measureHighlightedSegmentWidth(String line, int globalLine, int start, int end) {
+  public float measureHighlightedSegmentWidth(String line, int globalLine, int start, int end) {
     if (line == null || line.isEmpty() || start >= end) return 0f;
     start = Math.max(0, Math.min(start, line.length()));
     end = Math.max(start, Math.min(end, line.length()));
@@ -1798,7 +1798,7 @@ public final class HighlightManager {
     drawErrorUnderlinesForLineRange(canvas, line, globalLine, start, end, y, lineTop, lineBottom);
   }
 
-  void drawHighlightedLineSegment(
+  public void drawHighlightedLineSegment(
       Canvas canvas,
       String line,
       int globalLine,
@@ -2184,11 +2184,11 @@ public final class HighlightManager {
     return false;
   }
   public static class HighlightSpan {
-    final int start;
-    final int end;
-    final Paint paint;
+    public final int start;
+    public final int end;
+    public final Paint paint;
 
-    HighlightSpan(int start, int end, Paint paint) {
+    public HighlightSpan(int start, int end, Paint paint) {
       this.start = start;
       this.end = end;
       this.paint = paint;
@@ -2196,11 +2196,11 @@ public final class HighlightManager {
   }
 
   public static class UnderlineSpan {
-    final int start;
-    final int end;
-    final boolean isPath;
+    public final int start;
+    public final int end;
+    public final boolean isPath;
 
-    UnderlineSpan(int start, int end, boolean isPath) {
+    public UnderlineSpan(int start, int end, boolean isPath) {
       this.start = start;
       this.end = end;
       this.isPath = isPath;
