@@ -15,7 +15,7 @@ import com.yn.sodiumeditor.renderer.TextRender;
 
 public final class ViewRender {
   private final SodiumEditorView view;
-  final TextRender textRender;
+  public final TextRender textRender;
 
   static final class StreamedSliceRequest {
     final int line;
@@ -32,22 +32,6 @@ public final class ViewRender {
   public ViewRender(SodiumEditorView view) {
     this.view = view;
     this.textRender = new TextRender(view);
-  }
-
-  void onDraw(Canvas canvas) {
-    textRender.onDraw(canvas);
-  }
-
-  void superOnDraw(Canvas canvas) {
-    view.superOnDraw(canvas);
-  }
-
-  public void invalidateLineGlobal(int globalLine) {
-    textRender.invalidateLineGlobal(globalLine);
-  }
-
-  public boolean isHeavyDrawSuppressed() {
-    return textRender.isHeavyDrawSuppressed();
   }
 
   private void computeStreamedSliceBounds(
@@ -166,7 +150,6 @@ public final class ViewRender {
     }
   }
 
-
   public void setPrefetchCols(int cols) {
     int safe = Math.max(0, cols);
     if (view.prefetchCols == safe) return;
@@ -187,10 +170,6 @@ public final class ViewRender {
         }
       }
     }
-  }
-
-  public boolean isWhitespaceAtX(String line, int globalLine, float x) {
-    return textRender.isWhitespaceAtX(line, globalLine, x);
   }
 
   public void checkAndLoadWindow() {
@@ -602,83 +581,7 @@ public final class ViewRender {
               });
         });
   }
-
-  public void recalculateMaxLineWidth() {
-    textRender.recalculateMaxLineWidth();
-  }
-
-  public void recalculateMaxLineWidthAsync() {
-    textRender.recalculateMaxLineWidthAsync();
-  }
-
-  public void drawFoldMarkersForVisibleLines(
-      Canvas canvas, int firstVisibleIndex, int lastVisibleIndex) {
-    textRender.drawFoldMarkersForVisibleLines(canvas, firstVisibleIndex, lastVisibleIndex);
-  }
-
-  public void drawDeleteAnimationForSegment(
-      Canvas canvas, String line, int globalLine, int segStart, int segEnd, float y) {
-    textRender.drawDeleteAnimationForSegment(canvas, line, globalLine, segStart, segEnd, y);
-  }
-
-  public void getVisibleCharRangeForLine(String line, int globalLine, int[] out) {
-    textRender.getVisibleCharRangeForLine(line, globalLine, out);
-  }
-
-  public void getVisibleCharRangeForLineFast(
-      String line, int globalLine, int lineLength, int[] out) {
-    textRender.getVisibleCharRangeForLineFast(line, globalLine, lineLength, out);
-  }
-
-  public int getCharIndexForX(String text, float x, int globalLine) {
-    return textRender.getCharIndexForX(text, x, globalLine);
-  }
-
-  public void computeWidthForLine(int globalIndex, String line) {
-    textRender.computeWidthForLine(globalIndex, line);
-  }
-
-  public float getWidthForLine(int globalIndex, String line) {
-    return textRender.getWidthForLine(globalIndex, line);
-  }
-
-  public String getLineTextForRender(int line) {
-    return textRender.getLineTextForRender(line);
-  }
-
-  @Nullable
-  public String getLineTextForRenderWithDirect(int line, @Nullable java.util.Map<Integer, String> direct) {
-    return textRender.getLineTextForRenderWithDirect(line, direct);
-  }
-
-  public void populateDirectLinesForRange(int startLine, int endLine, java.util.Map<Integer, String> direct) {
-    textRender.populateDirectLinesForRange(startLine, endLine, direct);
-  }
-
-  public int getGlobalLineForY(float y) {
-    return textRender.getGlobalLineForY(y);
-  }
-
-  public int getVisualIndexForLineAndChar(int line, int ch) {
-    return textRender.getVisualIndexForLineAndChar(line, ch);
-  }
-
-  public int getVisibleLineCount() {
-    return textRender.getVisibleLineCount();
-  }
-
-  public int mapVisibleIndexToGlobal(int visibleIndex) {
-    return textRender.mapVisibleIndexToGlobal(visibleIndex);
-  }
-
-  public int getVisibleIndexForGlobalLine(int globalLine) {
-    return textRender.getVisibleIndexForGlobalLine(globalLine);
-  }
-
-  public int getLinesCount() {
-    return textRender.getLinesCount();
-  }
-
+  
   private int getBraceGuideColumnForLine(
       String line, int globalLine, int braceIndex, int firstNonSpace) {
     int column = (firstNonSpace >= 0) ? firstNonSpace : braceIndex;
@@ -703,31 +606,7 @@ public final class ViewRender {
     }
     return -1;
   }
-
-  public void updateLocalLine(int localIdx, String text) {
-    textRender.updateLocalLine(localIdx, text);
-  }
-
-  public String getLineFromWindowLocal(int localIdx) {
-    return textRender.getLineFromWindowLocal(localIdx);
-  }
-
-  public boolean isWordChar(char c) {
-    return textRender.isWordChar(c);
-  }
-
-  public int[] computeWordBounds(String line, int pos) {
-    return textRender.computeWordBounds(line, pos);
-  }
-
-  public int[] computeWordBoundsSmart(String line, int pos) {
-    return textRender.computeWordBoundsSmart(line, pos);
-  }
-
-  public boolean applySmartDoubleTapSelection(int line, int charIndex, String lineText) {
-    return textRender.applySmartDoubleTapSelection(line, charIndex, lineText);
-  }
-
+  
   public long[] buildIndexJava(String path) {
     if (path == null) return null;
     java.io.File file = new java.io.File(path);
@@ -763,7 +642,7 @@ public final class ViewRender {
   private void applyMultiLineReplaceInWindowNow(
       int sL, int sC, int eL, int eC, String insertText, SodiumEditorView.CursorTarget target) {
     synchronized (view.linesWindow) {
-      int oldLineCount = getLinesCount();
+      int oldLineCount = textRender.getLinesCount();
       int sLocal = sL - view.windowStartLine;
       int eLocal = eL - view.windowStartLine;
       if (sLocal < 0 || eLocal < 0 || sLocal >= view.linesWindow.size() || eLocal >= view.linesWindow.size())
@@ -774,8 +653,8 @@ public final class ViewRender {
         eLocal = t;
       }
 
-      String startLine = getLineFromWindowLocal(sLocal);
-      String endLine = getLineFromWindowLocal(eLocal);
+      String startLine = textRender.getLineFromWindowLocal(sLocal);
+      String endLine = textRender.getLineFromWindowLocal(eLocal);
       if (startLine == null) startLine = "";
       if (endLine == null) endLine = "";
 
@@ -801,7 +680,7 @@ public final class ViewRender {
 
       view.cursorManager.setLineAndChar(Math.max(0, target.line), Math.max(0, target.ch));
 
-      int newLineCount = getLinesCount();
+      int newLineCount = textRender.getLinesCount();
       if (oldLineCount != newLineCount) {
         view.wordWrapManager.onLineCountChanged(view);
       }
@@ -811,13 +690,13 @@ public final class ViewRender {
 
   private void applyMultiLineDeleteInWindowNow(int sL, int sC, int eL, int eC) {
     synchronized (view.linesWindow) {
-      int oldLineCount = getLinesCount();
+      int oldLineCount = textRender.getLinesCount();
       int sLocal = sL - view.windowStartLine;
       int eLocal = eL - view.windowStartLine;
       if (sLocal < 0 || eLocal >= view.linesWindow.size() || sLocal > eLocal) return;
 
-      String startLine = getLineFromWindowLocal(sLocal);
-      String endLine = getLineFromWindowLocal(eLocal);
+      String startLine = textRender.getLineFromWindowLocal(sLocal);
+      String endLine = textRender.getLineFromWindowLocal(eLocal);
       if (startLine == null) startLine = "";
       if (endLine == null) endLine = "";
 
@@ -842,37 +721,11 @@ public final class ViewRender {
       view.cursorManager.setLineAndChar(sL, left.length());
 
       view.recalculateMaxLineWidth();
-      int newLineCount = getLinesCount();
+      int newLineCount = textRender.getLinesCount();
       if (oldLineCount != newLineCount) {
         view.wordWrapManager.onLineCountChanged(view);
       }
     }
-  }
-
-  public ArrayList<SodiumEditorView.TextRange> buildDoubleTapCandidates(String line, int charIndex, int wStart, int wEnd) {
-    return textRender.buildDoubleTapCandidates(line, charIndex, wStart, wEnd);
-  }
-
-  public void addSelectionCandidate(List<SodiumEditorView.TextRange> out, int start, int end, int lineLen) {
-    textRender.addSelectionCandidate(out, start, end, lineLen);
-  }
-
-  public int findSelectionCandidateIndex(int line, List<SodiumEditorView.TextRange> candidates) {
-    return textRender.findSelectionCandidateIndex(line, candidates);
-  }
-
-  public boolean isQuoteChar(char c) {
-    return textRender.isQuoteChar(c);
-  }
-
-  @Nullable
-  public SodiumEditorView.TextRange findEnclosingQuoteRange(String line, int index) {
-    return textRender.findEnclosingQuoteRange(line, index);
-  }
-
-  @Nullable
-  public SodiumEditorView.TextRange findEnclosingBracketRange(String line, int index) {
-    return textRender.findEnclosingBracketRange(line, index);
   }
 
   private static int getFirstNonSpaceIndex(String line) {
@@ -880,43 +733,5 @@ public final class ViewRender {
       if (!Character.isWhitespace(line.charAt(i))) return i;
     }
     return -1;
-  }
-
-  void drawContent(Canvas canvas) {
-    textRender.drawContent(canvas);
-  }
-
-  void drawContentWrapped(Canvas canvas) {
-    textRender.drawContentWrapped(canvas);
-  }
-
-  void drawContentWrappedFallback(Canvas canvas, int wrapWidthPx) {
-    textRender.drawContentWrappedFallback(canvas, wrapWidthPx);
-  }
-
-  public float getRtlLineBaseX(@Nullable String line, int globalLine) {
-    return textRender.getRtlLineBaseX(line, globalLine);
-  }
-
-  public float getRtlSegmentBaseX(@Nullable String line, int globalLine, int segStart, int segEnd) {
-    return textRender.getRtlSegmentBaseX(line, globalLine, segStart, segEnd);
-  }
-
-  public float getCaretXForLine(String line, int globalLine, int charIndex) {
-    return textRender.getCaretXForLine(line, globalLine, charIndex);
-  }
-
-  public float getCaretXForSegment(
-      String line, int globalLine, int segStart, int segEnd, int charIndex) {
-    return textRender.getCaretXForSegment(line, globalLine, segStart, segEnd, charIndex);
-  }
-
-  public int getCharIndexForXInRange(String text, int globalLine, int start, int end, float x) {
-    return textRender.getCharIndexForXInRange(text, globalLine, start, end, x);
-  }
-
-  public SodiumEditorView.CursorTarget getCursorTargetForPosition(
-      float viewX, float viewY, @Nullable java.util.Map<Integer, String> directLines) {
-    return textRender.getCursorTargetForPosition(viewX, viewY, directLines);
   }
 }

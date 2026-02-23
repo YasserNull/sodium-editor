@@ -1,0 +1,152 @@
+package com.yn.sodiumeditor.input;
+
+import android.content.Context;
+import android.os.SystemClock;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.ExtractedText;
+import android.view.inputmethod.InputConnection;
+import androidx.annotation.Nullable;
+import com.yn.sodiumeditor.SodiumEditorView;
+
+public final class InputMethodHandler {
+  private final SodiumEditorView view;
+  private final ImeTextHelper textHelper;
+  private boolean imeExtractedTextMonitor = false;
+  private int imeExtractedTextToken = 0;
+  private int imeExtractedBeforeChars = ImeTextHelper.IME_CONTEXT_BEFORE_CHARS;
+  private int imeExtractedAfterChars = ImeTextHelper.IME_CONTEXT_AFTER_CHARS;
+
+  public InputMethodHandler(SodiumEditorView view) {
+    this.view = view;
+    this.textHelper = new ImeTextHelper(view);
+  }
+
+  public boolean onCheckIsTextEditor() {
+    return !view.isDisabled && !view.isReadOnly;
+  }
+
+  public void restartInput() {
+    android.view.inputmethod.InputMethodManager imm =
+        (android.view.inputmethod.InputMethodManager) view.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+    if (imm != null) {
+      imm.restartInput(view);
+    }
+  }
+
+  public void showKeyboard() {
+    if (view.isReadOnly) return;
+    view.requestFocus();
+    android.view.inputmethod.InputMethodManager imm =
+        (android.view.inputmethod.InputMethodManager) view.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+    if (imm != null) imm.showSoftInput(view, 0);
+  }
+
+  public void updateImeSelection() {
+    if (view.isDisabled || view.isReadOnly) return;
+    if (!view.isFocused()) return;
+    android.view.inputmethod.InputMethodManager imm =
+        (android.view.inputmethod.InputMethodManager) view.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+    if (imm == null || !imm.isActive(view)) return;
+
+    ImeTextHelper.ImeContext ctx = textHelper.buildImeContext(imeExtractedBeforeChars, imeExtractedAfterChars);
+
+    int sLine = view.cursorManager.getLine(), sChar = view.cursorManager.getChar(), eLine = view.cursorManager.getLine(), eChar = view.cursorManager.getChar();
+    if (view.selectionManager.hasSelection()) {
+      sLine = view.selectionManager.selStartLine;
+      sChar = view.selectionManager.selStartChar;
+      eLine = view.selectionManager.selEndLine;
+      eChar = view.selectionManager.selEndChar;
+      if (view.comparePos(sLine, sChar, eLine, eChar) > 0) {
+        int tL = sLine, tC = sChar;
+        sLine = eLine;
+        sChar = eChar;
+        eLine = tL;
+        eChar = tC;
+      }
+    }
+
+    int selStart = textHelper.lineCharToOffsetInContext(ctx, sLine, sChar);
+    int selEnd = textHelper.lineCharToOffsetInContext(ctx, eLine, eChar);
+    int compStart = -1;
+    int compEnd = -1;
+    if (view.cursorManager.getHasComposing()) {
+      compStart = textHelper.lineCharToOffsetInContext(ctx, view.cursorManager.getComposingLine(), view.cursorManager.getComposingOffset());
+      compEnd =
+          textHelper.lineCharToOffsetInContext(
+              ctx, view.cursorManager.getComposingLine(), view.cursorManager.getComposingOffset() + view.cursorManager.getComposingLength());
+    }
+    imm.updateSelection(view, selStart, selEnd, compStart, compEnd);
+    if (imeExtractedTextMonitor) {
+      ExtractedText et = textHelper.buildExtractedTextFromContext(ctx);
+      imm.updateExtractedText(view, imeExtractedTextToken, et);
+    }
+  }
+
+  public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
+    if (view.isDisabled || view.isReadOnly) return null;
+    outAttrs.inputType =
+        EditorInfo.TYPE_CLASS_TEXT
+            | EditorInfo.TYPE_TEXT_FLAG_MULTI_LINE
+            | EditorInfo.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            | EditorInfo.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD;
+    outAttrs.imeOptions =
+        EditorInfo.IME_ACTION_NONE
+            | EditorInfo.IME_FLAG_NO_EXTRACT_UI
+            | EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING;
+    ImeTextHelper.ImeContext ctx = textHelper.buildImeContext(imeExtractedBeforeChars, imeExtractedAfterChars);
+    ExtractedText et = textHelper.buildExtractedTextFromContext(ctx);
+    outAttrs.initialSelStart = et.selectionStart;
+    outAttrs.initialSelEnd = et.selectionEnd;
+
+    return new EditorInputConnection(view, this, textHelper);
+  }
+
+  void setExtractedTextMonitor(boolean monitor) {
+    this.imeExtractedTextMonitor = monitor;
+  }
+
+  void setExtractedTextToken(int token) {
+    this.imeExtractedTextToken = token;
+  }
+
+  void setExtractedBeforeChars(int before) {
+    this.imeExtractedBeforeChars = before;
+  }
+
+  void setExtractedAfterChars(int after) {
+    this.imeExtractedAfterChars = after;
+  }
+
+  boolean tryReplaceWordFromImeCommit(String insert) {
+    if (view.selectionManager.hasSelection() || view.cursorManager.getHasComposing()) return false;
+    if (insert == null || insert.isEmpty()) return false;
+    if (insert.length() <= 1) return false;
+    int end = insert.length();
+    while (end > 0 && Character.isWhitespace(insert.charAt(end - 1))) end--;
+    String trailing = (end < insert.length()) ? insert.substring(end) : "";
+    String core = insert.substring(0, end);
+    if (core.length() <= 1) return false;
+    for (int i = 0; i < core.length(); i++) {
+      if (Character.isWhitespace(core.charAt(i))) return false;
+    }
+    int[] bounds = textHelper.getWordBoundsAtCursor();
+    if (bounds == null) return false;
+    String line = view.getLineTextForRender(view.cursorManager.getLine());
+    if (line == null || bounds[0] >= bounds[1] || bounds[1] > line.length()) return false;
+    String word = line.substring(bounds[0], bounds[1]);
+    if (word.isEmpty() || word.equals(core)) return false;
+    view.setSelectionInternal(view.cursorManager.getLine(), bounds[0], view.cursorManager.getLine(), bounds[1]);
+    view.replaceSelectionWithText(core);
+    if (!trailing.isEmpty()) view.insertTextAtCursor(trailing);
+    markImeCommit(insert);
+    view.charAnimationManager.startCharAnimationFromText(insert);
+    return true;
+  }
+
+  void markImeCommit(CharSequence textSeq) {
+    if (textSeq == null) return;
+    view.lastImeCommitText = textSeq.toString();
+    view.lastImeCommitUptime = SystemClock.uptimeMillis();
+    view.suppressNextCommitText = true;
+  }
+}

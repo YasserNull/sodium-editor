@@ -57,7 +57,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher; // Added for Matcher
 import com.yn.sodiumeditor.CursorManager.BracketPairType;
 import com.yn.sodiumeditor.input.InputManager;
-import com.yn.sodiumeditor.input.IMEManager;
+import com.yn.sodiumeditor.input.InputMethodHandler;
 import com.yn.sodiumeditor.renderer.ViewRender;
 import com.yn.sodiumeditor.renderer.TextRender;
 
@@ -128,7 +128,7 @@ public class SodiumEditorView extends View {
   private final InputManager inputManager;
   @Nullable ValueAnimator flingStopAnimator;
   static final long FLING_STOP_ANIM_DURATION_MS = 90;
-  public final IMEManager imeManager;
+  public final InputMethodHandler imeManager;
   public final ScrollManager scrollManager;
   public final ZoomManager zoomManager;
   public final UndoRedo undoRedo;
@@ -343,7 +343,7 @@ public class SodiumEditorView extends View {
     wordWrapManager.initIndicatorPaint(paint, density);
 
     touchSlop = ViewConfiguration.get(ctx).getScaledTouchSlop();
-    imeManager = new IMEManager(this);
+    imeManager = new InputMethodHandler(this);
     scrollManager = new ScrollManager(this);
     zoomManager = new ZoomManager(this, ctx);
     undoRedo = new UndoRedo(this);
@@ -1392,29 +1392,29 @@ public class SodiumEditorView extends View {
   }
 
   public float getRtlLineBaseX(@Nullable String line, int globalLine) {
-    return viewRender.getRtlLineBaseX(line, globalLine);
+    return viewRender.textRender.getRtlLineBaseX(line, globalLine);
   }
 
   public float getRtlSegmentBaseX(@Nullable String line, int globalLine, int segStart, int segEnd) {
-    return viewRender.getRtlSegmentBaseX(line, globalLine, segStart, segEnd);
+    return viewRender.textRender.getRtlSegmentBaseX(line, globalLine, segStart, segEnd);
   }
 
   public float getCaretXForLine(String line, int globalLine, int charIndex) {
-    return viewRender.getCaretXForLine(line, globalLine, charIndex);
+    return viewRender.textRender.getCaretXForLine(line, globalLine, charIndex);
   }
 
   public float getCaretXForSegment(
       String line, int globalLine, int segStart, int segEnd, int charIndex) {
-    return viewRender.getCaretXForSegment(line, globalLine, segStart, segEnd, charIndex);
+    return viewRender.textRender.getCaretXForSegment(line, globalLine, segStart, segEnd, charIndex);
   }
 
   private int getCharIndexForXInRange(String text, int globalLine, int start, int end, float x) {
-    return viewRender.getCharIndexForXInRange(text, globalLine, start, end, x);
+    return viewRender.textRender.getCharIndexForXInRange(text, globalLine, start, end, x);
   }
 
   private CursorTarget getCursorTargetForPosition(
       float viewX, float viewY, @Nullable java.util.Map<Integer, String> directLines) {
-    return viewRender.getCursorTargetForPosition(viewX, viewY, directLines);
+    return viewRender.textRender.getCursorTargetForPosition(viewX, viewY, directLines);
   }
 
   public int getWindowEndLine() {
@@ -1550,12 +1550,12 @@ public class SodiumEditorView extends View {
 
 
   void getVisibleCharRangeForLine(String line, int globalLine, int[] out) {
-    viewRender.getVisibleCharRangeForLine(line, globalLine, out);
+    viewRender.textRender.getVisibleCharRangeForLine(line, globalLine, out);
   }
 
   private void getVisibleCharRangeForLineFast(
       String line, int globalLine, int lineLength, int[] out) {
-    viewRender.getVisibleCharRangeForLineFast(line, globalLine, lineLength, out);
+    viewRender.textRender.getVisibleCharRangeForLineFast(line, globalLine, lineLength, out);
   }
 
   public void computeStreamedSliceBounds(
@@ -1679,7 +1679,7 @@ public class SodiumEditorView extends View {
   }
 
   private boolean isWhitespaceAtX(String line, int globalLine, float x) {
-    return viewRender.isWhitespaceAtX(line, globalLine, x);
+    return viewRender.textRender.isWhitespaceAtX(line, globalLine, x);
   }
 
   boolean isIndentationBlocksEnabledForIndentGuides() {
@@ -2437,7 +2437,7 @@ public class SodiumEditorView extends View {
   }
 
   private int getCharIndexForX(String text, float x, int globalLine) {
-    return viewRender.getCharIndexForX(text, x, globalLine);
+    return viewRender.textRender.getCharIndexForX(text, x, globalLine);
   }
 
   public int getCharIndexForXPublic(String text, float x, int globalLine) {
@@ -2445,15 +2445,15 @@ public class SodiumEditorView extends View {
   }
 
   public int[] computeWordBounds(String line, int pos) {
-    return viewRender.computeWordBounds(line, pos);
+    return viewRender.textRender.computeWordBounds(line, pos);
   }
 
   private boolean isWordChar(char c) {
-    return viewRender.isWordChar(c);
+    return viewRender.textRender.isWordChar(c);
   }
 
   private int[] computeWordBoundsSmart(String line, int pos) {
-    return viewRender.computeWordBoundsSmart(line, pos);
+    return viewRender.textRender.computeWordBoundsSmart(line, pos);
   }
 
   public String bytesToControlVisible(byte[] buf, int len) {
@@ -2461,7 +2461,7 @@ public class SodiumEditorView extends View {
   }
 
   private boolean applySmartDoubleTapSelection(int line, int charIndex, String lineText) {
-    return viewRender.applySmartDoubleTapSelection(line, charIndex, lineText);
+    return viewRender.textRender.applySmartDoubleTapSelection(line, charIndex, lineText);
   }
 
   private boolean isPositionInsideSelection(int line, int ch) {
@@ -2479,29 +2479,29 @@ public class SodiumEditorView extends View {
   }
 
   private void addSelectionCandidate(List<TextRange> out, int start, int end, int lineLen) {
-    viewRender.addSelectionCandidate(out, start, end, lineLen);
+    viewRender.textRender.addSelectionCandidate(out, start, end, lineLen);
   }
 
   private int findSelectionCandidateIndex(int line, List<TextRange> candidates) {
-    return viewRender.findSelectionCandidateIndex(line, candidates);
+    return viewRender.textRender.findSelectionCandidateIndex(line, candidates);
   }
 
   private ArrayList<TextRange> buildDoubleTapCandidates(String line, int charIndex, int wStart, int wEnd) {
-    return viewRender.buildDoubleTapCandidates(line, charIndex, wStart, wEnd);
+    return viewRender.textRender.buildDoubleTapCandidates(line, charIndex, wStart, wEnd);
   }
 
   private boolean isQuoteChar(char c) {
-    return viewRender.isQuoteChar(c);
+    return viewRender.textRender.isQuoteChar(c);
   }
 
   @Nullable
   private TextRange findEnclosingQuoteRange(String line, int index) {
-    return viewRender.findEnclosingQuoteRange(line, index);
+    return viewRender.textRender.findEnclosingQuoteRange(line, index);
   }
 
   @Nullable
   private TextRange findEnclosingBracketRange(String line, int index) {
-    return viewRender.findEnclosingBracketRange(line, index);
+    return viewRender.textRender.findEnclosingBracketRange(line, index);
   }
 
   public void insertTextAtCursor(String text) {
@@ -2514,11 +2514,11 @@ public class SodiumEditorView extends View {
 
 
   private void updateLocalLine(int localIdx, String text) {
-    viewRender.updateLocalLine(localIdx, text);
+    viewRender.textRender.updateLocalLine(localIdx, text);
   }
 
   public String getLineFromWindowLocal(int localIdx) {
-    return viewRender.getLineFromWindowLocal(localIdx);
+    return viewRender.textRender.getLineFromWindowLocal(localIdx);
   }
 
   private int getStreamLineThreshold() {
@@ -2558,11 +2558,11 @@ public class SodiumEditorView extends View {
   }
 
   private void computeWidthForLine(int globalIndex, String line) {
-    viewRender.computeWidthForLine(globalIndex, line);
+    viewRender.textRender.computeWidthForLine(globalIndex, line);
   }
 
   private float getWidthForLine(int globalIndex, String line) {
-    return viewRender.getWidthForLine(globalIndex, line);
+    return viewRender.textRender.getWidthForLine(globalIndex, line);
   }
 
   public void handleAutoPairing(String text) {
@@ -2618,13 +2618,13 @@ public class SodiumEditorView extends View {
   }
 
   public void invalidateLineGlobal(int globalLine) {
-    viewRender.invalidateLineGlobal(globalLine);
+    viewRender.textRender.invalidateLineGlobal(globalLine);
   }
 
 
 
   boolean isHeavyDrawSuppressed() {
-    return viewRender.isHeavyDrawSuppressed();
+    return viewRender.textRender.isHeavyDrawSuppressed();
   }
 
 
@@ -2637,11 +2637,11 @@ public class SodiumEditorView extends View {
   }
 
   public void recalculateMaxLineWidth() {
-    viewRender.recalculateMaxLineWidth();
+    viewRender.textRender.recalculateMaxLineWidth();
   }
 
   public void recalculateMaxLineWidthAsync() {
-    viewRender.recalculateMaxLineWidthAsync();
+    viewRender.textRender.recalculateMaxLineWidthAsync();
   }
 
   public void invalidatePendingIO() {
@@ -2649,17 +2649,17 @@ public class SodiumEditorView extends View {
   }
 
   public String getLineTextForRender(int line) {
-    return viewRender.getLineTextForRender(line);
+    return viewRender.textRender.getLineTextForRender(line);
   }
 
   @Nullable
   public String getLineTextForRenderWithDirect(int line, @Nullable java.util.Map<Integer, String> direct) {
-    return viewRender.getLineTextForRenderWithDirect(line, direct);
+    return viewRender.textRender.getLineTextForRenderWithDirect(line, direct);
   }
 
 
   public int getGlobalLineForY(float y) {
-    return viewRender.getGlobalLineForY(y);
+    return viewRender.textRender.getGlobalLineForY(y);
   }
 
   boolean isOpeningBracket(char c) {
@@ -2671,12 +2671,12 @@ public class SodiumEditorView extends View {
   }
 
   public void populateDirectLinesForRange(int startLine, int endLine, java.util.Map<Integer, String> direct) {
-    viewRender.populateDirectLinesForRange(startLine, endLine, direct);
+    viewRender.textRender.populateDirectLinesForRange(startLine, endLine, direct);
   }
 
-  
+
   public int getVisibleLineCount() {
-    return viewRender.getVisibleLineCount();
+    return viewRender.textRender.getVisibleLineCount();
   }
 
   public int mapVisibleIndexToGlobal(int visibleIndex) {
@@ -2688,11 +2688,11 @@ public class SodiumEditorView extends View {
   }
 
   public int getVisualIndexForLineAndChar(int line, int ch) {
-    return viewRender.getVisualIndexForLineAndChar(line, ch);
+    return viewRender.textRender.getVisualIndexForLineAndChar(line, ch);
   }
 
   public int getLinesCount() {
-    return viewRender.getLinesCount();
+    return viewRender.textRender.getLinesCount();
   }
 
   public void clearComposingPendingOpPublic() {
