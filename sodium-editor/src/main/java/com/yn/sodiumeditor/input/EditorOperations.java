@@ -468,6 +468,7 @@ public final class EditorOperations {
       view.fileManager.isIndexDisabled = false;
       view.fileManager.indexDisabledPath = null;
       view.fileManager.indexDisabledFileLength = -1L;
+      view.fileManager.syncIndexFieldsToView();
 
       view.cursorManager.setLineAndChar(0, 0);
       view.selectionManager.setSelection(0, 0, 0, 0, false);

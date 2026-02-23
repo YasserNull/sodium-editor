@@ -43,7 +43,7 @@ public final class CursorManager {
     cursorChar = Math.max(0, cursorChar + delta);
   }
 
-  void clampCharToLineLength(int line) {
+  public void clampCharToLineLength(int line) {
     String lineText = view.getLineTextForRender(line);
     if (lineText != null) {
       cursorChar = Math.min(cursorChar, lineText.length());

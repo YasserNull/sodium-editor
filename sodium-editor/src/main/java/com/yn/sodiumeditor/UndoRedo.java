@@ -2,6 +2,7 @@ package com.yn.sodiumeditor;
 
 import android.util.Log;
 import androidx.annotation.Nullable;
+import com.yn.sodiumeditor.io.LineIndex;
 import java.io.File;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -60,7 +61,7 @@ public final class UndoRedo {
     return editVersion.incrementAndGet();
   }
 
-  void resetLineCountDelta() {
+  public void resetLineCountDelta() {
     lineCountDelta = 0;
   }
 
@@ -629,7 +630,7 @@ public final class UndoRedo {
       File inFile, int sL, int sC, int eL, int eC, @Nullable String insertText) {
     if (inFile == null || !inFile.exists()) return false;
     try {
-      FileManager.RangeBytes range = view.fileManager.computeByteRangeFastOrScanForUndo(inFile, sL, sC, eL, eC);
+      LineIndex.RangeBytes range = view.lineIndex.computeByteRangeFastOrScanForUndo(inFile, sL, sC, eL, eC);
       if (range == null) return false;
       byte[] insertBytes =
           (insertText == null) ? new byte[0] : insertText.getBytes(StandardCharsets.UTF_8);

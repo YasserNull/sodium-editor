@@ -529,7 +529,7 @@ public final class WordWrapManager {
     wrapMetricsReady = true;
   }
 
-  void scheduleWrapMetricsBuild(SodiumEditorView view) {
+  public void scheduleWrapMetricsBuild(SodiumEditorView view) {
     if (!isWordWrapEnabled) return;
     if (shouldSuppressWrapMetricsForFastSelectAll(view)) return;
     if (view.getWidth() <= 0) return;

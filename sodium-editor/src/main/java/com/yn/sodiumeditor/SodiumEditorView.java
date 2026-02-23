@@ -58,6 +58,9 @@ import java.util.regex.Matcher; // Added for Matcher
 import com.yn.sodiumeditor.CursorManager.BracketPairType;
 import com.yn.sodiumeditor.input.InputManager;
 import com.yn.sodiumeditor.input.InputMethodHandler;
+import com.yn.sodiumeditor.io.Document;
+import com.yn.sodiumeditor.io.LineIndex;
+import com.yn.sodiumeditor.io.TextIO;
 import com.yn.sodiumeditor.renderer.ViewRender;
 import com.yn.sodiumeditor.renderer.TextRender;
 
@@ -93,7 +96,11 @@ public class SodiumEditorView extends View {
   // IO
   private final HandlerThread ioThread;
   public final Handler ioHandler;
-  public final FileManager fileManager;
+  public final Document document;
+  public final LineIndex lineIndex;
+  public final TextIO textIO;
+  // Legacy reference for backward compatibility
+  public final Document fileManager;
   public volatile boolean isEof = false;
   public final AtomicInteger ioTaskVersion = new AtomicInteger(0);
   public File sourceFile = null;
@@ -122,7 +129,7 @@ public class SodiumEditorView extends View {
   public boolean streamedSliceUpdatePending = false;
   public int streamedSliceUpdateToken = 0;
   public final int[] streamedSliceTmp = new int[2];
-  // Charset is now managed by FileManager
+  // Charset is now managed by Document
 
   // --- Cursor Animation State (moved to CursorAnimationManager) ---
   private final InputManager inputManager;
@@ -236,10 +243,10 @@ public class SodiumEditorView extends View {
   public final Object lineOffsetsLock = new Object();
   public long[] lineOffsets = new long[0];
   public volatile boolean isIndexReady = false;
-  private volatile boolean isIndexBuilding = false;
-  private volatile boolean isIndexDisabled = false;
-  @Nullable private volatile String indexDisabledPath = null;
-  private volatile long indexDisabledFileLength = -1L;
+  public volatile boolean isIndexBuilding = false;
+  public volatile boolean isIndexDisabled = false;
+  @Nullable public volatile String indexDisabledPath = null;
+  public volatile long indexDisabledFileLength = -1L;
   private static final long MAX_INDEX_BYTES_HARD = 64L * 1024 * 1024;
 
   // edit version + undo/redo state moved to UndoRedo.
@@ -363,7 +370,10 @@ public class SodiumEditorView extends View {
     ioThread = new HandlerThread("PopEditIO");
     ioThread.start();
     ioHandler = new Handler(ioThread.getLooper());
-    fileManager = new FileManager(this);
+    document = new Document(this);
+    lineIndex = new LineIndex(this);
+    textIO = new TextIO(this);
+    fileManager = document; // Legacy reference for backward compatibility
 
     setFocusable(true);
     setFocusableInTouchMode(true);
@@ -591,11 +601,11 @@ public class SodiumEditorView extends View {
 
 
   public void setFileCharset(@Nullable Charset charset) {
-    fileManager.setFileCharset(charset);
+    document.setFileCharset(charset);
   }
 
   public void setFileEncoding(@Nullable String charsetName) {
-    fileManager.setFileEncoding(charsetName);
+    document.setFileEncoding(charsetName);
   }
 
   public void setMaxSyntaxLineLength(int maxChars) {
@@ -807,7 +817,7 @@ public class SodiumEditorView extends View {
   }
 
   public String getTextSnapshot() {
-    return fileManager.getTextSnapshot();
+    return textIO.getTextSnapshot();
   }
 
   float spToPx(float sp) {
@@ -936,7 +946,7 @@ public class SodiumEditorView extends View {
   }
 
   boolean getSourceFileForSearchExists() {
-    return fileManager.getSourceFile() != null && fileManager.getSourceFile().exists();
+    return document.getSourceFile() != null && document.getSourceFile().exists();
   }
 
   void populateDirectLinesForRangeForSearch(
@@ -1815,7 +1825,7 @@ public class SodiumEditorView extends View {
 
   public void maybeKickWindowLoad(int firstVisibleLine) {
     if (zoomManager.isZoomGestureActive()) return;
-    if (fileManager.getSourceFile() == null || fileManager.isFileCleared()) {
+    if (document.getSourceFile() == null || document.isFileCleared()) {
       return;
     }
     if (isWindowLoading) return;
@@ -1926,15 +1936,15 @@ public class SodiumEditorView extends View {
   }
 
   public void clearContent() {
-    fileManager.clearContent();
+    document.clearContent();
   }
 
   public void loadFromFile(final File file) {
-    fileManager.loadFromFile(file);
+    document.loadFromFile(file);
   }
 
   public void updateSourceFile(File file) {
-    fileManager.updateSourceFile(file);
+    document.updateSourceFile(file);
   }
 
   public int getEditVersionValue() {
@@ -1985,7 +1995,7 @@ public class SodiumEditorView extends View {
   }
 
   public void setShowLoadingOnFileOpen(boolean enabled) {
-    fileManager.setShowLoadingOnFileOpen(enabled);
+    document.setShowLoadingOnFileOpen(enabled);
   }
 
   private boolean shouldShowLargeEditUi(int sL, int eL, boolean isSelectAllLike) {
@@ -2034,7 +2044,7 @@ public class SodiumEditorView extends View {
   }
 
   public void rewriteReplaceRangeAsyncPublic(int opToken, File inFile, int sL, int sC, int eL, int eC, String insertText, CursorTarget target, boolean finishLargeEditUi) {
-    fileManager.rewriteReplaceRangeAsync(opToken, inFile, sL, sC, eL, eC, insertText, target, finishLargeEditUi);
+    textIO.rewriteReplaceRangeAsync(opToken, inFile, sL, sC, eL, eC, insertText, target, finishLargeEditUi);
   }
 
   public void setSelectionInternal(int sL, int sC, int eL, int eC) {
@@ -2227,20 +2237,20 @@ public class SodiumEditorView extends View {
   }
 
   private void countTotalLines(LineCountCallback callback) {
-    fileManager.countTotalLines((total) -> callback.onResult(total));
+    lineIndex.countTotalLines((total) -> callback.onResult(total));
   }
 
   public String readRangeText(int sL, int sC, int eL, int eC) {
-    return fileManager.readRangeText(sL, sC, eL, eC);
+    return textIO.readRangeText(sL, sC, eL, eC);
   }
 
   public long computeByteRangeFastOrScanPublic(File file, int sL, int sC, int eL, int eC) {
-    FileManager.RangeBytes range = fileManager.computeByteRangeFastOrScan(file, sL, sC, eL, eC);
+    LineIndex.RangeBytes range = lineIndex.computeByteRangeFastOrScan(file, sL, sC, eL, eC);
     return (range != null) ? range.startByte : 0;
   }
 
-  public FileManager.RangeBytes computeByteRangeFastOrScanPublicFull(File file, int sL, int sC, int eL, int eC) {
-    return fileManager.computeByteRangeFastOrScan(file, sL, sC, eL, eC);
+  public LineIndex.RangeBytes computeByteRangeFastOrScanPublicFull(File file, int sL, int sC, int eL, int eC) {
+    return lineIndex.computeByteRangeFastOrScan(file, sL, sC, eL, eC);
   }
 
   public boolean isIndexBuildingPublic() {
@@ -2381,11 +2391,11 @@ public class SodiumEditorView extends View {
     inputManager.replaceSelectionWithText(insertText);
   }
 
-  private FileManager.RangeBytes computeByteRangeFastOrScan(File file, int sL, int sC, int eL, int eC) {
-    return fileManager.computeByteRangeFastOrScan(file, sL, sC, eL, eC);
+  private LineIndex.RangeBytes computeByteRangeFastOrScan(File file, int sL, int sC, int eL, int eC) {
+    return lineIndex.computeByteRangeFastOrScan(file, sL, sC, eL, eC);
   }
 
-  FileManager.RangeBytes computeByteRangeFastOrScanForUndo(File file, int sL, int sC, int eL, int eC) {
+  LineIndex.RangeBytes computeByteRangeFastOrScanForUndo(File file, int sL, int sC, int eL, int eC) {
     return computeByteRangeFastOrScan(file, sL, sC, eL, eC);
   }
 
@@ -2394,26 +2404,26 @@ public class SodiumEditorView extends View {
   }
 
   void onUndoRedoRewriteSuccess(File inFile) {
-    fileManager.onUndoRedoRewriteSuccess(inFile);
+    textIO.onUndoRedoRewriteSuccess(inFile);
   }
 
   private long findLineStartByteByScanning(RandomAccessFile raf, int targetLine) throws Exception {
-    return fileManager.findLineStartByteByScanning(raf, targetLine);
+    return lineIndex.findLineStartByteByScanning(raf, targetLine);
   }
 
   public String readLineUtf8AtByte(RandomAccessFile raf, long byteOffset) throws Exception {
-    return fileManager.readLineUtf8AtByte(raf, byteOffset);
+    return textIO.readLineUtf8AtByte(raf, byteOffset);
   }
 
   public long getLineByteLengthFromIndex(RandomAccessFile raf, int line, long fileLen)
       throws Exception {
-    return fileManager.getLineByteLengthFromIndex(raf, line, fileLen);
+    return lineIndex.getLineByteLengthFromIndex(raf, line, fileLen);
   }
 
   public String readLineSliceAtByte(
       RandomAccessFile raf, long lineStart, long lineByteLen, int startChar, int endChar)
       throws Exception {
-    return fileManager.readLineSliceAtByte(raf, lineStart, lineByteLen, startChar, endChar);
+    return textIO.readLineSliceAtByte(raf, lineStart, lineByteLen, startChar, endChar);
   }
 
   public static final class StreamedCharSlice {
@@ -2429,11 +2439,11 @@ public class SodiumEditorView extends View {
   public StreamedCharSlice readLineSliceByChars(
       RandomAccessFile raf, long lineStart, int startChar, int endChar, boolean needTotalLength)
       throws Exception {
-    return fileManager.readLineSliceByChars(raf, lineStart, startChar, endChar, needTotalLength);
+    return textIO.readLineSliceByChars(raf, lineStart, startChar, endChar, needTotalLength);
   }
 
   private long computeByteOffsetInLineUtf8(String lineText, int charIndex) {
-    return fileManager.computeByteOffsetInLineUtf8(lineText, charIndex);
+    return textIO.computeByteOffsetInLineUtf8(lineText, charIndex);
   }
 
   private int getCharIndexForX(String text, float x, int globalLine) {
@@ -2457,7 +2467,7 @@ public class SodiumEditorView extends View {
   }
 
   public String bytesToControlVisible(byte[] buf, int len) {
-    return fileManager.bytesToControlVisible(buf, len);
+    return textIO.bytesToControlVisible(buf, len);
   }
 
   private boolean applySmartDoubleTapSelection(int line, int charIndex, String lineText) {
@@ -2509,7 +2519,7 @@ public class SodiumEditorView extends View {
   }
 
   BufferedReader reopenReaderAtStart() {
-    return fileManager.reopenReaderAtStart();
+    return document.reopenReaderAtStart();
   }
 
 
@@ -2526,35 +2536,35 @@ public class SodiumEditorView extends View {
   }
 
   private boolean shouldStreamLineLength(int length) {
-    return fileManager.shouldStreamLineLength(length);
+    return textIO.shouldStreamLineLength(length);
   }
 
   private int getStreamedLineLength(int globalLine) {
-    return fileManager.getStreamedLineLength(globalLine);
+    return textIO.getStreamedLineLength(globalLine);
   }
 
   int getStreamedLineSliceStart(int globalLine) {
-    return fileManager.getStreamedLineSliceStart(globalLine);
+    return textIO.getStreamedLineSliceStart(globalLine);
   }
 
   private void setStreamedLineInfo(int globalLine, int length, int sliceStart) {
-    fileManager.setStreamedLineInfo(globalLine, length, sliceStart);
+    textIO.setStreamedLineInfo(globalLine, length, sliceStart);
   }
 
   public void clearStreamedLineInfo(int globalLine) {
-    fileManager.clearStreamedLineInfo(globalLine);
+    textIO.clearStreamedLineInfo(globalLine);
   }
 
   public void clearStreamedLineCaches() {
-    fileManager.clearStreamedLineCaches();
+    textIO.clearStreamedLineCaches();
   }
 
   private boolean isSingleByteCharset() {
-    return fileManager.isSingleByteCharset();
+    return document.isSingleByteCharset();
   }
 
   public int getLogicalLineLength(int globalLine, @Nullable String line) {
-    return fileManager.getLogicalLineLength(globalLine, line);
+    return textIO.getLogicalLineLength(globalLine, line);
   }
 
   private void computeWidthForLine(int globalIndex, String line) {
@@ -2633,7 +2643,7 @@ public class SodiumEditorView extends View {
   }
 
   public void buildFileIndex() {
-    fileManager.buildFileIndex();
+    document.buildFileIndex();
   }
 
   public void recalculateMaxLineWidth() {

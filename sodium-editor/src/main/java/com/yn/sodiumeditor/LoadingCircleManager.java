@@ -26,7 +26,7 @@ public final class LoadingCircleManager {
     paint.setStrokeCap(Paint.Cap.ROUND);
   }
 
-  void show(boolean enabled) {
+  public void show(boolean enabled) {
     show = enabled;
     if (enabled) {
       if (rotationAnimator == null) {
