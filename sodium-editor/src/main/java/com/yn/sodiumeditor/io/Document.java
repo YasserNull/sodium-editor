@@ -413,7 +413,7 @@ public class Document {
         isEof = false;
         view.scrollManager.scrollY = 0;
         view.scrollManager.scrollX = 0;
-        view.undoRedo.resetLineCountDelta();
+        view.history.resetLineCountDelta();
 
         view.loadWindowAround(0, () -> finishInitialFileOpenWarmup(token), false);
         view.ioHandler.post(this::buildFileIndex);

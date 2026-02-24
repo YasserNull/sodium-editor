@@ -300,7 +300,7 @@ public class TextIO {
 
                     view.post(
                         () -> {
-                            if (opToken != view.undoRedo.getEditVersion()) return;
+                            if (opToken != view.history.getEditVersion()) return;
 
                             view.invalidatePendingIO();
 
@@ -333,7 +333,7 @@ public class TextIO {
                             view.scrollManager.maxLineWidthForScroll = 0f;
                             view.scrollManager.maxTextStartXForScroll = 0f;
                             view.scrollManager.maxScrollXForScroll = 0f;
-                            view.undoRedo.resetLineCountDelta();
+                            view.history.resetLineCountDelta();
 
                             synchronized (view.lineOffsetsLock) {
                                 view.lineOffsets = new long[0];

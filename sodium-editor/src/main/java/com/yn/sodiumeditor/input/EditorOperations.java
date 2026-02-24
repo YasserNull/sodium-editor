@@ -2,6 +2,7 @@ package com.yn.sodiumeditor.input;
 
 import android.animation.ValueAnimator;
 import com.yn.sodiumeditor.*;
+import com.yn.sodiumeditor.core.EditOp;
 
 public final class EditorOperations {
   private final SodiumEditorView view;
@@ -13,7 +14,7 @@ public final class EditorOperations {
   public void insertCharAtCursor(char c) {
     if (view.isReadOnly) return;
     view.invalidatePendingIOForEdit();
-    view.undoRedo.incrementEditVersion();
+    view.history.incrementEditVersion();
 
     if (view.cursorManager.getHasComposing()) {
       view.cursorManager.setHasComposing(false);
@@ -61,7 +62,7 @@ public final class EditorOperations {
           view.recalculateMaxLineWidthAsync();
         view.highlightManager.clearHighlightCaches();
         view.cursorManager.setLineAndChar(view.cursorManager.getLine() + 1, 0);
-        view.undoRedo.addLineCountDelta(1);
+        view.history.addLineCountDelta(1);
 
         int newLineCount = view.getLinesCount();
         if (view.lineNumberManager.isShowLineNumbers()
@@ -90,7 +91,7 @@ public final class EditorOperations {
     }
     view.autoSuggestionManager.updateSuggestion();
 
-    UndoRedo.EditOp op = new UndoRedo.EditOp();
+    EditOp op = new EditOp();
     op.startLine = beforeLine;
     op.startChar = beforeChar;
     op.endLine = beforeLine;
@@ -193,7 +194,7 @@ public final class EditorOperations {
   public void deleteCharAtCursor() {
     if (view.isReadOnly) return;
     view.invalidatePendingIOForEdit();
-    view.undoRedo.incrementEditVersion();
+    view.history.incrementEditVersion();
     view.autoSuggestionManager.clearActiveSuggestion();
 
     if (view.cursorManager.getHasComposing()) {
@@ -237,7 +238,7 @@ public final class EditorOperations {
           view.recalculateMaxLineWidthAsync();
         view.invalidateLineGlobal(view.cursorManager.getLine());
 
-        UndoRedo.EditOp op = new UndoRedo.EditOp();
+        EditOp op = new EditOp();
         op.startLine = beforeLine;
         op.startChar = safeStart;
         op.endLine = beforeLine;
@@ -272,7 +273,7 @@ public final class EditorOperations {
         view.recalculateMaxLineWidth();
         view.cursorManager.setLineAndChar(prevGlobal, prev.length());
         view.computeWidthForLinePublic(prevGlobal, merged);
-        view.undoRedo.addLineCountDelta(-1);
+        view.history.addLineCountDelta(-1);
 
         int newLineCount = view.getLinesCount();
         if (view.lineNumberManager.isShowLineNumbers()
@@ -282,7 +283,7 @@ public final class EditorOperations {
         view.wordWrapManager.onLineCountChanged(view);
         view.invalidate();
 
-        UndoRedo.EditOp op = new UndoRedo.EditOp();
+        EditOp op = new EditOp();
         op.startLine = prevGlobal;
         op.startChar = prev.length();
         op.endLine = beforeLine;
@@ -305,7 +306,7 @@ public final class EditorOperations {
   public void deleteForwardAtCursor() {
     if (view.isReadOnly) return;
     view.invalidatePendingIOForEdit();
-    view.undoRedo.incrementEditVersion();
+    view.history.incrementEditVersion();
     view.autoSuggestionManager.clearActiveSuggestion();
 
     if (view.cursorManager.getHasComposing()) {
@@ -344,7 +345,7 @@ public final class EditorOperations {
           view.recalculateMaxLineWidthAsync();
         view.invalidateLineGlobal(view.cursorManager.getLine());
 
-        UndoRedo.EditOp op = new UndoRedo.EditOp();
+        EditOp op = new EditOp();
         op.startLine = beforeLine;
         op.startChar = beforeChar;
         op.endLine = beforeLine;
@@ -376,9 +377,9 @@ public final class EditorOperations {
           view.computeWidthForLinePublic(view.cursorManager.getLine(), merged);
           view.wordWrapManager.onLineCountChanged(view);
           view.invalidate();
-          view.undoRedo.addLineCountDelta(-1);
+          view.history.addLineCountDelta(-1);
 
-          UndoRedo.EditOp op = new UndoRedo.EditOp();
+          EditOp op = new EditOp();
           op.startLine = beforeLine;
           op.startChar = base.length();
           op.endLine = nextGlobal;
@@ -402,7 +403,7 @@ public final class EditorOperations {
   public void replaceSelectionWithText(String insertText) {
     if (view.isReadOnly) return;
     view.invalidatePendingIOForEdit();
-    final int opToken = view.undoRedo.incrementEditVersion();
+    final int opToken = view.history.incrementEditVersion();
     view.autoSuggestionManager.clearActiveSuggestion();
 
     if (insertText == null) insertText = "";
@@ -426,7 +427,7 @@ public final class EditorOperations {
     String removedText = null;
     if (Math.abs(eL - sL) <= 5000) {
       removedText = view.readRangeText(sL, sC, eL, eC);
-      if (removedText != null && removedText.length() > view.undoRedo.getUndoTextLimit()) {
+      if (removedText != null && removedText.length() > view.history.getUndoTextLimit()) {
         removedText = null;
       }
     }
@@ -494,7 +495,7 @@ public final class EditorOperations {
       view.fileManager.rewriteReplaceRangeAsync(opToken, view.fileManager.getSourceFile(), sL, sC, eL, eC, insertText, view.computeCursorAfterInsert(sL, sC, insertText), false);
     }
 
-    view.undoRedo.addLineCountDelta((insertedNewlines - removedNewlines));
+    view.history.addLineCountDelta((insertedNewlines - removedNewlines));
     view.recordReplaceSelectionEditPublic(sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
     view.autoSuggestionManager.updateSuggestion();
   }

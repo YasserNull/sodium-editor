@@ -56,6 +56,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher; // Added for Matcher
 import com.yn.sodiumeditor.CursorManager.BracketPairType;
+import com.yn.sodiumeditor.core.EditOp;
 import com.yn.sodiumeditor.input.InputManager;
 import com.yn.sodiumeditor.input.InputMethodHandler;
 import com.yn.sodiumeditor.io.Document;
@@ -63,6 +64,7 @@ import com.yn.sodiumeditor.io.LineIndex;
 import com.yn.sodiumeditor.io.TextIO;
 import com.yn.sodiumeditor.renderer.ViewRender;
 import com.yn.sodiumeditor.renderer.TextRender;
+import com.yn.sodiumeditor.state.History;
 
 public class SodiumEditorView extends View {
 
@@ -138,7 +140,7 @@ public class SodiumEditorView extends View {
   public final InputMethodHandler imeManager;
   public final ScrollManager scrollManager;
   public final ZoomManager zoomManager;
-  public final UndoRedo undoRedo;
+  public final History history;
   public final SearchManager searchManager;
   public final CursorAnimationManager cursorAnimationManager;
   public final CharAnimationManager charAnimationManager;
@@ -249,7 +251,7 @@ public class SodiumEditorView extends View {
   public volatile long indexDisabledFileLength = -1L;
   private static final long MAX_INDEX_BYTES_HARD = 64L * 1024 * 1024;
 
-  // edit version + undo/redo state moved to UndoRedo.
+  // edit version + undo/redo state moved to History.
 
   // Large edit UI (brief busy indicator)
   private static final int LARGE_EDIT_LINES = 8000; // show spinner/disable for very large edits
@@ -353,7 +355,7 @@ public class SodiumEditorView extends View {
     imeManager = new InputMethodHandler(this);
     scrollManager = new ScrollManager(this);
     zoomManager = new ZoomManager(this, ctx);
-    undoRedo = new UndoRedo(this);
+    history = new History(this);
     searchManager = new SearchManager(this);
     cursorAnimationManager = new CursorAnimationManager(this);
     charAnimationManager = new CharAnimationManager(this);
@@ -918,7 +920,7 @@ public class SodiumEditorView extends View {
   }
 
   int getEditVersionForSearch() {
-    return undoRedo.getEditVersion();
+    return history.getEditVersion();
   }
 
   float measureTextForSearch(String line, int ch, int globalLine) {
@@ -970,7 +972,7 @@ public class SodiumEditorView extends View {
   }
 
   int getEditVersionForBracket() {
-    return undoRedo.getEditVersion();
+    return history.getEditVersion();
   }
 
   String getLineTextForRenderWithDirectForMatch(
@@ -979,7 +981,7 @@ public class SodiumEditorView extends View {
   }
 
   int getEditVersionForMatch() {
-    return undoRedo.getEditVersion();
+    return history.getEditVersion();
   }
 
   boolean isBlockCommentsEnabledForMatch() {
@@ -1948,7 +1950,7 @@ public class SodiumEditorView extends View {
   }
 
   public int getEditVersionValue() {
-    return undoRedo.getEditVersion();
+    return history.getEditVersion();
   }
 
   public void refreshLineNumberCache() {
@@ -2039,7 +2041,7 @@ public class SodiumEditorView extends View {
   }
 
   public void recordReplaceSelectionEditPublic(int sL, int sC, int eL, int eC, String removedText, String insertText, int beforeLine, int beforeChar) {
-    undoRedo.recordReplaceSelectionEdit(
+    history.recordReplaceSelectionEdit(
         sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
   }
 
@@ -2214,7 +2216,7 @@ public class SodiumEditorView extends View {
 
   public void pasteFromClipboard() {
     invalidatePendingIOForEdit();
-    undoRedo.incrementEditVersion();
+    history.incrementEditVersion();
     autoSuggestionManager.clearActiveSuggestion(); // Clear suggestion when pasting
 
     ClipboardManager cm =
@@ -2291,18 +2293,18 @@ public class SodiumEditorView extends View {
     }
   }
 
-  // Undo/redo helpers moved to UndoRedo.
+  // Undo/redo helpers moved to History.
 
   public String exportEditCacheJson() {
-    return undoRedo.exportEditCacheJson();
+    return history.exportEditCacheJson();
   }
 
   public boolean importEditCacheJson(String json, boolean applyPendingEdits) {
-    return undoRedo.importEditCacheJson(json, applyPendingEdits);
+    return history.importEditCacheJson(json, applyPendingEdits);
   }
 
   public boolean hasPendingEdits() {
-    return undoRedo.hasPendingEdits();
+    return history.hasPendingEdits();
   }
 
   public CursorTarget computeCursorAfterInsert(int baseLine, int baseChar, String insertText) {
@@ -2329,62 +2331,62 @@ public class SodiumEditorView extends View {
     return count;
   }
 
-  CursorTarget computeCursorAfterInsertForUndo(int baseLine, int baseChar, String insertText) {
+  public CursorTarget computeCursorAfterInsertForUndo(int baseLine, int baseChar, String insertText) {
     return computeCursorAfterInsert(baseLine, baseChar, insertText);
   }
 
-  int countNewlinesForUndo(@Nullable String text) {
+  public int countNewlinesForUndo(@Nullable String text) {
     return countNewlines(text);
   }
 
   public boolean canUndo() {
-    return undoRedo.canUndo();
+    return history.canUndo();
   }
 
   public boolean canRedo() {
-    return undoRedo.canRedo();
+    return history.canRedo();
   }
 
   public int getUndoStackSize() {
-    return undoRedo.getUndoStackSize();
+    return history.getUndoStackSize();
   }
 
   public int getPendingEditsCount() {
-    return undoRedo.getPendingEditsCount();
+    return history.getPendingEditsCount();
   }
 
   public void clearUndoRedoHistory() {
-    undoRedo.clearUndoRedoHistory();
+    history.clearUndoRedoHistory();
   }
 
   public long getLastEditTimestamp() {
-    return undoRedo.getLastEditTimestamp();
+    return history.getLastEditTimestamp();
   }
 
   public void applyPendingEditsToFileAsync(@Nullable Runnable onComplete) {
-    undoRedo.applyPendingEditsToFileAsync(onComplete);
+    history.applyPendingEditsToFileAsync(onComplete);
   }
 
-  // rewriteReplaceRangeBlocking moved to UndoRedo.
+  // rewriteReplaceRangeBlocking moved to FileBufferModifier.
 
-  public void recordEdit(UndoRedo.EditOp op) {
-    undoRedo.recordEdit(op);
+  public void recordEdit(EditOp op) {
+    history.recordEdit(op);
   }
 
-  private void recordEditNoUndo(UndoRedo.EditOp op) {
-    undoRedo.recordEditNoUndo(op);
+  private void recordEditNoUndo(EditOp op) {
+    history.recordEditNoUndo(op);
   }
 
   public void undo() {
-    undoRedo.undo();
+    history.undo();
   }
 
   public void redo() {
-    undoRedo.redo();
+    history.redo();
   }
 
   void updateComposingPendingOp(@Nullable String text, int beforeLine, int beforeChar) {
-    undoRedo.updateComposingPendingOp(text, beforeLine, beforeChar);
+    history.updateComposingPendingOp(text, beforeLine, beforeChar);
   }
 
   public void replaceSelectionWithText(String insertText) {
@@ -2399,11 +2401,11 @@ public class SodiumEditorView extends View {
     return computeByteRangeFastOrScan(file, sL, sC, eL, eC);
   }
 
-  Handler getIoHandlerForUndo() {
+  public Handler getIoHandlerForUndo() {
     return ioHandler;
   }
 
-  void onUndoRedoRewriteSuccess(File inFile) {
+  public void onUndoRedoRewriteSuccess(File inFile) {
     textIO.onUndoRedoRewriteSuccess(inFile);
   }
 
@@ -2706,11 +2708,11 @@ public class SodiumEditorView extends View {
   }
 
   public void clearComposingPendingOpPublic() {
-    undoRedo.clearComposingPendingOp();
+    history.clearComposingPendingOp();
   }
 
   public int incrementEditVersionPublic() {
-    return undoRedo.incrementEditVersion();
+    return history.incrementEditVersion();
   }
 
   public void invalidatePendingIOForEditPublic() {
@@ -2726,7 +2728,7 @@ public class SodiumEditorView extends View {
   }
 
   public void updateComposingPendingOpPublic(@Nullable String text, int beforeLine, int beforeChar) {
-    undoRedo.updateComposingPendingOp(text, beforeLine, beforeChar);
+    history.updateComposingPendingOp(text, beforeLine, beforeChar);
   }
 
   public void cancelFlingStopAnimationPublic() {

@@ -487,12 +487,12 @@ public final class SelectionManager {
             return;
           }
 
-          final int ticket = view.undoRedo.incrementEditVersion();
+          final int ticket = view.history.incrementEditVersion();
           Runnable poll =
               new Runnable() {
                 @Override
                 public void run() {
-                  if (ticket != view.undoRedo.getEditVersion()) return;
+                  if (ticket != view.history.getEditVersion()) return;
 
                   if (view.fileManager.getSourceFile() == null) {
                     view.setDisable(false);

@@ -86,10 +86,10 @@ public final class TextNavigation {
             synchronized (view.modifiedLines) {
                 hasEdits = !view.modifiedLines.isEmpty();
             }
-            if (!hasEdits && view.undoRedo.getLineCountDelta() == 0) {
+            if (!hasEdits && view.history.getLineCountDelta() == 0) {
                 return view.fileManager.getLineOffsets().length;
             }
-            int count = view.fileManager.getLineOffsets().length + view.undoRedo.getLineCountDelta();
+            int count = view.fileManager.getLineOffsets().length + view.history.getLineCountDelta();
             if (count < 1) count = 1;
             return Math.max(count, windowCount);
         }

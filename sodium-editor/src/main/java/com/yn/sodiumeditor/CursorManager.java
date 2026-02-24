@@ -2,6 +2,7 @@ package com.yn.sodiumeditor;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import com.yn.sodiumeditor.core.EditOp;
 
 public final class CursorManager {
   private final SodiumEditorView view;
@@ -200,7 +201,7 @@ public final class CursorManager {
     view.imeManager.updateImeSelection();
   }
 
-  void setPosition(int line, int col) {
+  public void setPosition(int line, int col) {
     int targetLine = Math.max(0, line);
     int targetCol = Math.max(0, col);
           if (view.selectionManager.hasSelection()) {      view.selectionManager.clearSelectionKeepLineNumberState();
@@ -405,9 +406,9 @@ public final class CursorManager {
       view.rewriteReplaceRangeAsyncPublic(
           opToken, inFile, getLine(), getChar(), getLine(), getChar(), text, target, true);
       view.autoSuggestionManager.updateSuggestion();
-      view.undoRedo.addLineCountDelta(view.countNewlines(text));
-      if (text.length() <= view.undoRedo.getUndoTextLimit()) {
-        UndoRedo.EditOp op = new UndoRedo.EditOp();
+      view.history.addLineCountDelta(view.countNewlines(text));
+      if (text.length() <= view.history.getUndoTextLimit()) {
+        EditOp op = new EditOp();
         op.startLine = beforeLine;
         op.startChar = beforeChar;
         op.endLine = beforeLine;
@@ -476,7 +477,7 @@ public final class CursorManager {
         }
 
         setLineAndChar(getLine() + (parts.length - 1), lastPart.length());
-        view.undoRedo.addLineCountDelta((parts.length - 1));
+        view.history.addLineCountDelta((parts.length - 1));
       }
 
       int newLineCount = view.getLinesCount();
@@ -496,7 +497,7 @@ public final class CursorManager {
     }
     view.autoSuggestionManager.updateSuggestion();
 
-    UndoRedo.EditOp op = new UndoRedo.EditOp();
+    EditOp op = new EditOp();
     op.startLine = beforeLine;
     op.startChar = beforeChar;
     op.endLine = beforeLine;
