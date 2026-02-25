@@ -9,7 +9,6 @@ import java.util.Map;
 
 import com.yn.sodiumeditor.SodiumEditorView;
 import com.yn.sodiumeditor.HighlightManager;
-import com.yn.sodiumeditor.WordWrapManager;
 
 /**
  * Handles text measurement and calculation operations for the text editor.
@@ -97,7 +96,7 @@ public final class TextMeasurement {
         view.paint.getTextWidths(text, 0, textLen, widths);
         float current = 0f;
         for (int i = 0; i < textLen; i++) {
-            float adv = view.whitespaceGuideManager.getCharAdvanceWidth(text.charAt(i), widths[i], view.paint, WordWrapManager.DEFAULT_TAB_SIZE_SPACES);
+            float adv = view.whitespaceGuideManager.getCharAdvanceWidth(text.charAt(i), widths[i], view.paint, com.yn.sodiumeditor.core.WrapWordEngine.DEFAULT_TAB_SIZE_SPACES);
             float mid = current + adv * 0.5f;
             if (x < mid) return i;
             if (x < current + adv) return i + 1;
@@ -131,7 +130,7 @@ public final class TextMeasurement {
         view.paint.getTextWidths(text, start, end, widths);
         float current = 0f;
         for (int i = 0; i < len; i++) {
-            float adv = view.whitespaceGuideManager.getCharAdvanceWidth(text.charAt(start + i), widths[i], view.paint, WordWrapManager.DEFAULT_TAB_SIZE_SPACES);
+            float adv = view.whitespaceGuideManager.getCharAdvanceWidth(text.charAt(start + i), widths[i], view.paint, com.yn.sodiumeditor.core.WrapWordEngine.DEFAULT_TAB_SIZE_SPACES);
             float mid = current + adv * 0.5f;
             if (x < mid) return start + i;
             if (x < current + adv) return start + i + 1;

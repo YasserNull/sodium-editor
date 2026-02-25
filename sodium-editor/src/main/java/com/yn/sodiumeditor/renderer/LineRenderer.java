@@ -69,7 +69,7 @@ public final class LineRenderer {
      * Main content drawing method for non-wrapped text.
      */
     public void drawContent(Canvas canvas) {
-        if (view.wordWrapManager.isWordWrapEnabled) {
+        if (view.wrapWordState.isWordWrapEnabled) {
             drawContentWrapped(canvas);
             return;
         }
@@ -600,16 +600,16 @@ public final class LineRenderer {
      * Main content drawing method for wrapped text.
      */
     public void drawContentWrapped(Canvas canvas) {
-        int wrapWidthPx = Math.max(1, Math.round(view.wordWrapManager.getWrapWidth(view)));
+        int wrapWidthPx = Math.max(1, Math.round(view.getWidth() - view.getTextStartX()));
         final boolean drawDecorations = view.zoomManager.shouldDrawDecorations();
         if (!view.zoomManager.isZoomGestureActive()) {
-            view.wordWrapManager.applyPendingWrapPrefixUpdateIfAny(view);
+            view.wrapWordBuilder.applyPendingPrefixUpdate(view);
         }
-        if (view.wordWrapManager.shouldSuppressWrapMetricsForFastSelectAll(view)) {
+        if (view.wrapWordBuilder.shouldSuppressForSelectAll(view)) {
             drawContentWrappedFallback(canvas, wrapWidthPx);
             return;
         }
-        if (!view.wordWrapManager.isWrapMetricsUsableForWindow(view, wrapWidthPx)) {
+        if (!view.wrapWordBuilder.isMetricsUsableForWindow(view, wrapWidthPx)) {
             drawContentWrappedFallback(canvas, wrapWidthPx);
             return;
         }
@@ -688,11 +688,11 @@ public final class LineRenderer {
         for (int line = firstLine; line <= lastLine; line++) {
             if (yOffset > view.getHeight() + view.lineHeight) break;
             String text = lineCacheManager.getLineTextForRenderWithDirect(line, directLines);
-            int[] starts = view.wordWrapManager.getWrapStartsForLine(view, line, text);
+            int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, line, text, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.paint);
 
             for (int seg = 0; seg < starts.length; seg++) {
-                int segStart = view.wordWrapManager.getWrapSegmentStart(starts, seg);
-                int segEnd = view.wordWrapManager.getWrapSegmentEnd(starts, seg, text.length());
+                int segStart = view.wrapWordEngine.getWrapSegmentStart(starts, seg);
+                int segEnd = view.wrapWordEngine.getWrapSegmentEnd(starts, seg, text.length());
                 float segBaseX = view.isRtl ? textMeasurement.getRtlSegmentBaseX(text, line, segStart, segEnd) : 0f;
 
                 float top = Math.round(yOffset);
@@ -700,12 +700,12 @@ public final class LineRenderer {
                 float y = Math.round(top + view.lineHeight - view.paint.descent());
 
                 if (view.highlightManager.highlightCurrentLine && line == view.cursorManager.getLine() && !view.selectionManager.hasSelection()) {
-                    canvas.drawRect(-view.paddingLeft, top, Math.max(view.wordWrapManager.getWrapWidth(view), view.getWidth()), bottom, view.highlightManager.currentLinePaint);
+                    canvas.drawRect(-view.paddingLeft, top, Math.max(view.getWidth() - view.getTextStartX(), view.getWidth()), bottom, view.highlightManager.currentLinePaint);
                 }
 
                 int segDrawEnd = segEnd;
-                if (view.wordWrapManager.isWordWrapIndicatorEnabled && segEnd < text.length()) {
-                    segDrawEnd = view.wordWrapManager.clampSegmentEndForWrapIndicator(view, text, segStart, segEnd, wrapWidthPx);
+                if (view.wrapWordIndicatorRender.isIndicatorEnabled && segEnd < text.length()) {
+                    segDrawEnd = view.wrapWordIndicatorRender.clampSegmentEndForIndicator(view, text, segStart, segEnd, wrapWidthPx);
                 }
                 canvas.save();
                 if (segBaseX != 0f) canvas.translate(segBaseX, 0f);

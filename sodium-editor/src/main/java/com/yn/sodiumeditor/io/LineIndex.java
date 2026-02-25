@@ -52,7 +52,7 @@ public class LineIndex {
                                 view.lineOffsets = offsets;
                                 view.isIndexReady = true;
                                 view.post(view::requestLayout);
-                                if (view.wordWrapManager.isWordWrapEnabled) view.post(() -> view.wordWrapManager.scheduleWrapMetricsBuild(view));
+                                if (view.wrapWordState.isWordWrapEnabled) view.post(() -> view.wrapWordBuilder.scheduleBuild(view));
                             }
                         }
                     } else {

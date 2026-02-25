@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.Map;
 
 import com.yn.sodiumeditor.SodiumEditorView;
-import com.yn.sodiumeditor.WordWrapManager;
 
 /**
  * Handles line caching and file-based line retrieval operations.
@@ -93,7 +92,7 @@ public final class LineCacheManager {
     public void updateLocalLine(int localIdx, String text) {
         if (localIdx >= 0 && localIdx < view.linesWindow.size()) {
             view.linesWindow.set(localIdx, text);
-            view.wordWrapManager.onLineContentChanged(view, view.windowStartLine + localIdx, text);
+            view.wrapWordBuilder.onLineContentChanged(view, view.windowStartLine + localIdx, text);
             view.clearStreamedLineInfo(view.windowStartLine + localIdx);
         }
     }
@@ -102,7 +101,7 @@ public final class LineCacheManager {
      * Invalidates a specific global line for redraw.
      */
     public void invalidateLineGlobal(int globalLine) {
-        if (view.wordWrapManager.isWordWrapEnabled) {
+        if (view.wrapWordState.isWordWrapEnabled) {
             view.invalidate();
             return;
         }

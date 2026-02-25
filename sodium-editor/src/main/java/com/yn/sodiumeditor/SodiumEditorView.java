@@ -138,7 +138,7 @@ public class SodiumEditorView extends View {
   @Nullable ValueAnimator flingStopAnimator;
   static final long FLING_STOP_ANIM_DURATION_MS = 90;
   public final InputMethodHandler imeManager;
-  public final ScrollManager scrollManager;
+  public final ScrollEngine scrollManager;
   public final ZoomManager zoomManager;
   public final History history;
   public final SearchManager searchManager;
@@ -149,9 +149,17 @@ public class SodiumEditorView extends View {
 
   // --- Search State (moved to SearchManager) ---
   // --- Zoom State (moved to ZoomManager) ---
-  public final WordWrapManager wordWrapManager = new WordWrapManager();
   // Search logic moved to SearchManager.
   // Search logic moved to SearchManager.
+
+  // Word Wrap Components
+  public final com.yn.sodiumeditor.state.WrapWordState wrapWordState = new com.yn.sodiumeditor.state.WrapWordState();
+  public final com.yn.sodiumeditor.state.WrapWordMetrics wrapWordMetrics = new com.yn.sodiumeditor.state.WrapWordMetrics();
+  public com.yn.sodiumeditor.core.WrapWordEngine wrapWordEngine;
+  public com.yn.sodiumeditor.core.WrapWordBuilder wrapWordBuilder;
+  public com.yn.sodiumeditor.core.WrapWordMapper wrapWordMapper;
+  public final com.yn.sodiumeditor.renderer.WrapWordIndicatorRender wrapWordIndicatorRender = new com.yn.sodiumeditor.renderer.WrapWordIndicatorRender();
+  public com.yn.sodiumeditor.io.WrapWordDocument wrapWordDocument;
 
 
 
@@ -349,11 +357,16 @@ public class SodiumEditorView extends View {
     foldManager.foldMarkerPaint.setTextSize(paint.getTextSize());
     foldManager.foldRipplePaint.setStyle(Paint.Style.FILL);
 
-    wordWrapManager.initIndicatorPaint(paint, density);
+    // Initialize Word Wrap components
+    wrapWordDocument = new com.yn.sodiumeditor.io.WrapWordDocument(modifiedLines);
+    wrapWordEngine = new com.yn.sodiumeditor.core.WrapWordEngine(wrapWordMetrics, whitespaceGuideManager);
+    wrapWordMapper = new com.yn.sodiumeditor.core.WrapWordMapper(wrapWordMetrics, wrapWordEngine);
+    wrapWordBuilder = new com.yn.sodiumeditor.core.WrapWordBuilder(wrapWordMetrics, wrapWordState, wrapWordEngine, wrapWordMapper, wrapWordDocument);
+    wrapWordIndicatorRender.init(paint, density);
 
     touchSlop = ViewConfiguration.get(ctx).getScaledTouchSlop();
     imeManager = new InputMethodHandler(this);
-    scrollManager = new ScrollManager(this);
+    scrollManager = new ScrollEngine(this);
     zoomManager = new ZoomManager(this, ctx);
     history = new History(this);
     searchManager = new SearchManager(this);
@@ -431,8 +444,8 @@ public class SodiumEditorView extends View {
     scrollManager.maxScrollXForScroll = 0f;
     invalidateHighlightEnsureRange();
     bracketGuideManager.invalidateCache();
-    if (wordWrapManager.isWordWrapEnabled) wordWrapManager.invalidateWrapMetrics(this, true);
-    wordWrapManager.requestWrapPrefixRebuild(this);
+    if (wrapWordState.isWordWrapEnabled) wrapWordBuilder.invalidate(true, true);
+    wrapWordBuilder.requestPrefixRebuild(this);
     viewRender.reloadWindowAroundVisible(false);
     invalidate();
   }
@@ -461,7 +474,7 @@ public class SodiumEditorView extends View {
       bracketGuideManager.setBracketGuidesEnabled(this, false);
       indentGuideManager.setIndentGuidesEnabled(false);
       whitespaceGuideManager.setWhitespaceGuidesEnabled(this, false);
-      wordWrapManager.setWordWrapIndicatorEnabled(this, false);
+      wrapWordIndicatorRender.setEnabled(false);
       autoSuggestionManager.setAutoCompletionEnabled(false);
       autoSuggestionManager.setAutoPathCompletionEnabled(false);
       charAnimationManager.setEnabled(false, 0);
@@ -752,7 +765,7 @@ public class SodiumEditorView extends View {
     foldManager.foldMarkerPaint.setTextAlign(isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
     lineNumberManager.invalidateCache();
     requestLayout();
-    if (wordWrapManager.isWordWrapEnabled) wordWrapManager.invalidateWrapMetrics(this, true);
+    if (wrapWordState.isWordWrapEnabled) wrapWordBuilder.invalidate(true, true);
     scrollManager.maxScrollXForScroll = 0f;
     scrollManager.maxTextStartXForScroll = 0f;
     scrollManager.scrollX = 0f;
@@ -867,7 +880,7 @@ public class SodiumEditorView extends View {
     autoSuggestionManager.onTextSizeChanged(sizePx);
     lineNumberManager.setTextSize(sizePx);
     foldManager.foldMarkerPaint.setTextSize(sizePx * foldManager.foldMarkerTextScale);
-    wordWrapManager.updateIndicatorPaintForTextSize(sizePx, paint);
+    wrapWordIndicatorRender.updatePaintForTextSize(sizePx, paint);
     lineHeight = paint.getFontSpacing();
     updateTextSizeDependentMetrics();
     updateWhitespaceGuideMetrics();
@@ -898,8 +911,8 @@ public class SodiumEditorView extends View {
     }
 
     requestLayout(); // Still needed for gutter
-    if (wordWrapManager.isWordWrapEnabled) wordWrapManager.invalidateWrapMetrics(this, true, !deferWrapRebuild);
-    wordWrapManager.requestWrapPrefixRebuild(this);
+    if (wrapWordState.isWordWrapEnabled) wrapWordBuilder.invalidate(true, !deferWrapRebuild);
+    wrapWordBuilder.requestPrefixRebuild(this);
     invalidate();
   }
 
@@ -1175,7 +1188,7 @@ public class SodiumEditorView extends View {
   }
 
   public int getTotalVisualLineCountForInput() {
-    return wordWrapManager.getTotalVisualLineCount(this);
+    return wrapWordMapper.getTotalVisualLineCount(this, getVisibleLineCount());
   }
 
   public int getVisibleLineCountForInput() {
@@ -1275,7 +1288,7 @@ public class SodiumEditorView extends View {
     autoSuggestionManager.onEditorTypefaceChanged(finalTypeface);
     lineNumberManager.setTypeface(finalTypeface);
     foldManager.foldMarkerPaint.setTypeface(finalTypeface);
-    wordWrapManager.updateIndicatorTypeface(paint);
+    wrapWordIndicatorRender.updateTypeface(paint);
     whitespaceGuideManager.updateTypeface(paint);
     popupMenuManager.onEditorTypefaceChanged(finalTypeface);
     whitespaceGuideManager.updateRuleTypeface(safeBase);
@@ -1299,8 +1312,8 @@ public class SodiumEditorView extends View {
     recalculateMaxLineWidth();
 
     requestLayout();
-    if (wordWrapManager.isWordWrapEnabled) wordWrapManager.invalidateWrapMetrics(this, true);
-    wordWrapManager.requestWrapPrefixRebuild(this);
+    if (wrapWordState.isWordWrapEnabled) wrapWordBuilder.invalidate(true, true);
+    wrapWordBuilder.requestPrefixRebuild(this);
     invalidate();
   }
 
@@ -1353,9 +1366,9 @@ public class SodiumEditorView extends View {
       lineNumberManager.setGutterWidth(0f);
     }
 
-    if (wordWrapManager.isWordWrapEnabled && Math.abs(lineNumberManager.getGutterWidth() - oldGutterWidth) > 0.1f) {
-      wordWrapManager.invalidateWrapMetrics(this, true);
-      wordWrapManager.requestWrapPrefixRebuild(this);
+    if (wrapWordState.isWordWrapEnabled && Math.abs(lineNumberManager.getGutterWidth() - oldGutterWidth) > 0.1f) {
+      wrapWordBuilder.invalidate(true, true);
+      wrapWordBuilder.requestPrefixRebuild(this);
     }
     if (Math.abs(lineNumberManager.getGutterWidth() - oldGutterWidth) > 0.1f) {
       lineNumberManager.invalidateCache();
@@ -1377,9 +1390,9 @@ public class SodiumEditorView extends View {
       windowSize = minWindow;
       reloadWindowAroundVisible(false);
     }
-    if (wordWrapManager.isWordWrapEnabled && w != oldw) {
-      wordWrapManager.invalidateWrapMetrics(this, true);
-      wordWrapManager.requestWrapPrefixRebuild(this);
+    if (wrapWordState.isWordWrapEnabled && w != oldw) {
+      wrapWordBuilder.invalidate(true, true);
+      wrapWordBuilder.requestPrefixRebuild(this);
     }
   }
 
@@ -1711,7 +1724,7 @@ public class SodiumEditorView extends View {
   }
 
   int getIndentGuideTabSize() {
-    return WordWrapManager.DEFAULT_TAB_SIZE_SPACES;
+    return com.yn.sodiumeditor.core.WrapWordEngine.DEFAULT_TAB_SIZE_SPACES;
   }
 
   String getIndentGuideUnit() {
@@ -2151,7 +2164,7 @@ public class SodiumEditorView extends View {
       if (c == ' ') {
         width++;
       } else if (c == '\t') {
-        width += wordWrapManager.DEFAULT_TAB_SIZE_SPACES;
+        width += com.yn.sodiumeditor.core.WrapWordEngine.DEFAULT_TAB_SIZE_SPACES;
       } else {
         break;
       }

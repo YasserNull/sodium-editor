@@ -46,8 +46,8 @@ public final class WhitespaceGuideManager {
     view.scrollManager.maxTextStartXForScroll = 0f;
     view.scrollManager.maxScrollXForScroll = 0f;
     view.recalculateMaxLineWidth();
-    if (view.wordWrapManager.isWordWrapEnabled) view.wordWrapManager.invalidateWrapMetrics(view, true);
-    view.wordWrapManager.requestWrapPrefixRebuild(view);
+    if (view.wrapWordState.isWordWrapEnabled) view.wrapWordBuilder.invalidate(true, true);
+    view.wrapWordBuilder.requestPrefixRebuild(view);
     view.invalidate();
   }
 
@@ -70,7 +70,7 @@ public final class WhitespaceGuideManager {
     view.scrollManager.maxTextStartXForScroll = 0f;
     view.scrollManager.maxScrollXForScroll = 0f;
     view.recalculateMaxLineWidth();
-    if (view.wordWrapManager.isWordWrapEnabled) view.wordWrapManager.invalidateWrapMetrics(view, true);
+    if (view.wrapWordState.isWordWrapEnabled) view.wrapWordBuilder.invalidate(true, true);
     if (this.isWhitespaceGuidesEnabled()) view.invalidate();
   }
 
@@ -240,7 +240,7 @@ public final class WhitespaceGuideManager {
       char c = text.charAt(start + i);
       total +=
           getCharAdvanceWidth(
-              c, widths[i], p, WordWrapManager.DEFAULT_TAB_SIZE_SPACES);
+              c, widths[i], p, com.yn.sodiumeditor.core.WrapWordEngine.DEFAULT_TAB_SIZE_SPACES);
     }
     return total;
   }
@@ -525,7 +525,7 @@ public final class WhitespaceGuideManager {
     Paint.FontMetrics dotFm = getGuidePaint().getFontMetrics();
     float dotY = y + (dotFm.ascent + dotFm.descent) * 0.5f;
     int spaceStep = getSpaceStep();
-    int tabSpaces = WordWrapManager.DEFAULT_TAB_SIZE_SPACES;
+    int tabSpaces = com.yn.sodiumeditor.core.WrapWordEngine.DEFAULT_TAB_SIZE_SPACES;
     String tabGlyph = SodiumEditorView.WHITESPACE_GUIDE_TAB;
 
     String sub = line.substring(start, end);
@@ -624,7 +624,7 @@ public final class WhitespaceGuideManager {
     segmentPaint.getTextWidths(line, start, end, widths);
 
     final int spaceStep = getSpaceStep();
-    int tabSpaces = WordWrapManager.DEFAULT_TAB_SIZE_SPACES;
+    int tabSpaces = com.yn.sodiumeditor.core.WrapWordEngine.DEFAULT_TAB_SIZE_SPACES;
     String tabGlyph = SodiumEditorView.WHITESPACE_GUIDE_TAB;
     float currentX = x;
     int localSyntaxIndex = hasSyntaxSpans ? state.syntaxIndex : 0;

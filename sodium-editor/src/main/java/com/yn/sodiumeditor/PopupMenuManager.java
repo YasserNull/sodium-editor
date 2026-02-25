@@ -573,14 +573,14 @@ public final class PopupMenuManager {
   private float getViewXForLineChar(String line, int globalLine, int ch) {
     if (line == null) line = "";
     int safeChar = Math.max(0, Math.min(ch, view.getLogicalLineLength(globalLine, line)));
-    if (!view.wordWrapManager.isWordWrapEnabled) {
+    if (!view.wrapWordState.isWordWrapEnabled) {
       return view.getTextStartX()
           + view.highlightManager.measureText(line, safeChar, globalLine)
           - view.getEffectiveScrollX();
     }
-    int[] starts = view.wordWrapManager.getWrapStartsForLine(view, globalLine, line);
-    int seg = view.wordWrapManager.getWrapSegmentIndexForChar(starts, safeChar);
-    int segStart = view.wordWrapManager.getWrapSegmentStart(starts, seg);
+    int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, globalLine, line, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.paint);
+    int seg = view.wrapWordEngine.getWrapSegmentIndexForChar(starts, safeChar);
+    int segStart = view.wrapWordEngine.getWrapSegmentStart(starts, seg);
     float x =
         view.whitespaceGuideManager.measureTextWithVisualSpaces(
             view, line, segStart, safeChar, view.paint);

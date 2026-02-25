@@ -97,7 +97,7 @@ public final class TouchHandler {
                 float y = e.getY() + view.getScrollYForInput();
                 int visibleIndex = Math.max(0, (int) (y / view.getLineHeightForInput()));
                 int totalVisible =
-                    view.wordWrapManager.isWordWrapEnabled
+                    view.wrapWordState.isWordWrapEnabled
                         ? view.getTotalVisualLineCountForInput()
                         : view.getVisibleLineCountForInput();
 
@@ -109,12 +109,12 @@ public final class TouchHandler {
                   String ln = view.getLineTextForRender(line);
                   float xLocal = view.viewToTextXForInput(e.getX());
                   float x;
-                  if (view.wordWrapManager.isWordWrapEnabled) {
-                    int[] starts = view.wordWrapManager.getWrapStartsForLine(view, line, ln);
+                  if (view.wrapWordState.isWordWrapEnabled) {
+                    int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, line, ln, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.paint);
                     int seg =
-                        view.wordWrapManager.getWrapSegmentIndexForChar(
+                        view.wrapWordEngine.getWrapSegmentIndexForChar(
                             starts, Math.max(0, Math.min(target.ch, ln.length())));
-                    int segStart = view.wordWrapManager.getWrapSegmentStart(starts, seg);
+                    int segStart = view.wrapWordEngine.getWrapSegmentStart(starts, seg);
                     x = xLocal + view.measureTextWithVisualSpacesForInput(ln, 0, segStart);
                   } else {
                     x = xLocal;
@@ -278,7 +278,7 @@ public final class TouchHandler {
         view.setDownYPublic(ey);
         view.movedSinceDown = false;
         view.autoSuggestionManager.clearSuggestionAcceptedThisTouch();
-        view.scrollManager.dragMaxScrollX = view.wordWrapManager.isWordWrapEnabled ? -1f : view.scrollManager.getMaxScrollXForClamp();
+        view.scrollManager.dragMaxScrollX = view.wrapWordState.isWordWrapEnabled ? -1f : view.scrollManager.getMaxScrollXForClamp();
 
         view.scrollManager.showScrollBar();
         if (view.scrollManager.scrollBarEnabled) {
@@ -453,9 +453,9 @@ public final class TouchHandler {
           if (view.selectionManager.hasSelection()) view.popupMenuManager.showPopupAtSelection();
           view.restartInputPublic();
           Log.d("SodiumEditorView", "onTouchEvent.ACTION_UP: Scroll/Zoom ended, restarted input.");
-          if (view.wordWrapManager.isWordWrapEnabled && view.wordWrapManager.wrapPrefixRebuildPending && !view.wordWrapManager.wrapPrefixBuilding) {
-            view.wordWrapManager.wrapPrefixRebuildPending = false;
-            view.wordWrapManager.scheduleWrapPrefixRebuildUpToWindow(view);
+          if (view.wrapWordState.isWordWrapEnabled && view.wrapWordState.wrapPrefixRebuildPending && !view.wrapWordState.wrapPrefixBuilding) {
+            view.wrapWordState.wrapPrefixRebuildPending = false;
+            view.wrapWordBuilder.schedulePrefixRebuildUpToWindow(view);
           }
         }
 

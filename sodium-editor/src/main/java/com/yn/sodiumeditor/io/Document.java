@@ -162,8 +162,8 @@ public class Document {
         view.scrollManager.maxScrollXForScroll = 0f;
         view.invalidateHighlightEnsureRange();
         view.bracketGuideManager.invalidateCache();
-        if (view.wordWrapManager.isWordWrapEnabled) view.wordWrapManager.invalidateWrapMetrics(view, true);
-        view.wordWrapManager.requestWrapPrefixRebuild(view);
+        if (view.wrapWordState.isWordWrapEnabled) view.wrapWordBuilder.invalidate(true, true);
+        view.wrapWordBuilder.requestPrefixRebuild(view);
         view.reloadWindowAroundVisible(false);
         view.invalidate();
     }
@@ -280,11 +280,11 @@ public class Document {
         view.selectionManager.setSelectAllState(false, false);
         
         // Force clear wrap metrics as content is being cleared
-        view.wordWrapManager.wrapMetricsReady = false;
-        view.wordWrapManager.wrapLineCounts = null;
-        view.wordWrapManager.wrapLinePrefix = null;
-        view.wordWrapManager.totalWrapVisualLines = 0;
-        view.wordWrapManager.wrapPrefixValidUpToLine = -1;
+        view.wrapWordMetrics.wrapMetricsReady = false;
+        view.wrapWordMetrics.wrapLineCounts = null;
+        view.wrapWordMetrics.wrapLinePrefix = null;
+        view.wrapWordMetrics.totalWrapVisualLines = 0;
+        view.wrapWordMetrics.wrapPrefixValidUpToLine = -1;
 
         synchronized (view.linesWindow) {
             view.linesWindow.clear();
@@ -357,11 +357,11 @@ public class Document {
         view.lineNumberManager.invalidateCache();
 
         // Force clear wrap metrics for new file
-        view.wordWrapManager.wrapMetricsReady = false;
-        view.wordWrapManager.wrapLineCounts = null;
-        view.wordWrapManager.wrapLinePrefix = null;
-        view.wordWrapManager.totalWrapVisualLines = 0;
-        view.wordWrapManager.wrapPrefixValidUpToLine = -1;
+        view.wrapWordMetrics.wrapMetricsReady = false;
+        view.wrapWordMetrics.wrapLineCounts = null;
+        view.wrapWordMetrics.wrapLinePrefix = null;
+        view.wrapWordMetrics.totalWrapVisualLines = 0;
+        view.wrapWordMetrics.wrapPrefixValidUpToLine = -1;
 
         final int token = ++initialFileOpenToken;
         isInitialFileOpenLoading = true;
@@ -500,7 +500,7 @@ public class Document {
                                 isIndexReady = true;
                                 syncIndexFieldsToView();
                                 view.post(view::requestLayout);
-                                if (view.wordWrapManager.isWordWrapEnabled) view.post(() -> view.wordWrapManager.scheduleWrapMetricsBuild(view));
+                                if (view.wrapWordState.isWordWrapEnabled) view.post(() -> view.wrapWordBuilder.scheduleBuild(view));
                             }
                         }
                     } else {

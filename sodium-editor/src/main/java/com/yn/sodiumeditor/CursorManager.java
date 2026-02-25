@@ -338,7 +338,7 @@ public final class CursorManager {
 
   
   void invalidateCursorArea() {
-    if (view.wordWrapManager.isWordWrapEnabled) {
+    if (view.wrapWordState.isWordWrapEnabled) {
       view.invalidate();
       return;
     }
@@ -487,7 +487,7 @@ public final class CursorManager {
         view.requestLayout();
       }
       if (parts.length > 1) {
-        view.wordWrapManager.onLineCountChanged(view);
+        view.wrapWordBuilder.onLineCountChanged(view);
       }
 
       view.recalculateMaxLineWidth();

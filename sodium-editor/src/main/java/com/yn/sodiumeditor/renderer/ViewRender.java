@@ -83,8 +83,8 @@ public final class ViewRender {
     view.windowSize = safe;
     view.invalidateHighlightEnsureRange();
     view.bracketGuideManager.invalidateCache();
-    if (view.wordWrapManager.isWordWrapEnabled) view.wordWrapManager.invalidateWrapMetrics(view, true);
-    view.wordWrapManager.requestWrapPrefixRebuild(view);
+    if (view.wrapWordState.isWordWrapEnabled) view.wrapWordBuilder.invalidate(true, true);
+    view.wrapWordBuilder.requestPrefixRebuild(view);
     view.reloadWindowAroundVisible(false);
   }
 
@@ -98,8 +98,8 @@ public final class ViewRender {
     view.prefetchLines = safePrefetch;
     view.invalidateHighlightEnsureRange();
     view.bracketGuideManager.invalidateCache();
-    if (view.wordWrapManager.isWordWrapEnabled) view.wordWrapManager.invalidateWrapMetrics(view, true);
-    view.wordWrapManager.requestWrapPrefixRebuild(view);
+    if (view.wrapWordState.isWordWrapEnabled) view.wrapWordBuilder.invalidate(true, true);
+    view.wrapWordBuilder.requestPrefixRebuild(view);
     view.reloadWindowAroundVisible(false);
   }
 
@@ -111,8 +111,8 @@ public final class ViewRender {
     if (view.windowSize < minWindow) view.windowSize = minWindow;
     view.invalidateHighlightEnsureRange();
     view.bracketGuideManager.invalidateCache();
-    if (view.wordWrapManager.isWordWrapEnabled) view.wordWrapManager.invalidateWrapMetrics(view, true);
-    view.wordWrapManager.requestWrapPrefixRebuild(view);
+    if (view.wrapWordState.isWordWrapEnabled) view.wrapWordBuilder.invalidate(true, true);
+    view.wrapWordBuilder.requestPrefixRebuild(view);
     view.reloadWindowAroundVisible(false);
   }
 
@@ -181,9 +181,10 @@ public final class ViewRender {
     int lastVisibleIndex = firstVisibleIndex + (int) Math.ceil(view.getHeight() / view.lineHeight);
     int firstVisibleLine;
     int lastVisibleLine;
-    if (view.wordWrapManager.isWordWrapEnabled) {
-      firstVisibleLine = view.wordWrapManager.getVisualPositionForIndex(view, firstVisibleIndex).line;
-      lastVisibleLine = view.wordWrapManager.getVisualPositionForIndex(view, lastVisibleIndex).line;
+    if (view.wrapWordState.isWordWrapEnabled) {
+      int widthPx = Math.max(1, Math.round(view.getWidth() - view.getTextStartX()));
+      firstVisibleLine = view.wrapWordMapper.getVisualPositionForIndex(view, firstVisibleIndex, widthPx).line;
+      lastVisibleLine = view.wrapWordMapper.getVisualPositionForIndex(view, lastVisibleIndex, widthPx).line;
     } else {
       firstVisibleLine = view.mapVisibleIndexToGlobal(firstVisibleIndex);
       lastVisibleLine = view.mapVisibleIndexToGlobal(lastVisibleIndex);
@@ -456,17 +457,17 @@ public final class ViewRender {
                     view.globalMaxLineWidth = 0f;
                     view.recalculateMaxLineWidthAsync();
                   }
-                  if (view.wordWrapManager.isWordWrapEnabled) {
-                    if (view.wordWrapManager.shouldSuppressWrapMetricsForFastSelectAll(view)) {
-                      view.wordWrapManager.wrapMetricsReady = false;
+                  if (view.wrapWordState.isWordWrapEnabled) {
+                    if (view.wrapWordBuilder.shouldSuppressForSelectAll(view)) {
+                      view.wrapWordMetrics.wrapMetricsReady = false;
                     } else {
-                      if (!view.wordWrapManager.wrapMetricsReady || view.wordWrapManager.wrapLineCounts == null || view.wordWrapManager.wrapLinePrefix == null) {
+                      if (!view.wrapWordMetrics.wrapMetricsReady || view.wrapWordMetrics.wrapLineCounts == null || view.wrapWordMetrics.wrapLinePrefix == null) {
                         if (view.getWidth() > 0) {
-                          view.wordWrapManager.buildWrapMetricsForWindowSnapshot(view);
+                          view.wrapWordBuilder.buildWrapMetricsForWindowSnapshot(view);
                         }
                       }
-                      view.wordWrapManager.scheduleWrapMetricsSnapshotIfNeeded(view, Math.max(1, Math.round(view.wordWrapManager.getWrapWidth(view))));
-                      view.wordWrapManager.requestWrapPrefixRebuild(view);
+                      view.wrapWordBuilder.scheduleWrapMetricsSnapshotIfNeeded(view, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())));
+                      view.wrapWordBuilder.requestPrefixRebuild(view);
                     }
                   }
                   view.invalidate();
@@ -484,7 +485,7 @@ public final class ViewRender {
   }
 
   public void maybeUpdateStreamedSlicesForVisibleRange(int firstVisibleLine, int lastVisibleLine) {
-    if (view.wordWrapManager.isWordWrapEnabled) return;
+    if (view.wrapWordState.isWordWrapEnabled) return;
     if (!view.fileManager.isIndexReady() || view.fileManager.getSourceFile() == null || !view.fileManager.getSourceFile().exists()) return;
     if (view.isWindowLoading) return;
 
@@ -682,7 +683,7 @@ public final class ViewRender {
 
       int newLineCount = textRender.getLinesCount();
       if (oldLineCount != newLineCount) {
-        view.wordWrapManager.onLineCountChanged(view);
+        view.wrapWordBuilder.onLineCountChanged(view);
       }
       view.recalculateMaxLineWidth();
     }
@@ -723,7 +724,7 @@ public final class ViewRender {
       view.recalculateMaxLineWidth();
       int newLineCount = textRender.getLinesCount();
       if (oldLineCount != newLineCount) {
-        view.wordWrapManager.onLineCountChanged(view);
+        view.wrapWordBuilder.onLineCountChanged(view);
       }
     }
   }

@@ -247,7 +247,7 @@ public final class HandlesManager {
     }
     if (touchX < scrollMargin) view.scrollManager.autoScrollX = -scrollSpeed;
     else if (touchX > view.getWidth() - scrollMargin) view.scrollManager.autoScrollX = scrollSpeed;
-    if (view.isRtl && !view.wordWrapManager.isWordWrapEnabled) view.scrollManager.autoScrollX = -view.scrollManager.autoScrollX;
+    if (view.isRtl && !view.wrapWordState.isWordWrapEnabled) view.scrollManager.autoScrollX = -view.scrollManager.autoScrollX;
 
     // Prevent horizontal auto-scroll when the handle is already at the line boundary.
     if (view.scrollManager.autoScrollX > 0 && lastDragAtLineEnd) view.scrollManager.autoScrollX = 0;

@@ -346,7 +346,7 @@ public class TextIO {
                             view.fileManager.setEof(false);
 
                             view.ioHandler.post(view.lineIndex::buildFileIndex);
-                            view.wordWrapManager.onLineCountChanged(view);
+                            view.wrapWordBuilder.onLineCountChanged(view);
 
                             view.cursorManager.setLineAndChar(Math.max(0, target.line), Math.max(0, target.ch));
 
@@ -458,7 +458,7 @@ public class TextIO {
     }
 
     public boolean shouldStreamLineLength(int length) {
-        if (view.wordWrapManager.isWordWrapEnabled) return false;
+        if (view.wrapWordState.isWordWrapEnabled) return false;
         return length > getStreamLineThreshold();
     }
 

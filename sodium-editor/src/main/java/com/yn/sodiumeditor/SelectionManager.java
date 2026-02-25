@@ -195,8 +195,8 @@ public final class SelectionManager {
       return;
     }
 
-    if (view.wordWrapManager.isWordWrapEnabled) {
-      view.wordWrapManager.cancelWrapWorkForPriority(view);
+    if (view.wrapWordState.isWordWrapEnabled) {
+      view.wrapWordBuilder.cancelWorkForPriority();
     }
 
     view.ioHandler.post(
@@ -296,10 +296,10 @@ public final class SelectionManager {
   public void selectAll(SodiumEditorView view) {
     view.autoSuggestionManager.clearActiveSuggestion();
     final boolean keyboardWasVisible = view.keyboardHeight > 0;
-    if (view.wordWrapManager.isWordWrapEnabled) {
-      int widthPx = Math.max(1, Math.round(view.wordWrapManager.getWrapWidth(view)));
-      if (view.wordWrapManager.isWrapMetricsUsableForWindow(view, widthPx)) {
-        view.wordWrapManager.cancelWrapWorkForPriority(view);
+    if (view.wrapWordState.isWordWrapEnabled) {
+      int widthPx = Math.max(1, Math.round(view.getWidth() - view.getTextStartX()));
+      if (view.wrapWordBuilder.isMetricsUsableForWindow(view, widthPx)) {
+        view.wrapWordBuilder.cancelWorkForPriority();
       }
     }
     view.setDisable(true);

@@ -52,8 +52,8 @@ public final class LineNumberManager {
     view.scrollManager.maxTextStartXForScroll = 0f;
     invalidateCache();
     view.requestLayout();
-    if (view.wordWrapManager.isWordWrapEnabled) {
-      view.wordWrapManager.invalidateWrapMetrics(view, true);
+    if (view.wrapWordState.isWordWrapEnabled) {
+      view.wrapWordBuilder.invalidate(true, true);
     }
     view.invalidate();
   }
@@ -118,8 +118,8 @@ public final class LineNumberManager {
     if (gutterSeparatorWidth == safe) return;
     gutterSeparatorWidth = safe;
     view.requestLayout();
-    if (view.wordWrapManager.isWordWrapEnabled) {
-      view.wordWrapManager.invalidateWrapMetrics(view, true);
+    if (view.wrapWordState.isWordWrapEnabled) {
+      view.wrapWordBuilder.invalidate(true, true);
     }
     if (showLineNumbers) {
       view.invalidate();
@@ -378,7 +378,7 @@ public final class LineNumberManager {
     }
 
     int drawLastIndex = lastVisualIndex;
-    int totalVisual = view.wordWrapManager.getTotalVisualLineCount(view);
+    int totalVisual = view.wrapWordMapper.getTotalVisualLineCount(view, view.getVisibleLineCount());
     if (totalVisual > 0) {
       drawLastIndex = Math.min(lastVisualIndex + 1, totalVisual - 1);
     }
@@ -420,7 +420,7 @@ public final class LineNumberManager {
 
       for (int v = firstVisualIndex; v <= drawLastIndex; v++) {
         SodiumEditorView.VisualLinePosition pos =
-            view.wordWrapManager.getVisualPositionForIndex(view, v);
+            view.wrapWordMapper.getVisualPositionForIndex(view, v, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())));
         if (pos.segment != 0) continue;
         int start = writeIntToChars(pos.line + 1, lineNumberChars);
         int count = lineNumberChars.length - start;
@@ -529,12 +529,12 @@ public final class LineNumberManager {
                 - GUTTER_TEXT_PADDING;
 
     int drawLastIndex = lastVisualIndex;
-    int totalVisual = view.wordWrapManager.getTotalVisualLineCount(view);
+    int totalVisual = view.wrapWordMapper.getTotalVisualLineCount(view, view.getVisibleLineCount());
     if (totalVisual > 0) drawLastIndex = Math.min(lastVisualIndex + 1, totalVisual - 1);
 
     for (int v = firstVisualIndex; v <= drawLastIndex; v++) {
       SodiumEditorView.VisualLinePosition pos =
-          view.wordWrapManager.getVisualPositionForIndex(view, v);
+          view.wrapWordMapper.getVisualPositionForIndex(view, v, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())));
       if (pos.segment != 0) continue;
       int start = writeIntToChars(pos.line + 1, lineNumberChars);
       int count = lineNumberChars.length - start;

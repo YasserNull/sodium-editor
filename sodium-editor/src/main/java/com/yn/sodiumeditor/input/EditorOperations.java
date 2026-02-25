@@ -69,7 +69,7 @@ public final class EditorOperations {
             && String.valueOf(oldLineCount).length() != String.valueOf(newLineCount).length()) {
           view.requestLayout();
         }
-        view.wordWrapManager.onLineCountChanged(view);
+        view.wrapWordBuilder.onLineCountChanged(view);
       } else {
         int pos = Math.max(0, Math.min(view.cursorManager.getChar(), base.length()));
         String modified = base.substring(0, pos) + c + base.substring(pos);
@@ -280,7 +280,7 @@ public final class EditorOperations {
             && String.valueOf(oldLineCount).length() != String.valueOf(newLineCount).length()) {
           view.requestLayout();
         }
-        view.wordWrapManager.onLineCountChanged(view);
+        view.wrapWordBuilder.onLineCountChanged(view);
         view.invalidate();
 
         EditOp op = new EditOp();
@@ -375,7 +375,7 @@ public final class EditorOperations {
           view.modifiedLines.put(view.cursorManager.getLine(), merged);
           view.recalculateMaxLineWidth();
           view.computeWidthForLinePublic(view.cursorManager.getLine(), merged);
-          view.wordWrapManager.onLineCountChanged(view);
+          view.wrapWordBuilder.onLineCountChanged(view);
           view.invalidate();
           view.history.addLineCountDelta(-1);
 
@@ -489,7 +489,7 @@ public final class EditorOperations {
         view.cursorManager.setLineAndChar(newPos.line, newPos.ch);
       }
 
-      view.wordWrapManager.onLineCountChanged(view);
+      view.wrapWordBuilder.onLineCountChanged(view);
       view.recalculateMaxLineWidth();
     } else {
       view.fileManager.rewriteReplaceRangeAsync(opToken, view.fileManager.getSourceFile(), sL, sC, eL, eC, insertText, view.computeCursorAfterInsert(sL, sC, insertText), false);

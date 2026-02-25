@@ -25,8 +25,8 @@ public final class TextNavigation {
      */
     public int getGlobalLineForY(float y) {
         int idx = Math.max(0, (int) (y / view.lineHeight));
-        if (view.wordWrapManager.isWordWrapEnabled) {
-            return view.wordWrapManager.getVisualPositionForIndex(view, idx).line;
+        if (view.wrapWordState.isWordWrapEnabled) {
+            return view.wrapWordMapper.getVisualPositionForIndex(view, idx, Math.max(1, Math.round(view.getWidth() - view.getTextStartX()))).line;
         }
         return view.mapVisibleIndexToGlobal(idx);
     }
@@ -35,16 +35,16 @@ public final class TextNavigation {
      * Gets the visual index for a specific line and character position.
      */
     public int getVisualIndexForLineAndChar(int line, int ch) {
-        if (!view.wordWrapManager.isWrapMetricsUsableForLine(view, line)) {
+        if (!view.wrapWordBuilder.isMetricsUsableForLine(view, line, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())))) {
             if (view.foldManager.isCodeFoldingEnabled) return view.getVisibleIndexForGlobalLine(line);
             return Math.max(0, line);
         }
-        int totalLines = view.wordWrapManager.wrapLinePrefix.length - 1;
+        int totalLines = view.wrapWordMetrics.wrapLinePrefix.length - 1;
         int safeLine = Math.max(0, Math.min(line, Math.max(0, totalLines - 1)));
         String text = lineCacheManager.getLineTextForRender(safeLine);
-        int[] starts = view.wordWrapManager.getWrapStartsForLine(view, safeLine, text);
-        int seg = view.wordWrapManager.getWrapSegmentIndexForChar(starts, Math.max(0, Math.min(ch, text.length())));
-        return view.wordWrapManager.wrapLinePrefix[safeLine] + seg;
+        int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, safeLine, text, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.paint);
+        int seg = view.wrapWordEngine.getWrapSegmentIndexForChar(starts, Math.max(0, Math.min(ch, text.length())));
+        return view.wrapWordMetrics.wrapLinePrefix[safeLine] + seg;
     }
 
     /**

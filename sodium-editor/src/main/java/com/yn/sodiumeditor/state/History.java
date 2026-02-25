@@ -598,9 +598,9 @@ public final class History {
         view.setSelectionInternal(sL, sC, eL, eC);
         view.replaceSelectionWithText(text);
         view.cursorManager.setPosition(cursorLine, cursorChar);
-        if (view.wordWrapManager.isWordWrapEnabled) {
-            view.wordWrapManager.invalidateWrapMetrics(view, true);
-            view.wordWrapManager.requestWrapPrefixRebuild(view);
+        if (view.wrapWordState.isWordWrapEnabled) {
+            view.wrapWordBuilder.invalidate(true, true);
+            view.wrapWordBuilder.requestPrefixRebuild(view);
         }
         view.lineNumberManager.invalidateCache();
         view.invalidate();
