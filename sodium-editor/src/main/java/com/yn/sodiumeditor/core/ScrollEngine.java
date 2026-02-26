@@ -408,9 +408,9 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
     }
 
     public void keepCursorVisibleHorizontally() {
-        if (view.zoomManager.isScaleInProgress()
-                || view.zoomManager.isScaling()
-                || view.zoomManager.isMultiTouchActive()) {
+        if (view.zoomGestureHandler.isScaleInProgress()
+                || view.zoomGestureHandler.isScaling()
+                || view.zoomGestureHandler.isMultiTouchActive()) {
             return;
         }
         int cursorVisualIndex = view.getVisualIndexForLineAndChar(view.cursorManager.getLine(), view.cursorManager.getChar());

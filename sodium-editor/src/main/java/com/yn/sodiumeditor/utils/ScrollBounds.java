@@ -14,7 +14,7 @@ public final class ScrollBounds {
     public float getMaxScrollYForClamp() {
         if (view.wrapWordState.isWordWrapEnabled
                 && !view.wrapWordMetrics.wrapMetricsReady
-                && (view.zoomManager.isScaling() || view.zoomManager.isJustFinishedScale())) {
+                && (view.zoomGestureHandler.isScaling() || view.zoomGestureHandler.isJustFinishedScale())) {
             return config.scrollY;
         }
 

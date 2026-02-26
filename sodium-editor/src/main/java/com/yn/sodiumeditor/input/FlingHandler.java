@@ -14,8 +14,8 @@ public final class FlingHandler {
     }
 
     public boolean onFling(float velocityX, float velocityY) {
-        if (view.zoomManager.isScaling() || view.zoomManager.isScaleInProgress()) return true;
-        if (view.zoomManager.isJustFinishedScale()) return true;
+        if (view.zoomGestureHandler.isScaling() || view.zoomGestureHandler.isScaleInProgress()) return true;
+        if (view.zoomGestureHandler.isJustFinishedScale()) return true;
         if (view.wrapWordState.isWordWrapEnabled && view.wrapWordState.wrapPrefixBuilding) {
             view.wrapWordBuilder.cancelPrefixRebuildForInteraction();
         }

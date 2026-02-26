@@ -139,7 +139,13 @@ public class SodiumEditorView extends View {
   static final long FLING_STOP_ANIM_DURATION_MS = 90;
   public final InputMethodHandler imeManager;
   public final ScrollEngine scrollManager;
-  public final ZoomManager zoomManager;
+
+  // Zoom Components
+  public final com.yn.sodiumeditor.config.ZoomConfig zoomConfig = new com.yn.sodiumeditor.config.ZoomConfig();
+  public com.yn.sodiumeditor.input.ZoomGestureHandler zoomGestureHandler;
+  public com.yn.sodiumeditor.core.ZoomEngine zoomEngine;
+  public com.yn.sodiumeditor.renderer.ZoomPreviewRender zoomPreviewRender;
+
   public final History history;
   public final SearchManager searchManager;
   public final CursorAnimationManager cursorAnimationManager;
@@ -367,7 +373,12 @@ public class SodiumEditorView extends View {
     touchSlop = ViewConfiguration.get(ctx).getScaledTouchSlop();
     imeManager = new InputMethodHandler(this);
     scrollManager = new ScrollEngine(this);
-    zoomManager = new ZoomManager(this, ctx);
+
+    // Initialize Zoom components
+    zoomEngine = new com.yn.sodiumeditor.core.ZoomEngine();
+    zoomPreviewRender = new com.yn.sodiumeditor.renderer.ZoomPreviewRender();
+    zoomGestureHandler = new com.yn.sodiumeditor.input.ZoomGestureHandler(this, zoomConfig, zoomEngine, zoomPreviewRender, ctx);
+
     history = new History(this);
     searchManager = new SearchManager(this);
     cursorAnimationManager = new CursorAnimationManager(this);
@@ -839,7 +850,7 @@ public class SodiumEditorView extends View {
     return sp * getResources().getDisplayMetrics().scaledDensity;
   }
 
-  float spToPxForZoom(float sp) {
+  public float spToPxForZoom(float sp) {
     return spToPx(sp);
   }
 
@@ -916,19 +927,19 @@ public class SodiumEditorView extends View {
     invalidate();
   }
 
-  void applyZoomTextSizePx(float sizePx) {
+  public void applyZoomTextSizePx(float sizePx) {
     applyTextSizePx(sizePx);
   }
 
-  void applyZoomTextSizePx(float sizePx, boolean deferWrapRebuild) {
+  public void applyZoomTextSizePx(float sizePx, boolean deferWrapRebuild) {
     applyTextSizePx(sizePx, deferWrapRebuild);
   }
 
-  float getPaintTextSizePxForZoom() {
+  public float getPaintTextSizePxForZoom() {
     return paint.getTextSize();
   }
 
-  float getPaintFontSpacingPxForZoom() {
+  public float getPaintFontSpacingPxForZoom() {
     return paint.getFontSpacing();
   }
 
@@ -1105,7 +1116,7 @@ public class SodiumEditorView extends View {
   }
 
   public void setJustFinishedScaleForInput(boolean finished) {
-    zoomManager.setJustFinishedScale(finished);
+    zoomGestureHandler.setJustFinishedScale(finished);
   }
 
   public void abortScrollerForInput() {
@@ -1839,7 +1850,7 @@ public class SodiumEditorView extends View {
   }
 
   public void maybeKickWindowLoad(int firstVisibleLine) {
-    if (zoomManager.isZoomGestureActive()) return;
+    if (zoomGestureHandler.isZoomGestureActive()) return;
     if (document.getSourceFile() == null || document.isFileCleared()) {
       return;
     }
@@ -1930,11 +1941,11 @@ public class SodiumEditorView extends View {
     return scrollManager.getMaxScrollYForClamp();
   }
 
-  void clampScrollY() {
+  public void clampScrollY() {
     scrollManager.clampScrollY();
   }
 
-  void abortScrollAnimationForZoom() {
+  public void abortScrollAnimationForZoom() {
     if (!scrollManager.scroller.isFinished()) {
       scrollManager.scroller.abortAnimation();
     }

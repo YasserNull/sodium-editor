@@ -196,7 +196,7 @@ final class EditorInputConnection extends BaseInputConnection {
   @Override
   public boolean commitText(CharSequence text, int newCursorPosition) {
     if (view.isDisabled || view.isReadOnly) return true;
-    if (view.zoomManager.isZoomGestureActive()) return true;
+    if (view.zoomGestureHandler.isZoomGestureActive()) return true;
     if (text == null) return super.commitText(text, newCursorPosition);
 
     String str = text.toString();
@@ -314,7 +314,7 @@ final class EditorInputConnection extends BaseInputConnection {
   @Override
   public boolean setComposingText(CharSequence text, int newCursorPosition) {
     if (view.isDisabled || view.isReadOnly) return true;
-    if (view.zoomManager.isZoomGestureActive()) return true;
+    if (view.zoomGestureHandler.isZoomGestureActive()) return true;
     if (text == null) return true;
 
     if (view.selectionManager.hasSelection()) {
@@ -351,7 +351,7 @@ final class EditorInputConnection extends BaseInputConnection {
   @Override
   public boolean deleteSurroundingText(int beforeLength, int afterLength) {
     if (view.isDisabled || view.isReadOnly) return true;
-    if (view.zoomManager.isZoomGestureActive()) return true;
+    if (view.zoomGestureHandler.isZoomGestureActive()) return true;
 
     if (view.selectionManager.hasSelection()) {
       view.replaceSelectionWithText("");

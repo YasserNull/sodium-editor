@@ -96,7 +96,7 @@ public final class WrapWordBuilder {
 
   public void requestPrefixRebuild(SodiumEditorView view) {
     if (!state.isWordWrapEnabled) return;
-    if (view.zoomManager.isScaling() || view.zoomManager.isScaleInProgress()) {
+    if (view.zoomGestureHandler.isScaling() || view.zoomGestureHandler.isScaleInProgress()) {
       state.wrapPrefixRebuildPending = true;
       return;
     }
@@ -413,7 +413,7 @@ public final class WrapWordBuilder {
         }
         state.wrapPrefixBuilding = false;
 
-        if (view.zoomManager.isZoomGestureActive()) {
+        if (view.zoomGestureHandler.isZoomGestureActive()) {
           metrics.pendingWrapPrefixCounts = counts;
           metrics.pendingWrapPrefixPrefix = prefix;
           metrics.pendingWrapPrefixTotalVisualLines = runningFinal;
@@ -448,7 +448,7 @@ public final class WrapWordBuilder {
       metrics.pendingWrapPrefixPrefix = null;
       return;
     }
-    if (view.zoomManager.isZoomGestureActive()) return;
+    if (view.zoomGestureHandler.isZoomGestureActive()) return;
     if (metrics.pendingWrapPrefixCounts == null || metrics.pendingWrapPrefixPrefix == null) {
       metrics.pendingApplyWrapPrefixUpdate = false;
       return;

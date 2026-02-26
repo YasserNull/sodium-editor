@@ -73,7 +73,7 @@ public final class LineRenderer {
             drawContentWrapped(canvas);
             return;
         }
-        final boolean drawDecorations = view.zoomManager.shouldDrawDecorations();
+        final boolean drawDecorations = view.zoomGestureHandler.shouldDrawDecorations();
 
         int firstVisibleIndex = (int) (view.scrollManager.scrollY / view.lineHeight);
         if (firstVisibleIndex < 0) firstVisibleIndex = 0;
@@ -188,10 +188,10 @@ public final class LineRenderer {
      * Applies zoom scale transformation if active.
      */
     private void applyZoomScale(Canvas canvas, float translateY) {
-        if (view.zoomManager.isPinchVisualZoomActive()) {
-            float pivotX = view.zoomManager.getPinchFocusX() - (view.getTextStartX() - view.getEffectiveScrollX());
-            float pivotY = view.zoomManager.getPinchFocusY() - translateY;
-            canvas.scale(view.zoomManager.getPinchVisualScale(), view.zoomManager.getPinchVisualScale(), pivotX, pivotY);
+        if (view.zoomGestureHandler.isPinchVisualZoomActive()) {
+            float pivotX = view.zoomGestureHandler.getPinchFocusX() - (view.getTextStartX() - view.getEffectiveScrollX());
+            float pivotY = view.zoomGestureHandler.getPinchFocusY() - translateY;
+            canvas.scale(view.zoomGestureHandler.getPinchVisualScale(), view.zoomGestureHandler.getPinchVisualScale(), pivotX, pivotY);
         }
     }
 
@@ -261,7 +261,7 @@ public final class LineRenderer {
         synchronized (view.linesWindow) {
             winEnd = view.windowStartLine + view.linesWindow.size() - 1;
         }
-        int prefetchForDraw = view.zoomManager.isZoomGestureActive() ? 0 : view.prefetchLines;
+        int prefetchForDraw = view.zoomGestureHandler.isZoomGestureActive() ? 0 : view.prefetchLines;
         int hlStart = Math.max(view.windowStartLine, Math.max(0, firstVisibleLine - prefetchForDraw));
         int hlEnd = Math.min(winEnd, lastVisibleLine + prefetchForDraw);
         view.maybeEnsureHighlightCacheForRange(hlStart, hlEnd, directLines);
@@ -601,8 +601,8 @@ public final class LineRenderer {
      */
     public void drawContentWrapped(Canvas canvas) {
         int wrapWidthPx = Math.max(1, Math.round(view.getWidth() - view.getTextStartX()));
-        final boolean drawDecorations = view.zoomManager.shouldDrawDecorations();
-        if (!view.zoomManager.isZoomGestureActive()) {
+        final boolean drawDecorations = view.zoomGestureHandler.shouldDrawDecorations();
+        if (!view.zoomGestureHandler.isZoomGestureActive()) {
             view.wrapWordBuilder.applyPendingPrefixUpdate(view);
         }
         if (view.wrapWordBuilder.shouldSuppressForSelectAll(view)) {
@@ -621,7 +621,7 @@ public final class LineRenderer {
      * Fallback drawing method for wrapped text when metrics are not ready.
      */
     public void drawContentWrappedFallback(Canvas canvas, int wrapWidthPx) {
-        final boolean drawDecorations = view.zoomManager.shouldDrawDecorations();
+        final boolean drawDecorations = view.zoomGestureHandler.shouldDrawDecorations();
 
         int firstLine;
         int lastLine;

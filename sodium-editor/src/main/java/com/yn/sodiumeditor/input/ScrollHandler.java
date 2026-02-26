@@ -24,8 +24,8 @@ public final class ScrollHandler {
 
     public boolean onScroll(MotionEvent e2, float distanceX, float distanceY) {
         if (e2.getPointerCount() > 1) return true;
-        if (view.zoomManager.isScaling() || view.zoomManager.isScaleInProgress()) return true;
-        if (view.zoomManager.isJustFinishedScale()) return true;
+        if (view.zoomGestureHandler.isScaling() || view.zoomGestureHandler.isScaleInProgress()) return true;
+        if (view.zoomGestureHandler.isJustFinishedScale()) return true;
         if (view.wrapWordState.isWordWrapEnabled && view.wrapWordState.wrapPrefixBuilding) {
             view.wrapWordBuilder.cancelPrefixRebuildForInteraction();
         }

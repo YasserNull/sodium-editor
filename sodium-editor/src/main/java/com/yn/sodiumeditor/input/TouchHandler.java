@@ -34,7 +34,7 @@ public final class TouchHandler {
               @Override
               public void onLongPress(MotionEvent e) {
                 if (view.autoSuggestionManager.isSuggestionAcceptedThisTouch()) return;
-                if (view.zoomManager.isMultiTouchActive() || view.zoomManager.hadMultiTouch()) return;
+                if (view.zoomGestureHandler.isMultiTouchActive() || view.zoomGestureHandler.hadMultiTouch()) return;
 
                 if (view.popupMenuManager.isPopupVisible()) {
                   int hitAction = view.popupMenuManager.getPopupActionAt(e.getX(), e.getY());
@@ -79,7 +79,7 @@ public final class TouchHandler {
               @Override
               public boolean onSingleTapUp(MotionEvent e) {
                 if (view.autoSuggestionManager.isSuggestionAcceptedThisTouch()) return true;
-                if (view.zoomManager.isMultiTouchActive() || view.zoomManager.hadMultiTouch()) return true;
+                if (view.zoomGestureHandler.isMultiTouchActive() || view.zoomGestureHandler.hadMultiTouch()) return true;
 
                 view.clearSelectionForInput();
 
@@ -219,11 +219,11 @@ public final class TouchHandler {
     int pointerCount = event.getPointerCount();
 
     if (action == MotionEvent.ACTION_DOWN) {
-      view.zoomManager.resetMultiTouchState();
+      view.zoomGestureHandler.resetMultiTouchState();
     }
 
     if (action == MotionEvent.ACTION_POINTER_DOWN) {
-      view.zoomManager.onPointerDown();
+      view.zoomGestureHandler.onPointerDown();
       view.pointerDown = false;
       view.movedSinceDown = false;
       view.handlesManager.stopDragging();
@@ -241,22 +241,22 @@ public final class TouchHandler {
     }
 
     if (action == MotionEvent.ACTION_POINTER_UP) {
-      view.zoomManager.onPointerUp(pointerCount - 1);
+      view.zoomGestureHandler.onPointerUp(pointerCount - 1);
       if (pointerCount - 1 <= 1) view.scrollManager.dragMaxScrollX = -1f;
     }
 
-    view.zoomManager.onScaleTouchEvent(event);
+    view.zoomGestureHandler.onTouchEvent(event);
 
-    if (view.zoomManager.isScaleInProgress()
-        || view.zoomManager.isMultiTouchActive()
+    if (view.zoomGestureHandler.isScaleInProgress()
+        || view.zoomGestureHandler.isMultiTouchActive()
         || pointerCount > 1
-        || view.zoomManager.isScaling()
+        || view.zoomGestureHandler.isScaling()
         || action == MotionEvent.ACTION_POINTER_DOWN
         || action == MotionEvent.ACTION_POINTER_UP) {
       return true;
     }
 
-    if (view.zoomManager.hadMultiTouch()
+    if (view.zoomGestureHandler.hadMultiTouch()
         && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL)) {
       view.pointerDown = false;
       view.handlesManager.stopDragging();
