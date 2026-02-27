@@ -25,8 +25,8 @@ public final class ScrollBounds {
                         : (view.foldManager.isCodeFoldingEnabled
                         ? view.getVisibleLineCount()
                         : Math.max(1, view.getLinesCount()));
-        if (view.wrapWordState.isWordWrapEnabled && (view.selectionManager.isSelectAllActive() || view.selectionManager.isEntireFileSelected())) {
-            lineCount = Math.max(lineCount, view.selectionManager.selEndLine + 1);
+        if (view.wrapWordState.isWordWrapEnabled && (view.selectionState.isSelectAllActive() || view.selectionState.isEntireFileSelected())) {
+            lineCount = Math.max(lineCount, view.selectionState.selEndLine + 1);
         }
         if (view.isEof) {
             float paddingToUse =

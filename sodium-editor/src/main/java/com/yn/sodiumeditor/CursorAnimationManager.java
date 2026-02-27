@@ -28,9 +28,9 @@ public final class CursorAnimationManager {
       new Runnable() {
         @Override
         public void run() {
-          if (view.isFocused() && !view.selectionManager.hasSelection()) {
+          if (view.isFocused() && !view.selectionState.hasSelection()) {
             isCursorVisible = !isCursorVisible;
-            view.cursorManager.invalidateCursorArea();
+            view.invalidateLineGlobal(view.cursorState.getCursorLine());
             view.mainHandler.postDelayed(this, 500);
           }
         }
@@ -58,7 +58,7 @@ public final class CursorAnimationManager {
             cursorDrawX = cursorAnimX;
             cursorDrawY = cursorAnimY;
             cursorAnimRunning = false;
-            view.cursorManager.invalidateCursorArea();
+            view.invalidateLineGlobal(view.cursorState.getCursorLine());
             return;
           }
 
@@ -73,7 +73,7 @@ public final class CursorAnimationManager {
           cursorAnimY += dy * alpha;
           cursorDrawX = cursorAnimX;
           cursorDrawY = cursorAnimY;
-          view.cursorManager.invalidateCursorArea();
+          view.invalidateLineGlobal(view.cursorState.getCursorLine());
           view.postOnAnimation(this);
         }
       };
@@ -119,10 +119,10 @@ public final class CursorAnimationManager {
       return;
     }
 
-    boolean cursorMoved = (view.cursorManager.getLine() != lastCursorAnimLine || view.cursorManager.getChar() != lastCursorAnimChar);
+    boolean cursorMoved = (view.cursorState.getCursorLine() != lastCursorAnimLine || view.cursorState.getCursorChar() != lastCursorAnimChar);
     if (cursorMoved) {
-      lastCursorAnimLine = view.cursorManager.getLine();
-      lastCursorAnimChar = view.cursorManager.getChar();
+      lastCursorAnimLine = view.cursorState.getCursorLine();
+      lastCursorAnimChar = view.cursorState.getCursorChar();
       lastCursorMoveUptime = SystemClock.uptimeMillis();
     } else if (Math.abs(targetX - cursorAnimTargetX) > 0.5f
         || Math.abs(targetY - cursorAnimTargetY) > 0.5f) {
@@ -175,7 +175,7 @@ public final class CursorAnimationManager {
   public void resetCursorBlink() {
     view.mainHandler.removeCallbacks(blinkRunnable);
     isCursorVisible = true;
-    if (view.isFocused() && !view.selectionManager.hasSelection()) {
+    if (view.isFocused() && !view.selectionState.hasSelection()) {
       view.invalidate();
       view.mainHandler.postDelayed(blinkRunnable, 500);
     }

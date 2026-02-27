@@ -75,12 +75,12 @@ final class EditorInputConnection extends BaseInputConnection {
     int before = Math.max(0, beforeLength);
     int after = Math.max(0, afterLength);
     ImeTextHelper.ImeContext ctx = textHelper.buildImeContext(before, after);
-    int sLine = view.cursorManager.getLine(), sChar = view.cursorManager.getChar(), eLine = view.cursorManager.getLine(), eChar = view.cursorManager.getChar();
-    if (view.selectionManager.hasSelection()) {
-      sLine = view.selectionManager.selStartLine;
-      sChar = view.selectionManager.selStartChar;
-      eLine = view.selectionManager.selEndLine;
-      eChar = view.selectionManager.selEndChar;
+    int sLine = view.cursorState.getCursorLine(), sChar = view.cursorState.getCursorChar(), eLine = view.cursorState.getCursorLine(), eChar = view.cursorState.getCursorChar();
+    if (view.selectionState.hasSelection()) {
+      sLine = view.selectionState.selStartLine;
+      sChar = view.selectionState.selStartChar;
+      eLine = view.selectionState.selEndLine;
+      eChar = view.selectionState.selEndChar;
       if (view.comparePos(sLine, sChar, eLine, eChar) > 0) {
         int tL = sLine, tC = sChar;
         sLine = eLine;
@@ -109,13 +109,13 @@ final class EditorInputConnection extends BaseInputConnection {
     int textLen = ctx.text.length();
     int sOff = Math.max(0, Math.min(start, textLen));
     int eOff = Math.max(0, Math.min(end, textLen));
-    int cursorOff = textHelper.lineCharToOffsetInContext(ctx, view.cursorManager.getLine(), view.cursorManager.getChar());
-    if (sOff == eOff && sOff == cursorOff && !view.selectionManager.hasSelection()) return true;
-    if (sOff == 0 && eOff == 0 && cursorOff > 0 && !view.selectionManager.hasSelection()) return true;
+    int cursorOff = textHelper.lineCharToOffsetInContext(ctx, view.cursorState.getCursorLine(), view.cursorState.getCursorChar());
+    if (sOff == eOff && sOff == cursorOff && !view.selectionState.hasSelection()) return true;
+    if (sOff == 0 && eOff == 0 && cursorOff > 0 && !view.selectionState.hasSelection()) return true;
     SodiumEditorView.CursorTarget s = textHelper.offsetToLineCharInContext(ctx, sOff);
     SodiumEditorView.CursorTarget e = textHelper.offsetToLineCharInContext(ctx, eOff);
     view.setSelectionInternal(s.line, s.ch, e.line, e.ch);
-    view.cursorManager.setLineAndChar(e.line, e.ch);
+    view.cursorState.setCursorPosition(e.line, e.ch);
     view.cursorAnimationManager.resetCursorBlink();
     view.invalidate();
     view.autoSuggestionManager.updateSuggestion();
@@ -139,19 +139,19 @@ final class EditorInputConnection extends BaseInputConnection {
     SodiumEditorView.CursorTarget e = textHelper.offsetToLineCharInContext(ctx, eOff);
     if (s.line != e.line) {
       view.setSelectionInternal(s.line, s.ch, e.line, e.ch);
-      view.cursorManager.setLineAndChar(e.line, e.ch);
+      view.cursorState.setCursorPosition(e.line, e.ch);
       view.cursorAnimationManager.resetCursorBlink();
       view.invalidate();
       view.autoSuggestionManager.updateSuggestion();
       return true;
     }
-    view.cursorManager.setComposingLine(s.line);
-    view.cursorManager.setComposingOffset(s.ch);
-    view.cursorManager.setComposingLength(Math.max(0, e.ch - s.ch));
-    view.cursorManager.setHasComposing(true);
-    view.cursorManager.setComposingStartLine(view.cursorManager.getComposingLine());
-    view.cursorManager.setComposingStartChar(view.cursorManager.getComposingOffset());
-    view.cursorManager.setComposingStartActive(true);
+    view.cursorState.setComposingLine(s.line);
+    view.cursorState.setComposingOffset(s.ch);
+    view.cursorState.setComposingLength(Math.max(0, e.ch - s.ch));
+    view.cursorState.setHasComposing(true);
+    view.cursorState.setComposingStartLine(view.cursorState.getComposingLine());
+    view.cursorState.setComposingStartChar(view.cursorState.getComposingOffset());
+    view.cursorState.setComposingStartActive(true);
     view.charAnimationManager.clearLastComposingTextForCharAnim();
     view.invalidate();
     view.autoSuggestionManager.updateSuggestion();
@@ -165,7 +165,13 @@ final class EditorInputConnection extends BaseInputConnection {
         && !view.charAnimationManager.getLastComposingTextForCharAnim().isEmpty()) {
       manager.markImeCommit(view.charAnimationManager.getLastComposingTextForCharAnim());
     }
-    view.cursorManager.commitComposing(true);
+    view.cursorState.setHasComposing(false);
+    view.cursorState.setComposingLength(0);
+    view.cursorState.setComposingStartActive(false);
+    view.clearComposingPendingOpPublic();
+    view.charAnimationManager.clearLastComposingTextForCharAnim();
+    view.invalidate();
+    view.autoSuggestionManager.updateSuggestion();
     return true;
   }
 
@@ -173,7 +179,7 @@ final class EditorInputConnection extends BaseInputConnection {
   public boolean commitCompletion(CompletionInfo text) {
     if (view.isDisabled || view.isReadOnly) return true;
     if (text == null || text.getText() == null) return true;
-    if (!view.cursorManager.getHasComposing() && !view.selectionManager.hasSelection() && replaceWordAtCursorWith(text.getText())) {
+    if (!view.cursorState.hasComposing() && !view.selectionState.hasSelection() && replaceWordAtCursorWith(text.getText())) {
       manager.markImeCommit(text.getText());
       return true;
     }
@@ -184,8 +190,8 @@ final class EditorInputConnection extends BaseInputConnection {
   public boolean commitCorrection(CorrectionInfo correctionInfo) {
     if (view.isDisabled || view.isReadOnly) return true;
     if (correctionInfo == null || correctionInfo.getNewText() == null) return true;
-    if (!view.cursorManager.getHasComposing()
-        && !view.selectionManager.hasSelection()
+    if (!view.cursorState.hasComposing()
+        && !view.selectionState.hasSelection()
         && replaceWordAtCursorWith(correctionInfo.getNewText())) {
       manager.markImeCommit(correctionInfo.getNewText());
       return true;
@@ -202,7 +208,10 @@ final class EditorInputConnection extends BaseInputConnection {
     String str = text.toString();
     if ("\n".equals(str)) {
       view.insertNewlineAtCursor();
-      view.cursorManager.commitComposing(true);
+      view.cursorState.setHasComposing(false);
+      view.cursorState.setComposingLength(0);
+      view.cursorState.setComposingStartActive(false);
+      view.clearComposingPendingOpPublic();
       view.charAnimationManager.startCharAnimationFromText(text);
       view.autoSuggestionManager.updateSuggestion();
       return true;
@@ -213,17 +222,17 @@ final class EditorInputConnection extends BaseInputConnection {
       return true;
     }
 
-    if (!view.cursorManager.getHasComposing() && !view.selectionManager.hasSelection() && view.lastImeCommitText != null) {
+    if (!view.cursorState.hasComposing() && !view.selectionState.hasSelection() && view.lastImeCommitText != null) {
       long now = SystemClock.uptimeMillis();
       if (now - view.lastImeCommitUptime < 700 && str.trim().isEmpty()) {
         int[] bounds = textHelper.getWordBoundsAtCursor();
         if (bounds != null) {
-          String line = view.getLineTextForRender(view.cursorManager.getLine());
+          String line = view.getLineTextForRender(view.cursorState.getCursorLine());
           if (line != null && bounds[0] < bounds[1] && bounds[1] <= line.length()) {
             String word = line.substring(bounds[0], bounds[1]);
             if (!word.isEmpty() && view.lastImeCommitText.startsWith(word)) {
               if (!word.equals(view.lastImeCommitText)) {
-                view.setSelectionInternal(view.cursorManager.getLine(), bounds[0], view.cursorManager.getLine(), bounds[1]);
+                view.setSelectionInternal(view.cursorState.getCursorLine(), bounds[0], view.cursorState.getCursorLine(), bounds[1]);
                 view.replaceSelectionWithText(view.lastImeCommitText);
               }
               view.insertTextAtCursor(str);
@@ -235,7 +244,7 @@ final class EditorInputConnection extends BaseInputConnection {
       }
     }
 
-    if (!view.cursorManager.getHasComposing() && !view.selectionManager.hasSelection()) {
+    if (!view.cursorState.hasComposing() && !view.selectionState.hasSelection()) {
       long now = SystemClock.uptimeMillis();
       boolean recentIme =
           view.suppressNextCommitText
@@ -267,7 +276,10 @@ final class EditorInputConnection extends BaseInputConnection {
                   return true;
                 }
                 view.insertTextAtCursor(suffix);
-                view.cursorManager.commitComposing(true);
+                view.cursorState.setHasComposing(false);
+                view.cursorState.setComposingLength(0);
+                view.cursorState.setComposingStartActive(false);
+                view.clearComposingPendingOpPublic();
                 view.charAnimationManager.startCharAnimationFromText(suffix);
                 view.handleAutoPairing(suffix);
                 view.autoSuggestionManager.updateSuggestion();
@@ -280,21 +292,27 @@ final class EditorInputConnection extends BaseInputConnection {
       }
     }
 
-    if (view.selectionManager.hasSelection()) {
+    if (view.selectionState.hasSelection()) {
       view.replaceSelectionWithText(str);
-      view.cursorManager.commitComposing(true);
+      view.cursorState.setHasComposing(false);
+      view.cursorState.setComposingLength(0);
+      view.cursorState.setComposingStartActive(false);
+      view.clearComposingPendingOpPublic();
       view.charAnimationManager.startCharAnimationFromText(text);
       view.handleAutoPairing(str);
       view.autoSuggestionManager.updateSuggestion();
       return true;
     }
 
-    if (view.cursorManager.getHasComposing()) {
-      int startLine = view.cursorManager.getComposingStartActive() ? view.cursorManager.getComposingStartLine() : view.cursorManager.getComposingLine();
-      int startChar = view.cursorManager.getComposingStartActive() ? view.cursorManager.getComposingStartChar() : view.cursorManager.getComposingOffset();
-      view.cursorManager.replaceComposingWith(text);
+    if (view.cursorState.hasComposing()) {
+      int startLine = view.cursorState.isComposingStartActive() ? view.cursorState.getComposingStartLine() : view.cursorState.getComposingLine();
+      int startChar = view.cursorState.isComposingStartActive() ? view.cursorState.getComposingStartChar() : view.cursorState.getComposingOffset();
+      view.imeCompositionHandler.replaceComposingWith(text);
       view.updateComposingPendingOpPublic(str, startLine, startChar);
-      view.cursorManager.commitComposing(true);
+      view.cursorState.setHasComposing(false);
+      view.cursorState.setComposingLength(0);
+      view.cursorState.setComposingStartActive(false);
+      view.clearComposingPendingOpPublic();
       manager.markImeCommit(str);
       view.charAnimationManager.startCharAnimationFromText(text);
       view.handleAutoPairing(str);
@@ -303,7 +321,10 @@ final class EditorInputConnection extends BaseInputConnection {
     }
 
     view.insertTextAtCursor(str);
-    view.cursorManager.commitComposing(true);
+    view.cursorState.setHasComposing(false);
+    view.cursorState.setComposingLength(0);
+    view.cursorState.setComposingStartActive(false);
+    view.clearComposingPendingOpPublic();
     view.charAnimationManager.startCharAnimationFromText(text);
     view.handleAutoPairing(str);
 
@@ -317,22 +338,22 @@ final class EditorInputConnection extends BaseInputConnection {
     if (view.zoomGestureHandler.isZoomGestureActive()) return true;
     if (text == null) return true;
 
-    if (view.selectionManager.hasSelection()) {
+    if (view.selectionState.hasSelection()) {
       view.replaceSelectionWithText(text.toString());
       view.charAnimationManager.startCharAnimationFromText(text);
       view.autoSuggestionManager.updateSuggestion();
       return true;
     }
 
-    view.scrollManager.ensureLineInWindow(view.cursorManager.getLine(), true);
-    if (!view.cursorManager.getHasComposing()) {
-      view.cursorManager.setComposingLine(view.cursorManager.getLine());
-      view.cursorManager.setComposingOffset(view.cursorManager.getChar());
-      view.cursorManager.setComposingLength(0);
-      view.cursorManager.setHasComposing(true);
-      view.cursorManager.setComposingStartLine(view.cursorManager.getComposingLine());
-      view.cursorManager.setComposingStartChar(view.cursorManager.getComposingOffset());
-      view.cursorManager.setComposingStartActive(true);
+    view.scrollManager.ensureLineInWindow(view.cursorState.getCursorLine(), true);
+    if (!view.cursorState.hasComposing()) {
+      view.cursorState.setComposingLine(view.cursorState.getCursorLine());
+      view.cursorState.setComposingOffset(view.cursorState.getCursorChar());
+      view.cursorState.setComposingLength(0);
+      view.cursorState.setHasComposing(true);
+      view.cursorState.setComposingStartLine(view.cursorState.getComposingLine());
+      view.cursorState.setComposingStartChar(view.cursorState.getComposingOffset());
+      view.cursorState.setComposingStartActive(true);
     }
     String newText = text.toString();
     String oldText =
@@ -340,8 +361,8 @@ final class EditorInputConnection extends BaseInputConnection {
             ? ""
             : view.charAnimationManager.getLastComposingTextForCharAnim();
     boolean shouldAnim = newText.length() >= oldText.length() && !newText.equals(oldText);
-    view.cursorManager.replaceComposingWith(newText);
-    view.updateComposingPendingOpPublic(newText, view.cursorManager.getComposingStartLine(), view.cursorManager.getComposingStartChar());
+    view.imeCompositionHandler.replaceComposingWith(newText);
+    view.updateComposingPendingOpPublic(newText, view.cursorState.getComposingStartLine(), view.cursorState.getComposingStartChar());
     view.charAnimationManager.setLastComposingTextForCharAnim(newText);
     if (shouldAnim) view.charAnimationManager.startCharAnimationFromText(newText);
     view.autoSuggestionManager.updateSuggestion();
@@ -353,13 +374,13 @@ final class EditorInputConnection extends BaseInputConnection {
     if (view.isDisabled || view.isReadOnly) return true;
     if (view.zoomGestureHandler.isZoomGestureActive()) return true;
 
-    if (view.selectionManager.hasSelection()) {
+    if (view.selectionState.hasSelection()) {
       view.replaceSelectionWithText("");
       view.autoSuggestionManager.updateSuggestion();
       return true;
     }
-    for (int i = 0; i < beforeLength; i++) view.deleteCharAtCursor();
-    for (int i = 0; i < afterLength; i++) view.deleteForwardAtCursor();
+    for (int i = 0; i < beforeLength; i++) view.cursorNavigation.moveCursorLeft();
+    for (int i = 0; i < afterLength; i++) view.cursorNavigation.moveCursorRight();
     view.autoSuggestionManager.updateSuggestion();
     return true;
   }
@@ -368,17 +389,17 @@ final class EditorInputConnection extends BaseInputConnection {
     if (textSeq == null) return false;
     String insert = textSeq.toString();
     if (insert.isEmpty()) return false;
-    if (view.selectionManager.hasSelection()) {
+    if (view.selectionState.hasSelection()) {
       view.replaceSelectionWithText(insert);
       return true;
     }
-    String line = view.getLineTextForRender(view.cursorManager.getLine());
+    String line = view.getLineTextForRender(view.cursorState.getCursorLine());
     if (line == null || line.isEmpty()) return false;
-    int pos = Math.max(0, Math.min(view.cursorManager.getChar(), line.length()));
+    int pos = Math.max(0, Math.min(view.cursorState.getCursorChar(), line.length()));
     if (pos == line.length()) pos = Math.max(0, pos - 1);
     int[] bounds = view.computeWordBounds(line, pos);
     if (bounds[0] == bounds[1]) return false;
-    view.setSelectionInternal(view.cursorManager.getLine(), bounds[0], view.cursorManager.getLine(), bounds[1]);
+    view.setSelectionInternal(view.cursorState.getCursorLine(), bounds[0], view.cursorState.getCursorLine(), bounds[1]);
     view.replaceSelectionWithText(insert);
     return true;
   }

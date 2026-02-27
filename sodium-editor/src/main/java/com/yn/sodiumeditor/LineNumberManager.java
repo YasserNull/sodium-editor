@@ -181,8 +181,8 @@ public final class LineNumberManager {
   public void setLineNumberSelectionEnabled(boolean enabled) {
     if (lineNumberSelectionEnabled == enabled) return;
     lineNumberSelectionEnabled = enabled;
-    if (!enabled && view.selectionManager.isLineNumberSelecting()) {
-      view.selectionManager.setLineNumberSelecting(false, -1);
+    if (!enabled && view.selectionState.isLineNumberSelecting()) {
+      view.selectionState.setLineNumberSelecting(false, -1);
     }
   }
 
@@ -488,7 +488,7 @@ public final class LineNumberManager {
                     - view.scrollManager.scrollY
                     + lineHeight
                     - view.paint.descent());
-        if (i == view.cursorManager.getLine()) {
+        if (i == view.cursorState.getCursorLine()) {
           int originalColor = lineNumbersPaint.getColor();
           lineNumbersPaint.setColor(currentLineNumberColor);
           canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
@@ -507,7 +507,7 @@ public final class LineNumberManager {
                     - view.scrollManager.scrollY
                     + lineHeight
                     - view.paint.descent());
-        if (i == view.cursorManager.getLine()) {
+        if (i == view.cursorState.getCursorLine()) {
           int originalColor = lineNumbersPaint.getColor();
           lineNumbersPaint.setColor(currentLineNumberColor);
           canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
@@ -544,7 +544,7 @@ public final class LineNumberManager {
                   - view.scrollManager.scrollY
                   + lineHeight
                   - view.paint.descent());
-      if (pos.line == view.cursorManager.getLine()) {
+      if (pos.line == view.cursorState.getCursorLine()) {
         int originalColor = lineNumbersPaint.getColor();
         lineNumbersPaint.setColor(currentLineNumberColor);
         canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
@@ -558,9 +558,9 @@ public final class LineNumberManager {
   void drawCurrentLineNumberUnwrapped(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex) {
     if (!showLineNumbers) return;
     if (view.foldManager.isCodeFoldingEnabled
-        && view.foldManager.isLineHiddenByFold(view.cursorManager.getLine())) return;
+        && view.foldManager.isLineHiddenByFold(view.cursorState.getCursorLine())) return;
 
-    int cursorLine = view.cursorManager.getLine();
+    int cursorLine = view.cursorState.getCursorLine();
     int visibleIndex =
         view.foldManager.isCodeFoldingEnabled
             ? view.getVisibleIndexForGlobalLine(cursorLine)
@@ -594,7 +594,7 @@ public final class LineNumberManager {
   void drawCurrentLineNumberWrapped(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
     if (!showLineNumbers) return;
     int visualIndex =
-        view.getVisualIndexForLineAndChar(view.cursorManager.getLine(), 0);
+        view.getVisualIndexForLineAndChar(view.cursorState.getCursorLine(), 0);
     if (visualIndex < firstVisualIndex || visualIndex > lastVisualIndex) return;
 
     float lineHeight = view.lineHeight;
@@ -604,7 +604,7 @@ public final class LineNumberManager {
             : view.getGutterStartX()
                 + lineNumbersGutterWidth
                 - GUTTER_TEXT_PADDING;
-    int start = writeIntToChars(view.cursorManager.getLine() + 1, lineNumberChars);
+    int start = writeIntToChars(view.cursorState.getCursorLine() + 1, lineNumberChars);
     int count = lineNumberChars.length - start;
     float y =
         Math.round(

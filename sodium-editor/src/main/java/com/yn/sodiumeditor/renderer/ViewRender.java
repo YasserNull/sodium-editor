@@ -635,7 +635,7 @@ public final class ViewRender {
   }
 
   private void clearSelectionStateAfterDelete() {
-    view.selectionManager.clearSelection();
+    view.selectionState.clearSelection();
     view.popupMenuManager.hidePopup();
     view.cursorAnimationManager.resetCursorBlink();
   }
@@ -679,7 +679,7 @@ public final class ViewRender {
         view.linesWindow.addAll(sLocal + 1, toInsert);
       }
 
-      view.cursorManager.setLineAndChar(Math.max(0, target.line), Math.max(0, target.ch));
+      view.cursorState.setCursorPosition(Math.max(0, target.line), Math.max(0, target.ch));
 
       int newLineCount = textRender.getLinesCount();
       if (oldLineCount != newLineCount) {
@@ -719,7 +719,7 @@ public final class ViewRender {
         view.modifiedLines.put(view.windowStartLine + i, view.linesWindow.get(i));
       }
 
-      view.cursorManager.setLineAndChar(sL, left.length());
+      view.cursorState.setCursorPosition(sL, left.length());
 
       view.recalculateMaxLineWidth();
       int newLineCount = textRender.getLinesCount();

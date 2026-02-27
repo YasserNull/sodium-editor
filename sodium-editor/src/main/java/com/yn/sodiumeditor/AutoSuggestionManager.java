@@ -131,14 +131,15 @@ public final class AutoSuggestionManager {
       return;
     }
 
-    view.cursorManager.commitComposing(false);
+    view.cursorState.setCursorPosition(view.cursorState.getCursorLine(), view.cursorState.getCursorChar());
+    view.imeCompositionHandler.commitComposing(false);
 
     // Set a flag to ignore subsequent gesture events from this touch sequence.
     suggestionAcceptedThisTouch = true;
 
     String textToInsert = activeSuggestion;
     clearActiveSuggestion();
-    view.selectionManager.clearSelectionKeepLineNumberState(); // Clear selection after accepting suggestion
+    view.selectionState.clearSelectionKeepLineNumberState(); // Clear selection after accepting suggestion
     Log.d("SodiumEditorView", "acceptAutoCompletion: Cleared selection flags, inserting text.");
     view.insertStringAtCursorForSuggestion(textToInsert);
     Log.d("SodiumEditorView", "acceptAutoCompletion: Text inserted.");
@@ -272,7 +273,7 @@ public final class AutoSuggestionManager {
   }
 
   private void updateSuggestionInternal() {
-    String line = view.getLineTextForRender(view.cursorManager.getLine());
+    String line = view.getLineTextForRender(view.cursorState.getCursorLine());
     if (line == null) {
       clearActiveSuggestion();
       return;
@@ -284,15 +285,15 @@ public final class AutoSuggestionManager {
     }
 
     // Do not show suggestions if the cursor is in the middle of a word
-    if (view.cursorManager.getChar() < line.length()
-        && Character.isLetterOrDigit(line.charAt(view.cursorManager.getChar()))) {
+    if (view.cursorState.getCursorChar() < line.length()
+        && Character.isLetterOrDigit(line.charAt(view.cursorState.getCursorChar()))) {
       clearActiveSuggestion();
       return;
     }
 
     // Do not show suggestions if there is non-whitespace text after the cursor
-    if (view.cursorManager.getChar() < line.length()
-        && !line.substring(view.cursorManager.getChar()).trim().isEmpty()) {
+    if (view.cursorState.getCursorChar() < line.length()
+        && !line.substring(view.cursorState.getCursorChar()).trim().isEmpty()) {
       clearActiveSuggestion();
       return;
     }
@@ -312,14 +313,14 @@ public final class AutoSuggestionManager {
 
     // Prevent suggestions inside syntax highlighting (expensive).
     List<HighlightManager.HighlightSpan> spans =
-        view.highlightManager.highlightCache.get(view.cursorManager.getLine());
+        view.highlightManager.highlightCache.get(view.cursorState.getCursorLine());
     if (spans == null) {
-      spans = view.highlightManager.calculateSpansForLine(line, view.cursorManager.getLine());
-      view.highlightManager.highlightCache.put(view.cursorManager.getLine(), spans);
+      spans = view.highlightManager.calculateSpansForLine(line, view.cursorState.getCursorLine());
+      view.highlightManager.highlightCache.put(view.cursorState.getCursorLine(), spans);
     }
     for (HighlightManager.HighlightSpan span : spans) {
-      if (view.cursorManager.getChar() > span.start
-          && view.cursorManager.getChar() <= span.end) {
+      if (view.cursorState.getCursorChar() > span.start
+          && view.cursorState.getCursorChar() <= span.end) {
         clearActiveSuggestion();
         return;
       }
@@ -329,8 +330,8 @@ public final class AutoSuggestionManager {
       String suggestion = findPathSuggestion(pathFragment);
       if (suggestion != null && suggestion.length() > pathFragment.length()) {
         activeSuggestion = suggestion.substring(pathFragment.length());
-        activeSuggestionLine = view.cursorManager.getLine();
-        activeSuggestionCharStart = view.cursorManager.getChar() - pathFragment.length();
+        activeSuggestionLine = view.cursorState.getCursorLine();
+        activeSuggestionCharStart = view.cursorState.getCursorChar() - pathFragment.length();
         activeSuggestionWordFragment = pathFragment;
         activeSuggestionIsPath = true;
       } else {
@@ -348,8 +349,8 @@ public final class AutoSuggestionManager {
     String suggestion = suggestionTrie.findFirstSuggestion(wordFragment);
     if (suggestion != null && suggestion.length() > wordFragment.length()) {
       activeSuggestion = suggestion.substring(wordFragment.length());
-      activeSuggestionLine = view.cursorManager.getLine();
-      activeSuggestionCharStart = view.cursorManager.getChar() - wordFragment.length();
+      activeSuggestionLine = view.cursorState.getCursorLine();
+      activeSuggestionCharStart = view.cursorState.getCursorChar() - wordFragment.length();
       activeSuggestionWordFragment = wordFragment;
       activeSuggestionIsPath = false;
     } else {
@@ -359,30 +360,30 @@ public final class AutoSuggestionManager {
   }
 
   private String getCurrentWordFragment() {
-    String line = view.getLineTextForRender(view.cursorManager.getLine());
-    if (view.cursorManager.getChar() == 0
-        || view.cursorManager.getChar() > line.length()) {
+    String line = view.getLineTextForRender(view.cursorState.getCursorLine());
+    if (view.cursorState.getCursorChar() == 0
+        || view.cursorState.getCursorChar() > line.length()) {
       return "";
     }
-    int start = view.cursorManager.getChar();
+    int start = view.cursorState.getCursorChar();
     // A word character is a letter or a digit.
     while (start > 0 && Character.isLetterOrDigit(line.charAt(start - 1))) {
       start--;
     }
-    return line.substring(start, view.cursorManager.getChar());
+    return line.substring(start, view.cursorState.getCursorChar());
   }
 
   private String getCurrentPathFragment() {
-    String line = view.getLineTextForRender(view.cursorManager.getLine());
-    if (view.cursorManager.getChar() == 0
-        || view.cursorManager.getChar() > line.length()) {
+    String line = view.getLineTextForRender(view.cursorState.getCursorLine());
+    if (view.cursorState.getCursorChar() == 0
+        || view.cursorState.getCursorChar() > line.length()) {
       return "";
     }
-    int start = view.cursorManager.getChar();
+    int start = view.cursorState.getCursorChar();
     while (start > 0 && isPathChar(line.charAt(start - 1))) {
       start--;
     }
-    String fragment = line.substring(start, view.cursorManager.getChar());
+    String fragment = line.substring(start, view.cursorState.getCursorChar());
     if (fragment.isEmpty()) return "";
     if (fragment.startsWith("/")
         || fragment.startsWith("~")

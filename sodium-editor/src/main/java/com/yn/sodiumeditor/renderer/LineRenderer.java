@@ -150,10 +150,10 @@ public final class LineRenderer {
         }
 
         if (view.lineNumberManager.isHighlightCurrentLineInGutter()
-                && view.cursorManager.getLine() >= firstVisibleLine
-                && view.cursorManager.getLine() <= lastVisibleLine
-                && (!view.foldManager.isCodeFoldingEnabled || !view.foldManager.isLineHiddenByFold(view.cursorManager.getLine()))) {
-            int drawIndex = view.foldManager.isCodeFoldingEnabled ? view.getVisibleIndexForGlobalLine(view.cursorManager.getLine()) : view.cursorManager.getLine();
+                && view.cursorState.getCursorLine() >= firstVisibleLine
+                && view.cursorState.getCursorLine() <= lastVisibleLine
+                && (!view.foldManager.isCodeFoldingEnabled || !view.foldManager.isLineHiddenByFold(view.cursorState.getCursorLine()))) {
+            int drawIndex = view.foldManager.isCodeFoldingEnabled ? view.getVisibleIndexForGlobalLine(view.cursorState.getCursorLine()) : view.cursorState.getCursorLine();
             float top = Math.round(drawIndex * view.lineHeight - view.scrollManager.scrollY);
             float bottom = top + view.lineHeight;
             view.lineNumberManager.drawCurrentLineHighlightInGutter(canvas, top, bottom, view.highlightManager.currentLinePaint);
@@ -210,7 +210,7 @@ public final class LineRenderer {
             view.bracketGuideManager.ensureCacheForWindow(directLines);
         }
 
-        Paint selPaint = view.selectionManager.hasSelection() ? view.selectionManager.getSelectionPaint() : null;
+        Paint selPaint = view.selectionState.hasSelection() ? view.selectionRenderer.getSelectionPaint() : null;
 
         if (view.foldManager.isCodeFoldingEnabled) {
             drawFoldedLines(canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine,
@@ -318,7 +318,7 @@ public final class LineRenderer {
                 continue;
             }
 
-            view.searchManager.drawSearchHighlightsForLine(canvas, line, globalLine, lineTop, lineBottom);
+            view.searchRenderer.drawSearchHighlightsForLine(canvas, line, globalLine, lineTop, lineBottom);
             view.highlightManager.drawHighlightedLine(canvas, line, globalLine, y);
             if (drawDecorations) {
                 view.whitespaceGuideManager.drawWhitespaceGuidesForLine(view, canvas, line, globalLine, y);
@@ -372,7 +372,7 @@ public final class LineRenderer {
             float lineBottom = Math.round(view.scrollManager.getDrawLineBottom(globalLine));
 
             view.highlightManager.drawColorCodeBackgrounds(canvas, line, globalLine, lineTop, lineBottom);
-            view.searchManager.drawSearchHighlightsForLine(canvas, line, globalLine, lineTop, lineBottom);
+            view.searchRenderer.drawSearchHighlightsForLine(canvas, line, globalLine, lineTop, lineBottom);
             view.highlightManager.drawHighlightedLine(canvas, line, globalLine, y);
             if (drawDecorations) {
                 view.whitespaceGuideManager.drawWhitespaceGuidesForLine(view, canvas, line, globalLine, y);
@@ -397,7 +397,7 @@ public final class LineRenderer {
      * Draws current line highlight.
      */
     private void drawCurrentLineHighlight(Canvas canvas, int globalLine, Paint selPaint) {
-        if (view.highlightManager.highlightCurrentLine && globalLine == view.cursorManager.getLine() && !view.selectionManager.hasSelection()) {
+        if (view.highlightManager.highlightCurrentLine && globalLine == view.cursorState.getCursorLine() && !view.selectionState.hasSelection()) {
             float top = Math.round(view.scrollManager.getDrawLineTop(globalLine));
             float bottom = Math.round(view.scrollManager.getDrawLineBottom(globalLine));
             float viewLeft = view.lineNumberManager.getContentViewLeft(view.isRtl);
@@ -413,7 +413,7 @@ public final class LineRenderer {
      */
     private void drawSelection(Canvas canvas, int globalLine, String line,
                                float lineBaseX, float lineWidth, Paint selPaint) {
-        if (!view.selectionManager.hasSelection() || selPaint == null) return;
+        if (!view.selectionState.hasSelection() || selPaint == null) return;
 
         float top = Math.round(view.scrollManager.getDrawLineTop(globalLine));
         float bottom = Math.round(view.scrollManager.getDrawLineBottom(globalLine));
@@ -423,15 +423,15 @@ public final class LineRenderer {
             fullRight = lineBaseX + lineWidth;
         }
 
-        if (view.selectionManager.isSelectAllActive()) {
+        if (view.selectionState.isSelectAllActive()) {
             boolean lineExists =
                     (view.isEof) ? (globalLine <= view.windowStartLine + view.linesWindow.size() - 1) : true;
             if (lineExists) {
-                boolean roundTop = globalLine == view.selectionManager.selStartLine;
-                boolean roundBottom = globalLine == view.selectionManager.selEndLine;
+                boolean roundTop = globalLine == view.selectionState.selStartLine;
+                boolean roundBottom = globalLine == view.selectionState.selEndLine;
                 float leftSel = view.isRtl ? lineBaseX : 0f;
                 float rightSel = view.isRtl ? (lineBaseX + lineWidth) : fullRight;
-                view.selectionManager.drawSelectionSegment(
+                view.selectionRenderer.drawSelectionSegment(
                         canvas,
                         leftSel,
                         top,
@@ -445,17 +445,17 @@ public final class LineRenderer {
             }
         } else {
             int startLine, endLine, startChar, endChar;
-            if (view.comparePos(view.selectionManager.selStartLine, view.selectionManager.selStartChar,
-                    view.selectionManager.selEndLine, view.selectionManager.selEndChar) <= 0) {
-                startLine = view.selectionManager.selStartLine;
-                startChar = view.selectionManager.selStartChar;
-                endLine = view.selectionManager.selEndLine;
-                endChar = view.selectionManager.selEndChar;
+            if (view.comparePos(view.selectionState.selStartLine, view.selectionState.selStartChar,
+                    view.selectionState.selEndLine, view.selectionState.selEndChar) <= 0) {
+                startLine = view.selectionState.selStartLine;
+                startChar = view.selectionState.selStartChar;
+                endLine = view.selectionState.selEndLine;
+                endChar = view.selectionState.selEndChar;
             } else {
-                startLine = view.selectionManager.selEndLine;
-                startChar = view.selectionManager.selEndChar;
-                endLine = view.selectionManager.selStartLine;
-                endChar = view.selectionManager.selStartChar;
+                startLine = view.selectionState.selEndLine;
+                startChar = view.selectionState.selEndChar;
+                endLine = view.selectionState.selStartLine;
+                endChar = view.selectionState.selStartChar;
             }
 
             if (globalLine >= startLine && globalLine <= endLine) {
@@ -511,7 +511,7 @@ public final class LineRenderer {
                     } else if (!isStart && isEnd) {
                         roundTop = false;
                     }
-                    view.selectionManager.drawSelectionSegment(
+                    view.selectionRenderer.drawSelectionSegment(
                             canvas,
                             left,
                             top,
@@ -533,21 +533,21 @@ public final class LineRenderer {
     private void drawCursorAndHandles(Canvas canvas, int firstVisibleLine, int lastVisibleLine) {
         if (view.isFocused()
                 && !view.isReadOnly
-                && !view.selectionManager.hasSelection()
-                && view.cursorManager.getLine() >= firstVisibleLine
-                && view.cursorManager.getLine() <= lastVisibleLine
-                && (!view.foldManager.isCodeFoldingEnabled || !view.foldManager.isLineHiddenByFold(view.cursorManager.getLine()))) {
-            String cursorLineText = lineCacheManager.getLineTextForRender(view.cursorManager.getLine());
-            int safeChar = Math.min(view.cursorManager.getChar(), view.getLogicalLineLength(view.cursorManager.getLine(), cursorLineText));
-            float cursorX = textMeasurement.getCaretXForLine(cursorLineText, view.cursorManager.getLine(), safeChar);
-            float cursorY = view.scrollManager.getDrawLineTop(view.cursorManager.getLine());
-            view.cursorManager.drawCaret(canvas, cursorX, cursorY);
+                && !view.selectionState.hasSelection()
+                && view.cursorState.getCursorLine() >= firstVisibleLine
+                && view.cursorState.getCursorLine() <= lastVisibleLine
+                && (!view.foldManager.isCodeFoldingEnabled || !view.foldManager.isLineHiddenByFold(view.cursorState.getCursorLine()))) {
+            String cursorLineText = lineCacheManager.getLineTextForRender(view.cursorState.getCursorLine());
+            int safeChar = Math.min(view.cursorState.getCursorChar(), view.getLogicalLineLength(view.cursorState.getCursorLine(), cursorLineText));
+            float cursorX = textMeasurement.getCaretXForLine(cursorLineText, view.cursorState.getCursorLine(), safeChar);
+            float cursorY = view.scrollManager.getDrawLineTop(view.cursorState.getCursorLine());
+            view.cursorRenderer.drawCaret(canvas, cursorX, cursorY);
             float drawX = view.cursorAnimationManager.getCursorDrawX();
             float drawY = view.cursorAnimationManager.getCursorDrawY();
             view.handlesManager.drawCursorHandle(canvas, drawX, drawY, view.lineHeight);
         }
 
-        if (view.selectionManager.hasSelection() && !view.isReadOnly) {
+        if (view.selectionState.hasSelection() && !view.isReadOnly) {
             drawSelectionHandles(canvas, firstVisibleLine, lastVisibleLine);
         }
     }
@@ -556,31 +556,31 @@ public final class LineRenderer {
      * Draws selection start and end handles.
      */
     private void drawSelectionHandles(Canvas canvas, int firstVisibleLine, int lastVisibleLine) {
-        if (view.selectionManager.selStartLine >= firstVisibleLine
-                && view.selectionManager.selStartLine <= lastVisibleLine
-                && (!view.foldManager.isCodeFoldingEnabled || !view.foldManager.isLineHiddenByFold(view.selectionManager.selStartLine))) {
-            String startLineText = lineCacheManager.getLineTextForRender(view.selectionManager.selStartLine);
+        if (view.selectionState.selStartLine >= firstVisibleLine
+                && view.selectionState.selStartLine <= lastVisibleLine
+                && (!view.foldManager.isCodeFoldingEnabled || !view.foldManager.isLineHiddenByFold(view.selectionState.selStartLine))) {
+            String startLineText = lineCacheManager.getLineTextForRender(view.selectionState.selStartLine);
             float startX =
                     textMeasurement.getCaretXForLine(
                             startLineText,
-                            view.selectionManager.selStartLine,
-                            Math.min(view.selectionManager.selStartChar, view.getLogicalLineLength(view.selectionManager.selStartLine, startLineText)));
-            float startY = view.scrollManager.getDrawLineTop(view.selectionManager.selStartLine) + view.lineHeight;
+                            view.selectionState.selStartLine,
+                            Math.min(view.selectionState.selStartChar, view.getLogicalLineLength(view.selectionState.selStartLine, startLineText)));
+            float startY = view.scrollManager.getDrawLineTop(view.selectionState.selStartLine) + view.lineHeight;
             view.handlesManager.drawSelectionStartHandle(canvas, startX, startY, view.isRtl);
         } else {
             if (view.isRtl) view.handlesManager.clearRightHandleRect();
             else view.handlesManager.clearLeftHandleRect();
         }
-        if (view.selectionManager.selEndLine >= firstVisibleLine
-                && view.selectionManager.selEndLine <= lastVisibleLine
-                && (!view.foldManager.isCodeFoldingEnabled || !view.foldManager.isLineHiddenByFold(view.selectionManager.selEndLine))) {
-            String endLineText = lineCacheManager.getLineTextForRender(view.selectionManager.selEndLine);
+        if (view.selectionState.selEndLine >= firstVisibleLine
+                && view.selectionState.selEndLine <= lastVisibleLine
+                && (!view.foldManager.isCodeFoldingEnabled || !view.foldManager.isLineHiddenByFold(view.selectionState.selEndLine))) {
+            String endLineText = lineCacheManager.getLineTextForRender(view.selectionState.selEndLine);
             float endX =
                     textMeasurement.getCaretXForLine(
                             endLineText,
-                            view.selectionManager.selEndLine,
-                            Math.min(view.selectionManager.selEndChar, view.getLogicalLineLength(view.selectionManager.selEndLine, endLineText)));
-            float endY = view.scrollManager.getDrawLineTop(view.selectionManager.selEndLine) + view.lineHeight;
+                            view.selectionState.selEndLine,
+                            Math.min(view.selectionState.selEndChar, view.getLogicalLineLength(view.selectionState.selEndLine, endLineText)));
+            float endY = view.scrollManager.getDrawLineTop(view.selectionState.selEndLine) + view.lineHeight;
             view.handlesManager.drawSelectionEndHandle(canvas, endX, endY, view.isRtl);
         } else {
             if (view.isRtl) view.handlesManager.clearLeftHandleRect();
@@ -671,17 +671,17 @@ public final class LineRenderer {
         }
         canvas.translate(view.getTextStartX() - view.getEffectiveScrollX(), 0);
 
-        Paint selPaint = view.selectionManager.hasSelection() ? view.selectionManager.getSelectionPaint() : null;
+        Paint selPaint = view.selectionState.hasSelection() ? view.selectionRenderer.getSelectionPaint() : null;
 
-        int startLine = view.selectionManager.selStartLine;
-        int startChar = view.selectionManager.selStartChar;
-        int endLine = view.selectionManager.selEndLine;
-        int endChar = view.selectionManager.selEndChar;
-        if (view.selectionManager.hasSelection() && view.comparePos(view.selectionManager.selStartLine, view.selectionManager.selStartChar, view.selectionManager.selEndLine, view.selectionManager.selEndChar) > 0) {
-            startLine = view.selectionManager.selEndLine;
-            startChar = view.selectionManager.selEndChar;
-            endLine = view.selectionManager.selStartLine;
-            endChar = view.selectionManager.selStartChar;
+        int startLine = view.selectionState.selStartLine;
+        int startChar = view.selectionState.selStartChar;
+        int endLine = view.selectionState.selEndLine;
+        int endChar = view.selectionState.selEndChar;
+        if (view.selectionState.hasSelection() && view.comparePos(view.selectionState.selStartLine, view.selectionState.selStartChar, view.selectionState.selEndLine, view.selectionState.selEndChar) > 0) {
+            startLine = view.selectionState.selEndLine;
+            startChar = view.selectionState.selEndChar;
+            endLine = view.selectionState.selStartLine;
+            endChar = view.selectionState.selStartChar;
         }
 
         float yOffset = 0f;
@@ -699,7 +699,7 @@ public final class LineRenderer {
                 float bottom = top + view.lineHeight;
                 float y = Math.round(top + view.lineHeight - view.paint.descent());
 
-                if (view.highlightManager.highlightCurrentLine && line == view.cursorManager.getLine() && !view.selectionManager.hasSelection()) {
+                if (view.highlightManager.highlightCurrentLine && line == view.cursorState.getCursorLine() && !view.selectionState.hasSelection()) {
                     canvas.drawRect(-view.paddingLeft, top, Math.max(view.getWidth() - view.getTextStartX(), view.getWidth()), bottom, view.highlightManager.currentLinePaint);
                 }
 
@@ -709,7 +709,7 @@ public final class LineRenderer {
                 }
                 canvas.save();
                 if (segBaseX != 0f) canvas.translate(segBaseX, 0f);
-                view.searchManager.drawSearchHighlightsForSegment(canvas, text, line, segStart, segDrawEnd, top, bottom);
+                view.searchRenderer.drawSearchHighlightsForSegment(canvas, text, line, segStart, segDrawEnd, top, bottom);
                 view.highlightManager.drawHighlightedLineSegment(canvas, text, line, segStart, segDrawEnd, y, top, bottom);
                 view.highlightManager.drawErrorUnderlinesForSegment(canvas, text, line, segStart, segDrawEnd, y, top, bottom);
                 lineCacheManager.drawDeleteAnimationForSegment(canvas, text, line, segStart, segDrawEnd, y);

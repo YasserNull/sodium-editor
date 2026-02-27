@@ -65,8 +65,8 @@ public final class CharAnimationManager {
     if (!isCharAnimationEnabled) return;
     if (committedText == null) return;
 
-    final int targetLine = view.cursorManager.getLine();
-    final int targetEndChar = view.cursorManager.getChar();
+    final int targetLine = view.cursorState.getCursorLine();
+    final int targetEndChar = view.cursorState.getCursorChar();
 
     int extractedCodePoint = -1;
     int extractedCharCount = 0;

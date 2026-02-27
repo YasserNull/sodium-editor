@@ -50,12 +50,12 @@ public final class InputMethodHandler {
 
     ImeTextHelper.ImeContext ctx = textHelper.buildImeContext(imeExtractedBeforeChars, imeExtractedAfterChars);
 
-    int sLine = view.cursorManager.getLine(), sChar = view.cursorManager.getChar(), eLine = view.cursorManager.getLine(), eChar = view.cursorManager.getChar();
-    if (view.selectionManager.hasSelection()) {
-      sLine = view.selectionManager.selStartLine;
-      sChar = view.selectionManager.selStartChar;
-      eLine = view.selectionManager.selEndLine;
-      eChar = view.selectionManager.selEndChar;
+    int sLine = view.cursorState.getCursorLine(), sChar = view.cursorState.getCursorChar(), eLine = view.cursorState.getCursorLine(), eChar = view.cursorState.getCursorChar();
+    if (view.selectionState.hasSelection()) {
+      sLine = view.selectionState.selStartLine;
+      sChar = view.selectionState.selStartChar;
+      eLine = view.selectionState.selEndLine;
+      eChar = view.selectionState.selEndChar;
       if (view.comparePos(sLine, sChar, eLine, eChar) > 0) {
         int tL = sLine, tC = sChar;
         sLine = eLine;
@@ -69,11 +69,11 @@ public final class InputMethodHandler {
     int selEnd = textHelper.lineCharToOffsetInContext(ctx, eLine, eChar);
     int compStart = -1;
     int compEnd = -1;
-    if (view.cursorManager.getHasComposing()) {
-      compStart = textHelper.lineCharToOffsetInContext(ctx, view.cursorManager.getComposingLine(), view.cursorManager.getComposingOffset());
+    if (view.cursorState.hasComposing()) {
+      compStart = textHelper.lineCharToOffsetInContext(ctx, view.cursorState.getComposingLine(), view.cursorState.getComposingOffset());
       compEnd =
           textHelper.lineCharToOffsetInContext(
-              ctx, view.cursorManager.getComposingLine(), view.cursorManager.getComposingOffset() + view.cursorManager.getComposingLength());
+              ctx, view.cursorState.getComposingLine(), view.cursorState.getComposingOffset() + view.cursorState.getComposingLength());
     }
     imm.updateSelection(view, selStart, selEnd, compStart, compEnd);
     if (imeExtractedTextMonitor) {
@@ -118,7 +118,7 @@ public final class InputMethodHandler {
   }
 
   boolean tryReplaceWordFromImeCommit(String insert) {
-    if (view.selectionManager.hasSelection() || view.cursorManager.getHasComposing()) return false;
+    if (view.selectionState.hasSelection() || view.cursorState.hasComposing()) return false;
     if (insert == null || insert.isEmpty()) return false;
     if (insert.length() <= 1) return false;
     int end = insert.length();
@@ -131,11 +131,11 @@ public final class InputMethodHandler {
     }
     int[] bounds = textHelper.getWordBoundsAtCursor();
     if (bounds == null) return false;
-    String line = view.getLineTextForRender(view.cursorManager.getLine());
+    String line = view.getLineTextForRender(view.cursorState.getCursorLine());
     if (line == null || bounds[0] >= bounds[1] || bounds[1] > line.length()) return false;
     String word = line.substring(bounds[0], bounds[1]);
     if (word.isEmpty() || word.equals(core)) return false;
-    view.setSelectionInternal(view.cursorManager.getLine(), bounds[0], view.cursorManager.getLine(), bounds[1]);
+    view.setSelectionInternal(view.cursorState.getCursorLine(), bounds[0], view.cursorState.getCursorLine(), bounds[1]);
     view.replaceSelectionWithText(core);
     if (!trailing.isEmpty()) view.insertTextAtCursor(trailing);
     markImeCommit(insert);

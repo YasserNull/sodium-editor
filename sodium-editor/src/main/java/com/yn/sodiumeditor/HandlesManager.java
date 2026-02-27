@@ -270,8 +270,8 @@ public final class HandlesManager {
   private void updateHandlePosition(float touchX, float touchY) {
     // FIX: Any manual adjustment of the selection handles must deactivate ALL "Select All" flags.
     // This prevents the editor from deleting all content when the user has reduced the selection.
-    if (view.selectionManager.isSelectAllActive() || view.selectionManager.isEntireFileSelected()) {
-      view.selectionManager.setSelectAllState(false, false);
+    if (view.selectionState.isSelectAllActive() || view.selectionState.isEntireFileSelected()) {
+      view.selectionState.setSelectAllState(false, false);
       // The popup needs to be redrawn as "Copy" and "Cut" might become available again.
       view.popupMenuManager.showPopupAtSelection();
     }
@@ -294,22 +294,22 @@ public final class HandlesManager {
     int handle = getDraggingHandle();
     if (handle == HANDLE_LEFT) {
       if (view.isRtl) {
-        view.selectionManager.selEndLine = line;
-        view.selectionManager.selEndChar = clamped;
+        view.selectionState.selEndLine = line;
+        view.selectionState.selEndChar = clamped;
       } else {
-        view.selectionManager.selStartLine = line;
-        view.selectionManager.selStartChar = clamped;
+        view.selectionState.selStartLine = line;
+        view.selectionState.selStartChar = clamped;
       }
     } else if (handle == HANDLE_RIGHT) {
       if (view.isRtl) {
-        view.selectionManager.selStartLine = line;
-        view.selectionManager.selStartChar = clamped;
+        view.selectionState.selStartLine = line;
+        view.selectionState.selStartChar = clamped;
       } else {
-        view.selectionManager.selEndLine = line;
-        view.selectionManager.selEndChar = clamped;
+        view.selectionState.selEndLine = line;
+        view.selectionState.selEndChar = clamped;
       }
     } else if (handle == HANDLE_CURSOR) {
-      view.cursorManager.setLineAndChar(line, clamped);
+      view.cursorState.setCursorPosition(line, clamped);
       view.scrollManager.keepCursorVisibleHorizontally();
     }
   }

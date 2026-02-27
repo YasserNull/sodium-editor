@@ -24,7 +24,8 @@ public final class TouchHandler {
                 }
                 view.resetScrollLockAxisForInput();
                 view.setJustFinishedScaleForInput(false);
-                view.cursorManager.commitComposing(false);
+                view.cursorState.setCursorPosition(view.cursorState.getCursorLine(), view.cursorState.getCursorChar());
+                view.imeCompositionHandler.commitComposing(false);
                 view.abortScrollerForInput();
                 view.setDownForInput(e.getX(), e.getY());
                 view.setMovedSinceDown(false);
@@ -197,7 +198,7 @@ public final class TouchHandler {
                     () -> {
                       if (!view.popupMenuManager.isPendingPopupAfterDoubleTap()) return;
                       view.popupMenuManager.setPendingPopupAfterDoubleTap(false);
-                      if (view.selectionManager.hasSelection()) view.popupMenuManager.showPopupAtSelection();
+                      if (view.selectionState.hasSelection()) view.popupMenuManager.showPopupAtSelection();
                     });
                 view.cursorAnimationManager.resetCursorBlink();
                 view.invalidate();
@@ -228,8 +229,8 @@ public final class TouchHandler {
       view.movedSinceDown = false;
       view.handlesManager.stopDragging();
       view.scrollManager.dragMaxScrollX = -1f;
-      view.selectionManager.setSelecting(false);
-      view.selectionManager.setLineNumberSelecting(false, -1);
+      view.selectionState.setSelecting(false);
+      view.selectionState.setLineNumberSelecting(false, -1);
       view.handlesManager.stopAutoScroll();
       if (!view.scrollManager.scroller.isFinished()) {
         view.scrollManager.scroller.computeScrollOffset();
@@ -260,8 +261,8 @@ public final class TouchHandler {
         && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL)) {
       view.pointerDown = false;
       view.handlesManager.stopDragging();
-      view.selectionManager.setSelecting(false);
-      view.selectionManager.setLineNumberSelecting(false, -1);
+      view.selectionState.setSelecting(false);
+      view.selectionState.setLineNumberSelecting(false, -1);
       view.handlesManager.stopAutoScroll();
       view.scrollManager.dragMaxScrollX = -1f;
       return true;
@@ -313,7 +314,7 @@ public final class TouchHandler {
         float gx = ex + view.getEffectiveScrollX() - view.getTextStartX();
         float gy = ey + view.scrollManager.scrollY - view.scrollManager.getHitTestBaseY();
         int hitHandle =
-            view.handlesManager.hitTestHandle(gx, gy, view.selectionManager.hasSelection(), view.isFocused());
+            view.handlesManager.hitTestHandle(gx, gy, view.selectionState.hasSelection(), view.isFocused());
         if (hitHandle != HandlesManager.HANDLE_NONE) {
           view.handlesManager.setDraggingHandle(hitHandle);
           return true;
@@ -347,7 +348,7 @@ public final class TouchHandler {
           return true;
         }
 
-        if (view.selectionManager.isLineNumberSelecting()) {
+        if (view.selectionState.isLineNumberSelecting()) {
           float y = ey + view.scrollManager.scrollY;
           int line = view.getGlobalLineForY(y);
           view.updateLineNumberSelectionPublic(line);
@@ -387,11 +388,11 @@ public final class TouchHandler {
             }
             if (actionForTap == PopupMenuManager.POPUP_ACTION_COPY) {
               view.copySelectionToClipboard();
-              view.selectionManager.clearSelectionKeepLineNumberState();
+              view.selectionState.clearSelectionKeepLineNumberState();
               view.popupMenuManager.hidePopup();
               view.invalidate();
             } else if (actionForTap == PopupMenuManager.POPUP_ACTION_SELECT_ALL) {
-              if (!view.selectionManager.isSelectAllActive()) view.selectAll();
+              if (!view.selectionState.isSelectAllActive()) view.selectAll();
               else view.popupMenuManager.hidePopup();
             } else {
               view.popupMenuManager.performPopupAction(actionForTap);
@@ -406,11 +407,11 @@ public final class TouchHandler {
           return true;
         }
 
-        if (view.selectionManager.isLineNumberSelecting()) {
-          view.selectionManager.setLineNumberSelecting(false, -1);
-          view.selectionManager.setSelecting(false);
+        if (view.selectionState.isLineNumberSelecting()) {
+          view.selectionState.setLineNumberSelecting(false, -1);
+          view.selectionState.setSelecting(false);
           view.pointerDown = false;
-          if (view.selectionManager.hasSelection()) view.popupMenuManager.showPopupAtSelection();
+          if (view.selectionState.hasSelection()) view.popupMenuManager.showPopupAtSelection();
           return true;
         }
 
@@ -450,7 +451,7 @@ public final class TouchHandler {
         }
 
         if (view.movedSinceDown && view.scrollManager.scroller.isFinished()) {
-          if (view.selectionManager.hasSelection()) view.popupMenuManager.showPopupAtSelection();
+          if (view.selectionState.hasSelection()) view.popupMenuManager.showPopupAtSelection();
           view.restartInputPublic();
           Log.d("SodiumEditorView", "onTouchEvent.ACTION_UP: Scroll/Zoom ended, restarted input.");
           if (view.wrapWordState.isWordWrapEnabled && view.wrapWordState.wrapPrefixRebuildPending && !view.wrapWordState.wrapPrefixBuilding) {
@@ -461,7 +462,7 @@ public final class TouchHandler {
 
         Log.d("SodiumEditorView", "onTouchEvent.ACTION_UP: Passing to GestureDetector.ACTION_UP.");
         onGestureEvent(event);
-        if (view.selectionManager.hasSelection() && !view.popupMenuManager.isPopupVisible()) {
+        if (view.selectionState.hasSelection() && !view.popupMenuManager.isPopupVisible()) {
           view.popupMenuManager.showPopupAtSelection();
         }
         return true;
@@ -470,8 +471,8 @@ public final class TouchHandler {
         view.handlesManager.stopAutoScroll();
         view.pointerDown = false;
         view.handlesManager.stopDragging();
-        view.selectionManager.setSelecting(false);
-        view.selectionManager.setLineNumberSelecting(false, -1);
+        view.selectionState.setSelecting(false);
+        view.selectionState.setLineNumberSelecting(false, -1);
         view.popupMenuManager.clearPressedAction();
         view.popupMenuManager.cancelPopupRipple();
         view.autoSuggestionManager.clearActiveSuggestion();

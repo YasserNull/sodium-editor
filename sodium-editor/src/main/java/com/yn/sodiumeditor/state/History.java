@@ -118,13 +118,13 @@ public final class History {
             root.put("pending", EditTransformer.editOpDequeToJson(pendingEdits));
             root.put("pendingRedo", EditTransformer.editOpDequeToJson(pendingRedo));
             root.put("dirty", !pendingEdits.isEmpty());
-            root.put("cursorLine", view.cursorManager.getLine());
-            root.put("cursorChar", view.cursorManager.getChar());
-            root.put("selStartLine", view.selectionManager.selStartLine);
-            root.put("selStartChar", view.selectionManager.selStartChar);
-            root.put("selEndLine", view.selectionManager.selEndLine);
-            root.put("selEndChar", view.selectionManager.selEndChar);
-            root.put("hasSelection", view.selectionManager.hasSelection());
+            root.put("cursorLine", view.cursorState.getCursorLine());
+            root.put("cursorChar", view.cursorState.getCursorChar());
+            root.put("selStartLine", view.selectionState.selStartLine);
+            root.put("selStartChar", view.selectionState.selStartChar);
+            root.put("selEndLine", view.selectionState.selEndLine);
+            root.put("selEndChar", view.selectionState.selEndChar);
+            root.put("hasSelection", view.selectionState.hasSelection());
             return root.toString();
         } catch (Exception e) {
             return "";
@@ -170,8 +170,8 @@ public final class History {
             for (EditOp op : pendingRedoList) pendingRedo.addLast(op);
 
             if (root.has("cursorLine") && root.has("cursorChar")) {
-                int cLine = root.optInt("cursorLine", view.cursorManager.getLine());
-                int cChar = root.optInt("cursorChar", view.cursorManager.getChar());
+                int cLine = root.optInt("cursorLine", view.cursorState.getCursorLine());
+                int cChar = root.optInt("cursorChar", view.cursorState.getCursorChar());
                 if (root.optBoolean("hasSelection", false)) {
                     int sL = root.optInt("selStartLine", cLine);
                     int sC = root.optInt("selStartChar", cChar);
@@ -179,7 +179,7 @@ public final class History {
                     int eC = root.optInt("selEndChar", cChar);
                     view.restoreSelection(sL, sC, eL, eC, cLine, cChar);
                 } else {
-                    view.cursorManager.setPosition(cLine, cChar);
+                    view.cursorNavigation.setPosition(cLine, cChar);
                 }
             }
 
@@ -200,9 +200,9 @@ public final class History {
             if (onComplete != null) view.post(onComplete);
             return;
         }
-        if (view.cursorManager.getHasComposing()) {
+        if (view.cursorState.hasComposing()) {
             Log.d("SodiumEditorViewSave", "commitComposing before save");
-            view.cursorManager.commitComposing(true);
+            view.imeCompositionHandler.commitComposing(true);
         }
         final ArrayList<EditOp> ops = new ArrayList<>();
         synchronized (pendingEdits) {
@@ -422,8 +422,8 @@ public final class History {
             op.insertedEndChar = insertedEnd.ch;
             op.cursorLineBefore = beforeLine;
             op.cursorCharBefore = beforeChar;
-            op.cursorLineAfter = view.cursorManager.getLine();
-            op.cursorCharAfter = view.cursorManager.getChar();
+            op.cursorLineAfter = view.cursorState.getCursorLine();
+            op.cursorCharAfter = view.cursorState.getCursorChar();
             op.timestamp = System.currentTimeMillis();
             recordEditNoUndo(op);
             return;
@@ -442,8 +442,8 @@ public final class History {
             op.insertedEndChar = insertedEnd.ch;
             op.cursorLineBefore = beforeLine;
             op.cursorCharBefore = beforeChar;
-            op.cursorLineAfter = view.cursorManager.getLine();
-            op.cursorCharAfter = view.cursorManager.getChar();
+            op.cursorLineAfter = view.cursorState.getCursorLine();
+            op.cursorCharAfter = view.cursorState.getCursorChar();
             op.timestamp = System.currentTimeMillis();
             recordEditNoUndo(op);
             return;
@@ -461,8 +461,8 @@ public final class History {
         op.insertedEndChar = insertedEnd.ch;
         op.cursorLineBefore = beforeLine;
         op.cursorCharBefore = beforeChar;
-        op.cursorLineAfter = view.cursorManager.getLine();
-        op.cursorCharAfter = view.cursorManager.getChar();
+        op.cursorLineAfter = view.cursorState.getCursorLine();
+        op.cursorCharAfter = view.cursorState.getCursorChar();
         op.timestamp = System.currentTimeMillis();
         recordEdit(op);
     }
@@ -471,18 +471,18 @@ public final class History {
      * Updates the composing pending operation (for IME input).
      */
     public void updateComposingPendingOp(@Nullable String text, int beforeLine, int beforeChar) {
-        if (!view.cursorManager.getHasComposing()) return;
+        if (!view.cursorState.hasComposing()) return;
         if (text == null) text = "";
         if (text.length() > UNDO_TEXT_LIMIT) return;
 
         int startLine =
-                view.cursorManager.getComposingStartActive()
-                        ? view.cursorManager.getComposingStartLine()
-                        : view.cursorManager.getComposingLine();
+                view.cursorState.isComposingStartActive()
+                        ? view.cursorState.getComposingStartLine()
+                        : view.cursorState.getComposingLine();
         int startChar =
-                view.cursorManager.getComposingStartActive()
-                        ? view.cursorManager.getComposingStartChar()
-                        : view.cursorManager.getComposingOffset();
+                view.cursorState.isComposingStartActive()
+                        ? view.cursorState.getComposingStartChar()
+                        : view.cursorState.getComposingOffset();
 
         if (composingPendingOp == null) {
             if (text.isEmpty()) return;
@@ -499,8 +499,8 @@ public final class History {
             op.insertedEndChar = insertedEnd.ch;
             op.cursorLineBefore = beforeLine;
             op.cursorCharBefore = beforeChar;
-            op.cursorLineAfter = view.cursorManager.getLine();
-            op.cursorCharAfter = view.cursorManager.getChar();
+            op.cursorLineAfter = view.cursorState.getCursorLine();
+            op.cursorCharAfter = view.cursorState.getCursorChar();
             op.timestamp = System.currentTimeMillis();
             lineCountDelta += view.countNewlinesForUndo(text);
             composingPendingOp = op;
@@ -529,8 +529,8 @@ public final class History {
                 view.computeCursorAfterInsertForUndo(startLine, startChar, text);
         composingPendingOp.insertedEndLine = insertedEnd.line;
         composingPendingOp.insertedEndChar = insertedEnd.ch;
-        composingPendingOp.cursorLineAfter = view.cursorManager.getLine();
-        composingPendingOp.cursorCharAfter = view.cursorManager.getChar();
+        composingPendingOp.cursorLineAfter = view.cursorState.getCursorLine();
+        composingPendingOp.cursorCharAfter = view.cursorState.getCursorChar();
         composingPendingOp.timestamp = System.currentTimeMillis();
         lastEditTimestamp = composingPendingOp.timestamp;
 
@@ -597,7 +597,7 @@ public final class History {
             int sL, int sC, int eL, int eC, String text, int cursorLine, int cursorChar) {
         view.setSelectionInternal(sL, sC, eL, eC);
         view.replaceSelectionWithText(text);
-        view.cursorManager.setPosition(cursorLine, cursorChar);
+        view.cursorNavigation.setPosition(cursorLine, cursorChar);
         if (view.wrapWordState.isWordWrapEnabled) {
             view.wrapWordBuilder.invalidate(true, true);
             view.wrapWordBuilder.requestPrefixRebuild(view);

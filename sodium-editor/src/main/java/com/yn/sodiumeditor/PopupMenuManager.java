@@ -149,7 +149,7 @@ public final class PopupMenuManager {
   }
 
   public void showSelectionPopup() {
-    if (view.selectionManager.hasSelection()) {
+    if (view.selectionState.hasSelection()) {
       showPopupAtSelection();
     }
   }
@@ -243,24 +243,24 @@ public final class PopupMenuManager {
     }
 
     float anchorX, anchorYTop, anchorYBottom;
-    if (isMinimalPopup || !view.selectionManager.hasSelection()) {
-      String cursorLineText = view.getLineTextForRender(view.cursorManager.getLine());
-      anchorX = getViewXForLineChar(cursorLineText, view.cursorManager.getLine(), view.cursorManager.getChar());
-      anchorYTop = getViewYTopForLineChar(view.cursorManager.getLine(), view.cursorManager.getChar());
+    if (isMinimalPopup || !view.selectionState.hasSelection()) {
+      String cursorLineText = view.getLineTextForRender(view.cursorState.getCursorLine());
+      anchorX = getViewXForLineChar(cursorLineText, view.cursorState.getCursorLine(), view.cursorState.getCursorChar());
+      anchorYTop = getViewYTopForLineChar(view.cursorState.getCursorLine(), view.cursorState.getCursorChar());
       anchorYBottom = anchorYTop + view.lineHeight;
     } else {
       int nStartLine, nEndLine, nEndChar;
       String endLineText;
-      if (view.comparePos(view.selectionManager.selStartLine, view.selectionManager.selStartChar, view.selectionManager.selEndLine, view.selectionManager.selEndChar)
+      if (view.comparePos(view.selectionState.selStartLine, view.selectionState.selStartChar, view.selectionState.selEndLine, view.selectionState.selEndChar)
           <= 0) {
-        nStartLine = view.selectionManager.selStartLine;
-        nEndLine = view.selectionManager.selEndLine;
-        nEndChar = view.selectionManager.selEndChar;
+        nStartLine = view.selectionState.selStartLine;
+        nEndLine = view.selectionState.selEndLine;
+        nEndChar = view.selectionState.selEndChar;
         endLineText = view.getLineTextForRender(nEndLine);
       } else {
-        nStartLine = view.selectionManager.selEndLine;
-        nEndLine = view.selectionManager.selStartLine;
-        nEndChar = view.selectionManager.selStartChar;
+        nStartLine = view.selectionState.selEndLine;
+        nEndLine = view.selectionState.selStartLine;
+        nEndChar = view.selectionState.selStartChar;
         endLineText = view.getLineTextForRender(nEndLine);
       }
 
@@ -406,13 +406,13 @@ public final class PopupMenuManager {
   }
 
   void showMinimalPopupAtCursor() {
-    if (view.selectionManager.hasSelection()) return;
+    if (view.selectionState.hasSelection()) return;
     isMinimalPopup = true;
     showPopupAnimated();
   }
 
   public void showPopupAtSelection() {
-    if (!view.selectionManager.hasSelection()) return;
+    if (!view.selectionState.hasSelection()) return;
     isMinimalPopup = false;
     showPopupAnimated();
   }

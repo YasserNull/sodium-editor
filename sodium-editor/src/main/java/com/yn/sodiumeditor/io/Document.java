@@ -277,7 +277,7 @@ public class Document {
         view.invalidatePendingIOForEdit();
         view.sourceFile = null;
         view.isFileCleared = true;
-        view.selectionManager.setSelectAllState(false, false);
+        view.selectionState.setSelectAllState(false, false);
         
         // Force clear wrap metrics as content is being cleared
         view.wrapWordMetrics.wrapMetricsReady = false;
@@ -304,7 +304,7 @@ public class Document {
         view.scrollManager.maxTextStartXForScroll = 0f;
         view.scrollManager.maxScrollXForScroll = 0f;
 
-        view.cursorManager.setLineAndChar(0, 0);
+        view.cursorState.setCursorPosition(0, 0);
         isEof = true;
         view.scrollManager.scrollY = 0;
         view.scrollManager.scrollX = 0;
@@ -353,7 +353,7 @@ public class Document {
     public void loadFromFile(final File file) {
         view.invalidatePendingIOForEdit();
         view.isFileCleared = false;
-        view.selectionManager.setSelectAllState(false, false);
+        view.selectionState.setSelectAllState(false, false);
         view.lineNumberManager.invalidateCache();
 
         // Force clear wrap metrics for new file
@@ -409,7 +409,7 @@ public class Document {
         indexDisabledFileLength = -1L;
         syncIndexFieldsToView();
 
-        view.cursorManager.setLineAndChar(0, 0);
+        view.cursorState.setCursorPosition(0, 0);
         isEof = false;
         view.scrollManager.scrollY = 0;
         view.scrollManager.scrollX = 0;

@@ -149,9 +149,9 @@ final class ImeTextHelper {
     RandomAccessFile raf = openImeRandomAccessFile();
     try {
       SodiumEditorView.CursorTarget start =
-          moveCursorByCharsForIme(view.cursorManager.getLine(), view.cursorManager.getChar(), -before, raf);
+          moveCursorByCharsForIme(view.cursorState.getCursorLine(), view.cursorState.getCursorChar(), -before, raf);
       SodiumEditorView.CursorTarget end =
-          moveCursorByCharsForIme(view.cursorManager.getLine(), view.cursorManager.getChar(), after, raf);
+          moveCursorByCharsForIme(view.cursorState.getCursorLine(), view.cursorState.getCursorChar(), after, raf);
       String text = buildRangeTextForIme(start, end, raf);
       return new ImeContext(start.line, start.ch, text);
     } finally {
@@ -171,12 +171,12 @@ final class ImeTextHelper {
     et.partialStartOffset = -1;
     et.partialEndOffset = -1;
 
-    int sLine = view.cursorManager.getLine(), sChar = view.cursorManager.getChar(), eLine = view.cursorManager.getLine(), eChar = view.cursorManager.getChar();
-    if (view.selectionManager.hasSelection()) {
-      sLine = view.selectionManager.selStartLine;
-      sChar = view.selectionManager.selStartChar;
-      eLine = view.selectionManager.selEndLine;
-      eChar = view.selectionManager.selEndChar;
+    int sLine = view.cursorState.getCursorLine(), sChar = view.cursorState.getCursorChar(), eLine = view.cursorState.getCursorLine(), eChar = view.cursorState.getCursorChar();
+    if (view.selectionState.hasSelection()) {
+      sLine = view.selectionState.selStartLine;
+      sChar = view.selectionState.selStartChar;
+      eLine = view.selectionState.selEndLine;
+      eChar = view.selectionState.selEndChar;
       if (view.comparePos(sLine, sChar, eLine, eChar) > 0) {
         int tL = sLine, tC = sChar;
         sLine = eLine;
@@ -232,8 +232,8 @@ final class ImeTextHelper {
     RandomAccessFile raf = openImeRandomAccessFile();
     try {
       SodiumEditorView.CursorTarget start =
-          moveCursorByCharsForIme(view.cursorManager.getLine(), view.cursorManager.getChar(), -length, raf);
-      return buildRangeTextForIme(start, new SodiumEditorView.CursorTarget(view.cursorManager.getLine(), view.cursorManager.getChar()), raf);
+          moveCursorByCharsForIme(view.cursorState.getCursorLine(), view.cursorState.getCursorChar(), -length, raf);
+      return buildRangeTextForIme(start, new SodiumEditorView.CursorTarget(view.cursorState.getCursorLine(), view.cursorState.getCursorChar()), raf);
     } finally {
       if (raf != null) {
         try {
@@ -249,8 +249,8 @@ final class ImeTextHelper {
     RandomAccessFile raf = openImeRandomAccessFile();
     try {
       SodiumEditorView.CursorTarget end =
-          moveCursorByCharsForIme(view.cursorManager.getLine(), view.cursorManager.getChar(), length, raf);
-      return buildRangeTextForIme(new SodiumEditorView.CursorTarget(view.cursorManager.getLine(), view.cursorManager.getChar()), end, raf);
+          moveCursorByCharsForIme(view.cursorState.getCursorLine(), view.cursorState.getCursorChar(), length, raf);
+      return buildRangeTextForIme(new SodiumEditorView.CursorTarget(view.cursorState.getCursorLine(), view.cursorState.getCursorChar()), end, raf);
     } finally {
       if (raf != null) {
         try {
@@ -262,9 +262,9 @@ final class ImeTextHelper {
   }
 
   int[] getWordBoundsAtCursor() {
-    String line = view.getLineTextForRender(view.cursorManager.getLine());
+    String line = view.getLineTextForRender(view.cursorState.getCursorLine());
     if (line == null || line.isEmpty()) return null;
-    int pos = Math.max(0, Math.min(view.cursorManager.getChar(), line.length()));
+    int pos = Math.max(0, Math.min(view.cursorState.getCursorChar(), line.length()));
     if (pos == line.length() && pos > 0) pos--;
     if (pos < 0 || pos >= line.length()) return null;
     if (Character.isWhitespace(line.charAt(pos))) return null;

@@ -3,6 +3,7 @@ package com.yn.sodiumeditor.input;
 import android.animation.ValueAnimator;
 import com.yn.sodiumeditor.*;
 import com.yn.sodiumeditor.core.EditOp;
+import com.yn.sodiumeditor.utils.BracketFinder;
 
 public final class EditorOperations {
   private final SodiumEditorView view;
@@ -16,22 +17,22 @@ public final class EditorOperations {
     view.invalidatePendingIOForEdit();
     view.history.incrementEditVersion();
 
-    if (view.cursorManager.getHasComposing()) {
-      view.cursorManager.setHasComposing(false);
-      view.cursorManager.setComposingLength(0);
+    if (view.cursorState.hasComposing()) {
+      view.imeCompositionHandler.deleteComposing();
+      return;
     }
 
-    final int beforeLine = view.cursorManager.getLine();
-    final int beforeChar = view.cursorManager.getChar();
+    final int beforeLine = view.cursorState.getCursorLine();
+    final int beforeChar = view.cursorState.getCursorChar();
 
-    view.scrollManager.ensureLineInWindow(view.cursorManager.getLine(), true);
+    view.scrollManager.ensureLineInWindow(view.cursorState.getCursorLine(), true);
     if (view.isWindowLoading
-        && (view.cursorManager.getLine() < view.windowStartLine || view.cursorManager.getLine() >= view.windowStartLine + view.linesWindow.size())) {
+        && (view.cursorState.getCursorLine() < view.windowStartLine || view.cursorState.getCursorLine() >= view.windowStartLine + view.linesWindow.size())) {
       view.mainHandler.post(() -> insertCharAtCursor(c));
       return;
     }
 
-    int localIdx = view.cursorManager.getLine() - view.windowStartLine;
+    int localIdx = view.cursorState.getCursorLine() - view.windowStartLine;
     if (localIdx < 0 || localIdx >= view.linesWindow.size()) {
       synchronized (view.linesWindow) {
         if (view.linesWindow.isEmpty()) view.linesWindow.add("");
@@ -45,23 +46,23 @@ public final class EditorOperations {
 
       if (c == '\n') {
         int oldLineCount = view.getLinesCount();
-        String before = base.substring(0, Math.min(view.cursorManager.getChar(), base.length()));
-        String after = base.substring(Math.min(view.cursorManager.getChar(), base.length()));
-        Float oldWidth = view.lineWidthCache.get(view.cursorManager.getLine());
+        String before = base.substring(0, Math.min(view.cursorState.getCursorChar(), base.length()));
+        String after = base.substring(Math.min(view.cursorState.getCursorChar(), base.length()));
+        Float oldWidth = view.lineWidthCache.get(view.cursorState.getCursorLine());
 
         view.updateLocalLinePublic(localIdx, before);
         view.linesWindow.add(localIdx + 1, after);
 
-        view.modifiedLines.put(view.cursorManager.getLine(), before);
-        view.modifiedLines.put(view.cursorManager.getLine() + 1, after);
+        view.modifiedLines.put(view.cursorState.getCursorLine(), before);
+        view.modifiedLines.put(view.cursorState.getCursorLine() + 1, after);
 
-        view.computeWidthForLinePublic(view.cursorManager.getLine(), before);
-        view.computeWidthForLinePublic(view.cursorManager.getLine() + 1, after);
+        view.computeWidthForLinePublic(view.cursorState.getCursorLine(), before);
+        view.computeWidthForLinePublic(view.cursorState.getCursorLine() + 1, after);
 
         if (oldWidth != null && oldWidth >= view.currentMaxWindowLineWidth)
           view.recalculateMaxLineWidthAsync();
         view.highlightManager.clearHighlightCaches();
-        view.cursorManager.setLineAndChar(view.cursorManager.getLine() + 1, 0);
+        view.cursorState.setCursorPosition(view.cursorState.getCursorLine() + 1, 0);
         view.history.addLineCountDelta(1);
 
         int newLineCount = view.getLinesCount();
@@ -71,17 +72,17 @@ public final class EditorOperations {
         }
         view.wrapWordBuilder.onLineCountChanged(view);
       } else {
-        int pos = Math.max(0, Math.min(view.cursorManager.getChar(), base.length()));
+        int pos = Math.max(0, Math.min(view.cursorState.getCursorChar(), base.length()));
         String modified = base.substring(0, pos) + c + base.substring(pos);
         view.updateLocalLinePublic(localIdx, modified);
-        view.modifiedLines.put(view.cursorManager.getLine(), modified);
-        view.highlightManager.invalidateHighlightCacheForLine(view.cursorManager.getLine());
-        view.cursorManager.moveCharDelta(1);
+        view.modifiedLines.put(view.cursorState.getCursorLine(), modified);
+        view.highlightManager.invalidateHighlightCacheForLine(view.cursorState.getCursorLine());
+        view.cursorState.moveCharDelta(1);
         float newWidth =
             view.whitespaceGuideManager.measureTextWithVisualSpaces(
                 view, modified, 0, modified.length(), view.paint);
         synchronized (view.lineWidthCache) {
-          view.lineWidthCache.put(view.cursorManager.getLine(), newWidth);
+          view.lineWidthCache.put(view.cursorState.getCursorLine(), newWidth);
         }
         view.currentMaxWindowLineWidth = Math.max(view.currentMaxWindowLineWidth, newWidth);
         view.globalMaxLineWidth = Math.max(view.globalMaxLineWidth, view.currentMaxWindowLineWidth);
@@ -103,36 +104,36 @@ public final class EditorOperations {
     op.insertedEndChar = insertedEnd.ch;
     op.cursorLineBefore = beforeLine;
     op.cursorCharBefore = beforeChar;
-    op.cursorLineAfter = view.cursorManager.getLine();
-    op.cursorCharAfter = view.cursorManager.getChar();
+    op.cursorLineAfter = view.cursorState.getCursorLine();
+    op.cursorCharAfter = view.cursorState.getCursorChar();
     op.timestamp = System.currentTimeMillis();
     view.recordEdit(op);
   }
 
   public void insertNewlineAtCursor() {
     if (view.isReadOnly) return;
-    if (view.selectionManager.hasSelection()) {
+    if (view.selectionState.hasSelection()) {
       view.replaceSelectionWithText("\n");
       return;
     }
 
-    CursorManager.BracketPairType pairType = view.cursorManager.getCursorBracketPairType();
-    if (view.isAutoBracketNewlineEnabled && pairType != CursorManager.BracketPairType.NONE) {
+    BracketFinder.BracketPairType pairType = BracketFinder.getBracketPairAt(view.getLineTextForRender(view.cursorState.getCursorLine()), view.cursorState.getCursorChar());
+    if (view.isAutoBracketNewlineEnabled && pairType != BracketFinder.BracketPairType.NONE) {
       String baseIndent = "";
       String innerIndent = "";
       if (view.isAutoBracketNewlineIndentEnabled) {
-        baseIndent = view.getLineLeadingWhitespace(view.cursorManager.getLine());
+        baseIndent = view.getLineLeadingWhitespace(view.cursorState.getCursorLine());
         innerIndent = baseIndent + "  ";
       }
 
-      String closeIndent = (pairType == CursorManager.BracketPairType.CURLY) ? baseIndent : innerIndent;
+      String closeIndent = (pairType == BracketFinder.BracketPairType.CURLY) ? baseIndent : innerIndent;
       String insertText = "\n" + innerIndent + "\n" + closeIndent;
 
-      int targetLine = view.cursorManager.getLine() + 1;
+      int targetLine = view.cursorState.getCursorLine() + 1;
       int targetChar = innerIndent.length();
       view.insertTextAtCursor(insertText);
 
-      view.cursorManager.setLineAndChar(targetLine, targetChar);
+      view.cursorState.setCursorPosition(targetLine, targetChar);
       view.cursorAnimationManager.resetCursorBlink();
       view.scrollManager.keepCursorVisibleHorizontally();
       view.invalidate();
@@ -141,15 +142,15 @@ public final class EditorOperations {
     }
 
     if (view.isAutoIndentAfterClosingBracketEnabled) {
-      String ln = view.getLineTextForRender(view.cursorManager.getLine());
+      String ln = view.getLineTextForRender(view.cursorState.getCursorLine());
       if (ln == null) ln = "";
-      int safeChar = Math.max(0, Math.min(view.cursorManager.getChar(), ln.length()));
+      int safeChar = Math.max(0, Math.min(view.cursorState.getCursorChar(), ln.length()));
       String before = ln.substring(0, safeChar);
       int prevNonWs = findPrevNonWhitespaceIndex(before, before.length() - 1);
       if (prevNonWs >= 0) {
         char c = before.charAt(prevNonWs);
         if (c == '{' || c == '}') {
-          String baseIndent = view.getLineLeadingWhitespace(view.cursorManager.getLine());
+          String baseIndent = view.getLineLeadingWhitespace(view.cursorState.getCursorLine());
           int baseWidth = view.getIndentWidth(baseIndent);
           int unit = SodiumEditorView.INDENT_BLOCK_UNIT.length();
           int targetWidth = baseWidth;
@@ -171,19 +172,19 @@ public final class EditorOperations {
     }
 
     if (view.isIndentationBlocksEnabled) {
-      String ln = view.getLineTextForRender(view.cursorManager.getLine());
+      String ln = view.getLineTextForRender(view.cursorState.getCursorLine());
       if (ln == null) ln = "";
-      int safeChar = Math.max(0, Math.min(view.cursorManager.getChar(), ln.length()));
+      int safeChar = Math.max(0, Math.min(view.cursorState.getCursorChar(), ln.length()));
       String before = ln.substring(0, safeChar);
       String trimmed = rstripWhitespace(before);
-      String baseIndent = view.getLineLeadingWhitespace(view.cursorManager.getLine());
+      String baseIndent = view.getLineLeadingWhitespace(view.cursorState.getCursorLine());
       String extraIndent = trimmed.endsWith(":") ? SodiumEditorView.INDENT_BLOCK_UNIT : "";
       view.insertTextAtCursor("\n" + baseIndent + extraIndent);
       return;
     }
 
     if (view.isAutoBracketNewlineIndentEnabled) {
-      String baseIndent = view.getLineLeadingWhitespace(view.cursorManager.getLine());
+      String baseIndent = view.getLineLeadingWhitespace(view.cursorState.getCursorLine());
       view.insertTextAtCursor("\n" + baseIndent);
       return;
     }
@@ -197,46 +198,46 @@ public final class EditorOperations {
     view.history.incrementEditVersion();
     view.autoSuggestionManager.clearActiveSuggestion();
 
-    if (view.cursorManager.getHasComposing()) {
-      view.cursorManager.deleteComposing();
+    if (view.cursorState.hasComposing()) {
+      view.imeCompositionHandler.deleteComposing();
       return;
     }
 
-    final int beforeLine = view.cursorManager.getLine();
-    final int beforeChar = view.cursorManager.getChar();
+    final int beforeLine = view.cursorState.getCursorLine();
+    final int beforeChar = view.cursorState.getCursorChar();
 
-    view.scrollManager.ensureLineInWindow(view.cursorManager.getLine(), true);
+    view.scrollManager.ensureLineInWindow(view.cursorState.getCursorLine(), true);
     if (view.isWindowLoading
-        && (view.cursorManager.getLine() < view.windowStartLine || view.cursorManager.getLine() >= view.windowStartLine + view.linesWindow.size())) {
+        && (view.cursorState.getCursorLine() < view.windowStartLine || view.cursorState.getCursorLine() >= view.windowStartLine + view.linesWindow.size())) {
       view.mainHandler.post(this::deleteCharAtCursor);
       return;
     }
 
-    int localIdx = view.cursorManager.getLine() - view.windowStartLine;
+    int localIdx = view.cursorState.getCursorLine() - view.windowStartLine;
     if (localIdx < 0 || localIdx >= view.linesWindow.size()) return;
 
     synchronized (view.linesWindow) {
       String base = view.getLineFromWindowLocal(localIdx);
       if (base == null) base = "";
 
-      if (view.cursorManager.getChar() > 0) {
-        Float oldWidth = view.lineWidthCache.get(view.cursorManager.getLine());
-        int safeStart = Math.max(0, view.cursorManager.getChar() - 1);
-        String removed = base.substring(safeStart, Math.min(view.cursorManager.getChar(), base.length()));
-        boolean atLineEnd = view.cursorManager.getChar() >= base.length();
+      if (view.cursorState.getCursorChar() > 0) {
+        Float oldWidth = view.lineWidthCache.get(view.cursorState.getCursorLine());
+        int safeStart = Math.max(0, view.cursorState.getCursorChar() - 1);
+        String removed = base.substring(safeStart, Math.min(view.cursorState.getCursorChar(), base.length()));
+        boolean atLineEnd = view.cursorState.getCursorChar() >= base.length();
         if (view.charAnimationManager.isEnabled() && atLineEnd) {
-          android.graphics.Paint p = view.highlightManager.getPaintForChar(view.cursorManager.getLine(), safeStart, base);
-          view.charAnimationManager.startDeleteAnimation(view.cursorManager.getLine(), safeStart, removed, p);
+          android.graphics.Paint p = view.highlightManager.getPaintForChar(view.cursorState.getCursorLine(), safeStart, base);
+          view.charAnimationManager.startDeleteAnimation(view.cursorState.getCursorLine(), safeStart, removed, p);
         }
-        String modified = base.substring(0, safeStart) + base.substring(view.cursorManager.getChar());
+        String modified = base.substring(0, safeStart) + base.substring(view.cursorState.getCursorChar());
         view.updateLocalLinePublic(localIdx, modified);
-        view.modifiedLines.put(view.cursorManager.getLine(), modified);
-        view.highlightManager.invalidateHighlightCacheForLine(view.cursorManager.getLine());
-        view.cursorManager.setChar(safeStart);
-        view.computeWidthForLinePublic(view.cursorManager.getLine(), modified);
+        view.modifiedLines.put(view.cursorState.getCursorLine(), modified);
+        view.highlightManager.invalidateHighlightCacheForLine(view.cursorState.getCursorLine());
+        view.cursorState.setCursorChar(safeStart);
+        view.computeWidthForLinePublic(view.cursorState.getCursorLine(), modified);
         if (oldWidth != null && oldWidth >= view.currentMaxWindowLineWidth)
           view.recalculateMaxLineWidthAsync();
-        view.invalidateLineGlobal(view.cursorManager.getLine());
+        view.invalidateLineGlobal(view.cursorState.getCursorLine());
 
         EditOp op = new EditOp();
         op.startLine = beforeLine;
@@ -249,13 +250,13 @@ public final class EditorOperations {
         op.insertedEndChar = safeStart;
         op.cursorLineBefore = beforeLine;
         op.cursorCharBefore = beforeChar;
-        op.cursorLineAfter = view.cursorManager.getLine();
-        op.cursorCharAfter = view.cursorManager.getChar();
+        op.cursorLineAfter = view.cursorState.getCursorLine();
+        op.cursorCharAfter = view.cursorState.getCursorChar();
         op.timestamp = System.currentTimeMillis();
         view.recordEdit(op);
-      } else if (view.cursorManager.getLine() > 0) {
+      } else if (view.cursorState.getCursorLine() > 0) {
         int oldLineCount = view.getLinesCount();
-        int prevGlobal = view.cursorManager.getLine() - 1;
+        int prevGlobal = view.cursorState.getCursorLine() - 1;
         view.scrollManager.ensureLineInWindow(prevGlobal, true);
         int prevLocal = prevGlobal - view.windowStartLine;
         if (prevLocal < 0 || prevLocal >= view.linesWindow.size()) return;
@@ -271,7 +272,7 @@ public final class EditorOperations {
         if (localIdx < view.linesWindow.size()) view.linesWindow.remove(localIdx);
 
         view.recalculateMaxLineWidth();
-        view.cursorManager.setLineAndChar(prevGlobal, prev.length());
+        view.cursorState.setCursorPosition(prevGlobal, prev.length());
         view.computeWidthForLinePublic(prevGlobal, merged);
         view.history.addLineCountDelta(-1);
 
@@ -294,8 +295,8 @@ public final class EditorOperations {
         op.insertedEndChar = prev.length();
         op.cursorLineBefore = beforeLine;
         op.cursorCharBefore = beforeChar;
-        op.cursorLineAfter = view.cursorManager.getLine();
-        op.cursorCharAfter = view.cursorManager.getChar();
+        op.cursorLineAfter = view.cursorState.getCursorLine();
+        op.cursorCharAfter = view.cursorState.getCursorChar();
         op.timestamp = System.currentTimeMillis();
         view.recordEdit(op);
       }
@@ -309,41 +310,41 @@ public final class EditorOperations {
     view.history.incrementEditVersion();
     view.autoSuggestionManager.clearActiveSuggestion();
 
-    if (view.cursorManager.getHasComposing()) {
-      view.cursorManager.deleteComposing();
+    if (view.cursorState.hasComposing()) {
+      view.imeCompositionHandler.deleteComposing();
       return;
     }
 
-    final int beforeLine = view.cursorManager.getLine();
-    final int beforeChar = view.cursorManager.getChar();
+    final int beforeLine = view.cursorState.getCursorLine();
+    final int beforeChar = view.cursorState.getCursorChar();
 
-    view.scrollManager.ensureLineInWindow(view.cursorManager.getLine(), true);
+    view.scrollManager.ensureLineInWindow(view.cursorState.getCursorLine(), true);
     if (view.isWindowLoading
-        && (view.cursorManager.getLine() < view.windowStartLine || view.cursorManager.getLine() >= view.windowStartLine + view.linesWindow.size())) {
+        && (view.cursorState.getCursorLine() < view.windowStartLine || view.cursorState.getCursorLine() >= view.windowStartLine + view.linesWindow.size())) {
       view.mainHandler.post(this::deleteForwardAtCursor);
       return;
     }
 
-    int localIdx = view.cursorManager.getLine() - view.windowStartLine;
+    int localIdx = view.cursorState.getCursorLine() - view.windowStartLine;
     synchronized (view.linesWindow) {
       String base = view.getLineFromWindowLocal(localIdx);
       if (base == null) base = "";
 
-      if (view.cursorManager.getChar() < base.length()) {
-        Float oldWidth = view.lineWidthCache.get(view.cursorManager.getLine());
-        String removed = base.substring(view.cursorManager.getChar(), Math.min(view.cursorManager.getChar() + 1, base.length()));
-        boolean atLineEnd = view.cursorManager.getChar() == base.length() - 1;
+      if (view.cursorState.getCursorChar() < base.length()) {
+        Float oldWidth = view.lineWidthCache.get(view.cursorState.getCursorLine());
+        String removed = base.substring(view.cursorState.getCursorChar(), Math.min(view.cursorState.getCursorChar() + 1, base.length()));
+        boolean atLineEnd = view.cursorState.getCursorChar() == base.length() - 1;
         if (view.charAnimationManager.isEnabled() && atLineEnd) {
-          android.graphics.Paint p = view.highlightManager.getPaintForChar(view.cursorManager.getLine(), view.cursorManager.getChar(), base);
-          view.charAnimationManager.startDeleteAnimation(view.cursorManager.getLine(), view.cursorManager.getChar(), removed, p);
+          android.graphics.Paint p = view.highlightManager.getPaintForChar(view.cursorState.getCursorLine(), view.cursorState.getCursorChar(), base);
+          view.charAnimationManager.startDeleteAnimation(view.cursorState.getCursorLine(), view.cursorState.getCursorChar(), removed, p);
         }
-        String modified = base.substring(0, view.cursorManager.getChar()) + base.substring(view.cursorManager.getChar() + 1);
+        String modified = base.substring(0, view.cursorState.getCursorChar()) + base.substring(view.cursorState.getCursorChar() + 1);
         view.updateLocalLinePublic(localIdx, modified);
-        view.modifiedLines.put(view.cursorManager.getLine(), modified);
-        view.computeWidthForLinePublic(view.cursorManager.getLine(), modified);
+        view.modifiedLines.put(view.cursorState.getCursorLine(), modified);
+        view.computeWidthForLinePublic(view.cursorState.getCursorLine(), modified);
         if (oldWidth != null && oldWidth >= view.currentMaxWindowLineWidth)
           view.recalculateMaxLineWidthAsync();
-        view.invalidateLineGlobal(view.cursorManager.getLine());
+        view.invalidateLineGlobal(view.cursorState.getCursorLine());
 
         EditOp op = new EditOp();
         op.startLine = beforeLine;
@@ -356,12 +357,12 @@ public final class EditorOperations {
         op.insertedEndChar = beforeChar;
         op.cursorLineBefore = beforeLine;
         op.cursorCharBefore = beforeChar;
-        op.cursorLineAfter = view.cursorManager.getLine();
-        op.cursorCharAfter = view.cursorManager.getChar();
+        op.cursorLineAfter = view.cursorState.getCursorLine();
+        op.cursorCharAfter = view.cursorState.getCursorChar();
         op.timestamp = System.currentTimeMillis();
         view.recordEdit(op);
       } else {
-        int nextGlobal = view.cursorManager.getLine() + 1;
+        int nextGlobal = view.cursorState.getCursorLine() + 1;
         if (view.isEof && nextGlobal >= view.windowStartLine + view.linesWindow.size()) return;
 
         view.scrollManager.ensureLineInWindow(nextGlobal, true);
@@ -372,9 +373,9 @@ public final class EditorOperations {
           String merged = base + next;
           view.updateLocalLinePublic(localIdx, merged);
           view.linesWindow.remove(nextLocal);
-          view.modifiedLines.put(view.cursorManager.getLine(), merged);
+          view.modifiedLines.put(view.cursorState.getCursorLine(), merged);
           view.recalculateMaxLineWidth();
-          view.computeWidthForLinePublic(view.cursorManager.getLine(), merged);
+          view.computeWidthForLinePublic(view.cursorState.getCursorLine(), merged);
           view.wrapWordBuilder.onLineCountChanged(view);
           view.invalidate();
           view.history.addLineCountDelta(-1);
@@ -390,8 +391,8 @@ public final class EditorOperations {
           op.insertedEndChar = base.length();
           op.cursorLineBefore = beforeLine;
           op.cursorCharBefore = beforeChar;
-          op.cursorLineAfter = view.cursorManager.getLine();
-          op.cursorCharAfter = view.cursorManager.getChar();
+          op.cursorLineAfter = view.cursorState.getCursorLine();
+          op.cursorCharAfter = view.cursorState.getCursorChar();
           op.timestamp = System.currentTimeMillis();
           view.recordEdit(op);
         }
@@ -408,13 +409,13 @@ public final class EditorOperations {
 
     if (insertText == null) insertText = "";
 
-    if (!view.selectionManager.hasSelection()) {
-      if (!insertText.isEmpty()) view.cursorManager.insertTextAtCursor(insertText);
+    if (!view.selectionState.hasSelection()) {
+      if (!insertText.isEmpty()) view.cursorState.setCursorPosition(view.cursorState.getCursorLine(), view.cursorState.getCursorChar());
       view.autoSuggestionManager.updateSuggestion();
       return;
     }
 
-    int sL = view.selectionManager.selStartLine, sC = view.selectionManager.selStartChar, eL = view.selectionManager.selEndLine, eC = view.selectionManager.selEndChar;
+    int sL = view.selectionState.selStartLine, sC = view.selectionState.selStartChar, eL = view.selectionState.selEndLine, eC = view.selectionState.selEndChar;
     if (view.comparePos(sL, sC, eL, eC) > 0) {
       int tL = sL, tC = sC;
       sL = eL;
@@ -422,8 +423,8 @@ public final class EditorOperations {
       eL = tL;
       eC = tC;
     }
-    final int beforeLine = view.cursorManager.getLine();
-    final int beforeChar = view.cursorManager.getChar();
+    final int beforeLine = view.cursorState.getCursorLine();
+    final int beforeChar = view.cursorState.getCursorChar();
     String removedText = null;
     if (Math.abs(eL - sL) <= 5000) {
       removedText = view.readRangeText(sL, sC, eL, eC);
@@ -438,7 +439,7 @@ public final class EditorOperations {
     int insertedNewlines = view.countNewlines(insertText);
 
     final boolean selectAllLike =
-        view.selectionManager.isSelectAllActive() || view.selectionManager.isEntireFileSelected();
+        view.selectionState.isSelectAllActive() || view.selectionState.isEntireFileSelected();
     view.beginLargeEditUiIfNeeded(true, sL, eL, selectAllLike);
 
     if (selectAllLike) {
@@ -471,8 +472,8 @@ public final class EditorOperations {
       view.fileManager.indexDisabledFileLength = -1L;
       view.fileManager.syncIndexFieldsToView();
 
-      view.cursorManager.setLineAndChar(0, 0);
-      view.selectionManager.setSelection(0, 0, 0, 0, false);
+      view.cursorState.setCursorPosition(0, 0);
+      view.selectionState.setSelection(0, 0, 0, 0, false);
       view.scrollManager.scrollY = 0;
       view.scrollManager.scrollX = 0;
       view.clearSelectionStateAfterDeletePublic();
@@ -486,7 +487,7 @@ public final class EditorOperations {
           }
         }
         SodiumEditorView.CursorTarget newPos = view.computeCursorAfterInsert(0, 0, insertText);
-        view.cursorManager.setLineAndChar(newPos.line, newPos.ch);
+        view.cursorState.setCursorPosition(newPos.line, newPos.ch);
       }
 
       view.wrapWordBuilder.onLineCountChanged(view);
@@ -512,18 +513,18 @@ public final class EditorOperations {
     else if (c == '\'') closing = "'";
     else if (c == '`') closing = "`";
     else if (c == '*') {
-      if (view.cursorManager.getChar() >= 2) {
-        String ln = view.getLineTextForRender(view.cursorManager.getLine());
-        if (ln != null && ln.length() >= view.cursorManager.getChar() && ln.charAt(view.cursorManager.getChar() - 2) == '/') {
+      if (view.cursorState.getCursorChar() >= 2) {
+        String ln = view.getLineTextForRender(view.cursorState.getCursorLine());
+        if (ln != null && ln.length() >= view.cursorState.getCursorChar() && ln.charAt(view.cursorState.getCursorChar() - 2) == '/') {
           closing = "*/";
         }
       }
     }
 
     if (closing != null) {
-      view.cursorManager.insertTextAtCursor(closing);
+      view.editorTextInserter.insertTextAtCursor(closing);
       for (int i = 0; i < closing.length(); i++) {
-        view.cursorManager.moveCursorLeft();
+        view.cursorNavigation.moveCursorLeft();
       }
     }
   }

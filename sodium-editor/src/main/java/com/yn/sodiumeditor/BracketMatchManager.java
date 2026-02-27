@@ -75,8 +75,8 @@ public final class BracketMatchManager {
   public BracketMatch getMatch(int firstVisibleLine, int lastVisibleLine, HashMap<Integer, String> directLines) {
     if (!enabled) return null;
     int v = view.getEditVersionForMatch();
-    int line = view.cursorManager.getLine();
-    int ch = view.cursorManager.getChar();
+    int line = view.cursorState.getCursorLine();
+    int ch = view.cursorState.getCursorChar();
     if (cached != null
         && cachedCursorLine == line
         && cachedCursorChar == ch
@@ -124,8 +124,8 @@ public final class BracketMatchManager {
   private BracketMatch findBracketMatchInVisible(
       int firstVisibleLine, int lastVisibleLine, HashMap<Integer, String> directLines) {
     if (!enabled) return null;
-    int cursorLine = view.cursorManager.getLine();
-    int cursorChar = view.cursorManager.getChar();
+    int cursorLine = view.cursorState.getCursorLine();
+    int cursorChar = view.cursorState.getCursorChar();
     if (cursorLine < firstVisibleLine || cursorLine > lastVisibleLine) return null;
 
     String cursorLineText = view.getLineTextForRenderWithDirectForMatch(cursorLine, directLines);

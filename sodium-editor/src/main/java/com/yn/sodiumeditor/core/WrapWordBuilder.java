@@ -545,7 +545,7 @@ public final class WrapWordBuilder {
 
   public boolean shouldSuppressForSelectAll(SodiumEditorView view) {
     if (!state.isWordWrapEnabled ||
-        (!view.selectionManager.isSelectAllActive() && !view.selectionManager.isEntireFileSelected())) {
+        (!view.selectionState.isSelectAllActive() && !view.selectionState.isEntireFileSelected())) {
       return false;
     }
     int widthPx = Math.max(1, Math.round(getWrapWidth(view)));

@@ -170,7 +170,7 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
                     view.wrapWordState.wrapPrefixRebuildPending = false;
                     view.wrapWordBuilder.schedulePrefixRebuildUpToWindow(view);
                 }
-                if (view.selectionManager.hasSelection()) view.popupMenuManager.showPopupAtSelection();
+                if (view.selectionState.hasSelection()) view.popupMenuManager.showPopupAtSelection();
             }
         }
     }
@@ -413,7 +413,7 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
                 || view.zoomGestureHandler.isMultiTouchActive()) {
             return;
         }
-        int cursorVisualIndex = view.getVisualIndexForLineAndChar(view.cursorManager.getLine(), view.cursorManager.getChar());
+        int cursorVisualIndex = view.getVisualIndexForLineAndChar(view.cursorState.getCursorLine(), view.cursorState.getCursorChar());
         float cursorYTop = cursorVisualIndex * view.lineHeight;
         float cursorYBottom = cursorYTop + view.lineHeight;
         int viewHeight = view.getHeight() - view.keyboardHeight;
@@ -443,10 +443,10 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
         config.scrollY = scrollY;
 
         if (!view.wrapWordState.isWordWrapEnabled) {
-            String line = view.getLineTextForRender(view.cursorManager.getLine());
+            String line = view.getLineTextForRender(view.cursorState.getCursorLine());
             int safeChar =
-                    Math.min(view.cursorManager.getChar(), view.getLogicalLineLength(view.cursorManager.getLine(), line));
-            float cursorX = view.getCaretXForLine(line, view.cursorManager.getLine(), safeChar);
+                    Math.min(view.cursorState.getCursorChar(), view.getLogicalLineLength(view.cursorState.getCursorLine(), line));
+            float cursorX = view.getCaretXForLine(line, view.cursorState.getCursorLine(), safeChar);
 
             float viewLeft = view.lineNumberManager.getContentViewLeft(view.isRtl);
             float viewRight = view.lineNumberManager.getContentViewRight(view.getWidth(), view.isRtl);

@@ -17,16 +17,16 @@ public final class KeyboardHandler {
     if (view.isReadOnly) {
       switch (keyCode) {
         case KeyEvent.KEYCODE_DPAD_LEFT:
-          view.cursorManager.moveCursorLeft();
+          view.cursorNavigation.moveCursorLeft();
           return true;
         case KeyEvent.KEYCODE_DPAD_RIGHT:
-          view.cursorManager.moveCursorRight();
+          view.cursorNavigation.moveCursorRight();
           return true;
         case KeyEvent.KEYCODE_DPAD_UP:
-          view.cursorManager.moveCursorUp();
+          view.cursorNavigation.moveCursorUp();
           return true;
         case KeyEvent.KEYCODE_DPAD_DOWN:
-          view.cursorManager.moveCursorDown();
+          view.cursorNavigation.moveCursorDown();
           return true;
         case KeyEvent.KEYCODE_DEL:
         case KeyEvent.KEYCODE_FORWARD_DEL:
@@ -36,7 +36,7 @@ public final class KeyboardHandler {
       if (event.isPrintingKey()) return true;
     }
 
-    if (view.selectionManager.hasSelection() && event.isPrintingKey()) {
+    if (view.selectionState.hasSelection() && event.isPrintingKey()) {
       int uc = event.getUnicodeChar();
       if (uc != 0) {
         String s = String.valueOf((char) uc);
@@ -50,30 +50,30 @@ public final class KeyboardHandler {
 
     switch (keyCode) {
       case KeyEvent.KEYCODE_DPAD_LEFT:
-        view.cursorManager.moveCursorLeft();
+        view.cursorNavigation.moveCursorLeft();
         return true;
       case KeyEvent.KEYCODE_DPAD_RIGHT:
-        view.cursorManager.moveCursorRight();
+        view.cursorNavigation.moveCursorRight();
         return true;
       case KeyEvent.KEYCODE_DPAD_UP:
-        view.cursorManager.moveCursorUp();
+        view.cursorNavigation.moveCursorUp();
         return true;
       case KeyEvent.KEYCODE_DPAD_DOWN:
-        view.cursorManager.moveCursorDown();
+        view.cursorNavigation.moveCursorDown();
         return true;
 
       case KeyEvent.KEYCODE_DEL:
-        if (view.selectionManager.hasSelection()) view.replaceSelectionWithText("");
+        if (view.selectionState.hasSelection()) view.replaceSelectionWithText("");
         else editorOps.deleteCharAtCursor();
         return true;
 
       case KeyEvent.KEYCODE_FORWARD_DEL:
-        if (view.selectionManager.hasSelection()) view.replaceSelectionWithText("");
+        if (view.selectionState.hasSelection()) view.replaceSelectionWithText("");
         else editorOps.deleteForwardAtCursor();
         return true;
 
       case KeyEvent.KEYCODE_ENTER:
-        if (view.selectionManager.hasSelection()) view.replaceSelectionWithText("\n");
+        if (view.selectionState.hasSelection()) view.replaceSelectionWithText("\n");
         else editorOps.insertNewlineAtCursor();
         return true;
     }

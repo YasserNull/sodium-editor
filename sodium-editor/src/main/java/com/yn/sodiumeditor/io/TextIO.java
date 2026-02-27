@@ -348,11 +348,11 @@ public class TextIO {
                             view.ioHandler.post(view.lineIndex::buildFileIndex);
                             view.wrapWordBuilder.onLineCountChanged(view);
 
-                            view.cursorManager.setLineAndChar(Math.max(0, target.line), Math.max(0, target.ch));
+                            view.cursorState.setCursorPosition(Math.max(0, target.line), Math.max(0, target.ch));
 
                             boolean cursorInsideWindow =
-                                (view.cursorManager.getLine() >= view.windowStartLine
-                                    && view.cursorManager.getLine() < view.windowStartLine + view.linesWindow.size());
+                                (view.cursorState.getCursorLine() >= view.windowStartLine
+                                    && view.cursorState.getCursorLine() < view.windowStartLine + view.linesWindow.size());
 
                             if (cursorInsideWindow) {
                                 synchronized (view.linesWindow) {
@@ -367,12 +367,12 @@ public class TextIO {
                                 if (finishLargeEditUi) view.endLargeEditUiPublic(false);
                                 view.invalidate();
                             } else {
-                                int targetStart = Math.max(0, view.cursorManager.getLine() - view.prefetchLines);
+                                int targetStart = Math.max(0, view.cursorState.getCursorLine() - view.prefetchLines);
                                 view.loadWindowAround(
                                     targetStart,
                                     () -> {
-                                        String ln = view.getLineTextForRender(view.cursorManager.getLine());
-                                        view.cursorManager.clampCharToLineLength(view.cursorManager.getLine());
+                                        String ln = view.getLineTextForRender(view.cursorState.getCursorLine());
+                                        view.cursorNavigation.clampCharToLineLength(view.cursorState.getCursorLine());
                                         view.scrollManager.clampScrollY();
                                         view.scrollManager.keepCursorVisibleHorizontally();
                                         view.requestFocus();

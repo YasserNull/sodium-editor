@@ -179,9 +179,9 @@ public final class TextNavigation {
         }
 
         SodiumEditorView.TextRange pick = candidates.get(nextIdx);
-        view.selectionManager.setSelection(line, pick.start, line, pick.end, true);
-        view.selectionManager.setSelectAllState(false, false);
-        view.cursorManager.setLineAndChar(line, view.selectionManager.selEndChar);
+        view.selectionState.setSelection(line, pick.start, line, pick.end, true);
+        view.selectionState.setSelectAllState(false, false);
+        view.cursorState.setCursorPosition(line, pick.end);
         view.lastDoubleTapLine = line;
         view.lastDoubleTapWordStart = bounds[0];
         view.lastDoubleTapWordEnd = bounds[1];
@@ -230,16 +230,16 @@ public final class TextNavigation {
      * Finds the index of the current selection in the candidate list.
      */
     public int findSelectionCandidateIndex(int line, List<SodiumEditorView.TextRange> candidates) {
-        if (!view.selectionManager.hasSelection() || candidates == null || candidates.isEmpty()) return -1;
-        int sL = view.selectionManager.selStartLine;
-        int sC = view.selectionManager.selStartChar;
-        int eL = view.selectionManager.selEndLine;
-        int eC = view.selectionManager.selEndChar;
+        if (!view.selectionState.hasSelection() || candidates == null || candidates.isEmpty()) return -1;
+        int sL = view.selectionState.selStartLine;
+        int sC = view.selectionState.selStartChar;
+        int eL = view.selectionState.selEndLine;
+        int eC = view.selectionState.selEndChar;
         if (view.comparePos(sL, sC, eL, eC) > 0) {
-            sL = view.selectionManager.selEndLine;
-            sC = view.selectionManager.selEndChar;
-            eL = view.selectionManager.selStartLine;
-            eC = view.selectionManager.selStartChar;
+            sL = view.selectionState.selEndLine;
+            sC = view.selectionState.selEndChar;
+            eL = view.selectionState.selStartLine;
+            eC = view.selectionState.selStartChar;
         }
         if (sL != line || eL != line) return -1;
         for (int i = 0; i < candidates.size(); i++) {
