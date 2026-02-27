@@ -71,7 +71,7 @@ public final class TouchHandler {
                 }
 
                 view.popupMenuManager.showPopupAtSelection();
-                view.cursorAnimationManager.resetCursorBlink();
+                view.cursorAnimator.resetCursorBlink();
                 view.invalidate();
                 view.imeManager.showKeyboard();
                 view.restartInputPublic();
@@ -160,7 +160,7 @@ public final class TouchHandler {
                 view.popupMenuManager.hidePopup();
                 view.setSelectingForInput(false);
                 view.invalidate();
-                view.cursorAnimationManager.resetCursorBlink();
+                view.cursorAnimator.resetCursorBlink();
                 view.imeManager.showKeyboard();
                 view.restartInputPublic();
                 view.updateSuggestionForInput();
@@ -200,7 +200,7 @@ public final class TouchHandler {
                       view.popupMenuManager.setPendingPopupAfterDoubleTap(false);
                       if (view.selectionState.hasSelection()) view.popupMenuManager.showPopupAtSelection();
                     });
-                view.cursorAnimationManager.resetCursorBlink();
+                view.cursorAnimator.resetCursorBlink();
                 view.invalidate();
                 view.imeManager.showKeyboard();
                 view.restartInputPublic();
@@ -272,7 +272,7 @@ public final class TouchHandler {
 
     switch (event.getActionMasked()) {
       case MotionEvent.ACTION_DOWN:
-        view.cursorAnimationManager.resetCursorBlink();
+        view.cursorAnimator.resetCursorBlink();
         if (!view.isFocused()) view.requestFocus();
         view.pointerDown = true;
         view.setDownXPublic(ex);

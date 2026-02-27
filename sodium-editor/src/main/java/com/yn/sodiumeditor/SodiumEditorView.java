@@ -133,7 +133,7 @@ public class SodiumEditorView extends View {
   public final int[] streamedSliceTmp = new int[2];
   // Charset is now managed by Document
 
-  // --- Cursor Animation State (moved to CursorAnimationManager) ---
+  // --- Cursor Animation State ---
   private final InputManager inputManager;
   @Nullable ValueAnimator flingStopAnimator;
   static final long FLING_STOP_ANIM_DURATION_MS = 90;
@@ -154,8 +154,10 @@ public class SodiumEditorView extends View {
   public com.yn.sodiumeditor.input.SearchHandler searchHandler;
   public com.yn.sodiumeditor.renderer.SearchRenderer searchRenderer;
   
-  public final CursorAnimationManager cursorAnimationManager;
-  public final CharAnimationManager charAnimationManager;
+  public final com.yn.sodiumeditor.renderer.animation.CursorAnimator cursorAnimator;
+  public final com.yn.sodiumeditor.renderer.animation.CharAnimator charAnimator;
+  public final com.yn.sodiumeditor.config.CursorAnimationConfig cursorAnimationConfig;
+  public final com.yn.sodiumeditor.config.CharAnimationConfig charAnimationConfig;
   public final PopupMenuManager popupMenuManager;
   public final AutoSuggestionManager autoSuggestionManager = new AutoSuggestionManager(this);
 
@@ -192,12 +194,12 @@ public class SodiumEditorView extends View {
   private final Rect visibleDisplayFrame = new Rect();
   public int keyboardHeight = 0;
 
-  // typed-character and deleted-character animations moved to CharAnimationManager.
+  // typed-character and deleted-character animations managed by CharAnimator.
   public boolean suppressNextCommitText = false;
   @Nullable public String lastImeCommitText;
   public long lastImeCommitUptime = 0L;
 
-  // caret movement animation moved to CursorAnimationManager.
+  // caret movement animation managed by CursorAnimator.
 
   // popup menu moved to PopupMenuManager.
 
@@ -409,9 +411,11 @@ public class SodiumEditorView extends View {
     searchEngine = new com.yn.sodiumeditor.core.SearchEngine(searchConfig, new SearchEngineCallback());
     searchHandler = new com.yn.sodiumeditor.input.SearchHandler(searchConfig, searchEngine, new SearchHandlerCallback());
     searchRenderer = new com.yn.sodiumeditor.renderer.SearchRenderer(searchConfig, searchEngine, new SearchRendererCallback());
-    
-    cursorAnimationManager = new CursorAnimationManager(this);
-    charAnimationManager = new CharAnimationManager(this);
+
+    cursorAnimationConfig = new com.yn.sodiumeditor.config.CursorAnimationConfig();
+    charAnimationConfig = new com.yn.sodiumeditor.config.CharAnimationConfig();
+    cursorAnimator = new com.yn.sodiumeditor.renderer.animation.CursorAnimator(this, cursorAnimationConfig);
+    charAnimator = new com.yn.sodiumeditor.renderer.animation.CharAnimator(this, charAnimationConfig);
     inputManager = new InputManager(this, ctx);
 
     lineWidthCache =
@@ -517,7 +521,7 @@ public class SodiumEditorView extends View {
       wrapWordIndicatorRender.setEnabled(false);
       autoSuggestionManager.setAutoCompletionEnabled(false);
       autoSuggestionManager.setAutoPathCompletionEnabled(false);
-      charAnimationManager.setEnabled(false, 0);
+      charAnimationConfig.setEnabled(false);
       highlightManager.setHighlightCurrentLine(false);
       setIndentationBlocksEnabled(false);
       foldManager.setCodeFoldingEnabled(false);
@@ -1519,7 +1523,7 @@ public class SodiumEditorView extends View {
     selectionState.setSelection(clamped, 0, clamped, lineText.length(), true);
     cursorState.setCursorPosition(clamped, selectionState.selEndChar);
     popupMenuManager.hidePopup();
-    cursorAnimationManager.resetCursorBlink();
+    cursorAnimator.resetCursorBlink();
     invalidate();
   }
 
@@ -1681,21 +1685,22 @@ public class SodiumEditorView extends View {
 
   public void drawDeleteAnimationForSegment(
       Canvas canvas, String line, int globalLine, int segStart, int segEnd, float y) {
-    if (!charAnimationManager.isEnabled()) return;
-    if (globalLine != charAnimationManager.getDelAnimLine()
-        || charAnimationManager.getDelAnimText() == null
-        || charAnimationManager.getDelAnimText().isEmpty()
-        || charAnimationManager.getDelAnimAlpha() <= 0f) return;
+    if (!charAnimationConfig.isEnabled()) return;
+    if (globalLine != charAnimator.getDelAnimLine()
+        || charAnimator.getDelAnimText() == null
+        || charAnimator.getDelAnimText().isEmpty()
+        || charAnimator.getDelAnimAlpha() <= 0f) return;
     if (line == null) line = "";
-    int at = Math.max(0, Math.min(charAnimationManager.getDelAnimAtChar(), line.length()));
+    int at = Math.max(0, Math.min(charAnimator.getDelAnimAtChar(), line.length()));
     if (at < segStart || at > segEnd) return;
     float x = whitespaceGuideManager.measureTextWithVisualSpaces(this, line, segStart, at, paint);
-    Paint ghostPaint = (charAnimationManager.getDelAnimPaint() != null) ? charAnimationManager.getDelAnimPaint() : paint;
-    charAnimationManager.getTempPaint().set(ghostPaint);
-    charAnimationManager.getTempPaint().setUnderlineText(false);
+    Paint ghostPaint = (charAnimator.getDelAnimPaint() != null) ? charAnimator.getDelAnimPaint() : paint;
+    Paint tempPaint = charAnimator.getTempPaint();
+    tempPaint.set(ghostPaint);
+    tempPaint.setUnderlineText(false);
     int baseAlpha = ghostPaint.getAlpha();
-    charAnimationManager.getTempPaint().setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, charAnimationManager.getDelAnimAlpha()))));
-    canvas.drawText(charAnimationManager.getDelAnimText(), x, y, charAnimationManager.getTempPaint());
+    tempPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, charAnimator.getDelAnimAlpha()))));
+    canvas.drawText(charAnimator.getDelAnimText(), x, y, tempPaint);
   }
 
 
@@ -2677,10 +2682,10 @@ public class SodiumEditorView extends View {
         (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
     if (focused) {
       if (imm != null) imm.restartInput(this);
-      cursorAnimationManager.onFocusChanged(true);
+      cursorAnimator.onFocusChanged(true);
     } else {
       if (hideKeyboardOnFocusLoss && imm != null) imm.hideSoftInputFromWindow(getWindowToken(), 0);
-      cursorAnimationManager.onFocusChanged(false);
+      cursorAnimator.onFocusChanged(false);
       cursorState.setHasComposing(false);
       selectionState.clearSelectionKeepLineNumberState();
       popupMenuManager.hidePopup();
@@ -3356,7 +3361,7 @@ public class SodiumEditorView extends View {
 
     @Override
     public void resetCursorBlink() {
-      cursorAnimationManager.resetCursorBlink();
+      cursorAnimator.resetCursorBlink();
     }
 
     @Override
@@ -3409,17 +3414,17 @@ public class SodiumEditorView extends View {
   private class CursorRendererCallback implements com.yn.sodiumeditor.renderer.CursorRenderer.RenderCallback {
     @Override
     public float getCursorDrawX() {
-      return cursorAnimationManager.getCursorDrawX();
+      return cursorAnimator.getCursorDrawX();
     }
 
     @Override
     public float getCursorDrawY() {
-      return cursorAnimationManager.getCursorDrawY();
+      return cursorAnimator.getCursorDrawY();
     }
 
     @Override
     public boolean isCursorVisible() {
-      return cursorAnimationManager.isCursorVisible();
+      return cursorAnimator.isCursorVisible();
     }
 
     @Override
@@ -3517,7 +3522,7 @@ public class SodiumEditorView extends View {
 
     @Override
     public void clearLastComposingTextForCharAnim() {
-      charAnimationManager.clearLastComposingTextForCharAnim();
+      charAnimator.clearLastComposingTextForCharAnim();
     }
 
     @Override
@@ -3527,12 +3532,12 @@ public class SodiumEditorView extends View {
 
     @Override
     public void startDeleteAnimation(int line, int at, String removed, Paint paint) {
-      charAnimationManager.startDeleteAnimation(line, at, removed, paint);
+      charAnimator.startDeleteAnimation(line, at, removed, paint);
     }
 
     @Override
     public boolean isCharAnimationEnabled() {
-      return charAnimationManager.isEnabled();
+      return charAnimationConfig.isEnabled();
     }
 
     @Override
@@ -3736,7 +3741,7 @@ public class SodiumEditorView extends View {
 
     @Override
     public void resetCursorBlink() {
-      cursorAnimationManager.resetCursorBlink();
+      cursorAnimator.resetCursorBlink();
     }
 
     @Override

@@ -41,7 +41,7 @@ public final class KeyboardHandler {
       if (uc != 0) {
         String s = String.valueOf((char) uc);
         view.replaceSelectionWithText(s);
-        view.charAnimationManager.startCharAnimationFromText(s);
+        view.charAnimator.startCharAnimationFromText(s);
       } else {
         view.replaceSelectionWithText("");
       }

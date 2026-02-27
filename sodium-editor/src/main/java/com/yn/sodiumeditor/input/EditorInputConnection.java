@@ -116,7 +116,7 @@ final class EditorInputConnection extends BaseInputConnection {
     SodiumEditorView.CursorTarget e = textHelper.offsetToLineCharInContext(ctx, eOff);
     view.setSelectionInternal(s.line, s.ch, e.line, e.ch);
     view.cursorState.setCursorPosition(e.line, e.ch);
-    view.cursorAnimationManager.resetCursorBlink();
+    view.cursorAnimator.resetCursorBlink();
     view.invalidate();
     view.autoSuggestionManager.updateSuggestion();
     return true;
@@ -140,7 +140,7 @@ final class EditorInputConnection extends BaseInputConnection {
     if (s.line != e.line) {
       view.setSelectionInternal(s.line, s.ch, e.line, e.ch);
       view.cursorState.setCursorPosition(e.line, e.ch);
-      view.cursorAnimationManager.resetCursorBlink();
+      view.cursorAnimator.resetCursorBlink();
       view.invalidate();
       view.autoSuggestionManager.updateSuggestion();
       return true;
@@ -152,7 +152,7 @@ final class EditorInputConnection extends BaseInputConnection {
     view.cursorState.setComposingStartLine(view.cursorState.getComposingLine());
     view.cursorState.setComposingStartChar(view.cursorState.getComposingOffset());
     view.cursorState.setComposingStartActive(true);
-    view.charAnimationManager.clearLastComposingTextForCharAnim();
+    view.charAnimator.clearLastComposingTextForCharAnim();
     view.invalidate();
     view.autoSuggestionManager.updateSuggestion();
     return true;
@@ -161,15 +161,15 @@ final class EditorInputConnection extends BaseInputConnection {
   @Override
   public boolean finishComposingText() {
     if (view.isDisabled || view.isReadOnly) return true;
-    if (view.charAnimationManager.getLastComposingTextForCharAnim() != null
-        && !view.charAnimationManager.getLastComposingTextForCharAnim().isEmpty()) {
-      manager.markImeCommit(view.charAnimationManager.getLastComposingTextForCharAnim());
+    if (view.charAnimator.getLastComposingTextForCharAnim() != null
+        && !view.charAnimator.getLastComposingTextForCharAnim().isEmpty()) {
+      manager.markImeCommit(view.charAnimator.getLastComposingTextForCharAnim());
     }
     view.cursorState.setHasComposing(false);
     view.cursorState.setComposingLength(0);
     view.cursorState.setComposingStartActive(false);
     view.clearComposingPendingOpPublic();
-    view.charAnimationManager.clearLastComposingTextForCharAnim();
+    view.charAnimator.clearLastComposingTextForCharAnim();
     view.invalidate();
     view.autoSuggestionManager.updateSuggestion();
     return true;
@@ -212,7 +212,7 @@ final class EditorInputConnection extends BaseInputConnection {
       view.cursorState.setComposingLength(0);
       view.cursorState.setComposingStartActive(false);
       view.clearComposingPendingOpPublic();
-      view.charAnimationManager.startCharAnimationFromText(text);
+      view.charAnimator.startCharAnimationFromText(text);
       view.autoSuggestionManager.updateSuggestion();
       return true;
     }
@@ -280,7 +280,7 @@ final class EditorInputConnection extends BaseInputConnection {
                 view.cursorState.setComposingLength(0);
                 view.cursorState.setComposingStartActive(false);
                 view.clearComposingPendingOpPublic();
-                view.charAnimationManager.startCharAnimationFromText(suffix);
+                view.charAnimator.startCharAnimationFromText(suffix);
                 view.handleAutoPairing(suffix);
                 view.autoSuggestionManager.updateSuggestion();
               }
@@ -298,7 +298,7 @@ final class EditorInputConnection extends BaseInputConnection {
       view.cursorState.setComposingLength(0);
       view.cursorState.setComposingStartActive(false);
       view.clearComposingPendingOpPublic();
-      view.charAnimationManager.startCharAnimationFromText(text);
+      view.charAnimator.startCharAnimationFromText(text);
       view.handleAutoPairing(str);
       view.autoSuggestionManager.updateSuggestion();
       return true;
@@ -314,7 +314,7 @@ final class EditorInputConnection extends BaseInputConnection {
       view.cursorState.setComposingStartActive(false);
       view.clearComposingPendingOpPublic();
       manager.markImeCommit(str);
-      view.charAnimationManager.startCharAnimationFromText(text);
+      view.charAnimator.startCharAnimationFromText(text);
       view.handleAutoPairing(str);
       view.autoSuggestionManager.updateSuggestion();
       return true;
@@ -325,7 +325,7 @@ final class EditorInputConnection extends BaseInputConnection {
     view.cursorState.setComposingLength(0);
     view.cursorState.setComposingStartActive(false);
     view.clearComposingPendingOpPublic();
-    view.charAnimationManager.startCharAnimationFromText(text);
+    view.charAnimator.startCharAnimationFromText(text);
     view.handleAutoPairing(str);
 
     view.autoSuggestionManager.updateSuggestion();
@@ -340,7 +340,7 @@ final class EditorInputConnection extends BaseInputConnection {
 
     if (view.selectionState.hasSelection()) {
       view.replaceSelectionWithText(text.toString());
-      view.charAnimationManager.startCharAnimationFromText(text);
+      view.charAnimator.startCharAnimationFromText(text);
       view.autoSuggestionManager.updateSuggestion();
       return true;
     }
@@ -357,14 +357,14 @@ final class EditorInputConnection extends BaseInputConnection {
     }
     String newText = text.toString();
     String oldText =
-        (view.charAnimationManager.getLastComposingTextForCharAnim() == null)
+        (view.charAnimator.getLastComposingTextForCharAnim() == null)
             ? ""
-            : view.charAnimationManager.getLastComposingTextForCharAnim();
+            : view.charAnimator.getLastComposingTextForCharAnim();
     boolean shouldAnim = newText.length() >= oldText.length() && !newText.equals(oldText);
     view.imeCompositionHandler.replaceComposingWith(newText);
     view.updateComposingPendingOpPublic(newText, view.cursorState.getComposingStartLine(), view.cursorState.getComposingStartChar());
-    view.charAnimationManager.setLastComposingTextForCharAnim(newText);
-    if (shouldAnim) view.charAnimationManager.startCharAnimationFromText(newText);
+    view.charAnimator.setLastComposingTextForCharAnim(newText);
+    if (shouldAnim) view.charAnimator.startCharAnimationFromText(newText);
     view.autoSuggestionManager.updateSuggestion();
     return true;
   }

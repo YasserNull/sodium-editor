@@ -115,21 +115,22 @@ public final class LineCacheManager {
      */
     public void drawDeleteAnimationForSegment(
             Canvas canvas, String line, int globalLine, int segStart, int segEnd, float y) {
-        if (!view.charAnimationManager.isEnabled()) return;
-        if (globalLine != view.charAnimationManager.getDelAnimLine()
-                || view.charAnimationManager.getDelAnimText() == null
-                || view.charAnimationManager.getDelAnimText().isEmpty()
-                || view.charAnimationManager.getDelAnimAlpha() <= 0f) return;
+        if (!view.charAnimationConfig.isEnabled()) return;
+        if (globalLine != view.charAnimator.getDelAnimLine()
+                || view.charAnimator.getDelAnimText() == null
+                || view.charAnimator.getDelAnimText().isEmpty()
+                || view.charAnimator.getDelAnimAlpha() <= 0f) return;
         if (line == null) line = "";
-        int at = Math.max(0, Math.min(view.charAnimationManager.getDelAnimAtChar(), line.length()));
+        int at = Math.max(0, Math.min(view.charAnimator.getDelAnimAtChar(), line.length()));
         if (at < segStart || at > segEnd) return;
         float x = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, segStart, at, view.paint);
-        Paint ghostPaint = (view.charAnimationManager.getDelAnimPaint() != null) ? view.charAnimationManager.getDelAnimPaint() : view.paint;
-        view.charAnimationManager.getTempPaint().set(ghostPaint);
-        view.charAnimationManager.getTempPaint().setUnderlineText(false);
+        Paint ghostPaint = (view.charAnimator.getDelAnimPaint() != null) ? view.charAnimator.getDelAnimPaint() : view.paint;
+        Paint tempPaint = view.charAnimator.getTempPaint();
+        tempPaint.set(ghostPaint);
+        tempPaint.setUnderlineText(false);
         int baseAlpha = ghostPaint.getAlpha();
-        view.charAnimationManager.getTempPaint().setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, view.charAnimationManager.getDelAnimAlpha()))));
-        canvas.drawText(view.charAnimationManager.getDelAnimText(), x, y, view.charAnimationManager.getTempPaint());
+        tempPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, view.charAnimator.getDelAnimAlpha()))));
+        canvas.drawText(view.charAnimator.getDelAnimText(), x, y, tempPaint);
     }
 
     /**

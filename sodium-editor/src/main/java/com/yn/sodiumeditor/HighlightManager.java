@@ -1325,17 +1325,18 @@ public final class HighlightManager {
 
   public void drawHighlightedLine(Canvas canvas, String line, int globalLine, float y) {
     if (line == null || line.isEmpty()) {
-      if (view.charAnimationManager.isEnabled()
-          && globalLine == view.charAnimationManager.getDelAnimLine()
-          && view.charAnimationManager.getDelAnimText() != null
-          && !view.charAnimationManager.getDelAnimText().isEmpty()
-          && view.charAnimationManager.getDelAnimAlpha() > 0f) {
-        Paint ghostPaint = (view.charAnimationManager.getDelAnimPaint() != null) ? view.charAnimationManager.getDelAnimPaint() : view.paint;
-        view.charAnimationManager.getTempPaint().set(ghostPaint);
-        view.charAnimationManager.getTempPaint().setUnderlineText(false);
+      if (view.charAnimationConfig.isEnabled()
+          && globalLine == view.charAnimator.getDelAnimLine()
+          && view.charAnimator.getDelAnimText() != null
+          && !view.charAnimator.getDelAnimText().isEmpty()
+          && view.charAnimator.getDelAnimAlpha() > 0f) {
+        Paint ghostPaint = (view.charAnimator.getDelAnimPaint() != null) ? view.charAnimator.getDelAnimPaint() : view.paint;
+        Paint tempPaint = view.charAnimator.getTempPaint();
+        tempPaint.set(ghostPaint);
+        tempPaint.setUnderlineText(false);
         int baseAlpha = ghostPaint.getAlpha();
-        view.charAnimationManager.getTempPaint().setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, view.charAnimationManager.getDelAnimAlpha()))));
-        canvas.drawText(view.charAnimationManager.getDelAnimText(), 0f, y, view.charAnimationManager.getTempPaint());
+        tempPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, view.charAnimator.getDelAnimAlpha()))));
+        canvas.drawText(view.charAnimator.getDelAnimText(), 0f, y, tempPaint);
       }
       return;
     }
@@ -1381,13 +1382,13 @@ public final class HighlightManager {
     int fadeStart = -1;
     int fadeEnd = -1;
     float fadeAlpha = 1f;
-    if (view.charAnimationManager.isEnabled()
-        && globalLine == view.charAnimationManager.getCharAnimLine()
-        && view.charAnimationManager.getCharAnimEndChar() > view.charAnimationManager.getCharAnimStartChar()
-        && view.charAnimationManager.getCharAnimAlpha() < 1f) {
-      fadeStart = Math.max(0, Math.min(view.charAnimationManager.getCharAnimStartChar(), line.length()));
-      fadeEnd = Math.max(0, Math.min(view.charAnimationManager.getCharAnimEndChar(), line.length()));
-      fadeAlpha = Math.max(0f, Math.min(1f, view.charAnimationManager.getCharAnimAlpha()));
+    if (view.charAnimationConfig.isEnabled()
+        && globalLine == view.charAnimator.getCharAnimLine()
+        && view.charAnimator.getCharAnimEndChar() > view.charAnimator.getCharAnimStartChar()
+        && view.charAnimator.getCharAnimAlpha() < 1f) {
+      fadeStart = Math.max(0, Math.min(view.charAnimator.getCharAnimStartChar(), line.length()));
+      fadeEnd = Math.max(0, Math.min(view.charAnimator.getCharAnimEndChar(), line.length()));
+      fadeAlpha = Math.max(0f, Math.min(1f, view.charAnimator.getCharAnimAlpha()));
       if (fadeEnd <= fadeStart) {
         fadeStart = -1;
         fadeEnd = -1;
@@ -1412,19 +1413,20 @@ public final class HighlightManager {
           combinedUnderlines,
           lineTop,
           lineBottom);
-      if (view.charAnimationManager.isEnabled()
-          && globalLine == view.charAnimationManager.getDelAnimLine()
-          && view.charAnimationManager.getDelAnimText() != null
-          && !view.charAnimationManager.getDelAnimText().isEmpty()
-          && view.charAnimationManager.getDelAnimAlpha() > 0f) {
-        int at = Math.max(0, Math.min(view.charAnimationManager.getDelAnimAtChar(), line.length()));
+      if (view.charAnimationConfig.isEnabled()
+          && globalLine == view.charAnimator.getDelAnimLine()
+          && view.charAnimator.getDelAnimText() != null
+          && !view.charAnimator.getDelAnimText().isEmpty()
+          && view.charAnimator.getDelAnimAlpha() > 0f) {
+        int at = Math.max(0, Math.min(view.charAnimator.getDelAnimAtChar(), line.length()));
         float x = measureText(line, at, globalLine);
-        Paint ghostPaint = (view.charAnimationManager.getDelAnimPaint() != null) ? view.charAnimationManager.getDelAnimPaint() : view.paint;
-        view.charAnimationManager.getTempPaint().set(ghostPaint);
-        view.charAnimationManager.getTempPaint().setUnderlineText(false);
+        Paint ghostPaint = (view.charAnimator.getDelAnimPaint() != null) ? view.charAnimator.getDelAnimPaint() : view.paint;
+        Paint tempPaint = view.charAnimator.getTempPaint();
+        tempPaint.set(ghostPaint);
+        tempPaint.setUnderlineText(false);
         int baseAlpha = ghostPaint.getAlpha();
-        view.charAnimationManager.getTempPaint().setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, view.charAnimationManager.getDelAnimAlpha()))));
-        canvas.drawText(view.charAnimationManager.getDelAnimText(), x, y, view.charAnimationManager.getTempPaint());
+        tempPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, view.charAnimator.getDelAnimAlpha()))));
+        canvas.drawText(view.charAnimator.getDelAnimText(), x, y, tempPaint);
       }
       drawErrorUnderlinesForLine(canvas, line, globalLine, y, lineTop, lineBottom);
       return;
@@ -1451,19 +1453,20 @@ public final class HighlightManager {
           combinedUnderlines,
           lineTop,
           lineBottom);
-      if (view.charAnimationManager.isEnabled()
-          && globalLine == view.charAnimationManager.getDelAnimLine()
-          && view.charAnimationManager.getDelAnimText() != null
-          && !view.charAnimationManager.getDelAnimText().isEmpty()
-          && view.charAnimationManager.getDelAnimAlpha() > 0f) {
-        int at = Math.max(0, Math.min(view.charAnimationManager.getDelAnimAtChar(), line.length()));
+      if (view.charAnimationConfig.isEnabled()
+          && globalLine == view.charAnimator.getDelAnimLine()
+          && view.charAnimator.getDelAnimText() != null
+          && !view.charAnimator.getDelAnimText().isEmpty()
+          && view.charAnimator.getDelAnimAlpha() > 0f) {
+        int at = Math.max(0, Math.min(view.charAnimator.getDelAnimAtChar(), line.length()));
         float x = measureText(line, at, globalLine);
-        Paint ghostPaint = (view.charAnimationManager.getDelAnimPaint() != null) ? view.charAnimationManager.getDelAnimPaint() : view.paint;
-        view.charAnimationManager.getTempPaint().set(ghostPaint);
-        view.charAnimationManager.getTempPaint().setUnderlineText(false);
+        Paint ghostPaint = (view.charAnimator.getDelAnimPaint() != null) ? view.charAnimator.getDelAnimPaint() : view.paint;
+        Paint tempPaint = view.charAnimator.getTempPaint();
+        tempPaint.set(ghostPaint);
+        tempPaint.setUnderlineText(false);
         int baseAlpha = ghostPaint.getAlpha();
-        view.charAnimationManager.getTempPaint().setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, view.charAnimationManager.getDelAnimAlpha()))));
-        canvas.drawText(view.charAnimationManager.getDelAnimText(), x, y, view.charAnimationManager.getTempPaint());
+        tempPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, view.charAnimator.getDelAnimAlpha()))));
+        canvas.drawText(view.charAnimator.getDelAnimText(), x, y, tempPaint);
       }
       drawErrorUnderlinesForLine(canvas, line, globalLine, y, lineTop, lineBottom);
       return;
@@ -1531,19 +1534,20 @@ public final class HighlightManager {
           lineBottom);
     }
 
-    if (view.charAnimationManager.isEnabled()
-        && globalLine == view.charAnimationManager.getDelAnimLine()
-        && view.charAnimationManager.getDelAnimText() != null
-        && !view.charAnimationManager.getDelAnimText().isEmpty()
-        && view.charAnimationManager.getDelAnimAlpha() > 0f) {
-      int at = Math.max(0, Math.min(view.charAnimationManager.getDelAnimAtChar(), line.length()));
+    if (view.charAnimationConfig.isEnabled()
+        && globalLine == view.charAnimator.getDelAnimLine()
+        && view.charAnimator.getDelAnimText() != null
+        && !view.charAnimator.getDelAnimText().isEmpty()
+        && view.charAnimator.getDelAnimAlpha() > 0f) {
+      int at = Math.max(0, Math.min(view.charAnimator.getDelAnimAtChar(), line.length()));
       float x = measureText(line, at, globalLine);
-      Paint ghostPaint = (view.charAnimationManager.getDelAnimPaint() != null) ? view.charAnimationManager.getDelAnimPaint() : view.paint;
-      view.charAnimationManager.getTempPaint().set(ghostPaint);
-      view.charAnimationManager.getTempPaint().setUnderlineText(false);
+      Paint ghostPaint = (view.charAnimator.getDelAnimPaint() != null) ? view.charAnimator.getDelAnimPaint() : view.paint;
+      Paint tempPaint = view.charAnimator.getTempPaint();
+      tempPaint.set(ghostPaint);
+      tempPaint.setUnderlineText(false);
       int baseAlpha = ghostPaint.getAlpha();
-      view.charAnimationManager.getTempPaint().setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, view.charAnimationManager.getDelAnimAlpha()))));
-      canvas.drawText(view.charAnimationManager.getDelAnimText(), x, y, view.charAnimationManager.getTempPaint());
+      tempPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, view.charAnimator.getDelAnimAlpha()))));
+      canvas.drawText(view.charAnimator.getDelAnimText(), x, y, tempPaint);
     }
     drawErrorUnderlinesForLine(canvas, line, globalLine, y, lineTop, lineBottom);
   }
@@ -1669,15 +1673,15 @@ public final class HighlightManager {
     int fadeStart = -1;
     int fadeEnd = -1;
     float fadeAlpha = 1f;
-    if (view.charAnimationManager.isEnabled()
-        && globalLine == view.charAnimationManager.getCharAnimLine()
-        && view.charAnimationManager.getCharAnimEndChar() > view.charAnimationManager.getCharAnimStartChar()
-        && view.charAnimationManager.getCharAnimAlpha() < 1f) {
+    if (view.charAnimationConfig.isEnabled()
+        && globalLine == view.charAnimator.getCharAnimLine()
+        && view.charAnimator.getCharAnimEndChar() > view.charAnimator.getCharAnimStartChar()
+        && view.charAnimator.getCharAnimAlpha() < 1f) {
       fadeStart =
-          Math.max(0, Math.min(view.charAnimationManager.getCharAnimStartChar(), line.length()));
+          Math.max(0, Math.min(view.charAnimator.getCharAnimStartChar(), line.length()));
       fadeEnd =
-          Math.max(0, Math.min(view.charAnimationManager.getCharAnimEndChar(), line.length()));
-      fadeAlpha = Math.max(0f, Math.min(1f, view.charAnimationManager.getCharAnimAlpha()));
+          Math.max(0, Math.min(view.charAnimator.getCharAnimEndChar(), line.length()));
+      fadeAlpha = Math.max(0f, Math.min(1f, view.charAnimator.getCharAnimAlpha()));
       if (fadeEnd <= fadeStart) {
         fadeStart = -1;
         fadeEnd = -1;
@@ -1771,28 +1775,27 @@ public final class HighlightManager {
       }
     }
 
-    if (view.charAnimationManager.isEnabled()
-        && globalLine == view.charAnimationManager.getDelAnimLine()
-        && view.charAnimationManager.getDelAnimText() != null
-        && !view.charAnimationManager.getDelAnimText().isEmpty()
-        && view.charAnimationManager.getDelAnimAlpha() > 0f) {
-      int at = Math.max(0, Math.min(view.charAnimationManager.getDelAnimAtChar(), line.length()));
+    if (view.charAnimationConfig.isEnabled()
+        && globalLine == view.charAnimator.getDelAnimLine()
+        && view.charAnimator.getDelAnimText() != null
+        && !view.charAnimator.getDelAnimText().isEmpty()
+        && view.charAnimator.getDelAnimAlpha() > 0f) {
+      int at = Math.max(0, Math.min(view.charAnimator.getDelAnimAtChar(), line.length()));
       if (at >= start && at <= end) {
         float x = measureText(line, at, globalLine);
         Paint ghostPaint =
-            (view.charAnimationManager.getDelAnimPaint() != null)
-                ? view.charAnimationManager.getDelAnimPaint()
+            (view.charAnimator.getDelAnimPaint() != null)
+                ? view.charAnimator.getDelAnimPaint()
                 : view.paint;
-        view.charAnimationManager.getTempPaint().set(ghostPaint);
-        view.charAnimationManager.getTempPaint().setUnderlineText(false);
+        Paint tempPaint = view.charAnimator.getTempPaint();
+        tempPaint.set(ghostPaint);
+        tempPaint.setUnderlineText(false);
         int baseAlpha = ghostPaint.getAlpha();
-        view.charAnimationManager
-            .getTempPaint()
-            .setAlpha(
+        tempPaint.setAlpha(
                 (int)
                     (baseAlpha
-                        * Math.max(0f, Math.min(1f, view.charAnimationManager.getDelAnimAlpha()))));
-        canvas.drawText(view.charAnimationManager.getDelAnimText(), x, y, view.charAnimationManager.getTempPaint());
+                        * Math.max(0f, Math.min(1f, view.charAnimator.getDelAnimAlpha()))));
+        canvas.drawText(view.charAnimator.getDelAnimText(), x, y, tempPaint);
       }
     }
     drawErrorUnderlinesForLineRange(canvas, line, globalLine, start, end, y, lineTop, lineBottom);
@@ -1825,15 +1828,15 @@ public final class HighlightManager {
     int fadeStart = -1;
     int fadeEnd = -1;
     float fadeAlpha = 1f;
-    if (view.charAnimationManager.isEnabled()
-        && globalLine == view.charAnimationManager.getCharAnimLine()
-        && view.charAnimationManager.getCharAnimEndChar() > view.charAnimationManager.getCharAnimStartChar()
-        && view.charAnimationManager.getCharAnimAlpha() < 1f) {
+    if (view.charAnimationConfig.isEnabled()
+        && globalLine == view.charAnimator.getCharAnimLine()
+        && view.charAnimator.getCharAnimEndChar() > view.charAnimator.getCharAnimStartChar()
+        && view.charAnimator.getCharAnimAlpha() < 1f) {
       fadeStart =
-          Math.max(0, Math.min(view.charAnimationManager.getCharAnimStartChar(), line.length()));
+          Math.max(0, Math.min(view.charAnimator.getCharAnimStartChar(), line.length()));
       fadeEnd =
-          Math.max(0, Math.min(view.charAnimationManager.getCharAnimEndChar(), line.length()));
-      fadeAlpha = Math.max(0f, Math.min(1f, view.charAnimationManager.getCharAnimAlpha()));
+          Math.max(0, Math.min(view.charAnimator.getCharAnimEndChar(), line.length()));
+      fadeAlpha = Math.max(0f, Math.min(1f, view.charAnimator.getCharAnimAlpha()));
       if (fadeEnd <= fadeStart) {
         fadeStart = -1;
         fadeEnd = -1;
@@ -2092,12 +2095,11 @@ public final class HighlightManager {
     int fadeSegStart = Math.max(start, fadeStart);
     int fadeSegEnd = Math.min(end, fadeEnd);
     if (fadeSegStart < fadeSegEnd) {
-      view.charAnimationManager.getTempPaint().set(segmentPaint);
+      Paint tempPaint = view.charAnimator.getTempPaint();
+      tempPaint.set(segmentPaint);
       int baseAlpha = segmentPaint.getAlpha();
-      view.charAnimationManager
-          .getTempPaint()
-          .setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))));
-      canvas.drawText(line, fadeSegStart, fadeSegEnd, currentX, y, view.charAnimationManager.getTempPaint());
+      tempPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))));
+      canvas.drawText(line, fadeSegStart, fadeSegEnd, currentX, y, tempPaint);
       currentX += segmentPaint.measureText(line, fadeSegStart, fadeSegEnd);
     }
 
@@ -2123,12 +2125,11 @@ public final class HighlightManager {
 
     Paint drawPaint = segmentPaint;
     if (alphaMultiplier < 1f) {
-      view.charAnimationManager.getTempPaint().set(segmentPaint);
+      Paint tempPaint = view.charAnimator.getTempPaint();
+      tempPaint.set(segmentPaint);
       int baseAlpha = segmentPaint.getAlpha();
-      view.charAnimationManager
-          .getTempPaint()
-          .setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, alphaMultiplier))));
-      drawPaint = view.charAnimationManager.getTempPaint();
+      tempPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, alphaMultiplier))));
+      drawPaint = tempPaint;
     }
 
     int len = end - start;

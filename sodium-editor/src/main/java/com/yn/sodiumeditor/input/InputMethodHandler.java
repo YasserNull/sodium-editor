@@ -139,7 +139,7 @@ public final class InputMethodHandler {
     view.replaceSelectionWithText(core);
     if (!trailing.isEmpty()) view.insertTextAtCursor(trailing);
     markImeCommit(insert);
-    view.charAnimationManager.startCharAnimationFromText(insert);
+    view.charAnimator.startCharAnimationFromText(insert);
     return true;
   }
 

@@ -542,8 +542,8 @@ public final class LineRenderer {
             float cursorX = textMeasurement.getCaretXForLine(cursorLineText, view.cursorState.getCursorLine(), safeChar);
             float cursorY = view.scrollManager.getDrawLineTop(view.cursorState.getCursorLine());
             view.cursorRenderer.drawCaret(canvas, cursorX, cursorY);
-            float drawX = view.cursorAnimationManager.getCursorDrawX();
-            float drawY = view.cursorAnimationManager.getCursorDrawY();
+            float drawX = view.cursorAnimator.getCursorDrawX();
+            float drawY = view.cursorAnimator.getCursorDrawY();
             view.handlesManager.drawCursorHandle(canvas, drawX, drawY, view.lineHeight);
         }
 

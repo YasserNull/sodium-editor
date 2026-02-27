@@ -134,7 +134,7 @@ public final class EditorOperations {
       view.insertTextAtCursor(insertText);
 
       view.cursorState.setCursorPosition(targetLine, targetChar);
-      view.cursorAnimationManager.resetCursorBlink();
+      view.cursorAnimator.resetCursorBlink();
       view.scrollManager.keepCursorVisibleHorizontally();
       view.invalidate();
       view.autoSuggestionManager.updateSuggestion();
@@ -225,9 +225,9 @@ public final class EditorOperations {
         int safeStart = Math.max(0, view.cursorState.getCursorChar() - 1);
         String removed = base.substring(safeStart, Math.min(view.cursorState.getCursorChar(), base.length()));
         boolean atLineEnd = view.cursorState.getCursorChar() >= base.length();
-        if (view.charAnimationManager.isEnabled() && atLineEnd) {
+        if (view.charAnimationConfig.isEnabled() && atLineEnd) {
           android.graphics.Paint p = view.highlightManager.getPaintForChar(view.cursorState.getCursorLine(), safeStart, base);
-          view.charAnimationManager.startDeleteAnimation(view.cursorState.getCursorLine(), safeStart, removed, p);
+          view.charAnimator.startDeleteAnimation(view.cursorState.getCursorLine(), safeStart, removed, p);
         }
         String modified = base.substring(0, safeStart) + base.substring(view.cursorState.getCursorChar());
         view.updateLocalLinePublic(localIdx, modified);
@@ -334,9 +334,9 @@ public final class EditorOperations {
         Float oldWidth = view.lineWidthCache.get(view.cursorState.getCursorLine());
         String removed = base.substring(view.cursorState.getCursorChar(), Math.min(view.cursorState.getCursorChar() + 1, base.length()));
         boolean atLineEnd = view.cursorState.getCursorChar() == base.length() - 1;
-        if (view.charAnimationManager.isEnabled() && atLineEnd) {
+        if (view.charAnimationConfig.isEnabled() && atLineEnd) {
           android.graphics.Paint p = view.highlightManager.getPaintForChar(view.cursorState.getCursorLine(), view.cursorState.getCursorChar(), base);
-          view.charAnimationManager.startDeleteAnimation(view.cursorState.getCursorLine(), view.cursorState.getCursorChar(), removed, p);
+          view.charAnimator.startDeleteAnimation(view.cursorState.getCursorLine(), view.cursorState.getCursorChar(), removed, p);
         }
         String modified = base.substring(0, view.cursorState.getCursorChar()) + base.substring(view.cursorState.getCursorChar() + 1);
         view.updateLocalLinePublic(localIdx, modified);

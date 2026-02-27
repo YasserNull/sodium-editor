@@ -105,7 +105,7 @@ public final class ScrollHandler {
         }
 
         if (view.popupMenuManager.isPopupVisible()) view.popupMenuManager.hidePopup();
-        view.cursorAnimationManager.resetCursorBlink();
+        view.cursorAnimator.resetCursorBlink();
         view.invalidate();
         return true;
     }

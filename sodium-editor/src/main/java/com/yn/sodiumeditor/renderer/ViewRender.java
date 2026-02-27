@@ -637,7 +637,7 @@ public final class ViewRender {
   private void clearSelectionStateAfterDelete() {
     view.selectionState.clearSelection();
     view.popupMenuManager.hidePopup();
-    view.cursorAnimationManager.resetCursorBlink();
+    view.cursorAnimator.resetCursorBlink();
   }
 
   private void applyMultiLineReplaceInWindowNow(
