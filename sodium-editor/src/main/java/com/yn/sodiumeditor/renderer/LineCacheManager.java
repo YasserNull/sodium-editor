@@ -172,8 +172,8 @@ public final class LineCacheManager {
         String safe = (line == null) ? "" : line;
         float w;
         int logicalLen = view.getLogicalLineLength(globalIndex, safe);
-        if (logicalLen > view.highlightManager.maxSyntaxLineLength) {
-            w = view.highlightManager.getAverageCharWidthForLine(safe, globalIndex) * logicalLen;
+        if (logicalLen > view.highlightState.maxSyntaxLineLength) {
+            w = view.highlightRenderer.getAverageCharWidthForLine(safe, globalIndex) * logicalLen;
         } else {
             w = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, safe, 0, safe.length(), view.paint);
         }

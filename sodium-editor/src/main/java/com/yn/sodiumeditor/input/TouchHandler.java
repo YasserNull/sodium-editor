@@ -227,11 +227,11 @@ public final class TouchHandler {
       view.zoomGestureHandler.onPointerDown();
       view.pointerDown = false;
       view.movedSinceDown = false;
-      view.handlesManager.stopDragging();
+      view.handleDragHandler.stopDragging();
       view.scrollManager.dragMaxScrollX = -1f;
       view.selectionState.setSelecting(false);
       view.selectionState.setLineNumberSelecting(false, -1);
-      view.handlesManager.stopAutoScroll();
+      view.handleDragHandler.stopAutoScroll();
       if (!view.scrollManager.scroller.isFinished()) {
         view.scrollManager.scroller.computeScrollOffset();
         view.scrollManager.scrollX = view.scrollManager.scroller.getCurrX();
@@ -260,10 +260,10 @@ public final class TouchHandler {
     if (view.zoomGestureHandler.hadMultiTouch()
         && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL)) {
       view.pointerDown = false;
-      view.handlesManager.stopDragging();
+      view.handleDragHandler.stopDragging();
       view.selectionState.setSelecting(false);
       view.selectionState.setLineNumberSelecting(false, -1);
-      view.handlesManager.stopAutoScroll();
+      view.handleDragHandler.stopAutoScroll();
       view.scrollManager.dragMaxScrollX = -1f;
       return true;
     }
@@ -314,9 +314,9 @@ public final class TouchHandler {
         float gx = ex + view.getEffectiveScrollX() - view.getTextStartX();
         float gy = ey + view.scrollManager.scrollY - view.scrollManager.getHitTestBaseY();
         int hitHandle =
-            view.handlesManager.hitTestHandle(gx, gy, view.selectionState.hasSelection(), view.isFocused());
-        if (hitHandle != HandlesManager.HANDLE_NONE) {
-          view.handlesManager.setDraggingHandle(hitHandle);
+            view.handleDragHandler.hitTestHandle(gx, gy, view.selectionState.hasSelection(), view.isFocused());
+        if (hitHandle != com.yn.sodiumeditor.state.HandleState.HANDLE_NONE) {
+          view.handleState.setDraggingHandle(hitHandle);
           return true;
         }
 
@@ -355,9 +355,9 @@ public final class TouchHandler {
           return true;
         }
 
-        if (view.handlesManager.isDragging()) {
-          view.handlesManager.onTouchMove(ex, ey);
-          view.handlesManager.handleDrag(ex, ey);
+        if (view.handleState.isDragging()) {
+          view.handleDragHandler.onTouchMove(ex, ey);
+          view.handleDragHandler.handleDrag(ex, ey);
           return true;
         }
 
@@ -365,7 +365,7 @@ public final class TouchHandler {
         return true;
 
       case MotionEvent.ACTION_UP:
-        view.handlesManager.stopAutoScroll();
+        view.handleDragHandler.stopAutoScroll();
         view.scrollManager.dragMaxScrollX = -1f;
 
         if (view.scrollManager.draggingScrollBar) {
@@ -439,13 +439,13 @@ public final class TouchHandler {
 
         view.pointerDown = false;
 
-        if (view.handlesManager.isDragging()) {
-          int draggingHandle = view.handlesManager.getDraggingHandle();
-          if (draggingHandle == HandlesManager.HANDLE_LEFT
-              || draggingHandle == HandlesManager.HANDLE_RIGHT) {
+        if (view.handleState.isDragging()) {
+          int draggingHandle = view.handleState.getDraggingHandle();
+          if (draggingHandle == com.yn.sodiumeditor.state.HandleState.HANDLE_LEFT
+              || draggingHandle == com.yn.sodiumeditor.state.HandleState.HANDLE_RIGHT) {
             view.popupMenuManager.showPopupAtSelection();
           }
-          view.handlesManager.stopDragging();
+          view.handleDragHandler.stopDragging();
           view.invalidate();
           return true;
         }
@@ -468,9 +468,9 @@ public final class TouchHandler {
         return true;
 
       case MotionEvent.ACTION_CANCEL:
-        view.handlesManager.stopAutoScroll();
+        view.handleDragHandler.stopAutoScroll();
         view.pointerDown = false;
-        view.handlesManager.stopDragging();
+        view.handleDragHandler.stopDragging();
         view.selectionState.setSelecting(false);
         view.selectionState.setLineNumberSelecting(false, -1);
         view.popupMenuManager.clearPressedAction();

@@ -61,7 +61,7 @@ public final class EditorOperations {
 
         if (oldWidth != null && oldWidth >= view.currentMaxWindowLineWidth)
           view.recalculateMaxLineWidthAsync();
-        view.highlightManager.clearHighlightCaches();
+        view.highlightState.clearHighlightCaches();
         view.cursorState.setCursorPosition(view.cursorState.getCursorLine() + 1, 0);
         view.history.addLineCountDelta(1);
 
@@ -76,7 +76,7 @@ public final class EditorOperations {
         String modified = base.substring(0, pos) + c + base.substring(pos);
         view.updateLocalLinePublic(localIdx, modified);
         view.modifiedLines.put(view.cursorState.getCursorLine(), modified);
-        view.highlightManager.invalidateHighlightCacheForLine(view.cursorState.getCursorLine());
+        view.highlightState.invalidateHighlightCacheForLine(view.cursorState.getCursorLine());
         view.cursorState.moveCharDelta(1);
         float newWidth =
             view.whitespaceGuideManager.measureTextWithVisualSpaces(
@@ -226,13 +226,13 @@ public final class EditorOperations {
         String removed = base.substring(safeStart, Math.min(view.cursorState.getCursorChar(), base.length()));
         boolean atLineEnd = view.cursorState.getCursorChar() >= base.length();
         if (view.charAnimationConfig.isEnabled() && atLineEnd) {
-          android.graphics.Paint p = view.highlightManager.getPaintForChar(view.cursorState.getCursorLine(), safeStart, base);
+          android.graphics.Paint p = view.highlightRenderer.getPaintForChar(view.cursorState.getCursorLine(), safeStart, base);
           view.charAnimator.startDeleteAnimation(view.cursorState.getCursorLine(), safeStart, removed, p);
         }
         String modified = base.substring(0, safeStart) + base.substring(view.cursorState.getCursorChar());
         view.updateLocalLinePublic(localIdx, modified);
         view.modifiedLines.put(view.cursorState.getCursorLine(), modified);
-        view.highlightManager.invalidateHighlightCacheForLine(view.cursorState.getCursorLine());
+        view.highlightState.invalidateHighlightCacheForLine(view.cursorState.getCursorLine());
         view.cursorState.setCursorChar(safeStart);
         view.computeWidthForLinePublic(view.cursorState.getCursorLine(), modified);
         if (oldWidth != null && oldWidth >= view.currentMaxWindowLineWidth)
@@ -267,7 +267,7 @@ public final class EditorOperations {
         String merged = prev + base;
         view.updateLocalLinePublic(prevLocal, merged);
         view.modifiedLines.put(prevGlobal, merged);
-        view.highlightManager.clearHighlightCaches();
+        view.highlightState.clearHighlightCaches();
 
         if (localIdx < view.linesWindow.size()) view.linesWindow.remove(localIdx);
 
@@ -335,7 +335,7 @@ public final class EditorOperations {
         String removed = base.substring(view.cursorState.getCursorChar(), Math.min(view.cursorState.getCursorChar() + 1, base.length()));
         boolean atLineEnd = view.cursorState.getCursorChar() == base.length() - 1;
         if (view.charAnimationConfig.isEnabled() && atLineEnd) {
-          android.graphics.Paint p = view.highlightManager.getPaintForChar(view.cursorState.getCursorLine(), view.cursorState.getCursorChar(), base);
+          android.graphics.Paint p = view.highlightRenderer.getPaintForChar(view.cursorState.getCursorLine(), view.cursorState.getCursorChar(), base);
           view.charAnimator.startDeleteAnimation(view.cursorState.getCursorLine(), view.cursorState.getCursorChar(), removed, p);
         }
         String modified = base.substring(0, view.cursorState.getCursorChar()) + base.substring(view.cursorState.getCursorChar() + 1);

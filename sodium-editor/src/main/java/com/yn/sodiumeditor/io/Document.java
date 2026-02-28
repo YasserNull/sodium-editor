@@ -297,7 +297,7 @@ public class Document {
             view.lineWidthCache.clear();
         }
         view.clearStreamedLineCaches();
-        view.highlightManager.clearHighlightCaches();
+        view.highlightState.clearHighlightCaches();
         view.currentMaxWindowLineWidth = 0f;
         view.globalMaxLineWidth = 0f;
         view.scrollManager.maxLineWidthForScroll = 0f;
@@ -392,7 +392,7 @@ public class Document {
             view.lineWidthCache.clear();
         }
         view.clearStreamedLineCaches();
-        view.highlightManager.clearHighlightCaches();
+        view.highlightState.clearHighlightCaches();
         view.currentMaxWindowLineWidth = 0f;
         view.globalMaxLineWidth = 0f;
         view.scrollManager.maxLineWidthForScroll = 0f;

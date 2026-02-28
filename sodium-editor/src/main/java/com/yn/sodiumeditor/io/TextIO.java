@@ -463,7 +463,7 @@ public class TextIO {
     }
 
     private int getStreamLineThreshold() {
-        return Math.max(4096, view.highlightManager.maxSyntaxLineLength);
+        return Math.max(4096, view.highlightState.maxSyntaxLineLength);
     }
 
     public int getLogicalLineLength(int globalLine, String line) {

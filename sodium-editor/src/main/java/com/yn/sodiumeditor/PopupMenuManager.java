@@ -575,7 +575,7 @@ public final class PopupMenuManager {
     int safeChar = Math.max(0, Math.min(ch, view.getLogicalLineLength(globalLine, line)));
     if (!view.wrapWordState.isWordWrapEnabled) {
       return view.getTextStartX()
-          + view.highlightManager.measureText(line, safeChar, globalLine)
+          + view.highlightRenderer.measureText(line, safeChar, globalLine)
           - view.getEffectiveScrollX();
     }
     int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, globalLine, line, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.paint);

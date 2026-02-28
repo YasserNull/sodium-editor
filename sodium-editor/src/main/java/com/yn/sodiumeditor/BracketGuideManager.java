@@ -99,7 +99,7 @@ public final class BracketGuideManager {
       return;
     }
 
-    HighlightManager.HighlightLineState hlState = view.highlightManager.getLineStateAtStart(start);
+    com.yn.sodiumeditor.state.HighlightLineState hlState = view.highlightState.getLineStateAtStart(start);
     BracketGuideLineState guideStart =
         new BracketGuideLineState(hlState.inBlockComment, hlState.stringState);
     boolean guideBlock = guideStart.inBlockComment && view.isBlockCommentsEnabledForBracket();
@@ -193,7 +193,7 @@ public final class BracketGuideManager {
       if (inLineComment) break;
 
       if (state.inBlockComment) {
-        int end = HighlightManager.findBlockCommentEnd(line, i);
+        int end = com.yn.sodiumeditor.core.HighlightParser.findBlockCommentEnd(line, i);
         if (end < 0) return tokensToDraw;
         i = end + 2;
         state.inBlockComment = false;
@@ -201,15 +201,15 @@ public final class BracketGuideManager {
       }
 
       if (state.stringState != 0) {
-        HighlightManager.StringEndResult endResult =
-            view.highlightManager.findStringEndForState(line, i, state.stringState);
+        com.yn.sodiumeditor.core.HighlightParser.StringEndResult endResult =
+            view.highlightParser.findStringEndForState(line, i, state.stringState);
         if (!endResult.found) return tokensToDraw;
         i = endResult.endIndex;
         state.stringState = 0;
         continue;
       }
 
-      if (view.highlightManager.isLineCommentStart(line, i)) {
+      if (view.highlightState.isLineCommentStart(line, i)) {
         inLineComment = true;
         break;
       }
@@ -218,8 +218,8 @@ public final class BracketGuideManager {
           && i + 1 < length
           && line.charAt(i) == '/'
           && line.charAt(i + 1) == '*'
-          && !HighlightManager.isTokenEscaped(line, i)) {
-        int end = HighlightManager.findBlockCommentEnd(line, i + 2);
+          && !com.yn.sodiumeditor.core.HighlightParser.isTokenEscaped(line, i)) {
+        int end = com.yn.sodiumeditor.core.HighlightParser.findBlockCommentEnd(line, i + 2);
         if (end < 0) {
           state.inBlockComment = true;
           return tokensToDraw;
@@ -228,8 +228,8 @@ public final class BracketGuideManager {
         continue;
       }
 
-      if (view.highlightManager.isTripleQuoteStart(line, i) && !HighlightManager.isEscaped(line, i)) {
-        int end = HighlightManager.findTripleQuoteEnd(line, i + 3);
+      if (view.highlightState.isTripleQuoteStringsEnabled && line.startsWith(line, i) && !com.yn.sodiumeditor.core.HighlightParser.isEscaped(line, i)) {
+        int end = com.yn.sodiumeditor.core.HighlightParser.findTripleQuoteEnd(line, i + 3);
         if (end < 0) {
           if (view.isTripleQuoteStringsEnabledForBracket()) {
             state.stringState = view.getStringStateTripleForBracket();
@@ -241,11 +241,11 @@ public final class BracketGuideManager {
       }
 
       char c = line.charAt(i);
-      if (view.highlightManager.isStringDelimiter(c) && !HighlightManager.isEscaped(line, i)) {
-        int end = HighlightManager.findStringEnd(line, i + 1, c);
+      if (view.highlightState.isStringDelimiter(c) && !com.yn.sodiumeditor.core.HighlightParser.isEscaped(line, i)) {
+        int end = com.yn.sodiumeditor.core.HighlightParser.findStringEnd(line, i + 1, c);
         if (end < 0) {
           if (view.isMultiLineStringsEnabledForBracket()) {
-            state.stringState = view.highlightManager.getStringStateForDelimiter(c);
+            state.stringState = view.highlightState.getStringStateForDelimiter(c);
           }
           return tokensToDraw;
         }
@@ -253,7 +253,7 @@ public final class BracketGuideManager {
         continue;
       }
 
-      if ((c == '{' || c == '}') && !HighlightManager.isEscaped(line, i)) {
+      if ((c == '{' || c == '}') && !com.yn.sodiumeditor.core.HighlightParser.isEscaped(line, i)) {
         if (c == '{') {
           int column = view.getBraceGuideColumnForLineForBracket(line, globalLine, i, firstNonSpace);
           float x = getGuideXForColumn(line, column, globalLine);
@@ -284,7 +284,7 @@ public final class BracketGuideManager {
       if (inLineComment) break;
 
       if (state.inBlockComment) {
-        int end = HighlightManager.findBlockCommentEnd(line, i);
+        int end = com.yn.sodiumeditor.core.HighlightParser.findBlockCommentEnd(line, i);
         if (end < 0) return;
         i = end + 2;
         state.inBlockComment = false;
@@ -292,15 +292,15 @@ public final class BracketGuideManager {
       }
 
       if (state.stringState != 0) {
-        HighlightManager.StringEndResult endResult =
-            view.highlightManager.findStringEndForState(line, i, state.stringState);
+        com.yn.sodiumeditor.core.HighlightParser.StringEndResult endResult =
+            view.highlightParser.findStringEndForState(line, i, state.stringState);
         if (!endResult.found) return;
         i = endResult.endIndex;
         state.stringState = 0;
         continue;
       }
 
-      if (view.highlightManager.isLineCommentStart(line, i)) {
+      if (view.highlightState.isLineCommentStart(line, i)) {
         inLineComment = true;
         break;
       }
@@ -309,8 +309,8 @@ public final class BracketGuideManager {
           && i + 1 < length
           && line.charAt(i) == '/'
           && line.charAt(i + 1) == '*'
-          && !HighlightManager.isTokenEscaped(line, i)) {
-        int end = HighlightManager.findBlockCommentEnd(line, i + 2);
+          && !com.yn.sodiumeditor.core.HighlightParser.isTokenEscaped(line, i)) {
+        int end = com.yn.sodiumeditor.core.HighlightParser.findBlockCommentEnd(line, i + 2);
         if (end < 0) {
           state.inBlockComment = true;
           return;
@@ -319,8 +319,8 @@ public final class BracketGuideManager {
         continue;
       }
 
-      if (view.highlightManager.isTripleQuoteStart(line, i) && !HighlightManager.isEscaped(line, i)) {
-        int end = HighlightManager.findTripleQuoteEnd(line, i + 3);
+      if (view.highlightState.isTripleQuoteStringsEnabled && line.startsWith(line, i) && !com.yn.sodiumeditor.core.HighlightParser.isEscaped(line, i)) {
+        int end = com.yn.sodiumeditor.core.HighlightParser.findTripleQuoteEnd(line, i + 3);
         if (end < 0) {
           if (view.isTripleQuoteStringsEnabledForBracket()) {
             state.stringState = view.getStringStateTripleForBracket();
@@ -332,11 +332,11 @@ public final class BracketGuideManager {
       }
 
       char c = line.charAt(i);
-      if (view.highlightManager.isStringDelimiter(c) && !HighlightManager.isEscaped(line, i)) {
-        int end = HighlightManager.findStringEnd(line, i + 1, c);
+      if (view.highlightState.isStringDelimiter(c) && !com.yn.sodiumeditor.core.HighlightParser.isEscaped(line, i)) {
+        int end = com.yn.sodiumeditor.core.HighlightParser.findStringEnd(line, i + 1, c);
         if (end < 0) {
           if (view.isMultiLineStringsEnabledForBracket()) {
-            state.stringState = view.highlightManager.getStringStateForDelimiter(c);
+            state.stringState = view.highlightState.getStringStateForDelimiter(c);
           }
           return;
         }
@@ -344,7 +344,7 @@ public final class BracketGuideManager {
         continue;
       }
 
-      if ((c == '{' || c == '}') && !HighlightManager.isEscaped(line, i)) {
+      if ((c == '{' || c == '}') && !com.yn.sodiumeditor.core.HighlightParser.isEscaped(line, i)) {
         if (c == '{') {
           int column = view.getBraceGuideColumnForLineForBracket(line, globalLine, i, firstNonSpace);
           float x = getGuideXForColumn(line, column, globalLine);
@@ -374,7 +374,7 @@ public final class BracketGuideManager {
     h = 31 * h + (view.isMultiLineStringsEnabledForBracket() ? 1 : 0);
     h = 31 * h + (view.isBacktickStringsEnabledForBracket() ? 1 : 0);
     h = 31 * h + (view.isTripleQuoteStringsEnabledForBracket() ? 1 : 0);
-    List<String> delimiters = view.highlightManager.lineCommentDelimiters;
+    List<String> delimiters = view.highlightState.lineCommentDelimiters;
     for (int i = 0; i < delimiters.size(); i++) {
       h = 31 * h + delimiters.get(i).hashCode();
     }
@@ -388,9 +388,9 @@ public final class BracketGuideManager {
   private float getGuideXForColumn(String line, int column, int globalLine) {
     if (line == null) line = "";
     if (column <= line.length()) {
-      return view.highlightManager.measureText(line, column, globalLine);
+      return view.highlightRenderer.measureText(line, column, globalLine);
     }
-    float base = view.highlightManager.measureText(line, line.length(), globalLine);
+    float base = view.highlightRenderer.measureText(line, line.length(), globalLine);
     float spaceWidth = view.whitespaceGuideManager.getVisualSpaceWidth(view.paint);
     return base + spaceWidth * (column - line.length());
   }
@@ -399,11 +399,11 @@ public final class BracketGuideManager {
     if (line == null || line.isEmpty()) return true;
     if (x <= 0f) return Character.isWhitespace(line.charAt(0));
 
-    List<HighlightManager.HighlightSpan> spans =
-        view.highlightManager.highlightCache.get(globalLine);
+    List<com.yn.sodiumeditor.state.HighlightSpan> spans =
+        view.highlightState.highlightCache.get(globalLine);
     if (spans == null) {
-      spans = view.highlightManager.calculateSpansForLine(line, globalLine);
-      view.highlightManager.highlightCache.put(globalLine, spans);
+      spans = view.highlightRenderer.calculateSpansForLine(line, globalLine);
+      view.highlightState.highlightCache.put(globalLine, spans);
     }
 
     final int len = line.length();
@@ -413,7 +413,7 @@ public final class BracketGuideManager {
 
     int pos = 0;
     if (spans != null && !spans.isEmpty()) {
-      for (HighlightManager.HighlightSpan span : spans) {
+      for (com.yn.sodiumeditor.state.HighlightSpan span : spans) {
         if (pos >= len) break;
         if (span.end <= pos) continue;
         if (span.start > pos) {

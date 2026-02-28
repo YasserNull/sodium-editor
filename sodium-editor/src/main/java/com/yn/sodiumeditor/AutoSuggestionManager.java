@@ -312,13 +312,13 @@ public final class AutoSuggestionManager {
     }
 
     // Prevent suggestions inside syntax highlighting (expensive).
-    List<HighlightManager.HighlightSpan> spans =
-        view.highlightManager.highlightCache.get(view.cursorState.getCursorLine());
+    List<com.yn.sodiumeditor.state.HighlightSpan> spans =
+        view.highlightState.highlightCache.get(view.cursorState.getCursorLine());
     if (spans == null) {
-      spans = view.highlightManager.calculateSpansForLine(line, view.cursorState.getCursorLine());
-      view.highlightManager.highlightCache.put(view.cursorState.getCursorLine(), spans);
+      spans = view.highlightRenderer.calculateSpansForLine(line, view.cursorState.getCursorLine());
+      view.highlightState.highlightCache.put(view.cursorState.getCursorLine(), spans);
     }
-    for (HighlightManager.HighlightSpan span : spans) {
+    for (com.yn.sodiumeditor.state.HighlightSpan span : spans) {
       if (view.cursorState.getCursorChar() > span.start
           && view.cursorState.getCursorChar() <= span.end) {
         clearActiveSuggestion();

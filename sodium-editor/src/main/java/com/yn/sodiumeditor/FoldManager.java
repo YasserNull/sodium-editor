@@ -248,12 +248,12 @@ public final class FoldManager {
       prefixEnd = Math.min(range.openCharIndex + 1, line.length());
     }
 
-    float xStart = view.highlightManager.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
+    float xStart = view.highlightRenderer.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
     float placeholderWidth = Math.max(0f, view.paint.measureText(SodiumEditorView.FOLD_PLACEHOLDER_TEXT));
     foldPlaceholderRect.set(xStart, top, xStart + placeholderWidth, bottom);
     canvas.drawRoundRect(foldPlaceholderRect, foldPlaceholderCorner, foldPlaceholderCorner, foldPlaceholderPaint);
 
-    view.highlightManager.drawHighlightedSegment(canvas, line, globalLine, 0, prefixEnd, 0f, y);
+    view.highlightRenderer.drawHighlightedSegment(canvas, line, globalLine, 0, prefixEnd, 0f, y);
 
     view.paint.setUnderlineText(false);
     canvas.drawText(SodiumEditorView.FOLD_PLACEHOLDER_TEXT, xStart, y, view.paint);
@@ -261,8 +261,8 @@ public final class FoldManager {
     float xAfter = xStart + placeholderWidth;
     if (range.isBlockComment) {
       android.graphics.Paint commentPaint =
-          (view.highlightManager.blockCommentHighlightRule != null)
-              ? view.highlightManager.blockCommentHighlightRule.paint
+          (view.highlightState.blockCommentHighlightRule != null)
+              ? view.highlightState.blockCommentHighlightRule.paint
               : view.paint;
       commentPaint.setUnderlineText(false);
       canvas.drawText("*/", xAfter, y, commentPaint);
@@ -285,7 +285,7 @@ public final class FoldManager {
     } else {
       prefixEnd = Math.min(range.openCharIndex + 1, line.length());
     }
-    float xStart = view.highlightManager.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
+    float xStart = view.highlightRenderer.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
     float placeholderWidth = Math.max(0f, view.paint.measureText(SodiumEditorView.FOLD_PLACEHOLDER_TEXT));
     float pad = Math.max(0f, foldPlaceholderPadX);
     float left = xStart - pad;
@@ -410,17 +410,17 @@ public final class FoldManager {
       String ln = getLineTextForFoldScan(line, raf);
       if (ln == null) return null;
 
-      HighlightManager.HighlightLineState startState = view.highlightManager.getLineStateAtStart(line);
+      com.yn.sodiumeditor.state.HighlightLineState startState = view.highlightState.getLineStateAtStart(line);
       boolean inBlockComment =
           startState.inBlockComment && view.isBlockCommentsEnabled;
       int stringState = startState.stringState;
       if (!view.isBlockCommentsEnabled) inBlockComment = false;
       if (!view.isMultiLineStringsEnabled
-          && stringState != HighlightManager.STRING_STATE_TRIPLE) stringState = 0;
+          && stringState != com.yn.sodiumeditor.state.HighlightState.STRING_STATE_TRIPLE) stringState = 0;
       if (!view.isBacktickStringsEnabled
-          && stringState == HighlightManager.STRING_STATE_BACKTICK) stringState = 0;
+          && stringState == com.yn.sodiumeditor.state.HighlightState.STRING_STATE_BACKTICK) stringState = 0;
       if (!view.isTripleQuoteStringsEnabled
-          && stringState == HighlightManager.STRING_STATE_TRIPLE) stringState = 0;
+          && stringState == com.yn.sodiumeditor.state.HighlightState.STRING_STATE_TRIPLE) stringState = 0;
 
       if (inBlockComment || stringState != 0) return null;
 
@@ -534,7 +534,7 @@ public final class FoldManager {
       if (inLineComment) break;
 
       if (inBlockComment) {
-        int end = HighlightManager.findBlockCommentEnd(line, i);
+        int end = com.yn.sodiumeditor.core.HighlightParser.findBlockCommentEnd(line, i);
         if (end < 0) return null;
         i = end + 2;
         inBlockComment = false;
@@ -542,15 +542,15 @@ public final class FoldManager {
       }
 
       if (stringState != 0) {
-        HighlightManager.StringEndResult endResult =
-            view.highlightManager.findStringEndForState(line, i, stringState);
+        com.yn.sodiumeditor.core.HighlightParser.StringEndResult endResult =
+            view.highlightParser.findStringEndForState(line, i, stringState);
         if (!endResult.found) return null;
         i = endResult.endIndex;
         stringState = 0;
         continue;
       }
 
-      if (view.highlightManager.isLineCommentStart(line, i)) {
+      if (view.highlightState.isLineCommentStart(line, i)) {
         inLineComment = true;
         break;
       }
@@ -559,33 +559,33 @@ public final class FoldManager {
           && i + 1 < len
           && line.charAt(i) == '/'
           && line.charAt(i + 1) == '*'
-          && !HighlightManager.isTokenEscaped(line, i)) {
+          && !com.yn.sodiumeditor.core.HighlightParser.isTokenEscaped(line, i)) {
         return new FoldToken(i, true, '/');
       }
 
-      if (view.highlightManager.isTripleQuoteStart(line, i) && !HighlightManager.isEscaped(line, i)) {
-        int end = HighlightManager.findTripleQuoteEnd(line, i + 3);
+      if (view.highlightState.isTripleQuoteStringsEnabled && line.startsWith(line, i) && !com.yn.sodiumeditor.core.HighlightParser.isEscaped(line, i)) {
+        int end = com.yn.sodiumeditor.core.HighlightParser.findTripleQuoteEnd(line, i + 3);
         if (end < 0) return null;
         i = end + 3;
         continue;
       }
 
       char c = line.charAt(i);
-      if (view.highlightManager.isStringDelimiter(c) && !HighlightManager.isEscaped(line, i)) {
-        int end = HighlightManager.findStringEnd(line, i + 1, c);
+      if (view.highlightState.isStringDelimiter(c) && !com.yn.sodiumeditor.core.HighlightParser.isEscaped(line, i)) {
+        int end = com.yn.sodiumeditor.core.HighlightParser.findStringEnd(line, i + 1, c);
         if (end < 0) return null;
         i = end + 1;
         continue;
       }
 
-      if (BracketMatchManager.isOpeningBracket(c) && !HighlightManager.isEscaped(line, i)) {
+      if (BracketMatchManager.isOpeningBracket(c) && !com.yn.sodiumeditor.core.HighlightParser.isEscaped(line, i)) {
         if (c == '{') return new FoldToken(i, false, c);
       }
       i++;
     }
     for (int j = Math.max(0, startIndex); j < len; j++) {
       char c = line.charAt(j);
-      if ((c == '(' || c == '[') && !HighlightManager.isEscaped(line, j)) {
+      if ((c == '(' || c == '[') && !com.yn.sodiumeditor.core.HighlightParser.isEscaped(line, j)) {
         return new FoldToken(j, false, c);
       }
     }
@@ -605,7 +605,7 @@ public final class FoldManager {
       String text = getLineTextForFoldScan(line, raf);
       if (text == null) break;
       int from = (line == startLine) ? Math.min(startIndex + 2, text.length()) : 0;
-      int end = HighlightManager.findBlockCommentEnd(text, from);
+      int end = com.yn.sodiumeditor.core.HighlightParser.findBlockCommentEnd(text, from);
       if (end >= 0) return line;
     }
     return -1;
@@ -620,17 +620,17 @@ public final class FoldManager {
               startLine + 1,
               view.windowStartLine + view.linesWindow.size());
 
-    HighlightManager.HighlightLineState startState = view.highlightManager.getLineStateAtStart(startLine);
+    com.yn.sodiumeditor.state.HighlightLineState startState = view.highlightState.getLineStateAtStart(startLine);
     boolean inBlockComment =
         startState.inBlockComment && view.isBlockCommentsEnabled;
     int stringState = startState.stringState;
     if (!view.isBlockCommentsEnabled) inBlockComment = false;
     if (!view.isMultiLineStringsEnabled
-        && stringState != HighlightManager.STRING_STATE_TRIPLE) stringState = 0;
+        && stringState != com.yn.sodiumeditor.state.HighlightState.STRING_STATE_TRIPLE) stringState = 0;
     if (!view.isBacktickStringsEnabled
-        && stringState == HighlightManager.STRING_STATE_BACKTICK) stringState = 0;
+        && stringState == com.yn.sodiumeditor.state.HighlightState.STRING_STATE_BACKTICK) stringState = 0;
     if (!view.isTripleQuoteStringsEnabled
-        && stringState == HighlightManager.STRING_STATE_TRIPLE) stringState = 0;
+        && stringState == com.yn.sodiumeditor.state.HighlightState.STRING_STATE_TRIPLE) stringState = 0;
 
     if (inBlockComment || stringState != 0) return null;
 
@@ -648,7 +648,7 @@ public final class FoldManager {
         if (inLineComment) break;
 
         if (inBlockComment) {
-          int end = HighlightManager.findBlockCommentEnd(text, i);
+          int end = com.yn.sodiumeditor.core.HighlightParser.findBlockCommentEnd(text, i);
           if (end < 0) break;
           i = end + 2;
           inBlockComment = false;
@@ -656,15 +656,15 @@ public final class FoldManager {
         }
 
         if (stringState != 0) {
-          HighlightManager.StringEndResult endResult =
-              view.highlightManager.findStringEndForState(text, i, stringState);
+          com.yn.sodiumeditor.core.HighlightParser.StringEndResult endResult =
+              view.highlightParser.findStringEndForState(text, i, stringState);
           if (!endResult.found) return null;
           i = endResult.endIndex;
           stringState = 0;
           continue;
         }
 
-        if (view.highlightManager.isLineCommentStart(text, i)) {
+        if (view.highlightState.isLineCommentStart(text, i)) {
           inLineComment = true;
           continue;
         }
@@ -673,33 +673,33 @@ public final class FoldManager {
             && i + 1 < len
             && text.charAt(i) == '/'
             && text.charAt(i + 1) == '*'
-            && !HighlightManager.isTokenEscaped(text, i)) {
+            && !com.yn.sodiumeditor.core.HighlightParser.isTokenEscaped(text, i)) {
           inBlockComment = true;
           i += 2;
           continue;
         }
 
-        if (view.highlightManager.isTripleQuoteStart(text, i) && !HighlightManager.isEscaped(text, i)) {
-          int end = HighlightManager.findTripleQuoteEnd(text, i + 3);
+        if (view.highlightState.isTripleQuoteStringsEnabled && text.startsWith("\"\"\"", i) && !com.yn.sodiumeditor.core.HighlightParser.isEscaped(text, i)) {
+          int end = com.yn.sodiumeditor.core.HighlightParser.findTripleQuoteEnd(text, i + 3);
           if (end < 0) return null;
           i = end + 3;
           continue;
         }
 
         char c = text.charAt(i);
-        if (view.highlightManager.isStringDelimiter(c) && !HighlightManager.isEscaped(text, i)) {
-          int end = HighlightManager.findStringEnd(text, i + 1, c);
+        if (view.highlightState.isStringDelimiter(c) && !com.yn.sodiumeditor.core.HighlightParser.isEscaped(text, i)) {
+          int end = com.yn.sodiumeditor.core.HighlightParser.findStringEnd(text, i + 1, c);
           if (end < 0) return null;
           i = end + 1;
           continue;
         }
 
-        if (c == openChar && !HighlightManager.isEscaped(text, i)) {
+        if (c == openChar && !com.yn.sodiumeditor.core.HighlightParser.isEscaped(text, i)) {
           depth++;
           i++;
           continue;
         }
-        if (c == closeChar && !HighlightManager.isEscaped(text, i)) {
+        if (c == closeChar && !com.yn.sodiumeditor.core.HighlightParser.isEscaped(text, i)) {
           depth--;
           if (depth == 0) return new FoldMatch(line, closeChar);
         }

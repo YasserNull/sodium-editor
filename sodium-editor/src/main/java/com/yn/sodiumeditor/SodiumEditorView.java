@@ -209,7 +209,10 @@ public class SodiumEditorView extends View {
 
   public final WhitespaceGuideManager whitespaceGuideManager = new WhitespaceGuideManager();
 
-  public final HandlesManager handlesManager = new HandlesManager(this);
+  // Handle components
+  public final com.yn.sodiumeditor.state.HandleState handleState = new com.yn.sodiumeditor.state.HandleState();
+  public com.yn.sodiumeditor.renderer.HandleRenderer handleRenderer;
+  public com.yn.sodiumeditor.input.HandleDragHandler handleDragHandler;
   
   // Cursor Components
   public final com.yn.sodiumeditor.config.CursorConfig cursorConfig = new com.yn.sodiumeditor.config.CursorConfig();
@@ -225,8 +228,15 @@ public class SodiumEditorView extends View {
   public com.yn.sodiumeditor.input.SelectionHandler selectionHandler;
   public com.yn.sodiumeditor.renderer.SelectionRenderer selectionRenderer;
   public final com.yn.sodiumeditor.state.SelectionState selectionState = new com.yn.sodiumeditor.state.SelectionState();
+
+  // Highlight components
+  public final com.yn.sodiumeditor.state.HighlightState highlightState = new com.yn.sodiumeditor.state.HighlightState();
+  public com.yn.sodiumeditor.core.HighlightParser highlightParser;
+  public com.yn.sodiumeditor.renderer.HighlightRenderer highlightRenderer;
+  public com.yn.sodiumeditor.renderer.UrlUnderlineRenderer urlUnderlineRenderer;
+  public com.yn.sodiumeditor.renderer.PathUnderlineRenderer pathUnderlineRenderer;
+  public com.yn.sodiumeditor.renderer.ErrorUnderlineRenderer errorUnderlineRenderer;
   
-  public final HighlightManager highlightManager = new HighlightManager(this);
   public final LineNumberManager lineNumberManager = new LineNumberManager(this);
   public final BracketGuideManager bracketGuideManager = new BracketGuideManager(this);
   public final BracketMatchManager bracketMatchManager = new BracketMatchManager(this);
@@ -240,7 +250,7 @@ public class SodiumEditorView extends View {
   @Nullable public Bitmap editorBackgroundBitmap = null;
   public final Rect editorBackgroundDst = new Rect();
 
-  // handle dragging edge flags moved to HandlesManager
+  // handle dragging edge flags moved to HandleDragHandler
 
   // Drawing base to avoid float precision issues on very large line indices.
   // During onDraw, we render everything relative to the first visible line.
@@ -256,7 +266,7 @@ public class SodiumEditorView extends View {
 
 
 
-  // dragging handle state moved to HandlesManager
+  // dragging handle state moved to HandleState
   public volatile boolean isWindowLoading = false;
 
   public boolean isDisabled = false;
@@ -307,6 +317,7 @@ public class SodiumEditorView extends View {
       };
 
   final int[] visibleCharRangeTmp = new int[2];
+  public final int[] visibleCharRangeTmpForRender = new int[2];
   public int visibleCharPadding = 2;
   private boolean isPerformanceModeEnabled = false;
   public boolean isStableGlyphPositionsEnabled = false;
@@ -349,10 +360,20 @@ public class SodiumEditorView extends View {
     paint.setUnderlineText(false); // Explicitly disable underlines to fix visual artifact
     baseTypeface = (paint.getTypeface() != null) ? paint.getTypeface() : Typeface.DEFAULT;
     lineHeight = paint.getFontSpacing();
-    handlesManager.initBaseHandleTextSize(paint.getTextSize());
     baseCursorTextSizePx = paint.getTextSize();
     indentGuideManager = new IndentGuideManager(this, paint);
-    bracketMatchManager.setColor(handlesManager.getCursorAndHandlesColor());
+    
+    // Initialize Handle components
+    handleRenderer = new com.yn.sodiumeditor.renderer.HandleRenderer();
+    handleDragHandler = new com.yn.sodiumeditor.input.HandleDragHandler(this, handleState, mainHandler);
+
+    // Initialize Highlight components
+    highlightParser = new com.yn.sodiumeditor.core.HighlightParser(new HighlightParserCallbackImpl());
+    highlightRenderer = new com.yn.sodiumeditor.renderer.HighlightRenderer(this, highlightState, highlightParser);
+    urlUnderlineRenderer = new com.yn.sodiumeditor.renderer.UrlUnderlineRenderer(this, highlightState);
+    pathUnderlineRenderer = new com.yn.sodiumeditor.renderer.PathUnderlineRenderer(this, highlightState);
+    errorUnderlineRenderer = new com.yn.sodiumeditor.renderer.ErrorUnderlineRenderer(this, highlightState);
+
     bracketMatchManager.setBaseTextSizePx(paint.getTextSize());
     bracketGuideManager.setBaseTextSizePx(paint.getTextSize());
     whitespaceGuideManager.initPaints(0xFF555555);
@@ -466,7 +487,7 @@ public class SodiumEditorView extends View {
 
     autoSuggestionManager.initPaints(paint);
 
-    highlightManager.setPathUnderliningEnabled(true); // Enable path underlining by default
+    pathUnderlineRenderer.setPathUnderliningEnabled(true); // Enable path underlining by default
   }
 
   // --- Public APIs for Auto Completion ---
@@ -511,9 +532,9 @@ public class SodiumEditorView extends View {
     if (this.isPerformanceModeEnabled == enabled) return;
     this.isPerformanceModeEnabled = enabled;
     if (enabled) {
-      highlightManager.setUrlUnderliningEnabled(false);
-      highlightManager.setPathUnderliningEnabled(false);
-      highlightManager.isColorHighlightingEnabled = false;
+      urlUnderlineRenderer.setUrlUnderliningEnabled(false);
+      pathUnderlineRenderer.setPathUnderliningEnabled(false);
+      highlightState.isColorHighlightingEnabled = false;
       bracketMatchManager.setBracketMatchingEnabled(this, false);
       bracketGuideManager.setBracketGuidesEnabled(this, false);
       indentGuideManager.setIndentGuidesEnabled(false);
@@ -522,7 +543,7 @@ public class SodiumEditorView extends View {
       autoSuggestionManager.setAutoCompletionEnabled(false);
       autoSuggestionManager.setAutoPathCompletionEnabled(false);
       charAnimationConfig.setEnabled(false);
-      highlightManager.setHighlightCurrentLine(false);
+      highlightState.setHighlightCurrentLine(false);
       setIndentationBlocksEnabled(false);
       foldManager.setCodeFoldingEnabled(false);
     }
@@ -669,7 +690,7 @@ public class SodiumEditorView extends View {
   }
 
   public void setMaxSyntaxLineLength(int maxChars) {
-    highlightManager.setMaxSyntaxLineLength(maxChars);
+    highlightState.setMaxSyntaxLineLength(maxChars);
   }
 
   public void setPrefetchCols(int cols) {
@@ -710,8 +731,8 @@ public class SodiumEditorView extends View {
   }
 
   public void setCursorWidth(float width) {
-    if (handlesManager.getBaseCursorWidthPx() == width && baseCursorTextSizePx == paint.getTextSize()) return;
-    handlesManager.setBaseCursorWidthPx(width);
+    if (handleRenderer.getBaseCursorWidthPx() == width && baseCursorTextSizePx == paint.getTextSize()) return;
+    handleRenderer.setBaseCursorWidthPx(width);
     this.baseCursorTextSizePx = paint.getTextSize();
     updateTextSizeDependentMetrics();
     invalidate();
@@ -788,7 +809,7 @@ public class SodiumEditorView extends View {
 
 
   public void setBacktickStringsEnabled(boolean enabled) {
-    highlightManager.setBacktickStringsEnabled(enabled);
+    highlightState.setBacktickStringsEnabled(enabled);
   }
 
 
@@ -895,15 +916,15 @@ public class SodiumEditorView extends View {
 
   void updateTextSizeDependentMetrics() {
     float sizePx = paint.getTextSize();
-    handlesManager.setHandleRadius(
+    handleRenderer.setHandleRadius(
         Math.max(
             4f,
             scaleByTextSize(
-                handlesManager.getBaseHandleRadiusPx(),
-                handlesManager.getBaseHandleTextSizePx(),
+                handleRenderer.getBaseHandleRadiusPx(),
+                baseCursorTextSizePx,
                 sizePx)));
-    handlesManager.setCursorWidth(
-        Math.max(1f, scaleByTextSize(handlesManager.getBaseCursorWidthPx(), baseCursorTextSizePx, sizePx)));
+    handleRenderer.setCursorWidth(
+        Math.max(1f, scaleByTextSize(handleRenderer.getBaseCursorWidthPx(), baseCursorTextSizePx, sizePx)));
 
     bracketMatchManager.applyScaledStrokeWidth(
         Math.max(1f, scaleByTextSize(bracketMatchManager.getBaseStrokeWidth(), bracketMatchManager.getBaseTextSizePx(), sizePx)));
@@ -931,12 +952,12 @@ public class SodiumEditorView extends View {
     updateWhitespaceGuideMetrics();
     lineNumberManager.invalidateCache();
 
-    for (HighlightManager.HighlightRule rule : highlightManager.highlightRules) {
+    for (com.yn.sodiumeditor.core.HighlightRule rule : highlightState.highlightRules) {
       rule.updateTextSize(sizePx);
     }
     whitespaceGuideManager.updateRuleTextSize(sizePx);
-    if (highlightManager.lineCommentHighlightRule != null) highlightManager.lineCommentHighlightRule.updateTextSize(sizePx);
-    highlightManager.clearHighlightCaches();
+    if (highlightState.lineCommentHighlightRule != null) highlightState.lineCommentHighlightRule.updateTextSize(sizePx);
+    highlightState.clearHighlightCaches();
 
     // Invalidate caches and approximate new max width
     synchronized (lineWidthCache) {
@@ -982,7 +1003,7 @@ public class SodiumEditorView extends View {
   }
 
   float measureTextForSearch(String line, int ch, int globalLine) {
-    return highlightManager.measureText(line, ch, globalLine);
+    return highlightRenderer.measureText(line, ch, globalLine);
   }
 
   float measureTextWithVisualSpacesForSearch(String line, int start, int end) {
@@ -1059,11 +1080,11 @@ public class SodiumEditorView extends View {
   }
 
   int getStringStateTripleForMatch() {
-    return HighlightManager.STRING_STATE_TRIPLE;
+    return com.yn.sodiumeditor.state.HighlightState.STRING_STATE_TRIPLE;
   }
 
   int getStringStateBacktickForMatch() {
-    return HighlightManager.STRING_STATE_BACKTICK;
+    return com.yn.sodiumeditor.state.HighlightState.STRING_STATE_BACKTICK;
   }
 
 
@@ -1102,11 +1123,11 @@ public class SodiumEditorView extends View {
   }
 
   int getStringStateTripleForBracket() {
-    return HighlightManager.STRING_STATE_TRIPLE;
+    return com.yn.sodiumeditor.state.HighlightState.STRING_STATE_TRIPLE;
   }
 
   int getStringStateBacktickForBracket() {
-    return HighlightManager.STRING_STATE_BACKTICK;
+    return com.yn.sodiumeditor.state.HighlightState.STRING_STATE_BACKTICK;
   }
 
 
@@ -1192,10 +1213,6 @@ public class SodiumEditorView extends View {
 
   public CursorTarget getCursorTargetForHandles(float x, float y) {
     return getCursorTargetForPosition(x, y, null);
-  }
-
-  public HandlesManager getHandlesManagerForCursor() {
-    return handlesManager;
   }
 
   public void ensureLineInWindowForInput(int line, boolean reload) {
@@ -1339,11 +1356,11 @@ public class SodiumEditorView extends View {
     whitespaceGuideManager.updateTypeface(paint);
     popupMenuManager.onEditorTypefaceChanged(finalTypeface);
     whitespaceGuideManager.updateRuleTypeface(safeBase);
-    if (highlightManager.lineCommentHighlightRule != null) highlightManager.lineCommentHighlightRule.updateTypeface(safeBase);
-    for (HighlightManager.HighlightRule rule : highlightManager.highlightRules) {
+    if (highlightState.lineCommentHighlightRule != null) highlightState.lineCommentHighlightRule.updateTypeface(safeBase);
+    for (com.yn.sodiumeditor.core.HighlightRule rule : highlightState.highlightRules) {
       rule.updateTypeface(safeBase);
     }
-    highlightManager.clearHighlightCaches();
+    highlightState.clearHighlightCaches();
 
     lineHeight = paint.getFontSpacing();
     updateWhitespaceGuideMetrics();
@@ -1373,16 +1390,16 @@ public class SodiumEditorView extends View {
       int firstVisibleLine,
       int lastVisibleLine,
       @Nullable java.util.HashMap<Integer, String> directLines) {
-    highlightManager.ensureHighlightCacheForVisibleRange(firstVisibleLine, lastVisibleLine, directLines);
+    highlightState.ensureHighlightCacheForVisibleRange(firstVisibleLine, lastVisibleLine, directLines);
   }
 
   public void maybeEnsureHighlightCacheForRange(
       int startLine, int endLine, @Nullable java.util.HashMap<Integer, String> directLines) {
-    highlightManager.maybeEnsureHighlightCacheForRange(startLine, endLine, directLines);
+    highlightState.maybeEnsureHighlightCacheForRange(startLine, endLine, directLines);
   }
 
   public void invalidateHighlightEnsureRange() {
-    highlightManager.resetEnsureRange();
+    highlightState.resetEnsureRange();
   }
 
   // --- Layout and Measurement ---
@@ -1617,11 +1634,7 @@ public class SodiumEditorView extends View {
     return super.onKeyDown(keyCode, event);
   }
 
-
-
-
-
-  void getVisibleCharRangeForLine(String line, int globalLine, int[] out) {
+  public void getVisibleCharRangeForLine(String line, int globalLine, int[] out) {
     viewRender.textRender.getVisibleCharRangeForLine(line, globalLine, out);
   }
 
@@ -1639,7 +1652,7 @@ public class SodiumEditorView extends View {
       out[1] = 0;
       return;
     }
-    float avg = highlightManager.getAverageCharWidthForLine((lineText == null) ? "" : lineText, globalLine);
+    float avg = highlightRenderer.getAverageCharWidthForLine((lineText == null) ? "" : lineText, globalLine);
     if (avg <= 0f) avg = paint.measureText(" ");
     float viewLeft = lineNumberManager.getContentViewLeft(isRtl);
     float viewRight = lineNumberManager.getContentViewRight(getWidth(), isRtl);
@@ -1902,7 +1915,7 @@ public class SodiumEditorView extends View {
     }
   }
 
-  void checkAndLoadWindow() {
+  public void checkAndLoadWindow() {
     viewRender.checkAndLoadWindow();
   }
 
@@ -1991,7 +2004,7 @@ public class SodiumEditorView extends View {
   public void invalidatePendingIOForEdit() {
     ioTaskVersion.incrementAndGet();
     ioHandler.removeCallbacksAndMessages(null);
-    highlightManager.clearHighlightCaches();
+    highlightState.clearHighlightCaches();
     if (foldManager.isCodeFoldingEnabled) {
       foldManager.clearAllFolds();
       indentGuideManager.markIntervalsDirty();
@@ -2597,7 +2610,7 @@ public class SodiumEditorView extends View {
   }
 
   private int getStreamLineThreshold() {
-    return Math.max(4096, highlightManager.maxSyntaxLineLength);
+    return Math.max(4096, highlightState.maxSyntaxLineLength);
   }
 
   private boolean shouldStreamLineLength(int length) {
@@ -2608,7 +2621,7 @@ public class SodiumEditorView extends View {
     return textIO.getStreamedLineLength(globalLine);
   }
 
-  int getStreamedLineSliceStart(int globalLine) {
+  public int getStreamedLineSliceStart(int globalLine) {
     return textIO.getStreamedLineSliceStart(globalLine);
   }
 
@@ -3240,12 +3253,12 @@ public class SodiumEditorView extends View {
 
     @Override
     public int getSelectionHandleColor() {
-      return handlesManager.getSelectionHandleColor();
+      return handleRenderer.getSelectionHandleColor();
     }
 
     @Override
     public void setSelectionHandleColor(int color) {
-      handlesManager.setSelectionHandleColor(color);
+      handleRenderer.setSelectionHandleColor(color);
     }
 
     @Override
@@ -3429,12 +3442,12 @@ public class SodiumEditorView extends View {
 
     @Override
     public int getCaretColor() {
-      return handlesManager.getCaretColor();
+      return handleRenderer.getCaretColor();
     }
 
     @Override
     public float getCursorWidth() {
-      return handlesManager.getCursorWidth();
+      return handleRenderer.getCursorWidth();
     }
 
     @Override
@@ -3527,7 +3540,7 @@ public class SodiumEditorView extends View {
 
     @Override
     public Paint getPaintForChar(int line, int at, String base) {
-      return highlightManager.getPaintForChar(line, at, base);
+      return highlightRenderer.getPaintForChar(line, at, base);
     }
 
     @Override
@@ -3753,6 +3766,48 @@ public class SodiumEditorView extends View {
     public int getLineLength(int line) {
       String ln = getLineTextForRender(line);
       return ln != null ? ln.length() : 0;
+    }
+  }
+
+  private class HighlightParserCallbackImpl implements com.yn.sodiumeditor.core.HighlightParser.HighlightParserCallback {
+    @Override
+    public boolean isTripleQuoteStringsEnabled() {
+      return highlightState.isTripleQuoteStringsEnabled;
+    }
+
+    @Override
+    public boolean isBacktickStringsEnabled() {
+      return highlightState.isBacktickStringsEnabled;
+    }
+
+    @Override
+    public boolean isBlockCommentsEnabled() {
+      return highlightState.isBlockCommentsEnabled;
+    }
+
+    @Override
+    public java.util.List<String> getLineCommentDelimiters() {
+      return highlightState.lineCommentDelimiters;
+    }
+
+    @Override
+    public boolean isLineCommentStart(String line, int index) {
+      if (index < 0 || index >= line.length()) return false;
+      for (String token : highlightState.lineCommentDelimiters) {
+        int len = token.length();
+        if (len == 0) continue;
+        if (index + len > line.length()) continue;
+        if (len == 1) {
+          if (line.charAt(index) == token.charAt(0) && !com.yn.sodiumeditor.core.HighlightParser.isTokenEscaped(line, index)) {
+            return true;
+          }
+        } else {
+          if (line.regionMatches(index, token, 0, len) && !com.yn.sodiumeditor.core.HighlightParser.isTokenEscaped(line, index)) {
+            return true;
+          }
+        }
+      }
+      return false;
     }
   }
 }

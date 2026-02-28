@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.yn.sodiumeditor.SodiumEditorView;
-import com.yn.sodiumeditor.HighlightManager;
+import com.yn.sodiumeditor.core.HighlightParser;
 
 /**
  * Handles text measurement and calculation operations for the text editor.
@@ -27,8 +27,8 @@ public final class TextMeasurement {
         String safe = (line == null) ? "" : line;
         float w;
         int logicalLen = view.getLogicalLineLength(globalIndex, safe);
-        if (logicalLen > view.highlightManager.maxSyntaxLineLength) {
-            w = view.highlightManager.getAverageCharWidthForLine(safe, globalIndex) * logicalLen;
+        if (logicalLen > view.highlightState.maxSyntaxLineLength) {
+            w = view.highlightRenderer.getAverageCharWidthForLine(safe, globalIndex) * logicalLen;
         } else {
             w = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, safe, 0, safe.length(), view.paint);
         }
@@ -48,8 +48,8 @@ public final class TextMeasurement {
         String safe = (line == null) ? "" : line;
         float w;
         int logicalLen = view.getLogicalLineLength(globalIndex, safe);
-        if (logicalLen > view.highlightManager.maxSyntaxLineLength) {
-            w = view.highlightManager.getAverageCharWidthForLine(safe, globalIndex) * logicalLen;
+        if (logicalLen > view.highlightState.maxSyntaxLineLength) {
+            w = view.highlightRenderer.getAverageCharWidthForLine(safe, globalIndex) * logicalLen;
         } else {
             w = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, safe, 0, safe.length(), view.paint);
         }
@@ -67,15 +67,15 @@ public final class TextMeasurement {
         if (view.isRtl) {
             float baseX = getRtlLineBaseX(text, globalLine);
             x -= baseX;
-            float w = view.highlightManager.measureHighlightedSegmentWidth(
+            float w = view.highlightRenderer.measureHighlightedSegmentWidth(
                 text, globalLine, 0, view.getLogicalLineLength(globalLine, text));
             x = w - x;
         }
         if (x <= 0f) return 0;
 
         int len = view.getLogicalLineLength(globalLine, text);
-        if (len > view.highlightManager.maxSyntaxLineLength) {
-            float avg = view.highlightManager.getAverageCharWidthForLine(text, globalLine);
+        if (len > view.highlightState.maxSyntaxLineLength) {
+            float avg = view.highlightRenderer.getAverageCharWidthForLine(text, globalLine);
             if (avg <= 0f) return 0;
             int idx = (int) Math.round(x / avg);
             return Math.max(0, Math.min(idx, len));
@@ -115,7 +115,7 @@ public final class TextMeasurement {
         if (view.isRtl) {
             float baseX = getRtlSegmentBaseX(text, globalLine, start, end);
             x -= baseX;
-            float w = view.highlightManager.measureHighlightedSegmentWidth(text, globalLine, start, end);
+            float w = view.highlightRenderer.measureHighlightedSegmentWidth(text, globalLine, start, end);
             x = w - x;
         }
         if (x <= 0f) return start;
@@ -143,10 +143,10 @@ public final class TextMeasurement {
      * Gets the X position of the caret for a given line and character index.
      */
     public float getCaretXForLine(String line, int globalLine, int charIndex) {
-        float x = view.highlightManager.measureText(line, charIndex, globalLine);
+        float x = view.highlightRenderer.measureText(line, charIndex, globalLine);
         if (!view.isRtl) return x;
         int logicalLen = view.getLogicalLineLength(globalLine, line);
-        float w = view.highlightManager.measureHighlightedSegmentWidth(line, globalLine, 0, logicalLen);
+        float w = view.highlightRenderer.measureHighlightedSegmentWidth(line, globalLine, 0, logicalLen);
         float baseX = getRtlLineBaseX(line, globalLine);
         return baseX + (w - x);
     }
@@ -157,7 +157,7 @@ public final class TextMeasurement {
     public float getCaretXForSegment(String line, int globalLine, int segStart, int segEnd, int charIndex) {
         float xRel = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, segStart, charIndex, view.paint);
         if (!view.isRtl) return xRel;
-        float w = view.highlightManager.measureHighlightedSegmentWidth(line, globalLine, segStart, segEnd);
+        float w = view.highlightRenderer.measureHighlightedSegmentWidth(line, globalLine, segStart, segEnd);
         float baseX = getRtlSegmentBaseX(line, globalLine, segStart, segEnd);
         return baseX + (w - xRel);
     }
@@ -168,7 +168,7 @@ public final class TextMeasurement {
     public float getRtlLineBaseX(@Nullable String line, int globalLine) {
         if (!view.isRtl || line == null) return 0f;
         int logicalLen = view.getLogicalLineLength(globalLine, line);
-        float w = view.highlightManager.measureHighlightedSegmentWidth(line, globalLine, 0, logicalLen);
+        float w = view.highlightRenderer.measureHighlightedSegmentWidth(line, globalLine, 0, logicalLen);
         float area = view.getTextAreaWidth();
         return area - w;
     }
@@ -178,7 +178,7 @@ public final class TextMeasurement {
      */
     public float getRtlSegmentBaseX(@Nullable String line, int globalLine, int segStart, int segEnd) {
         if (!view.isRtl || line == null) return 0f;
-        float w = view.highlightManager.measureHighlightedSegmentWidth(line, globalLine, segStart, segEnd);
+        float w = view.highlightRenderer.measureHighlightedSegmentWidth(line, globalLine, segStart, segEnd);
         float area = view.getTextAreaWidth();
         return area - w;
     }
@@ -194,7 +194,7 @@ public final class TextMeasurement {
             out[1] = 0;
             return;
         }
-        if (len > view.highlightManager.maxSyntaxLineLength) {
+        if (len > view.highlightState.maxSyntaxLineLength) {
             getVisibleCharRangeForLineFast(line, globalLine, len, out);
             return;
         }
@@ -233,7 +233,7 @@ public final class TextMeasurement {
             out[1] = 0;
             return;
         }
-        float avg = view.highlightManager.getAverageCharWidthForLine(line, globalLine);
+        float avg = view.highlightRenderer.getAverageCharWidthForLine(line, globalLine);
         if (avg <= 0f) {
             out[0] = 0;
             out[1] = Math.min(len, Math.max(0, view.prefetchCols));
@@ -272,10 +272,10 @@ public final class TextMeasurement {
         if (line == null || line.isEmpty()) return true;
         if (x <= 0f) return Character.isWhitespace(line.charAt(0));
 
-        List<HighlightManager.HighlightSpan> spans = view.highlightManager.highlightCache.get(globalLine);
+        List<com.yn.sodiumeditor.state.HighlightSpan> spans = view.highlightState.highlightCache.get(globalLine);
         if (spans == null) {
-            spans = view.highlightManager.calculateSpansForLine(line, globalLine);
-            view.highlightManager.highlightCache.put(globalLine, spans);
+            spans = view.highlightRenderer.calculateSpansForLine(line, globalLine);
+            view.highlightState.highlightCache.put(globalLine, spans);
         }
 
         final int len = line.length();
@@ -284,7 +284,7 @@ public final class TextMeasurement {
 
         int pos = 0;
         if (spans != null && !spans.isEmpty()) {
-            for (HighlightManager.HighlightSpan span : spans) {
+            for (com.yn.sodiumeditor.state.HighlightSpan span : spans) {
                 if (pos >= len) break;
                 if (span.end <= pos) continue;
                 if (span.start > pos) {

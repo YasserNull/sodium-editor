@@ -43,7 +43,7 @@ public final class ViewRender {
       out[1] = 0;
       return;
     }
-    float avg = view.highlightManager.getAverageCharWidthForLine((lineText == null) ? "" : lineText, globalLine);
+    float avg = view.highlightRenderer.getAverageCharWidthForLine((lineText == null) ? "" : lineText, globalLine);
     if (avg <= 0f) avg = view.paint.measureText(" ");
     float viewLeft = view.lineNumberManager.getContentViewLeft(view.isRtl);
     float viewRight = view.lineNumberManager.getContentViewRight(view.getWidth(), view.isRtl);

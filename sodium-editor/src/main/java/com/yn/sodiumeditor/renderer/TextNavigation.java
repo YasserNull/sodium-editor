@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.yn.sodiumeditor.SodiumEditorView;
-import com.yn.sodiumeditor.HighlightManager;
+import com.yn.sodiumeditor.core.HighlightParser;
 
 /**
  * Handles text navigation, selection, and word boundary operations.
@@ -270,12 +270,12 @@ public final class TextNavigation {
         for (int i = 0; i < len; i++) {
             char c = line.charAt(i);
             if (current == 0) {
-                if (isQuoteChar(c) && !HighlightManager.isEscaped(line, i)) {
+                if (isQuoteChar(c) && !com.yn.sodiumeditor.core.HighlightParser.isEscaped(line, i)) {
                     current = c;
                     start = i;
                 }
             } else {
-                if (c == current && !HighlightManager.isEscaped(line, i)) {
+                if (c == current && !com.yn.sodiumeditor.core.HighlightParser.isEscaped(line, i)) {
                     ranges.add(new SodiumEditorView.TextRange(start, i));
                     current = 0;
                     start = -1;
@@ -312,12 +312,12 @@ public final class TextNavigation {
         for (int i = 0; i < len; i++) {
             char c = line.charAt(i);
             if (currentQuote != 0) {
-                if (c == currentQuote && !HighlightManager.isEscaped(line, i)) {
+                if (c == currentQuote && !com.yn.sodiumeditor.core.HighlightParser.isEscaped(line, i)) {
                     currentQuote = 0;
                 }
                 continue;
             }
-            if (isQuoteChar(c) && !HighlightManager.isEscaped(line, i)) {
+            if (isQuoteChar(c) && !com.yn.sodiumeditor.core.HighlightParser.isEscaped(line, i)) {
                 currentQuote = c;
                 continue;
             }
