@@ -6,6 +6,7 @@ import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.*;
+import com.yn.sodiumeditor.config.PopupConfig;
 
 public final class TouchHandler {
   private final SodiumEditorView view;
@@ -37,11 +38,11 @@ public final class TouchHandler {
                 if (view.autoSuggestionManager.isSuggestionAcceptedThisTouch()) return;
                 if (view.zoomGestureHandler.isMultiTouchActive() || view.zoomGestureHandler.hadMultiTouch()) return;
 
-                if (view.popupMenuManager.isPopupVisible()) {
-                  int hitAction = view.popupMenuManager.getPopupActionAt(e.getX(), e.getY());
+                if (view.popupMenuState.showPopup) {
+                  int hitAction = view.popupTouchHandler.getPopupActionAt(e.getX(), e.getY());
                   if (hitAction != 0) {
-                    view.popupMenuManager.setPressedAction(hitAction);
-                    view.popupMenuManager.startPopupRippleHold(hitAction, e.getX(), e.getY());
+                    view.popupMenuState.setPressedAction(hitAction);
+                    view.popupTouchHandler.startPopupRippleHold(hitAction, e.getX(), e.getY());
                     return;
                   }
                 }
@@ -70,7 +71,7 @@ public final class TouchHandler {
                   return;
                 }
 
-                view.popupMenuManager.showPopupAtSelection();
+                view.popupTouchHandler.showPopupAtSelection();
                 view.cursorAnimator.resetCursorBlink();
                 view.invalidate();
                 view.imeManager.showKeyboard();
@@ -87,9 +88,9 @@ public final class TouchHandler {
                 if (view.isCodeFoldingEnabledForInput() && view.isInLineNumberGutterForInput(e.getX())) {
                   float gy = e.getY() + view.getScrollYForInput();
                   int line = view.getGlobalLineForY(gy);
-                  if (view.foldManager.toggleFoldAtLine(line)) {
+                  if (view.foldTouchHandler.toggleFoldAtLine(line)) {
                     view.startFoldMarkerRippleForInput(line);
-                    view.popupMenuManager.hidePopup();
+                    view.popupTouchHandler.hidePopup();
                     view.invalidate();
                     return true;
                   }
@@ -121,10 +122,10 @@ public final class TouchHandler {
                     x = xLocal;
                   }
                   if (view.isFoldPlaceholderHitForInput(line, ln, x)) {
-                    if (view.foldManager.toggleFoldAtLine(line)) {
+                    if (view.foldTouchHandler.toggleFoldAtLine(line)) {
                       view.startFoldMarkerRippleForInput(line);
                     }
-                    view.popupMenuManager.hidePopup();
+                    view.popupTouchHandler.hidePopup();
                     view.invalidate();
                     return true;
                   }
@@ -157,7 +158,7 @@ public final class TouchHandler {
                   view.setCursorPositionForInput(line, Math.max(0, Math.min(target.ch, ln.length())));
                 }
 
-                view.popupMenuManager.hidePopup();
+                view.popupTouchHandler.hidePopup();
                 view.setSelectingForInput(false);
                 view.invalidate();
                 view.cursorAnimator.resetCursorBlink();
@@ -192,13 +193,13 @@ public final class TouchHandler {
                 if (!view.applySmartDoubleTapSelectionForInput(line, charIndex, ln)) {
                   return onSingleTapUp(e);
                 }
-                view.popupMenuManager.showPopupAtSelection();
-                view.popupMenuManager.setPendingPopupAfterDoubleTap(true);
+                view.popupTouchHandler.showPopupAtSelection();
+                view.popupMenuState.setPendingPopupAfterDoubleTap(true);
                 view.post(
                     () -> {
-                      if (!view.popupMenuManager.isPendingPopupAfterDoubleTap()) return;
-                      view.popupMenuManager.setPendingPopupAfterDoubleTap(false);
-                      if (view.selectionState.hasSelection()) view.popupMenuManager.showPopupAtSelection();
+                      if (!view.popupMenuState.pendingPopupAfterDoubleTap) return;
+                      view.popupMenuState.setPendingPopupAfterDoubleTap(false);
+                      if (view.selectionState.hasSelection()) view.popupTouchHandler.showPopupAtSelection();
                     });
                 view.cursorAnimator.resetCursorBlink();
                 view.invalidate();
@@ -292,11 +293,11 @@ public final class TouchHandler {
           }
         }
 
-        if (view.popupMenuManager.isPopupVisible()) {
-          int hitAction = view.popupMenuManager.getPopupActionAt(ex, ey);
+        if (view.popupMenuState.showPopup) {
+          int hitAction = view.popupTouchHandler.getPopupActionAt(ex, ey);
           if (hitAction != 0) {
-            view.popupMenuManager.setPressedAction(hitAction);
-            view.popupMenuManager.startPopupRipple(hitAction, ex, ey);
+            view.popupMenuState.setPressedAction(hitAction);
+            view.popupTouchHandler.startPopupRipple(hitAction, ex, ey);
             return true;
           }
         }
@@ -338,12 +339,12 @@ public final class TouchHandler {
           }
         }
 
-        if (view.popupMenuManager.getPressedAction() != 0) {
-          int pressed = view.popupMenuManager.getPressedAction();
-          RectF r = view.popupMenuManager.getPopupRectForAction(pressed);
+        if (view.popupMenuState.popupPressedAction != 0) {
+          int pressed = view.popupMenuState.popupPressedAction;
+          RectF r = view.popupMenuRenderer.getPopupRectForAction(pressed);
           if (!r.contains(ex, ey)) {
-            view.popupMenuManager.clearPressedAction();
-            view.popupMenuManager.cancelPopupRipple();
+            view.popupMenuState.clearPressedAction();
+            view.popupTouchHandler.cancelPopupRipple();
           }
           return true;
         }
@@ -374,35 +375,35 @@ public final class TouchHandler {
           return true;
         }
 
-        if (view.popupMenuManager.getPressedAction() != 0) {
-          int actionForTap = view.popupMenuManager.getPressedAction();
-          view.popupMenuManager.clearPressedAction();
-          RectF r = view.popupMenuManager.getPopupRectForAction(actionForTap);
-          if (view.popupMenuManager.isPopupVisible() && r.contains(ex, ey)) {
+        if (view.popupMenuState.popupPressedAction != 0) {
+          int actionForTap = view.popupMenuState.popupPressedAction;
+          view.popupMenuState.clearPressedAction();
+          RectF r = view.popupMenuRenderer.getPopupRectForAction(actionForTap);
+          if (view.popupMenuState.showPopup && r.contains(ex, ey)) {
             if (view.isReadOnly
-                && (actionForTap == PopupMenuManager.POPUP_ACTION_CUT
-                    || actionForTap == PopupMenuManager.POPUP_ACTION_PASTE
-                    || actionForTap == PopupMenuManager.POPUP_ACTION_DELETE)) {
-              view.popupMenuManager.hidePopup();
+                && (actionForTap == PopupConfig.POPUP_ACTION_CUT
+                    || actionForTap == PopupConfig.POPUP_ACTION_PASTE
+                    || actionForTap == PopupConfig.POPUP_ACTION_DELETE)) {
+              view.popupTouchHandler.hidePopup();
               return true;
             }
-            if (actionForTap == PopupMenuManager.POPUP_ACTION_COPY) {
+            if (actionForTap == PopupConfig.POPUP_ACTION_COPY) {
               view.copySelectionToClipboard();
               view.selectionState.clearSelectionKeepLineNumberState();
-              view.popupMenuManager.hidePopup();
+              view.popupTouchHandler.hidePopup();
               view.invalidate();
-            } else if (actionForTap == PopupMenuManager.POPUP_ACTION_SELECT_ALL) {
+            } else if (actionForTap == PopupConfig.POPUP_ACTION_SELECT_ALL) {
               if (!view.selectionState.isSelectAllActive()) view.selectAll();
-              else view.popupMenuManager.hidePopup();
+              else view.popupTouchHandler.hidePopup();
             } else {
-              view.popupMenuManager.performPopupAction(actionForTap);
+              view.popupTouchHandler.performPopupAction(actionForTap);
             }
           }
           else {
-            view.popupMenuManager.cancelPopupRipple();
+            view.popupTouchHandler.cancelPopupRipple();
           }
-          if (view.popupMenuManager.isPopupRippleHoldActive()) {
-            view.popupMenuManager.cancelPopupRipple();
+          if (view.popupMenuState.popupRippleHoldActive) {
+            view.popupTouchHandler.cancelPopupRipple();
           }
           return true;
         }
@@ -411,7 +412,7 @@ public final class TouchHandler {
           view.selectionState.setLineNumberSelecting(false, -1);
           view.selectionState.setSelecting(false);
           view.pointerDown = false;
-          if (view.selectionState.hasSelection()) view.popupMenuManager.showPopupAtSelection();
+          if (view.selectionState.hasSelection()) view.popupTouchHandler.showPopupAtSelection();
           return true;
         }
 
@@ -443,7 +444,7 @@ public final class TouchHandler {
           int draggingHandle = view.handleState.getDraggingHandle();
           if (draggingHandle == com.yn.sodiumeditor.state.HandleState.HANDLE_LEFT
               || draggingHandle == com.yn.sodiumeditor.state.HandleState.HANDLE_RIGHT) {
-            view.popupMenuManager.showPopupAtSelection();
+            view.popupTouchHandler.showPopupAtSelection();
           }
           view.handleDragHandler.stopDragging();
           view.invalidate();
@@ -451,7 +452,7 @@ public final class TouchHandler {
         }
 
         if (view.movedSinceDown && view.scrollManager.scroller.isFinished()) {
-          if (view.selectionState.hasSelection()) view.popupMenuManager.showPopupAtSelection();
+          if (view.selectionState.hasSelection()) view.popupTouchHandler.showPopupAtSelection();
           view.restartInputPublic();
           Log.d("SodiumEditorView", "onTouchEvent.ACTION_UP: Scroll/Zoom ended, restarted input.");
           if (view.wrapWordState.isWordWrapEnabled && view.wrapWordState.wrapPrefixRebuildPending && !view.wrapWordState.wrapPrefixBuilding) {
@@ -462,8 +463,8 @@ public final class TouchHandler {
 
         Log.d("SodiumEditorView", "onTouchEvent.ACTION_UP: Passing to GestureDetector.ACTION_UP.");
         onGestureEvent(event);
-        if (view.selectionState.hasSelection() && !view.popupMenuManager.isPopupVisible()) {
-          view.popupMenuManager.showPopupAtSelection();
+        if (view.selectionState.hasSelection() && !view.popupMenuState.showPopup) {
+          view.popupTouchHandler.showPopupAtSelection();
         }
         return true;
 
@@ -473,8 +474,8 @@ public final class TouchHandler {
         view.handleDragHandler.stopDragging();
         view.selectionState.setSelecting(false);
         view.selectionState.setLineNumberSelecting(false, -1);
-        view.popupMenuManager.clearPressedAction();
-        view.popupMenuManager.cancelPopupRipple();
+        view.popupMenuState.clearPressedAction();
+        view.popupTouchHandler.cancelPopupRipple();
         view.autoSuggestionManager.clearActiveSuggestion();
         view.scrollManager.dragMaxScrollX = -1f;
         view.scrollManager.draggingScrollBar = false;

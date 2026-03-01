@@ -476,7 +476,7 @@ public class HighlightRenderer {
         }
 
         int len = end - start;
-        float[] widths = view.whitespaceGuideManager.ensureMeasureWidthBuffer(len);
+        float[] widths = view.whitespaceGuideState.ensureMeasureWidthBuffer(len);
         segmentPaint.getTextWidths(line, start, end, widths);
 
         float currentX = x;
@@ -486,7 +486,7 @@ public class HighlightRenderer {
         for (int i = 0; i < len; i++) {
             int charIndex = start + i;
             char c = line.charAt(charIndex);
-            float adv = view.whitespaceGuideManager.getCharAdvanceWidth(
+            float adv = view.whitespaceGuideRenderer.getCharAdvanceWidth(
                     c, widths[i], segmentPaint, com.yn.sodiumeditor.core.WrapWordEngine.DEFAULT_TAB_SIZE_SPACES);
             boolean isVirtualSpace = (c == ' ' || c == '\t');
             if (isVirtualSpace) {
@@ -548,7 +548,7 @@ public class HighlightRenderer {
 
         boolean hasFade = fadeStart >= 0 && fadeEnd > fadeStart && fadeAlpha < 1f;
         if (!hasFade || end <= fadeStart || start >= fadeEnd) {
-            float w = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, start, end, textPaint);
+            float w = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, start, end, textPaint);
             if (w > 0f) canvas.drawLine(x, underlineY, x + w, underlineY, tmpPaintToUse);
             return;
         }
@@ -559,7 +559,7 @@ public class HighlightRenderer {
         int beforeEnd = Math.min(end, fadeStart);
         if (start < beforeEnd) {
             tmpPaintToUse.setAlpha(baseAlpha);
-            float w = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, start, beforeEnd, textPaint);
+            float w = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, start, beforeEnd, textPaint);
             if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, tmpPaintToUse);
             currentX += w;
         }
@@ -568,7 +568,7 @@ public class HighlightRenderer {
         int fadeSegEnd = Math.min(end, fadeEnd);
         if (fadeSegStart < fadeSegEnd) {
             tmpPaintToUse.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))));
-            float w = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, fadeSegStart, fadeSegEnd, textPaint);
+            float w = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, fadeSegStart, fadeSegEnd, textPaint);
             if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, tmpPaintToUse);
             currentX += w;
         }
@@ -576,7 +576,7 @@ public class HighlightRenderer {
         int afterStart = Math.max(start, fadeEnd);
         if (afterStart < end) {
             tmpPaintToUse.setAlpha(baseAlpha);
-            float w = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, afterStart, end, textPaint);
+            float w = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, afterStart, end, textPaint);
             if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, tmpPaintToUse);
         }
     }
@@ -605,7 +605,7 @@ public class HighlightRenderer {
             return avg * safeLen;
         }
         if (state.highlightRules.isEmpty() || line.isEmpty() || safeLen == 0) {
-            return view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, 0, safeLen, view.paint);
+            return view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, 0, safeLen, view.paint);
         }
 
         List<HighlightSpan> spans = state.highlightCache.get(globalLine);
@@ -615,7 +615,7 @@ public class HighlightRenderer {
         }
 
         if (spans.isEmpty()) {
-            return view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, 0, safeLen, view.paint);
+            return view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, 0, safeLen, view.paint);
         }
 
         float totalWidth = 0;
@@ -628,19 +628,19 @@ public class HighlightRenderer {
 
             if (span.start > lastEnd) {
                 int measureEnd = Math.min(span.start, safeLen);
-                totalWidth += view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, lastEnd, measureEnd, view.paint);
+                totalWidth += view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, lastEnd, measureEnd, view.paint);
             }
 
             lastEnd = span.start;
 
             int measureEnd = Math.min(span.end, safeLen);
-            totalWidth += view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, lastEnd, measureEnd, span.paint);
+            totalWidth += view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, lastEnd, measureEnd, span.paint);
 
             lastEnd = span.end;
         }
 
         if (lastEnd < safeLen) {
-            totalWidth += view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, lastEnd, safeLen, view.paint);
+            totalWidth += view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, lastEnd, safeLen, view.paint);
         }
 
         return totalWidth;

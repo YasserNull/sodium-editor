@@ -105,7 +105,7 @@ public final class LineCacheManager {
             view.invalidate();
             return;
         }
-        int idx = view.foldManager.isCodeFoldingEnabled ? view.getVisibleIndexForGlobalLine(globalLine) : globalLine;
+        int idx = view.foldState.isCodeFoldingEnabled() ? view.getVisibleIndexForGlobalLine(globalLine) : globalLine;
         float top = (idx * view.lineHeight) - view.scrollManager.scrollY;
         view.invalidate(0, (int) Math.floor(top), view.getWidth(), (int) Math.ceil(top + view.lineHeight));
     }
@@ -123,7 +123,7 @@ public final class LineCacheManager {
         if (line == null) line = "";
         int at = Math.max(0, Math.min(view.charAnimator.getDelAnimAtChar(), line.length()));
         if (at < segStart || at > segEnd) return;
-        float x = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, segStart, at, view.paint);
+        float x = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, segStart, at, view.paint);
         Paint ghostPaint = (view.charAnimator.getDelAnimPaint() != null) ? view.charAnimator.getDelAnimPaint() : view.paint;
         Paint tempPaint = view.charAnimator.getTempPaint();
         tempPaint.set(ghostPaint);
@@ -175,7 +175,7 @@ public final class LineCacheManager {
         if (logicalLen > view.highlightState.maxSyntaxLineLength) {
             w = view.highlightRenderer.getAverageCharWidthForLine(safe, globalIndex) * logicalLen;
         } else {
-            w = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, safe, 0, safe.length(), view.paint);
+            w = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, safe, 0, safe.length(), view.paint);
         }
         return w;
     }

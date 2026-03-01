@@ -39,7 +39,7 @@ public final class HandleDragHandler {
 
         int handle = handleState.getDraggingHandle();
         if (handle == HandleState.HANDLE_LEFT || handle == HandleState.HANDLE_RIGHT) {
-            view.popupMenuManager.showPopupAtSelection();
+            view.popupTouchHandler.showPopupAtSelection();
         }
 
         float scrollMargin = view.lineHeight * 2f;
@@ -81,7 +81,7 @@ public final class HandleDragHandler {
     private void updateHandlePosition(float touchX, float touchY) {
         if (view.selectionState.isSelectAllActive() || view.selectionState.isEntireFileSelected()) {
             view.selectionState.setSelectAllState(false, false);
-            view.popupMenuManager.showPopupAtSelection();
+            view.popupTouchHandler.showPopupAtSelection();
         }
 
         SodiumEditorView.CursorTarget target = view.getCursorTargetForHandles(touchX, touchY);
@@ -143,7 +143,7 @@ public final class HandleDragHandler {
                 updateHandlePosition(handleState.getLastDragTouchX(), handleState.getLastDragTouchY());
                 int handle = handleState.getDraggingHandle();
                 if (handle == HandleState.HANDLE_LEFT || handle == HandleState.HANDLE_RIGHT) {
-                    view.popupMenuManager.showPopupAtSelection();
+                    view.popupTouchHandler.showPopupAtSelection();
                 }
                 view.checkAndLoadWindow();
                 view.invalidate();

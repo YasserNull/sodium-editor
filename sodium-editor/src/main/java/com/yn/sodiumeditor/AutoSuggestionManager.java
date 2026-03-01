@@ -222,7 +222,7 @@ public final class AutoSuggestionManager {
     if (cursorPositionInLine < 0 || cursorPositionInLine > lineContent.length()) return;
 
     float suggestionStartX =
-        view.whitespaceGuideManager.measureTextWithVisualSpaces(
+        view.whitespaceGuideRenderer.measureTextWithVisualSpaces(
             view, lineContent, 0, cursorPositionInLine, view.paint);
     canvas.drawText(activeSuggestion, suggestionStartX, textBaselineY, suggestionPaint);
 
@@ -253,7 +253,7 @@ public final class AutoSuggestionManager {
     if (cursorPositionInLine < segStart || cursorPositionInLine > segEnd) return;
 
     float suggestionStartX_canvas =
-        view.whitespaceGuideManager.measureTextWithVisualSpaces(
+        view.whitespaceGuideRenderer.measureTextWithVisualSpaces(
             view, lineContent, segStart, cursorPositionInLine, view.paint);
     canvas.drawText(activeSuggestion, suggestionStartX_canvas, textBaselineY, suggestionPaint);
 

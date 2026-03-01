@@ -2,7 +2,7 @@ package com.yn.sodiumeditor.core;
 
 import android.graphics.Paint;
 import com.yn.sodiumeditor.SodiumEditorView;
-import com.yn.sodiumeditor.WhitespaceGuideManager;
+import com.yn.sodiumeditor.state.WhitespaceGuideState;
 import com.yn.sodiumeditor.state.WrapWordMetrics;
 import com.yn.sodiumeditor.utils.WrapWordUtils;
 import java.util.ArrayList;
@@ -21,15 +21,15 @@ public final class WrapWordEngine {
   //================================================================================
 
   private final WrapWordMetrics metrics;
-  private WhitespaceGuideManager whitespaceGuideManager;
+  private WhitespaceGuideState whitespaceGuideState;
 
-  public WrapWordEngine(WrapWordMetrics metrics, WhitespaceGuideManager whitespaceGuideManager) {
+  public WrapWordEngine(WrapWordMetrics metrics, WhitespaceGuideState whitespaceGuideState) {
     this.metrics = metrics;
-    this.whitespaceGuideManager = whitespaceGuideManager;
+    this.whitespaceGuideState = whitespaceGuideState;
   }
 
-  public void setWhitespaceGuideManager(WhitespaceGuideManager whitespaceGuideManager) {
-    this.whitespaceGuideManager = whitespaceGuideManager;
+  public void setWhitespaceGuideState(WhitespaceGuideState whitespaceGuideState) {
+    this.whitespaceGuideState = whitespaceGuideState;
   }
 
   //================================================================================
@@ -49,7 +49,7 @@ public final class WrapWordEngine {
     paint.getTextWidths(line, 0, len, widths);
     float[] adv = new float[len];
     for (int i = 0; i < len; i++) {
-      adv[i] = whitespaceGuideManager.getCharAdvanceWidth(
+      adv[i] = whitespaceGuideState.getCharAdvanceWidth(
           line.charAt(i), widths[i], paint, DEFAULT_TAB_SIZE_SPACES);
     }
 

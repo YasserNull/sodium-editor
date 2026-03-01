@@ -184,7 +184,7 @@ public final class History {
             }
 
             editVersion.incrementAndGet();
-            view.lineNumberManager.invalidateCache();
+            view.lineNumberRenderer.invalidateCache();
             view.invalidate();
             return true;
         } catch (Exception e) {
@@ -262,7 +262,7 @@ public final class History {
                                                 view.modifiedLines.clear();
                                             }
                                             lineCountDelta = 0;
-                                            view.lineNumberManager.invalidateCache();
+                                            view.lineNumberRenderer.invalidateCache();
                                             view.requestLayout();
                                             view.invalidate();
                                         }
@@ -602,7 +602,7 @@ public final class History {
             view.wrapWordBuilder.invalidate(true, true);
             view.wrapWordBuilder.requestPrefixRebuild(view);
         }
-        view.lineNumberManager.invalidateCache();
+        view.lineNumberRenderer.invalidateCache();
         view.invalidate();
     }
 }

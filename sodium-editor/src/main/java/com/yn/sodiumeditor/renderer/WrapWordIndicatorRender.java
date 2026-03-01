@@ -2,7 +2,7 @@ package com.yn.sodiumeditor.renderer;
 
 import android.graphics.Paint;
 import com.yn.sodiumeditor.SodiumEditorView;
-import com.yn.sodiumeditor.WhitespaceGuideManager;
+import com.yn.sodiumeditor.state.WhitespaceGuideState;
 
 public final class WrapWordIndicatorRender {
 
@@ -103,7 +103,7 @@ public final class WrapWordIndicatorRender {
 
     int end = Math.max(segStart, Math.min(segEnd, line.length()));
     while (end > segStart) {
-      float width = view.whitespaceGuideManager.measureTextWithVisualSpaces(
+      float width = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(
           view, line, segStart, end, view.paint);
       if (width <= available) break;
       end--;

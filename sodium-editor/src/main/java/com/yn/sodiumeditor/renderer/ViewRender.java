@@ -45,8 +45,8 @@ public final class ViewRender {
     }
     float avg = view.highlightRenderer.getAverageCharWidthForLine((lineText == null) ? "" : lineText, globalLine);
     if (avg <= 0f) avg = view.paint.measureText(" ");
-    float viewLeft = view.lineNumberManager.getContentViewLeft(view.isRtl);
-    float viewRight = view.lineNumberManager.getContentViewRight(view.getWidth(), view.isRtl);
+    float viewLeft = view.lineNumberRenderer.getContentViewLeft(view.isRtl);
+    float viewRight = view.lineNumberRenderer.getContentViewRight(view.getWidth(), view.isRtl);
     float leftX = viewLeft + view.getEffectiveScrollX() - view.getTextStartX();
     float rightX = viewRight + view.getEffectiveScrollX() - view.getTextStartX();
     if (view.isRtl) {
@@ -82,7 +82,7 @@ public final class ViewRender {
     if (view.windowSize == safe) return;
     view.windowSize = safe;
     view.invalidateHighlightEnsureRange();
-    view.bracketGuideManager.invalidateCache();
+    view.bracketGuideRenderer.invalidateCache();
     if (view.wrapWordState.isWordWrapEnabled) view.wrapWordBuilder.invalidate(true, true);
     view.wrapWordBuilder.requestPrefixRebuild(view);
     view.reloadWindowAroundVisible(false);
@@ -97,7 +97,7 @@ public final class ViewRender {
     view.windowSize = safeWindow;
     view.prefetchLines = safePrefetch;
     view.invalidateHighlightEnsureRange();
-    view.bracketGuideManager.invalidateCache();
+    view.bracketGuideRenderer.invalidateCache();
     if (view.wrapWordState.isWordWrapEnabled) view.wrapWordBuilder.invalidate(true, true);
     view.wrapWordBuilder.requestPrefixRebuild(view);
     view.reloadWindowAroundVisible(false);
@@ -110,7 +110,7 @@ public final class ViewRender {
     int minWindow = view.computeMinWindowSize();
     if (view.windowSize < minWindow) view.windowSize = minWindow;
     view.invalidateHighlightEnsureRange();
-    view.bracketGuideManager.invalidateCache();
+    view.bracketGuideRenderer.invalidateCache();
     if (view.wrapWordState.isWordWrapEnabled) view.wrapWordBuilder.invalidate(true, true);
     view.wrapWordBuilder.requestPrefixRebuild(view);
     view.reloadWindowAroundVisible(false);
@@ -444,9 +444,9 @@ public final class ViewRender {
                           key, finalStreamedSliceStarts.get(key, 0));
                     }
                   }
-                  view.lineNumberManager.invalidateCache();
+                  view.lineNumberRenderer.invalidateCache();
                   view.invalidateHighlightEnsureRange();
-                  view.bracketGuideManager.invalidateCache();
+                  view.bracketGuideRenderer.invalidateCache();
                   if (recalculateWidthSync) {
                     view.recalculateMaxLineWidth();
                   } else {
@@ -636,7 +636,7 @@ public final class ViewRender {
 
   private void clearSelectionStateAfterDelete() {
     view.selectionState.clearSelection();
-    view.popupMenuManager.hidePopup();
+    view.popupTouchHandler.hidePopup();
     view.cursorAnimator.resetCursorBlink();
   }
 

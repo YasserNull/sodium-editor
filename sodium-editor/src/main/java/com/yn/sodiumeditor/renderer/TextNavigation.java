@@ -36,7 +36,7 @@ public final class TextNavigation {
      */
     public int getVisualIndexForLineAndChar(int line, int ch) {
         if (!view.wrapWordBuilder.isMetricsUsableForLine(view, line, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())))) {
-            if (view.foldManager.isCodeFoldingEnabled) return view.getVisibleIndexForGlobalLine(line);
+            if (view.foldState.isCodeFoldingEnabled()) return view.getVisibleIndexForGlobalLine(line);
             return Math.max(0, line);
         }
         int totalLines = view.wrapWordMetrics.wrapLinePrefix.length - 1;
@@ -53,7 +53,7 @@ public final class TextNavigation {
     public int getVisibleLineCount() {
         int total = getLinesCount();
         if (total <= 0) total = view.windowStartLine + view.linesWindow.size();
-        int visible = Math.max(1, total - view.foldManager.getHiddenLineCount(total));
+        int visible = Math.max(1, total - view.foldState.getHiddenLineCount(total));
         return visible;
     }
 
@@ -63,14 +63,14 @@ public final class TextNavigation {
     public int mapVisibleIndexToGlobal(int visibleIndex) {
         int total = getLinesCount();
         if (total <= 0) total = view.windowStartLine + view.linesWindow.size();
-        return view.foldManager.mapVisibleIndexToGlobal(visibleIndex, total);
+        return view.foldState.mapVisibleIndexToGlobal(visibleIndex, total);
     }
 
     /**
      * Gets the visible index for a global line number.
      */
     public int getVisibleIndexForGlobalLine(int globalLine) {
-        return view.foldManager.getVisibleIndexForGlobalLine(globalLine);
+        return view.foldState.getVisibleIndexForGlobalLine(globalLine);
     }
 
     /**

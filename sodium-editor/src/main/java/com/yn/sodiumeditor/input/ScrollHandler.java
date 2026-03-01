@@ -104,7 +104,7 @@ public final class ScrollHandler {
             view.postDelayed(view.delayedWindowCheck, 60);
         }
 
-        if (view.popupMenuManager.isPopupVisible()) view.popupMenuManager.hidePopup();
+        if (view.popupMenuState.showPopup) view.popupTouchHandler.hidePopup();
         view.cursorAnimator.resetCursorBlink();
         view.invalidate();
         return true;

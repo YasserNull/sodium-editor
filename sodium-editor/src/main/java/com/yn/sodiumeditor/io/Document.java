@@ -161,7 +161,7 @@ public class Document {
         view.scrollManager.maxTextStartXForScroll = 0f;
         view.scrollManager.maxScrollXForScroll = 0f;
         view.invalidateHighlightEnsureRange();
-        view.bracketGuideManager.invalidateCache();
+        view.bracketGuideRenderer.invalidateCache();
         if (view.wrapWordState.isWordWrapEnabled) view.wrapWordBuilder.invalidate(true, true);
         view.wrapWordBuilder.requestPrefixRebuild(view);
         view.reloadWindowAroundVisible(false);
@@ -354,7 +354,7 @@ public class Document {
         view.invalidatePendingIOForEdit();
         view.isFileCleared = false;
         view.selectionState.setSelectAllState(false, false);
-        view.lineNumberManager.invalidateCache();
+        view.lineNumberRenderer.invalidateCache();
 
         // Force clear wrap metrics for new file
         view.wrapWordMetrics.wrapMetricsReady = false;
@@ -375,7 +375,7 @@ public class Document {
                         if (!isInitialFileOpenLoading) return;
                         if (token != initialFileOpenToken) return;
                         view.setDisable(true);
-                        view.loadingCircleManager.show(true);
+                        view.loadingCircleAnimator.show(true);
                     };
             view.mainHandler.postDelayed(initialFileOpenShowSpinner, 80);
         }
@@ -446,7 +446,7 @@ public class Document {
             initialFileOpenShowSpinner = null;
         }
         view.setDisable(false);
-        view.loadingCircleManager.show(false);
+        view.loadingCircleAnimator.show(false);
         view.invalidate();
 
         ArrayList<Runnable> callbacks;

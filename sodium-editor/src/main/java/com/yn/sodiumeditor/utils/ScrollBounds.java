@@ -22,7 +22,7 @@ public final class ScrollBounds {
         int lineCount =
                 view.wrapWordState.isWordWrapEnabled
                         ? view.wrapWordMapper.getTotalVisualLineCount(view, view.getVisibleLineCount())
-                        : (view.foldManager.isCodeFoldingEnabled
+                        : (view.foldState.isCodeFoldingEnabled()
                         ? view.getVisibleLineCount()
                         : Math.max(1, view.getLinesCount()));
         if (view.wrapWordState.isWordWrapEnabled && (view.selectionState.isSelectAllActive() || view.selectionState.isEntireFileSelected())) {

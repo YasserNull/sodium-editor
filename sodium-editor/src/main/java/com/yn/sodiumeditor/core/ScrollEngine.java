@@ -170,7 +170,7 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
                     view.wrapWordState.wrapPrefixRebuildPending = false;
                     view.wrapWordBuilder.schedulePrefixRebuildUpToWindow(view);
                 }
-                if (view.selectionState.hasSelection()) view.popupMenuManager.showPopupAtSelection();
+                if (view.selectionState.hasSelection()) view.popupTouchHandler.showPopupAtSelection();
             }
         }
     }
@@ -244,7 +244,7 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
 
     public float getDrawLineTop(int globalLine) {
         int drawIndex = globalLine;
-        if (view.foldManager.isCodeFoldingEnabled) {
+        if (view.foldState.isCodeFoldingEnabled()) {
             drawIndex = view.getVisibleIndexForGlobalLine(globalLine);
         }
         return (drawIndex - view.drawBaseLine) * view.lineHeight;
@@ -448,8 +448,8 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
                     Math.min(view.cursorState.getCursorChar(), view.getLogicalLineLength(view.cursorState.getCursorLine(), line));
             float cursorX = view.getCaretXForLine(line, view.cursorState.getCursorLine(), safeChar);
 
-            float viewLeft = view.lineNumberManager.getContentViewLeft(view.isRtl);
-            float viewRight = view.lineNumberManager.getContentViewRight(view.getWidth(), view.isRtl);
+            float viewLeft = view.lineNumberRenderer.getContentViewLeft(view.isRtl);
+            float viewRight = view.lineNumberRenderer.getContentViewRight(view.getWidth(), view.isRtl);
             float scrollMargin = 50f;
             float effectiveScrollX = view.getEffectiveScrollX();
             float cursorViewX = view.getTextStartX() + cursorX - effectiveScrollX;

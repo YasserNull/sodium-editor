@@ -173,7 +173,7 @@ public class ErrorUnderlineRenderer {
             float avg = getAverageCharWidthForLine(line, globalLine);
             return avg * safeLen;
         }
-        return view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, 0, safeLen, view.paint);
+        return view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, 0, safeLen, view.paint);
     }
 
     private float getAverageCharWidthForLine(String line, int lineIndex) {

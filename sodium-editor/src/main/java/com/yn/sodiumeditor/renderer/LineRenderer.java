@@ -8,9 +8,9 @@ import java.util.HashMap;
 import java.util.List;
 
 import com.yn.sodiumeditor.SodiumEditorView;
-import com.yn.sodiumeditor.BracketGuideManager;
-import com.yn.sodiumeditor.BracketMatchManager;
-import com.yn.sodiumeditor.FoldManager;
+import com.yn.sodiumeditor.state.BracketGuideToken;
+import com.yn.sodiumeditor.state.BracketMatch;
+import com.yn.sodiumeditor.state.FoldRange;
 
 /**
  * Handles all line rendering operations for the text editor.
@@ -42,21 +42,21 @@ public final class LineRenderer {
      * Draws fold markers for visible lines.
      */
     public void drawFoldMarkersForVisibleLines(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex) {
-        view.foldManager.drawFoldMarkersForVisibleLines(canvas, firstVisibleIndex, lastVisibleIndex);
+        view.foldRenderer.drawFoldMarkersForVisibleLines(canvas, firstVisibleIndex, lastVisibleIndex);
     }
 
     /**
      * Draws a folded line with ellipsis indicator.
      */
     public void drawFoldedLine(Canvas canvas, String line, int globalLine) {
-        FoldManager.FoldRange foldRange = view.foldManager.getFoldRangeAtStart(globalLine);
+        FoldRange foldRange = view.foldState.getFoldRangeAtStart(globalLine);
         if (foldRange == null) return;
 
         int hiddenLines = foldRange.endLine - foldRange.startLine - 1;
         if (hiddenLines <= 0) return;
 
         String indicatorText = "▼ ... (" + hiddenLines + " lines)";
-        float x = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, 0, line.length(), view.paint);
+        float x = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, 0, line.length(), view.paint);
         float y = (view.lineHeight * 0.75f);
         
         Paint foldPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -81,7 +81,7 @@ public final class LineRenderer {
 
         int firstVisibleLine = firstVisibleIndex;
         int lastVisibleLine = lastVisibleIndex;
-        if (view.foldManager.isCodeFoldingEnabled) {
+        if (view.foldState.isCodeFoldingEnabled()) {
             int visibleCount = view.getVisibleLineCount();
             if (visibleCount <= 0) visibleCount = 1;
             firstVisibleIndex = Math.max(0, Math.min(firstVisibleIndex, visibleCount - 1));
@@ -127,42 +127,42 @@ public final class LineRenderer {
      */
     private void drawGutter(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex,
                             int firstVisibleLine, int lastVisibleLine, boolean drawDecorations) {
-        if (view.lineNumberManager.isShowLineNumbers()) {
+        if (view.lineNumberState.isShowLineNumbers()) {
             canvas.drawRect(
                     view.getGutterStartX(),
                     0,
-                    view.lineNumberManager.getGutterRight(view.getGutterStartX()),
+                    view.lineNumberRenderer.getGutterRight(view.getGutterStartX()),
                     view.getHeight(),
-                    view.lineNumberManager.getGutterPaint());
+                    view.lineNumberRenderer.getGutterPaint());
 
             float separatorLeft;
             if (view.isRtl) {
                 separatorLeft = view.getGutterStartX();
             } else {
-                separatorLeft = view.lineNumberManager.getSeparatorLeft(view.getGutterStartX());
+                separatorLeft = view.lineNumberRenderer.getSeparatorLeft(view.getGutterStartX());
             }
             canvas.drawRect(
                     separatorLeft,
                     0,
-                    separatorLeft + view.lineNumberManager.getGutterSeparatorWidth(),
+                    separatorLeft + view.lineNumberConfig.getGutterSeparatorWidth(),
                     view.getHeight(),
-                    view.lineNumberManager.getGutterSeparatorPaint());
+                    view.lineNumberRenderer.getGutterSeparatorPaint());
         }
 
-        if (view.lineNumberManager.isHighlightCurrentLineInGutter()
+        if (view.lineNumberState.isHighlightCurrentLineInGutter()
                 && view.cursorState.getCursorLine() >= firstVisibleLine
                 && view.cursorState.getCursorLine() <= lastVisibleLine
-                && (!view.foldManager.isCodeFoldingEnabled || !view.foldManager.isLineHiddenByFold(view.cursorState.getCursorLine()))) {
-            int drawIndex = view.foldManager.isCodeFoldingEnabled ? view.getVisibleIndexForGlobalLine(view.cursorState.getCursorLine()) : view.cursorState.getCursorLine();
+                && (!view.foldState.isCodeFoldingEnabled() || !view.foldState.isLineHiddenByFold(view.cursorState.getCursorLine()))) {
+            int drawIndex = view.foldState.isCodeFoldingEnabled() ? view.getVisibleIndexForGlobalLine(view.cursorState.getCursorLine()) : view.cursorState.getCursorLine();
             float top = Math.round(drawIndex * view.lineHeight - view.scrollManager.scrollY);
             float bottom = top + view.lineHeight;
-            view.lineNumberManager.drawCurrentLineHighlightInGutter(canvas, top, bottom, view.highlightState.currentLinePaint);
+            view.lineNumberRenderer.drawCurrentLineHighlightInGutter(canvas, top, bottom, view.highlightState.currentLinePaint);
         }
 
-        if (view.lineNumberManager.isShowLineNumbers()) {
-            view.lineNumberManager.drawLineNumbersCachedUnwrapped(
+        if (view.lineNumberState.isShowLineNumbers()) {
+            view.lineNumberRenderer.drawLineNumbersCachedUnwrapped(
                     canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine);
-            if (view.foldManager.isCodeFoldingEnabled && drawDecorations) {
+            if (view.foldState.isCodeFoldingEnabled() && drawDecorations) {
                 drawFoldMarkersForVisibleLines(canvas, firstVisibleIndex, lastVisibleIndex);
             }
         }
@@ -174,13 +174,13 @@ public final class LineRenderer {
     private void clipContentArea(Canvas canvas) {
         if (view.isRtl) {
             canvas.clipRect(
-                    view.lineNumberManager.getContentClipLeft(view.isRtl),
+                    view.lineNumberRenderer.getContentClipLeft(view.isRtl),
                     0,
-                    view.lineNumberManager.getContentClipRight(view.getWidth(), view.isRtl),
+                    view.lineNumberRenderer.getContentClipRight(view.getWidth(), view.isRtl),
                     view.getHeight());
         } else {
             canvas.clipRect(
-                    view.lineNumberManager.getContentClipLeft(false), 0, view.getWidth(), view.getHeight());
+                    view.lineNumberRenderer.getContentClipLeft(false), 0, view.getWidth(), view.getHeight());
         }
     }
 
@@ -201,18 +201,18 @@ public final class LineRenderer {
     private void drawVisibleLines(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex,
                                    int firstVisibleLine, int lastVisibleLine, boolean drawDecorations) {
         HashMap<Integer, String> directLines = prepareDirectLines(firstVisibleLine, lastVisibleLine);
-        BracketMatchManager.BracketMatch bracketMatch =
-                view.bracketMatchManager.getMatch(firstVisibleLine, lastVisibleLine, directLines);
+        BracketMatch bracketMatch =
+                view.bracketMatchEngine.getMatch(firstVisibleLine, lastVisibleLine, directLines);
 
         prepareHighlightCache(firstVisibleLine, lastVisibleLine, directLines);
 
-        if (view.bracketGuideManager.isEnabled() && drawDecorations) {
-            view.bracketGuideManager.ensureCacheForWindow(directLines);
+        if (view.bracketGuideState.isBracketGuidesEnabled() && drawDecorations) {
+            view.bracketGuideParser.ensureCacheForWindow(directLines);
         }
 
         Paint selPaint = view.selectionState.hasSelection() ? view.selectionRenderer.getSelectionPaint() : null;
 
-        if (view.foldManager.isCodeFoldingEnabled) {
+        if (view.foldState.isCodeFoldingEnabled()) {
             drawFoldedLines(canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine,
                     directLines, bracketMatch, selPaint, drawDecorations);
         } else {
@@ -274,14 +274,14 @@ public final class LineRenderer {
                                   int firstVisibleIndex, int lastVisibleIndex,
                                   int firstVisibleLine, int lastVisibleLine,
                                   HashMap<Integer, String> directLines,
-                                  BracketMatchManager.BracketMatch bracketMatch,
+                                  BracketMatch bracketMatch,
                                   Paint selPaint, boolean drawDecorations) {
-        view.indentGuideManager.rebuildIntervalsIfNeeded();
+        view.indentGuideEngine.rebuildIntervalsIfNeeded();
 
         for (int v = firstVisibleIndex; v <= lastVisibleIndex; v++) {
             int globalLine = view.mapVisibleIndexToGlobal(v);
             String line = lineCacheManager.getLineTextForRenderWithDirect(globalLine, directLines);
-            FoldManager.FoldRange foldRange = view.foldManager.getFoldRangeAtStart(globalLine);
+            FoldRange foldRange = view.foldState.getFoldRangeAtStart(globalLine);
             boolean isFoldStart = (foldRange != null);
             float lineBaseX = view.isRtl ? view.getRtlLineBaseX(line, globalLine) : 0f;
             float lineWidth =
@@ -305,13 +305,13 @@ public final class LineRenderer {
             view.highlightRenderer.drawColorCodeBackgrounds(canvas, line, globalLine, lineTop, lineBottom);
 
             if (isFoldStart) {
-                if (view.bracketGuideManager.isEnabled() && drawDecorations) {
-                    List<BracketGuideManager.BracketGuideToken> guideTokens = view.bracketGuideManager.getTokensForLine(globalLine);
-                    view.bracketGuideManager.drawGuidesForLine(canvas, line, globalLine, guideTokens);
+                if (view.bracketGuideState.isBracketGuidesEnabled() && drawDecorations) {
+                    List<BracketGuideToken> guideTokens = view.bracketGuideParser.getTokensForLine(globalLine);
+                    view.bracketGuideRenderer.drawGuidesForLine(canvas, line, globalLine, guideTokens);
                 }
                 if (drawDecorations) {
-                    view.whitespaceGuideManager.drawWhitespaceGuidesForLine(view, canvas, line, globalLine, y);
-                    view.indentGuideManager.drawIndentGuidesForLine(canvas, line, globalLine);
+                    view.whitespaceGuideRenderer.drawWhitespaceGuidesForSegment(view, canvas, line, globalLine, 0, line.length(), y);
+                    view.indentGuideRenderer.drawIndentGuidesForLine(canvas, line, globalLine);
                 }
                 drawFoldedLine(canvas, line, globalLine);
                 canvas.restore();
@@ -321,19 +321,19 @@ public final class LineRenderer {
             view.searchRenderer.drawSearchHighlightsForLine(canvas, line, globalLine, lineTop, lineBottom);
             view.highlightRenderer.drawHighlightedLine(canvas, line, globalLine, y);
             if (drawDecorations) {
-                view.whitespaceGuideManager.drawWhitespaceGuidesForLine(view, canvas, line, globalLine, y);
-                view.indentGuideManager.drawIndentGuidesForLine(canvas, line, globalLine);
+                view.whitespaceGuideRenderer.drawWhitespaceGuidesForSegment(view, canvas, line, globalLine, 0, line.length(), y);
+                view.indentGuideRenderer.drawIndentGuidesForLine(canvas, line, globalLine);
             }
 
             view.autoSuggestionManager.drawAutoSuggestion(canvas, line, globalLine, y);
 
-            if (view.bracketGuideManager.isEnabled() && drawDecorations) {
-                List<BracketGuideManager.BracketGuideToken> guideTokens = view.bracketGuideManager.getTokensForLine(globalLine);
-                view.bracketGuideManager.drawGuidesForLine(canvas, line, globalLine, guideTokens);
+            if (view.bracketGuideState.isBracketGuidesEnabled() && drawDecorations) {
+                List<BracketGuideToken> guideTokens = view.bracketGuideParser.getTokensForLine(globalLine);
+                view.bracketGuideRenderer.drawGuidesForLine(canvas, line, globalLine, guideTokens);
             }
 
             if (drawDecorations) {
-                view.bracketMatchManager.drawMatchForLine(canvas, line, globalLine, bracketMatch);
+                view.bracketMatchRenderer.drawMatchForLine(canvas, line, globalLine, bracketMatch);
             }
             canvas.restore();
         }
@@ -345,9 +345,9 @@ public final class LineRenderer {
     private void drawUnfoldedLines(Canvas canvas,
                                     int firstVisibleLine, int lastVisibleLine,
                                     HashMap<Integer, String> directLines,
-                                    BracketMatchManager.BracketMatch bracketMatch,
+                                    BracketMatch bracketMatch,
                                     Paint selPaint, boolean drawDecorations) {
-        view.indentGuideManager.rebuildIntervalsIfNeeded();
+        view.indentGuideEngine.rebuildIntervalsIfNeeded();
 
         for (int globalLine = firstVisibleLine; globalLine <= lastVisibleLine; globalLine++) {
             String line = lineCacheManager.getLineTextForRenderWithDirect(globalLine, directLines);
@@ -375,19 +375,19 @@ public final class LineRenderer {
             view.searchRenderer.drawSearchHighlightsForLine(canvas, line, globalLine, lineTop, lineBottom);
             view.highlightRenderer.drawHighlightedLine(canvas, line, globalLine, y);
             if (drawDecorations) {
-                view.whitespaceGuideManager.drawWhitespaceGuidesForLine(view, canvas, line, globalLine, y);
-                view.indentGuideManager.drawIndentGuidesForLine(canvas, line, globalLine);
+                view.whitespaceGuideRenderer.drawWhitespaceGuidesForSegment(view, canvas, line, globalLine, 0, line.length(), y);
+                view.indentGuideRenderer.drawIndentGuidesForLine(canvas, line, globalLine);
             }
 
             view.autoSuggestionManager.drawAutoSuggestion(canvas, line, globalLine, y);
 
-            if (view.bracketGuideManager.isEnabled() && drawDecorations) {
-                List<BracketGuideManager.BracketGuideToken> guideTokens = view.bracketGuideManager.getTokensForLine(globalLine);
-                view.bracketGuideManager.drawGuidesForLine(canvas, line, globalLine, guideTokens);
+            if (view.bracketGuideState.isBracketGuidesEnabled() && drawDecorations) {
+                List<BracketGuideToken> guideTokens = view.bracketGuideParser.getTokensForLine(globalLine);
+                view.bracketGuideRenderer.drawGuidesForLine(canvas, line, globalLine, guideTokens);
             }
 
             if (drawDecorations) {
-                view.bracketMatchManager.drawMatchForLine(canvas, line, globalLine, bracketMatch);
+                view.bracketMatchRenderer.drawMatchForLine(canvas, line, globalLine, bracketMatch);
             }
             canvas.restore();
         }
@@ -400,8 +400,8 @@ public final class LineRenderer {
         if (view.highlightState.highlightCurrentLine && globalLine == view.cursorState.getCursorLine() && !view.selectionState.hasSelection()) {
             float top = Math.round(view.scrollManager.getDrawLineTop(globalLine));
             float bottom = Math.round(view.scrollManager.getDrawLineBottom(globalLine));
-            float viewLeft = view.lineNumberManager.getContentViewLeft(view.isRtl);
-            float viewRight = view.lineNumberManager.getContentViewRight(view.getWidth(), view.isRtl);
+            float viewLeft = view.lineNumberRenderer.getContentViewLeft(view.isRtl);
+            float viewRight = view.lineNumberRenderer.getContentViewRight(view.getWidth(), view.isRtl);
             float left = viewLeft + view.getEffectiveScrollX() - view.getTextStartX();
             float right = viewRight + view.getEffectiveScrollX() - view.getTextStartX();
             canvas.drawRect(left, top, right, bottom, view.highlightState.currentLinePaint);
@@ -536,7 +536,7 @@ public final class LineRenderer {
                 && !view.selectionState.hasSelection()
                 && view.cursorState.getCursorLine() >= firstVisibleLine
                 && view.cursorState.getCursorLine() <= lastVisibleLine
-                && (!view.foldManager.isCodeFoldingEnabled || !view.foldManager.isLineHiddenByFold(view.cursorState.getCursorLine()))) {
+                && (!view.foldState.isCodeFoldingEnabled() || !view.foldState.isLineHiddenByFold(view.cursorState.getCursorLine()))) {
             String cursorLineText = lineCacheManager.getLineTextForRender(view.cursorState.getCursorLine());
             int safeChar = Math.min(view.cursorState.getCursorChar(), view.getLogicalLineLength(view.cursorState.getCursorLine(), cursorLineText));
             float cursorX = textMeasurement.getCaretXForLine(cursorLineText, view.cursorState.getCursorLine(), safeChar);
@@ -558,7 +558,7 @@ public final class LineRenderer {
     private void drawSelectionHandles(Canvas canvas, int firstVisibleLine, int lastVisibleLine) {
         if (view.selectionState.selStartLine >= firstVisibleLine
                 && view.selectionState.selStartLine <= lastVisibleLine
-                && (!view.foldManager.isCodeFoldingEnabled || !view.foldManager.isLineHiddenByFold(view.selectionState.selStartLine))) {
+                && (!view.foldState.isCodeFoldingEnabled() || !view.foldState.isLineHiddenByFold(view.selectionState.selStartLine))) {
             String startLineText = lineCacheManager.getLineTextForRender(view.selectionState.selStartLine);
             float startX =
                     textMeasurement.getCaretXForLine(
@@ -573,7 +573,7 @@ public final class LineRenderer {
         }
         if (view.selectionState.selEndLine >= firstVisibleLine
                 && view.selectionState.selEndLine <= lastVisibleLine
-                && (!view.foldManager.isCodeFoldingEnabled || !view.foldManager.isLineHiddenByFold(view.selectionState.selEndLine))) {
+                && (!view.foldState.isCodeFoldingEnabled() || !view.foldState.isLineHiddenByFold(view.selectionState.selEndLine))) {
             String endLineText = lineCacheManager.getLineTextForRender(view.selectionState.selEndLine);
             float endX =
                     textMeasurement.getCaretXForLine(
@@ -592,8 +592,8 @@ public final class LineRenderer {
      * Draws overlays (popup menu, loading circle).
      */
     private void drawOverlays(Canvas canvas) {
-        if (view.popupMenuManager.isPopupVisible()) view.popupMenuManager.drawPopup(canvas);
-        view.loadingCircleManager.draw(canvas);
+        if (view.popupMenuState.showPopup) view.popupMenuRenderer.drawPopup(canvas);
+        view.loadingCircleRenderer.draw(canvas);
     }
 
     /**
@@ -625,7 +625,7 @@ public final class LineRenderer {
 
         int firstLine;
         int lastLine;
-        if (view.foldManager.isCodeFoldingEnabled) {
+        if (view.foldState.isCodeFoldingEnabled()) {
             int visibleCount = view.getVisibleLineCount();
             if (visibleCount <= 0) visibleCount = 1;
             int firstVisibleIndex = Math.max(0, (int) (view.scrollManager.scrollY / view.lineHeight));
@@ -661,13 +661,13 @@ public final class LineRenderer {
         int saveCount = canvas.save();
         if (view.isRtl) {
             canvas.clipRect(
-                    view.lineNumberManager.getContentClipLeft(view.isRtl),
+                    view.lineNumberRenderer.getContentClipLeft(view.isRtl),
                     0,
-                    view.lineNumberManager.getContentClipRight(view.getWidth(), view.isRtl),
+                    view.lineNumberRenderer.getContentClipRight(view.getWidth(), view.isRtl),
                     view.getHeight());
         } else {
             canvas.clipRect(
-                    view.lineNumberManager.getContentClipLeft(false), 0, view.getWidth(), view.getHeight());
+                    view.lineNumberRenderer.getContentClipLeft(false), 0, view.getWidth(), view.getHeight());
         }
         canvas.translate(view.getTextStartX() - view.getEffectiveScrollX(), 0);
 
@@ -714,7 +714,7 @@ public final class LineRenderer {
                 view.errorUnderlineRenderer.drawErrorUnderlinesForLineRange(canvas, text, line, segStart, segDrawEnd, y, top, bottom);
                 lineCacheManager.drawDeleteAnimationForSegment(canvas, text, line, segStart, segDrawEnd, y);
                 if (drawDecorations) {
-                    view.whitespaceGuideManager.drawWhitespaceGuidesForSegment(view, canvas, text, line, segStart, segDrawEnd, y);
+                    view.whitespaceGuideRenderer.drawWhitespaceGuidesForSegment(view, canvas, text, line, segStart, segDrawEnd, y);
                 }
                 view.autoSuggestionManager.drawAutoSuggestionWrapped(canvas, text, line, segStart, segDrawEnd, line, y);
                 canvas.restore();

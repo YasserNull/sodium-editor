@@ -29,7 +29,7 @@ public final class FlingHandler {
                         ? 0
                         : Math.max(
                         0,
-                        Math.round(getMaxLineWidthInWindowInternal() - (view.getTextStartX() - view.lineNumberManager.getContentViewLeft(view.isRtl))));
+                        Math.round(getMaxLineWidthInWindowInternal() - (view.getTextStartX() - view.lineNumberRenderer.getContentViewLeft(view.isRtl))));
         int minY = 0;
 
         float maxScrollYFloat;
@@ -39,7 +39,7 @@ public final class FlingHandler {
         int lineCount =
                 view.wrapWordState.isWordWrapEnabled
                         ? view.wrapWordMapper.getTotalVisualLineCount(view, view.getVisibleLineCount())
-                        : (view.foldManager.isCodeFoldingEnabled
+                        : (view.foldState.isCodeFoldingEnabled()
                         ? view.getVisibleLineCount()
                         : Math.max(1, view.getLinesCount()));
         if (view.isEof) {

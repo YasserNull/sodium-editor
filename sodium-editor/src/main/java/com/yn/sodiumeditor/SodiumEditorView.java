@@ -81,7 +81,7 @@ public class SodiumEditorView extends View {
 
   // --- Line Number State ---
   public boolean isRtl = false;
-  final Rect textBounds = new Rect();
+  final public Rect textBounds = new Rect();
   private final int[] tmpLocationInWindow = new int[2];
 
   // visual padding constants
@@ -158,7 +158,13 @@ public class SodiumEditorView extends View {
   public final com.yn.sodiumeditor.renderer.animation.CharAnimator charAnimator;
   public final com.yn.sodiumeditor.config.CursorAnimationConfig cursorAnimationConfig;
   public final com.yn.sodiumeditor.config.CharAnimationConfig charAnimationConfig;
-  public final PopupMenuManager popupMenuManager;
+  
+  // Popup Menu components
+  public final com.yn.sodiumeditor.config.PopupConfig popupConfig = new com.yn.sodiumeditor.config.PopupConfig();
+  public final com.yn.sodiumeditor.state.PopupMenuState popupMenuState = new com.yn.sodiumeditor.state.PopupMenuState();
+  public com.yn.sodiumeditor.renderer.PopupMenuRenderer popupMenuRenderer;
+  public com.yn.sodiumeditor.input.PopupTouchHandler popupTouchHandler;
+  
   public final AutoSuggestionManager autoSuggestionManager = new AutoSuggestionManager(this);
 
   // --- Zoom State (moved to ZoomManager) ---
@@ -201,13 +207,19 @@ public class SodiumEditorView extends View {
 
   // caret movement animation managed by CursorAnimator.
 
-  // popup menu moved to PopupMenuManager.
+  // popup menu moved to PopupMenuRenderer and PopupTouchHandler.
 
   // selection handles
   private float baseCursorTextSizePx = 0f;
-  public final IndentGuideManager indentGuideManager;
 
-  public final WhitespaceGuideManager whitespaceGuideManager = new WhitespaceGuideManager();
+  // Indent guide components
+  public final com.yn.sodiumeditor.state.IndentGuideState indentGuideState = new com.yn.sodiumeditor.state.IndentGuideState();
+  public com.yn.sodiumeditor.renderer.IndentGuideRenderer indentGuideRenderer;
+  public com.yn.sodiumeditor.core.IndentGuideEngine indentGuideEngine;
+
+  // Whitespace guide components
+  public final com.yn.sodiumeditor.state.WhitespaceGuideState whitespaceGuideState = new com.yn.sodiumeditor.state.WhitespaceGuideState();
+  public com.yn.sodiumeditor.renderer.WhitespaceGuideRenderer whitespaceGuideRenderer;
 
   // Handle components
   public final com.yn.sodiumeditor.state.HandleState handleState = new com.yn.sodiumeditor.state.HandleState();
@@ -236,13 +248,34 @@ public class SodiumEditorView extends View {
   public com.yn.sodiumeditor.renderer.UrlUnderlineRenderer urlUnderlineRenderer;
   public com.yn.sodiumeditor.renderer.PathUnderlineRenderer pathUnderlineRenderer;
   public com.yn.sodiumeditor.renderer.ErrorUnderlineRenderer errorUnderlineRenderer;
-  
-  public final LineNumberManager lineNumberManager = new LineNumberManager(this);
-  public final BracketGuideManager bracketGuideManager = new BracketGuideManager(this);
-  public final BracketMatchManager bracketMatchManager = new BracketMatchManager(this);
-  public final LoadingCircleManager loadingCircleManager;
+
+  // Line number components
+  public final com.yn.sodiumeditor.config.LineNumberConfig lineNumberConfig = new com.yn.sodiumeditor.config.LineNumberConfig();
+  public final com.yn.sodiumeditor.state.LineNumberState lineNumberState = new com.yn.sodiumeditor.state.LineNumberState();
+  public com.yn.sodiumeditor.renderer.LineNumberRenderer lineNumberRenderer;
+
+  // Bracket guide components
+  public final com.yn.sodiumeditor.state.BracketGuideState bracketGuideState = new com.yn.sodiumeditor.state.BracketGuideState();
+  public com.yn.sodiumeditor.renderer.BracketGuideRenderer bracketGuideRenderer;
+  public com.yn.sodiumeditor.core.BracketGuideParser bracketGuideParser;
+
+  // Bracket match components
+  public final com.yn.sodiumeditor.state.BracketMatchState bracketMatchState = new com.yn.sodiumeditor.state.BracketMatchState();
+  public com.yn.sodiumeditor.renderer.BracketMatchRenderer bracketMatchRenderer;
+  public com.yn.sodiumeditor.core.BracketMatchEngine bracketMatchEngine;
+
+  // Loading circle components
+  public final com.yn.sodiumeditor.state.LoadingCircleState loadingCircleState = new com.yn.sodiumeditor.state.LoadingCircleState();
+  public com.yn.sodiumeditor.renderer.LoadingCircleRenderer loadingCircleRenderer;
+  public com.yn.sodiumeditor.renderer.animation.LoadingCircleAnimator loadingCircleAnimator;
+
   public final java.util.HashMap<Integer, String> directLinesTmp = new java.util.HashMap<>();
-  public final FoldManager foldManager = new FoldManager(this);
+  
+  // Fold components
+  public final com.yn.sodiumeditor.state.FoldState foldState = new com.yn.sodiumeditor.state.FoldState();
+  public com.yn.sodiumeditor.renderer.FoldRenderer foldRenderer;
+  public com.yn.sodiumeditor.input.FoldTouchHandler foldTouchHandler;
+  public com.yn.sodiumeditor.core.FoldEngine foldEngine;
 
   // editor background
   public boolean hasEditorBackgroundColor = false;
@@ -260,7 +293,7 @@ public class SodiumEditorView extends View {
 
   static final String WHITESPACE_GUIDE_SPACE = "\u00B7";
   static final String WHITESPACE_GUIDE_TAB = "\u2192";
-  static final String FOLD_PLACEHOLDER_TEXT = "<—>";
+  public static final String FOLD_PLACEHOLDER_TEXT = "<—>";
   public static final String INDENT_BLOCK_UNIT = "  ";
   static final int INDENT_FOLD_SCAN_LIMIT = 2000;
 
@@ -274,7 +307,7 @@ public class SodiumEditorView extends View {
   private final AtomicInteger goToLineVersion = new AtomicInteger(0);
 
   // Loading circle variables
-  // loading circle state moved to LoadingCircleManager
+  // loading circle state moved to LoadingCircleState
   private boolean showLoadingOnFileOpen = true;
   public boolean isInitialFileOpenLoading = false;
   public int initialFileOpenToken = 0;
@@ -337,10 +370,10 @@ public class SodiumEditorView extends View {
   public boolean binarySafeRenderingEnabled = false;
 
   // --- Color Code Highlighting ---
-  boolean isMultiLineStringsEnabled = false;
-  boolean isBacktickStringsEnabled = false;
+  public boolean isMultiLineStringsEnabled = false;
+  public boolean isBacktickStringsEnabled = false;
   boolean isBlockCommentsEnabled = false;
-  boolean isTripleQuoteStringsEnabled = false;
+  public boolean isTripleQuoteStringsEnabled = false;
 
   final Runnable delayedWindowCheck =
       new Runnable() {
@@ -361,7 +394,8 @@ public class SodiumEditorView extends View {
     baseTypeface = (paint.getTypeface() != null) ? paint.getTypeface() : Typeface.DEFAULT;
     lineHeight = paint.getFontSpacing();
     baseCursorTextSizePx = paint.getTextSize();
-    indentGuideManager = new IndentGuideManager(this, paint);
+    indentGuideRenderer = new com.yn.sodiumeditor.renderer.IndentGuideRenderer(this, indentGuideState);
+    indentGuideEngine = new com.yn.sodiumeditor.core.IndentGuideEngine(this, indentGuideState);
     
     // Initialize Handle components
     handleRenderer = new com.yn.sodiumeditor.renderer.HandleRenderer();
@@ -374,11 +408,15 @@ public class SodiumEditorView extends View {
     pathUnderlineRenderer = new com.yn.sodiumeditor.renderer.PathUnderlineRenderer(this, highlightState);
     errorUnderlineRenderer = new com.yn.sodiumeditor.renderer.ErrorUnderlineRenderer(this, highlightState);
 
-    bracketMatchManager.setBaseTextSizePx(paint.getTextSize());
-    bracketGuideManager.setBaseTextSizePx(paint.getTextSize());
-    whitespaceGuideManager.initPaints(0xFF555555);
+    bracketMatchRenderer = new com.yn.sodiumeditor.renderer.BracketMatchRenderer(this, bracketMatchState);
+    bracketMatchRenderer.setBaseTextSizePx(paint.getTextSize());
+    bracketMatchEngine = new com.yn.sodiumeditor.core.BracketMatchEngine(this, bracketMatchState);
+    bracketGuideRenderer = new com.yn.sodiumeditor.renderer.BracketGuideRenderer(this, bracketGuideState);
+    bracketGuideRenderer.setBaseTextSizePx(paint.getTextSize());
+    bracketGuideParser = new com.yn.sodiumeditor.core.BracketGuideParser(this, bracketGuideState, bracketGuideRenderer);
+    whitespaceGuideRenderer = new com.yn.sodiumeditor.renderer.WhitespaceGuideRenderer(whitespaceGuideState);
+    whitespaceGuideRenderer.initPaints(0xFF555555);
     updateWhitespaceGuideMetrics();
-    whitespaceGuideManager.ensureRules(paint.getTextSize(), paint.getTypeface());
 
     selectionConfig.initPaints();
     selectionTextBuilder = new com.yn.sodiumeditor.core.SelectionTextBuilder(new SelectionTextBuilderCallback());
@@ -391,28 +429,25 @@ public class SodiumEditorView extends View {
     imeCompositionHandler = new com.yn.sodiumeditor.input.ImeCompositionHandler(cursorState, new ImeCompositionCallback());
     editorTextInserter = new com.yn.sodiumeditor.core.EditorTextInserter(cursorState, new EditorTextInserterCallback());
 
-    // Initialization for line numbers
+    // Initialize Line number components
     float density = getContext().getResources().getDisplayMetrics().density;
-    lineNumberManager.initDefaults(paint, density);
-    foldManager.foldPlaceholderCorner = 6f * density;
-    foldManager.foldPlaceholderPadX = 6f * density;
-    foldManager.foldPlaceholderPadY = 2f * density;
-    foldManager.foldMarkerSpacing = foldManager.foldMarkerSpacing * density;
-    foldManager.foldMarkerEdgePadding = foldManager.foldMarkerEdgePadding * density;
+    lineNumberRenderer = new com.yn.sodiumeditor.renderer.LineNumberRenderer(this, lineNumberState, lineNumberConfig);
+    lineNumberRenderer.initDefaults(paint, density);
+    
+    // Initialize Fold components
+    foldRenderer = new com.yn.sodiumeditor.renderer.FoldRenderer(this, foldState);
+    foldRenderer.init(density);
+    foldTouchHandler = new com.yn.sodiumeditor.input.FoldTouchHandler(this, foldState, foldRenderer);
+    foldEngine = new com.yn.sodiumeditor.core.FoldEngine(this);
 
-    popupMenuManager = new PopupMenuManager(this);
-    loadingCircleManager = new LoadingCircleManager(this);
-
-    foldManager.foldPlaceholderPaint.setColor(0xFFE0E0E0);
-    foldManager.foldPlaceholderPaint.setStyle(Paint.Style.FILL);
-    foldManager.foldMarkerPaint.setColor(0xFF888888);
-    foldManager.foldMarkerPaint.setTextAlign(isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
-    foldManager.foldMarkerPaint.setTextSize(paint.getTextSize());
-    foldManager.foldRipplePaint.setStyle(Paint.Style.FILL);
+    popupMenuRenderer = new com.yn.sodiumeditor.renderer.PopupMenuRenderer(this, popupConfig, popupMenuState);
+    popupTouchHandler = new com.yn.sodiumeditor.input.PopupTouchHandler(this, popupMenuState);
+    loadingCircleRenderer = new com.yn.sodiumeditor.renderer.LoadingCircleRenderer(this, loadingCircleState);
+    loadingCircleAnimator = new com.yn.sodiumeditor.renderer.animation.LoadingCircleAnimator(this, loadingCircleState);
 
     // Initialize Word Wrap components
     wrapWordDocument = new com.yn.sodiumeditor.io.WrapWordDocument(modifiedLines);
-    wrapWordEngine = new com.yn.sodiumeditor.core.WrapWordEngine(wrapWordMetrics, whitespaceGuideManager);
+    wrapWordEngine = new com.yn.sodiumeditor.core.WrapWordEngine(wrapWordMetrics, whitespaceGuideState);
     wrapWordMapper = new com.yn.sodiumeditor.core.WrapWordMapper(wrapWordMetrics, wrapWordEngine);
     wrapWordBuilder = new com.yn.sodiumeditor.core.WrapWordBuilder(wrapWordMetrics, wrapWordState, wrapWordEngine, wrapWordMapper, wrapWordDocument);
     wrapWordIndicatorRender.init(paint, density);
@@ -508,7 +543,7 @@ public class SodiumEditorView extends View {
     scrollManager.maxTextStartXForScroll = 0f;
     scrollManager.maxScrollXForScroll = 0f;
     invalidateHighlightEnsureRange();
-    bracketGuideManager.invalidateCache();
+    bracketGuideRenderer.invalidateCache();
     if (wrapWordState.isWordWrapEnabled) wrapWordBuilder.invalidate(true, true);
     wrapWordBuilder.requestPrefixRebuild(this);
     viewRender.reloadWindowAroundVisible(false);
@@ -535,17 +570,17 @@ public class SodiumEditorView extends View {
       urlUnderlineRenderer.setUrlUnderliningEnabled(false);
       pathUnderlineRenderer.setPathUnderliningEnabled(false);
       highlightState.isColorHighlightingEnabled = false;
-      bracketMatchManager.setBracketMatchingEnabled(this, false);
-      bracketGuideManager.setBracketGuidesEnabled(this, false);
-      indentGuideManager.setIndentGuidesEnabled(false);
-      whitespaceGuideManager.setWhitespaceGuidesEnabled(this, false);
+      bracketMatchState.setEnabled(false);
+      bracketGuideRenderer.setEnabled(false);
+      indentGuideRenderer.setIndentGuidesEnabled(false);
+      whitespaceGuideState.setWhitespaceGuidesEnabled(false);
       wrapWordIndicatorRender.setEnabled(false);
       autoSuggestionManager.setAutoCompletionEnabled(false);
       autoSuggestionManager.setAutoPathCompletionEnabled(false);
       charAnimationConfig.setEnabled(false);
       highlightState.setHighlightCurrentLine(false);
       setIndentationBlocksEnabled(false);
-      foldManager.setCodeFoldingEnabled(false);
+      foldState.setCodeFoldingEnabled(false);
     }
     invalidate();
   }
@@ -764,10 +799,10 @@ public class SodiumEditorView extends View {
     if (this.isIndentationBlocksEnabled == enabled) return;
     this.isIndentationBlocksEnabled = enabled;
     if (!enabled) {
-      foldManager.removeIndentFolds();
+      foldTouchHandler.removeIndentFolds();
     }
-    indentGuideManager.markIntervalsDirty();
-    foldManager.markIntervalsDirty();
+    indentGuideEngine.markIntervalsDirty();
+    foldState.foldIntervalsDirty = true;
     invalidate();
   }
 
@@ -827,9 +862,9 @@ public class SodiumEditorView extends View {
   public void setLayoutDirection(boolean isRtl) {
     if (this.isRtl == isRtl) return;
     this.isRtl = isRtl;
-    lineNumberManager.setTextAlign(isRtl);
-    foldManager.foldMarkerPaint.setTextAlign(isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
-    lineNumberManager.invalidateCache();
+    lineNumberRenderer.setTextAlign(isRtl);
+    foldRenderer.foldMarkerPaint.setTextAlign(isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
+    lineNumberRenderer.invalidateCache();
     requestLayout();
     if (wrapWordState.isWordWrapEnabled) wrapWordBuilder.invalidate(true, true);
     scrollManager.maxScrollXForScroll = 0f;
@@ -842,7 +877,7 @@ public class SodiumEditorView extends View {
 
   public void setPopupLabels(
       String copy, String cut, String paste, String delete, String selectAll) {
-    popupMenuManager.setPopupLabels(copy, cut, paste, delete, selectAll);
+    popupConfig.setPopupLabels(copy, cut, paste, delete, selectAll);
   }
 
   public void setFontFromAssets(String assetPath, int style) {
@@ -883,7 +918,7 @@ public class SodiumEditorView extends View {
   }
 
   public void showSelectionPopup() {
-    popupMenuManager.showSelectionPopup();
+    popupTouchHandler.showPopupAtSelection();
   }
 
   // --- Convenience cursor/line accessors ---
@@ -926,12 +961,12 @@ public class SodiumEditorView extends View {
     handleRenderer.setCursorWidth(
         Math.max(1f, scaleByTextSize(handleRenderer.getBaseCursorWidthPx(), baseCursorTextSizePx, sizePx)));
 
-    bracketMatchManager.applyScaledStrokeWidth(
-        Math.max(1f, scaleByTextSize(bracketMatchManager.getBaseStrokeWidth(), bracketMatchManager.getBaseTextSizePx(), sizePx)));
+    bracketMatchRenderer.applyScaledStrokeWidth(
+        Math.max(1f, scaleByTextSize(bracketMatchRenderer.getBaseStrokeWidth(), bracketMatchRenderer.getBaseTextSizePx(), sizePx)));
 
-    bracketGuideManager.applyScaledStrokeWidth(
-        Math.max(1f, scaleByTextSize(bracketGuideManager.getBaseStrokeWidth(), bracketGuideManager.getBaseTextSizePx(), sizePx)));
-    indentGuideManager.updateForTextSize(sizePx);
+    bracketGuideRenderer.applyScaledStrokeWidth(
+        Math.max(1f, scaleByTextSize(bracketGuideRenderer.getBaseStrokeWidth(), bracketGuideRenderer.getBaseTextSizePx(), sizePx)));
+    indentGuideRenderer.updateForTextSize(sizePx);
   }
 
   private void applyTextSizePx(float sizePx) {
@@ -944,18 +979,18 @@ public class SodiumEditorView extends View {
 
     paint.setTextSize(sizePx);
     autoSuggestionManager.onTextSizeChanged(sizePx);
-    lineNumberManager.setTextSize(sizePx);
-    foldManager.foldMarkerPaint.setTextSize(sizePx * foldManager.foldMarkerTextScale);
+    lineNumberRenderer.setTextSize(sizePx);
+    foldRenderer.foldMarkerPaint.setTextSize(sizePx * foldRenderer.foldMarkerTextScale);
     wrapWordIndicatorRender.updatePaintForTextSize(sizePx, paint);
     lineHeight = paint.getFontSpacing();
     updateTextSizeDependentMetrics();
     updateWhitespaceGuideMetrics();
-    lineNumberManager.invalidateCache();
+    lineNumberRenderer.invalidateCache();
 
     for (com.yn.sodiumeditor.core.HighlightRule rule : highlightState.highlightRules) {
       rule.updateTextSize(sizePx);
     }
-    whitespaceGuideManager.updateRuleTextSize(sizePx);
+    whitespaceGuideRenderer.updateRuleTextSize(sizePx, highlightState.stringHighlightRule, highlightState.blockCommentHighlightRule);
     if (highlightState.lineCommentHighlightRule != null) highlightState.lineCommentHighlightRule.updateTextSize(sizePx);
     highlightState.clearHighlightCaches();
 
@@ -1007,7 +1042,7 @@ public class SodiumEditorView extends View {
   }
 
   float measureTextWithVisualSpacesForSearch(String line, int start, int end) {
-    return whitespaceGuideManager.measureTextWithVisualSpaces(this, line, start, end, paint);
+    return whitespaceGuideRenderer.measureTextWithVisualSpaces(this, line, start, end, paint);
   }
 
   void ensureLineInWindowForSearch(int line, boolean immediate) {
@@ -1040,128 +1075,128 @@ public class SodiumEditorView extends View {
     return getLineTextForRenderWithDirect(line, direct);
   }
 
-  int getWindowStartLineForBracket() {
+  public int getWindowStartLineForBracket() {
     return windowStartLine;
   }
 
-  int getWindowEndLineForBracket() {
+  public int getWindowEndLineForBracket() {
     synchronized (linesWindow) {
       return windowStartLine + linesWindow.size() - 1;
     }
   }
 
-  int getEditVersionForBracket() {
+  public int getEditVersionForBracket() {
     return history.getEditVersion();
   }
 
-  String getLineTextForRenderWithDirectForMatch(
+  public String getLineTextForRenderWithDirectForMatch(
       int line, @Nullable java.util.Map<Integer, String> direct) {
     return getLineTextForRenderWithDirect(line, direct);
   }
 
-  int getEditVersionForMatch() {
+  public int getEditVersionForMatch() {
     return history.getEditVersion();
   }
 
-  boolean isBlockCommentsEnabledForMatch() {
+  public boolean isBlockCommentsEnabledForMatch() {
     return isBlockCommentsEnabled;
   }
 
-  boolean isMultiLineStringsEnabledForMatch() {
+  public boolean isMultiLineStringsEnabledForMatch() {
     return isMultiLineStringsEnabled;
   }
 
-  boolean isBacktickStringsEnabledForMatch() {
+  public boolean isBacktickStringsEnabledForMatch() {
     return isBacktickStringsEnabled;
   }
 
-  boolean isTripleQuoteStringsEnabledForMatch() {
+  public boolean isTripleQuoteStringsEnabledForMatch() {
     return isTripleQuoteStringsEnabled;
   }
 
-  int getStringStateTripleForMatch() {
+  public int getStringStateTripleForMatch() {
     return com.yn.sodiumeditor.state.HighlightState.STRING_STATE_TRIPLE;
   }
 
-  int getStringStateBacktickForMatch() {
+  public int getStringStateBacktickForMatch() {
     return com.yn.sodiumeditor.state.HighlightState.STRING_STATE_BACKTICK;
   }
 
 
 
-  float getDrawLineTopForMatch(int globalLine) {
+  public float getDrawLineTopForMatch(int globalLine) {
     return scrollManager.getDrawLineTop(globalLine);
   }
 
-  float getLineHeightForMatch() {
+  public float getLineHeightForMatch() {
     return lineHeight;
   }
 
-  float getPaintTextSizeForMatch() {
+  public float getPaintTextSizeForMatch() {
     return paint.getTextSize();
   }
 
-  String getLineTextForRenderWithDirectForBracket(
+  public String getLineTextForRenderWithDirectForBracket(
       int line, @Nullable java.util.Map<Integer, String> direct) {
     return getLineTextForRenderWithDirect(line, direct);
   }
 
-  boolean isBlockCommentsEnabledForBracket() {
+  public boolean isBlockCommentsEnabledForBracket() {
     return isBlockCommentsEnabled;
   }
 
-  boolean isMultiLineStringsEnabledForBracket() {
+  public boolean isMultiLineStringsEnabledForBracket() {
     return isMultiLineStringsEnabled;
   }
 
-  boolean isBacktickStringsEnabledForBracket() {
+  public boolean isBacktickStringsEnabledForBracket() {
     return isBacktickStringsEnabled;
   }
 
-  boolean isTripleQuoteStringsEnabledForBracket() {
+  public boolean isTripleQuoteStringsEnabledForBracket() {
     return isTripleQuoteStringsEnabled;
   }
 
-  int getStringStateTripleForBracket() {
+  public int getStringStateTripleForBracket() {
     return com.yn.sodiumeditor.state.HighlightState.STRING_STATE_TRIPLE;
   }
 
-  int getStringStateBacktickForBracket() {
+  public int getStringStateBacktickForBracket() {
     return com.yn.sodiumeditor.state.HighlightState.STRING_STATE_BACKTICK;
   }
 
 
-  boolean isWhitespaceGuidesEnabledForBracket() {
-    return whitespaceGuideManager.isWhitespaceGuidesEnabled();
+  public boolean isWhitespaceGuidesEnabledForBracket() {
+    return whitespaceGuideState.isWhitespaceGuidesEnabled();
   }
 
-  int getWhitespaceGuideSpaceStepForBracket() {
-    return whitespaceGuideManager.getSpaceStep();
+  public int getWhitespaceGuideSpaceStepForBracket() {
+    return whitespaceGuideState.getSpaceStep();
   }
 
-  float getPaintTextSizeForBracket() {
+  public float getPaintTextSizeForBracket() {
     return paint.getTextSize();
   }
 
-  boolean isRtlForBracket() {
+  public boolean isRtlForBracket() {
     return isRtl;
   }
 
 
-  boolean isHeavyDrawSuppressedForBracket() {
+  public boolean isHeavyDrawSuppressedForBracket() {
     return isHeavyDrawSuppressed();
   }
 
-  float getDrawLineTopForBracket(int globalLine) {
+  public float getDrawLineTopForBracket(int globalLine) {
     return scrollManager.getDrawLineTop(globalLine);
   }
 
-  float getLineHeightForBracket() {
+  public float getLineHeightForBracket() {
     return lineHeight;
   }
 
 
-  int getBraceGuideColumnForLineForBracket(
+  public int getBraceGuideColumnForLineForBracket(
       String line, int globalLine, int braceIndex, int firstNonSpace) {
     return getBraceGuideColumnForLine(line, globalLine, braceIndex, firstNonSpace);
   }
@@ -1192,7 +1227,7 @@ public class SodiumEditorView extends View {
   }
 
   public boolean isLineNumberSelectionEnabledForInput() {
-    return lineNumberManager.isLineNumberSelectionEnabled();
+    return lineNumberState.isLineNumberSelectionEnabled();
   }
 
   public boolean isInLineNumberGutterForInput(float x) {
@@ -1238,7 +1273,7 @@ public class SodiumEditorView extends View {
   }
 
   public boolean isCodeFoldingEnabledForInput() {
-    return foldManager.isCodeFoldingEnabled;
+    return foldState.isCodeFoldingEnabled;
   }
 
   public void startFoldMarkerRippleForInput(int line) {
@@ -1262,7 +1297,7 @@ public class SodiumEditorView extends View {
   }
 
   public float measureTextWithVisualSpacesForInput(String s, int start, int end) {
-    return whitespaceGuideManager.measureTextWithVisualSpaces(this, s, start, end, paint);
+    return whitespaceGuideRenderer.measureTextWithVisualSpaces(this, s, start, end, paint);
   }
 
   public boolean isFoldPlaceholderHitForInput(int line, String ln, float x) {
@@ -1350,12 +1385,12 @@ public class SodiumEditorView extends View {
     Typeface finalTypeface = Typeface.create(safeBase, typefaceStyle);
     paint.setTypeface(finalTypeface);
     autoSuggestionManager.onEditorTypefaceChanged(finalTypeface);
-    lineNumberManager.setTypeface(finalTypeface);
-    foldManager.foldMarkerPaint.setTypeface(finalTypeface);
+    lineNumberRenderer.setTypeface(finalTypeface);
+    foldRenderer.foldMarkerPaint.setTypeface(finalTypeface);
     wrapWordIndicatorRender.updateTypeface(paint);
-    whitespaceGuideManager.updateTypeface(paint);
-    popupMenuManager.onEditorTypefaceChanged(finalTypeface);
-    whitespaceGuideManager.updateRuleTypeface(safeBase);
+    whitespaceGuideRenderer.updateTypeface(paint);
+    popupMenuRenderer.onEditorTypefaceChanged(finalTypeface);
+    whitespaceGuideRenderer.updateRuleTypeface(safeBase, highlightState.stringHighlightRule, highlightState.blockCommentHighlightRule);
     if (highlightState.lineCommentHighlightRule != null) highlightState.lineCommentHighlightRule.updateTypeface(safeBase);
     for (com.yn.sodiumeditor.core.HighlightRule rule : highlightState.highlightRules) {
       rule.updateTypeface(safeBase);
@@ -1364,7 +1399,7 @@ public class SodiumEditorView extends View {
 
     lineHeight = paint.getFontSpacing();
     updateWhitespaceGuideMetrics();
-    lineNumberManager.invalidateCache();
+    lineNumberRenderer.invalidateCache();
     synchronized (lineWidthCache) {
       lineWidthCache.clear();
     }
@@ -1382,7 +1417,7 @@ public class SodiumEditorView extends View {
   }
 
   private void updateWhitespaceGuideMetrics() {
-    whitespaceGuideManager.updateMetrics(paint, WHITESPACE_GUIDE_SPACE, WHITESPACE_GUIDE_TAB);
+    whitespaceGuideRenderer.updateMetrics(paint, WHITESPACE_GUIDE_SPACE, WHITESPACE_GUIDE_TAB);
 
   }
 
@@ -1407,8 +1442,8 @@ public class SodiumEditorView extends View {
   @Override
   protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
     super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-    float oldGutterWidth = lineNumberManager.getGutterWidth();
-    if (lineNumberManager.isShowLineNumbers()) {
+    float oldGutterWidth = lineNumberState.getLineNumbersGutterWidth();
+    if (lineNumberState.isShowLineNumbers()) {
       int maxLines;
       if (isIndexReady) {
         maxLines = lineOffsets.length;
@@ -1417,25 +1452,25 @@ public class SodiumEditorView extends View {
       } else {
         maxLines = 999999; // Wider fallback for width calculation until index is ready
       }
-      if (foldManager.isCodeFoldingEnabled) {
-        foldManager.foldMarkerGutterWidth =
-            foldManager.foldMarkerPaint.measureText("v") + foldManager.foldMarkerSpacing + foldManager.foldMarkerEdgePadding;
+      if (foldState.isCodeFoldingEnabled) {
+        foldRenderer.foldMarkerGutterWidth =
+            foldRenderer.foldMarkerPaint.measureText("v") + foldRenderer.foldMarkerSpacing + foldRenderer.foldMarkerEdgePadding;
       } else {
-        foldManager.foldMarkerGutterWidth = 0f;
+        foldRenderer.foldMarkerGutterWidth = 0f;
       }
-      lineNumberManager.setGutterWidth(
-          lineNumberManager.computeGutterWidth(
-              maxLines, foldManager.isCodeFoldingEnabled, foldManager.foldMarkerGutterWidth));
+      lineNumberState.setLineNumbersGutterWidth(
+          lineNumberRenderer.computeGutterWidth(
+              maxLines, foldState.isCodeFoldingEnabled, foldRenderer.foldMarkerGutterWidth));
     } else {
-      lineNumberManager.setGutterWidth(0f);
+      lineNumberState.setLineNumbersGutterWidth(0f);
     }
 
-    if (wrapWordState.isWordWrapEnabled && Math.abs(lineNumberManager.getGutterWidth() - oldGutterWidth) > 0.1f) {
+    if (wrapWordState.isWordWrapEnabled && Math.abs(lineNumberState.getLineNumbersGutterWidth() - oldGutterWidth) > 0.1f) {
       wrapWordBuilder.invalidate(true, true);
       wrapWordBuilder.requestPrefixRebuild(this);
     }
-    if (Math.abs(lineNumberManager.getGutterWidth() - oldGutterWidth) > 0.1f) {
-      lineNumberManager.invalidateCache();
+    if (Math.abs(lineNumberState.getLineNumbersGutterWidth() - oldGutterWidth) > 0.1f) {
+      lineNumberRenderer.invalidateCache();
     }
   }
 
@@ -1443,7 +1478,7 @@ public class SodiumEditorView extends View {
   protected void onSizeChanged(int w, int h, int oldw, int oldh) {
     super.onSizeChanged(w, h, oldw, oldh);
     if (w != oldw || h != oldh) {
-      lineNumberManager.invalidateCache();
+      lineNumberRenderer.invalidateCache();
     }
     if (w != oldw) {
       scrollManager.maxScrollXForScroll = 0f;
@@ -1461,7 +1496,7 @@ public class SodiumEditorView extends View {
   }
 
   public float getTextStartX() {
-    return lineNumberManager.getTextStartX(paddingLeft, isRtl);
+    return lineNumberRenderer.getTextStartX(paddingLeft, isRtl);
   }
 
   public float getEffectiveScrollX() {
@@ -1477,7 +1512,7 @@ public class SodiumEditorView extends View {
   }
 
   public float getTextAreaWidth() {
-    return lineNumberManager.getTextAvailableWidth(getWidth(), paddingLeft);
+    return lineNumberRenderer.getTextAvailableWidth(getWidth(), paddingLeft);
   }
 
   public float getRtlLineBaseX(@Nullable String line, int globalLine) {
@@ -1523,11 +1558,11 @@ public class SodiumEditorView extends View {
   }
 
   public float getGutterStartX() {
-    return lineNumberManager.getLineNumberViewLeft(getWidth(), isRtl);
+    return lineNumberRenderer.getLineNumberViewLeft(getWidth(), isRtl);
   }
 
   private boolean isInLineNumberGutter(float x) {
-    return lineNumberManager.isInLineNumberGutter(x, getGutterStartX());
+    return lineNumberRenderer.isInLineNumberGutter(x, getGutterStartX());
   }
 
   private void beginLineNumberSelection(int line) {
@@ -1539,7 +1574,7 @@ public class SodiumEditorView extends View {
     String lineText = getLineTextForRender(clamped);
     selectionState.setSelection(clamped, 0, clamped, lineText.length(), true);
     cursorState.setCursorPosition(clamped, selectionState.selEndChar);
-    popupMenuManager.hidePopup();
+    popupTouchHandler.hidePopup();
     cursorAnimator.resetCursorBlink();
     invalidate();
   }
@@ -1556,15 +1591,15 @@ public class SodiumEditorView extends View {
     selectionState.setSelection(startLine, 0, endLine, endLineText.length(), true);
     cursorState.setCursorPosition(endLine, selectionState.selEndChar);
     selectionState.setLineNumberSelecting(true, anchorLine);
-    popupMenuManager.hidePopup();
+    popupTouchHandler.hidePopup();
     invalidate();
   }
 
-  private String buildFoldDisplayLine(String line, FoldManager.FoldRange range, int[] placeholderBoundsOut) {
-    return foldManager.buildFoldDisplayLine(line, range, placeholderBoundsOut);
+  private String buildFoldDisplayLine(String line, com.yn.sodiumeditor.state.FoldRange range, int[] placeholderBoundsOut) {
+    return foldRenderer.buildFoldDisplayLine(line, range, placeholderBoundsOut);
   }
 
-  String buildFoldDisplayLineInternal(String line, FoldManager.FoldRange range, int[] placeholderBoundsOut) {
+  public String buildFoldDisplayLineInternal(String line, com.yn.sodiumeditor.state.FoldRange range, int[] placeholderBoundsOut) {
     if (line == null) line = "";
     int placeholderStart = 0;
     int placeholderEnd = 0;
@@ -1597,35 +1632,35 @@ public class SodiumEditorView extends View {
   }
 
   public void drawFoldedLine(Canvas canvas, String line, int globalLine) {
-    foldManager.drawFoldedLine(canvas, line, globalLine);
+    foldRenderer.drawFoldedLine(canvas, line, globalLine);
   }
 
   private boolean isFoldPlaceholderHit(int globalLine, @Nullable String line, float localX) {
-    return foldManager.isFoldPlaceholderHit(globalLine, line, localX);
+    return foldTouchHandler.isFoldPlaceholderHit(globalLine, line, localX);
   }
 
   private String getFoldMarkerForLine(int line, @Nullable String lineText) {
-    return foldManager.getFoldMarkerForLine(line, lineText);
+    return foldRenderer.getFoldMarkerForLine(line, lineText);
   }
 
   String getFoldMarkerForLineInternal(int line, @Nullable String lineText) {
-    return foldManager.getFoldMarkerForLine(line, lineText);
+    return foldRenderer.getFoldMarkerForLine(line, lineText);
   }
 
   private boolean isIndentFoldCandidate(String line) {
-    return foldManager.isIndentFoldCandidate(line);
+    return foldRenderer.isIndentFoldCandidate(line);
   }
 
   private void startFoldMarkerRipple(int line) {
-    foldManager.startFoldMarkerRipple(line);
+    foldTouchHandler.startFoldMarkerRipple(line);
   }
 
   private void clearFoldRipple() {
-    foldManager.clearFoldRipple();
+    foldTouchHandler.clearFoldRipple();
   }
 
   private boolean shouldShowFoldMarkerFromLine(String line) {
-    return foldManager.shouldShowFoldMarkerFromLine(line);
+    return foldRenderer.shouldShowFoldMarkerFromLine(line);
   }
 
 
@@ -1654,8 +1689,8 @@ public class SodiumEditorView extends View {
     }
     float avg = highlightRenderer.getAverageCharWidthForLine((lineText == null) ? "" : lineText, globalLine);
     if (avg <= 0f) avg = paint.measureText(" ");
-    float viewLeft = lineNumberManager.getContentViewLeft(isRtl);
-    float viewRight = lineNumberManager.getContentViewRight(getWidth(), isRtl);
+    float viewLeft = lineNumberRenderer.getContentViewLeft(isRtl);
+    float viewRight = lineNumberRenderer.getContentViewRight(getWidth(), isRtl);
     float leftX = viewLeft + getEffectiveScrollX() - getTextStartX();
     float rightX = viewRight + getEffectiveScrollX() - getTextStartX();
     if (isRtl) {
@@ -1693,7 +1728,7 @@ public class SodiumEditorView extends View {
 
   public void drawFoldMarkersForVisibleLines(
       Canvas canvas, int firstVisibleIndex, int lastVisibleIndex) {
-    foldManager.drawFoldMarkersForVisibleLines(canvas, firstVisibleIndex, lastVisibleIndex);
+    foldRenderer.drawFoldMarkersForVisibleLines(canvas, firstVisibleIndex, lastVisibleIndex);
   }
 
   public void drawDeleteAnimationForSegment(
@@ -1706,7 +1741,7 @@ public class SodiumEditorView extends View {
     if (line == null) line = "";
     int at = Math.max(0, Math.min(charAnimator.getDelAnimAtChar(), line.length()));
     if (at < segStart || at > segEnd) return;
-    float x = whitespaceGuideManager.measureTextWithVisualSpaces(this, line, segStart, at, paint);
+    float x = whitespaceGuideRenderer.measureTextWithVisualSpaces(this, line, segStart, at, paint);
     Paint ghostPaint = (charAnimator.getDelAnimPaint() != null) ? charAnimator.getDelAnimPaint() : paint;
     Paint tempPaint = charAnimator.getTempPaint();
     tempPaint.set(ghostPaint);
@@ -1718,7 +1753,7 @@ public class SodiumEditorView extends View {
 
 
 
-  boolean isMixedDirectionText(CharSequence text, int start, int end) {
+  public boolean isMixedDirectionText(CharSequence text, int start, int end) {
     if (text == null || start >= end) return false;
     int safeStart = Math.max(0, start);
     int safeEnd = Math.min(text.length(), end);
@@ -1768,47 +1803,47 @@ public class SodiumEditorView extends View {
     return viewRender.textRender.isWhitespaceAtX(line, globalLine, x);
   }
 
-  boolean isIndentationBlocksEnabledForIndentGuides() {
+  public boolean isIndentationBlocksEnabledForIndentGuides() {
     return isIndentationBlocksEnabled;
   }
 
-  boolean isHeavyDrawSuppressedForIndentGuides() {
+  public boolean isHeavyDrawSuppressedForIndentGuides() {
     return isHeavyDrawSuppressed();
   }
 
-  float getIndentGuideLineTop(int globalLine) {
+  public float getIndentGuideLineTop(int globalLine) {
     return scrollManager.getDrawLineTop(globalLine);
   }
 
-  float getIndentGuideLineHeight() {
+  public float getIndentGuideLineHeight() {
     return lineHeight;
   }
 
-  int getIndentGuideTabSize() {
+  public int getIndentGuideTabSize() {
     return com.yn.sodiumeditor.core.WrapWordEngine.DEFAULT_TAB_SIZE_SPACES;
   }
 
-  String getIndentGuideUnit() {
+  public String getIndentGuideUnit() {
     return INDENT_BLOCK_UNIT;
   }
 
-  float measureTextWithVisualSpacesForIndentGuides(String line, int start, int end) {
-    return whitespaceGuideManager.measureTextWithVisualSpaces(this, line, start, end, paint);
+  public float measureTextWithVisualSpacesForIndentGuides(String line, int start, int end) {
+    return whitespaceGuideRenderer.measureTextWithVisualSpaces(this, line, start, end, paint);
   }
 
-  boolean isWhitespaceAtXForIndentGuides(String line, int globalLine, float x) {
+  public boolean isWhitespaceAtXForIndentGuides(String line, int globalLine, float x) {
     return isWhitespaceAtX(line, globalLine, x);
   }
 
-  boolean hasIndentGuideFoldRanges() {
-    return foldManager.hasFoldRanges();
+  public boolean hasIndentGuideFoldRanges() {
+    return foldState.hasFoldRanges();
   }
 
-  Iterable<FoldManager.FoldRange> getIndentGuideFoldRanges() {
-    return foldManager.getFoldRanges();
+  public Iterable<com.yn.sodiumeditor.state.FoldRange> getIndentGuideFoldRanges() {
+    return foldState.getFoldRanges();
   }
 
-  float getIndentGuideTextSizePx() {
+  public float getIndentGuideTextSizePx() {
     return paint.getTextSize();
   }
 
@@ -1928,7 +1963,7 @@ public class SodiumEditorView extends View {
     viewRender.loadWindowAround(startLine, onComplete, recalculateWidthSync);
   }
 
-  boolean shouldHideCopyCutForSelection() {
+  public boolean shouldHideCopyCutForSelection() {
     if (!selectionState.hasSelection()) return true;
 
     int sL = selectionState.selStartLine, eL = selectionState.selEndLine;
@@ -2005,9 +2040,9 @@ public class SodiumEditorView extends View {
     ioTaskVersion.incrementAndGet();
     ioHandler.removeCallbacksAndMessages(null);
     highlightState.clearHighlightCaches();
-    if (foldManager.isCodeFoldingEnabled) {
-      foldManager.clearAllFolds();
-      indentGuideManager.markIntervalsDirty();
+    if (foldState.isCodeFoldingEnabled) {
+      foldTouchHandler.clearAllFolds();
+      indentGuideEngine.markIntervalsDirty();
     }
   }
 
@@ -2028,7 +2063,7 @@ public class SodiumEditorView extends View {
   }
 
   public void refreshLineNumberCache() {
-    lineNumberManager.invalidateCache();
+    lineNumberRenderer.invalidateCache();
     requestLayout();
     invalidate();
   }
@@ -2044,7 +2079,7 @@ public class SodiumEditorView extends View {
     if (readOnly) {
       autoSuggestionManager.clearActiveSuggestion();
       selectionState.clearSelectionKeepLineNumberState();
-      popupMenuManager.hidePopup();
+      popupTouchHandler.hidePopup();
       InputMethodManager imm =
           (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
       if (imm != null) imm.hideSoftInputFromWindow(getWindowToken(), 0);
@@ -2085,7 +2120,7 @@ public class SodiumEditorView extends View {
 
     final int token = largeEditUiToken.incrementAndGet();
     setDisable(true);
-    loadingCircleManager.show(true);
+    loadingCircleAnimator.show(true);
 
     // Watchdog: force hide after a short time in case any path forgets to hide.
     mainHandler.removeCallbacks(largeEditUiWatchdog);
@@ -2102,7 +2137,7 @@ public class SodiumEditorView extends View {
     largeEditUiToken.incrementAndGet();
     mainHandler.removeCallbacks(largeEditUiWatchdog);
     setDisable(false);
-    loadingCircleManager.show(false);
+    loadingCircleAnimator.show(false);
     if (invalidate) invalidate();
   }
 
@@ -2147,12 +2182,12 @@ public class SodiumEditorView extends View {
   public void goToLine(int line, int col) {
     final int currentGoToLineVersion = goToLineVersion.incrementAndGet();
     setDisable(true);
-    loadingCircleManager.show(true);
+    loadingCircleAnimator.show(true);
 
     if (selectionState.hasSelection()) {
       selectionState.clearSelectionKeepLineNumberState();
       selectionState.setSelecting(false);
-      popupMenuManager.hidePopup();
+      popupTouchHandler.hidePopup();
     }
 
     final int requestedLine = Math.max(0, line - 1);
@@ -2701,7 +2736,7 @@ public class SodiumEditorView extends View {
       cursorAnimator.onFocusChanged(false);
       cursorState.setHasComposing(false);
       selectionState.clearSelectionKeepLineNumberState();
-      popupMenuManager.hidePopup();
+      popupTouchHandler.hidePopup();
     }
   }
 
@@ -2751,11 +2786,11 @@ public class SodiumEditorView extends View {
   }
 
   boolean isOpeningBracket(char c) {
-    return BracketMatchManager.isOpeningBracket(c);
+    return com.yn.sodiumeditor.core.BracketMatchEngine.isOpeningBracket(c);
   }
 
   char matchingBracket(char c) {
-    return BracketMatchManager.matchingBracket(c);
+    return com.yn.sodiumeditor.core.BracketMatchEngine.matchingBracket(c);
   }
 
   public void populateDirectLinesForRange(int startLine, int endLine, java.util.Map<Integer, String> direct) {
@@ -2768,11 +2803,11 @@ public class SodiumEditorView extends View {
   }
 
   public int mapVisibleIndexToGlobal(int visibleIndex) {
-    return foldManager.mapVisibleIndexToGlobal(visibleIndex, getLinesCount());
+    return foldState.mapVisibleIndexToGlobal(visibleIndex, getLinesCount());
   }
 
   public int getVisibleIndexForGlobalLine(int globalLine) {
-    return foldManager.getVisibleIndexForGlobalLine(globalLine);
+    return foldState.getVisibleIndexForGlobalLine(globalLine);
   }
 
   public int getVisualIndexForLineAndChar(int line, int ch) {
@@ -3138,17 +3173,17 @@ public class SodiumEditorView extends View {
 
     @Override
     public void showLoadingCircle(boolean show) {
-      loadingCircleManager.show(show);
+      loadingCircleAnimator.show(show);
     }
 
     @Override
     public void showPopupAtSelection() {
-      popupMenuManager.showPopupAtSelection();
+      popupTouchHandler.showPopupAtSelection();
     }
 
     @Override
     public void hidePopup() {
-      popupMenuManager.hidePopup();
+      popupTouchHandler.hidePopup();
     }
 
     @Override
@@ -3369,7 +3404,7 @@ public class SodiumEditorView extends View {
 
     @Override
     public void hidePopup() {
-      popupMenuManager.hidePopup();
+      popupTouchHandler.hidePopup();
     }
 
     @Override
@@ -3729,7 +3764,7 @@ public class SodiumEditorView extends View {
 
     @Override
     public boolean isShowLineNumbers() {
-      return lineNumberManager.isShowLineNumbers();
+      return lineNumberState.isShowLineNumbers();
     }
 
     @Override

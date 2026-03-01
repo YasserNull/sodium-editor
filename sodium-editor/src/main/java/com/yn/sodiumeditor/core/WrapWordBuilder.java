@@ -511,7 +511,7 @@ public final class WrapWordBuilder {
     metrics.adjustPrefixFromLine(globalLine, delta);
     metrics.totalWrapVisualLines += delta;
 
-    view.lineNumberManager.invalidateCache();
+    view.lineNumberRenderer.invalidateCache();
     view.invalidate();
   }
 
@@ -519,7 +519,7 @@ public final class WrapWordBuilder {
     if (state.isWordWrapEnabled) {
       invalidate(true, true);
     }
-    view.lineNumberManager.invalidateCache();
+    view.lineNumberRenderer.invalidateCache();
   }
 
   //================================================================================

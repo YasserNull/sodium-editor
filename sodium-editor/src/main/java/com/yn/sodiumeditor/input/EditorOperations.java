@@ -66,7 +66,7 @@ public final class EditorOperations {
         view.history.addLineCountDelta(1);
 
         int newLineCount = view.getLinesCount();
-        if (view.lineNumberManager.isShowLineNumbers()
+        if (view.lineNumberState.isShowLineNumbers()
             && String.valueOf(oldLineCount).length() != String.valueOf(newLineCount).length()) {
           view.requestLayout();
         }
@@ -79,7 +79,7 @@ public final class EditorOperations {
         view.highlightState.invalidateHighlightCacheForLine(view.cursorState.getCursorLine());
         view.cursorState.moveCharDelta(1);
         float newWidth =
-            view.whitespaceGuideManager.measureTextWithVisualSpaces(
+            view.whitespaceGuideRenderer.measureTextWithVisualSpaces(
                 view, modified, 0, modified.length(), view.paint);
         synchronized (view.lineWidthCache) {
           view.lineWidthCache.put(view.cursorState.getCursorLine(), newWidth);
@@ -277,7 +277,7 @@ public final class EditorOperations {
         view.history.addLineCountDelta(-1);
 
         int newLineCount = view.getLinesCount();
-        if (view.lineNumberManager.isShowLineNumbers()
+        if (view.lineNumberState.isShowLineNumbers()
             && String.valueOf(oldLineCount).length() != String.valueOf(newLineCount).length()) {
           view.requestLayout();
         }

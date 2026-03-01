@@ -96,7 +96,7 @@ public class PathUnderlineRenderer {
 
         boolean hasFade = fadeStart >= 0 && fadeEnd > fadeStart && fadeAlpha < 1f;
         if (!hasFade || end <= fadeStart || start >= fadeEnd) {
-            float w = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, start, end, textPaint);
+            float w = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, start, end, textPaint);
             if (w > 0f) canvas.drawLine(x, underlineY, x + w, underlineY, state.pathUnderlineTmpPaint);
             return;
         }
@@ -107,7 +107,7 @@ public class PathUnderlineRenderer {
         int beforeEnd = Math.min(end, fadeStart);
         if (start < beforeEnd) {
             state.pathUnderlineTmpPaint.setAlpha(baseAlpha);
-            float w = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, start, beforeEnd, textPaint);
+            float w = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, start, beforeEnd, textPaint);
             if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, state.pathUnderlineTmpPaint);
             currentX += w;
         }
@@ -116,7 +116,7 @@ public class PathUnderlineRenderer {
         int fadeSegEnd = Math.min(end, fadeEnd);
         if (fadeSegStart < fadeSegEnd) {
             state.pathUnderlineTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))));
-            float w = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, fadeSegStart, fadeSegEnd, textPaint);
+            float w = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, fadeSegStart, fadeSegEnd, textPaint);
             if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, state.pathUnderlineTmpPaint);
             currentX += w;
         }
@@ -124,7 +124,7 @@ public class PathUnderlineRenderer {
         int afterStart = Math.max(start, fadeEnd);
         if (afterStart < end) {
             state.pathUnderlineTmpPaint.setAlpha(baseAlpha);
-            float w = view.whitespaceGuideManager.measureTextWithVisualSpaces(view, line, afterStart, end, textPaint);
+            float w = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, afterStart, end, textPaint);
             if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, state.pathUnderlineTmpPaint);
         }
     }
