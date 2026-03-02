@@ -70,7 +70,7 @@ public final class WrapWordMapper {
 
     while (line <= windowEnd) {
       String text = view.getLineTextForRender(line);
-      int[] starts = engine.getWrapStartsForLine(view, line, text, widthPx, view.paint);
+      int[] starts = engine.getWrapStartsForLine(view, line, text, widthPx, view.editorConfig.paint);
       int segCount = Math.max(1, starts.length);
 
       if (remaining < segCount) {

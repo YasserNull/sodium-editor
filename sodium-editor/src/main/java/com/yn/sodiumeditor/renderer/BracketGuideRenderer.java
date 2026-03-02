@@ -115,7 +115,7 @@ public class BracketGuideRenderer {
             return view.highlightRenderer.measureText(line, column, globalLine);
         }
         float base = view.highlightRenderer.measureText(line, line.length(), globalLine);
-        float spaceWidth = view.whitespaceGuideRenderer.getVisualSpaceWidth(view.paint);
+        float spaceWidth = view.whitespaceGuideRenderer.getVisualSpaceWidth(view.editorConfig.paint);
         return base + spaceWidth * (column - line.length());
     }
 
@@ -142,7 +142,7 @@ public class BracketGuideRenderer {
                 if (span.end <= pos) continue;
                 if (span.start > pos) {
                     for (int i = pos; i < Math.min(span.start, len); i++) {
-                        float adv = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, i, i + 1, view.paint);
+                        float adv = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, i, i + 1, view.editorConfig.paint);
                         if (x >= currentX - eps && x <= currentX + adv + eps) {
                             return Character.isWhitespace(line.charAt(i));
                         }
@@ -152,7 +152,7 @@ public class BracketGuideRenderer {
                 int start = Math.max(pos, span.start);
                 int end = Math.min(len, span.end);
                 for (int i = start; i < end; i++) {
-                    float adv = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, i, i + 1, view.paint);
+                    float adv = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, i, i + 1, view.editorConfig.paint);
                     if (x >= currentX - eps && x <= currentX + adv + eps) {
                         return Character.isWhitespace(line.charAt(i));
                     }
@@ -164,7 +164,7 @@ public class BracketGuideRenderer {
 
         if (pos < len) {
             for (int i = pos; i < len; i++) {
-                float adv = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, i, i + 1, view.paint);
+                float adv = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, i, i + 1, view.editorConfig.paint);
                 if (x >= currentX - eps && x <= currentX + adv + eps) {
                     return Character.isWhitespace(line.charAt(i));
                 }

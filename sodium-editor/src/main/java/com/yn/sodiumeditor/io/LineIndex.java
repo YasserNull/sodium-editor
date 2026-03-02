@@ -337,4 +337,51 @@ public class LineIndex {
             endByte = e;
         }
     }
+
+    // =========================================================================
+    // LineScanResult Class
+    // =========================================================================
+
+    public static final class LineScanResult {
+        public final long length;
+        public final boolean reachedEof;
+
+        public LineScanResult(long length, boolean reachedEof) {
+            this.length = length;
+            this.reachedEof = reachedEof;
+        }
+    }
+
+    // =========================================================================
+    // Line Scanning
+    // =========================================================================
+
+    /**
+     * Scans a line to determine its length in bytes.
+     * @param raf the RandomAccessFile to scan
+     * @return LineScanResult with line length and EOF status
+     */
+    public LineScanResult scanLineLength(RandomAccessFile raf) throws Exception {
+        byte[] buf = new byte[8192];
+        long lineLen = 0L;
+        int prev = -1;
+        while (true) {
+            long chunkStart = raf.getFilePointer();
+            int n = raf.read(buf);
+            if (n <= 0) {
+                return new LineScanResult(lineLen, true);
+            }
+            for (int i = 0; i < n; i++) {
+                int b = buf[i] & 0xFF;
+                if (b == '\n') {
+                    if (prev == '\r' && lineLen > 0L) lineLen -= 1L;
+                    long nextPos = chunkStart + i + 1;
+                    raf.seek(nextPos);
+                    return new LineScanResult(lineLen, false);
+                }
+                lineLen++;
+                prev = b;
+            }
+        }
+    }
 }

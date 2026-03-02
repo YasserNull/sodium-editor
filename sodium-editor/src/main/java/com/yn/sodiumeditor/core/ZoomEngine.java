@@ -206,4 +206,53 @@ public final class ZoomEngine {
     }
     return globalLine;
   }
+
+  //================================================================================
+  // Text Size Dependent Metrics
+  //================================================================================
+
+  /**
+   * Updates all text size dependent metrics across the editor.
+   * This includes handle radius, cursor width, bracket stroke widths, etc.
+   */
+  public void updateTextSizeDependentMetrics(SodiumEditor view) {
+    float sizePx = view.editorConfig.paint.getTextSize();
+    float baseTextSizePx = view.editorConfig.visualConfig.baseCursorTextSizePx;
+
+    // Update handle renderer metrics
+    view.handleRenderer.setHandleRadius(
+        Math.max(
+            4f,
+            scaleByTextSize(
+                view.handleRenderer.getBaseHandleRadiusPx(),
+                baseTextSizePx,
+                sizePx)));
+    view.handleRenderer.setCursorWidth(
+        Math.max(1f, scaleByTextSize(view.handleRenderer.getBaseCursorWidthPx(), baseTextSizePx, sizePx)));
+
+    // Update bracket match renderer stroke width
+    view.bracketMatchRenderer.applyScaledStrokeWidth(
+        Math.max(1f, scaleByTextSize(
+            view.bracketMatchRenderer.getBaseStrokeWidth(),
+            view.bracketMatchRenderer.getBaseTextSizePx(),
+            sizePx)));
+
+    // Update bracket guide renderer stroke width
+    view.bracketGuideRenderer.applyScaledStrokeWidth(
+        Math.max(1f, scaleByTextSize(
+            view.bracketGuideRenderer.getBaseStrokeWidth(),
+            view.bracketGuideRenderer.getBaseTextSizePx(),
+            sizePx)));
+
+    // Update indent guide renderer for text size
+    view.indentGuideRenderer.updateForTextSize(sizePx);
+  }
+
+  /**
+   * Scales a value proportionally based on text size change.
+   */
+  private float scaleByTextSize(float baseValue, float baseTextSizePx, float newTextSizePx) {
+    if (baseTextSizePx <= 0f) return baseValue;
+    return baseValue * (newTextSizePx / baseTextSizePx);
+  }
 }

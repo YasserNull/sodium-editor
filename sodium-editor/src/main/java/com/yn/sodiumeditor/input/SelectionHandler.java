@@ -73,6 +73,10 @@ public final class SelectionHandler {
         void setCursorPositionNoClear(int line, int ch);
         int getSelectionHandleColor();
         void setSelectionHandleColor(int color);
+        void invalidatePendingIOForEdit();
+        void insertTextAtCursor(String text);
+        void inlinePredictionUpdate();
+        int getHideCopyCutMaxLines();
     }
 
     public interface OnTotalLinesCounted {
@@ -443,5 +447,81 @@ public final class SelectionHandler {
 
     public int getSelEndChar() {
         return state.selEndChar;
+    }
+
+    public void beginLineNumberSelection(int line) {
+        int clamped = com.yn.sodiumeditor.utils.SelectionUtils.clampLineForSelection(
+                line, callback.isEof(), callback.getWindowStartLine(), callback.getLinesWindow().size());
+        if (!com.yn.sodiumeditor.utils.SelectionUtils.isLineSelectable(callback.getLineTextForRender(clamped))) return;
+        callback.clearActiveSuggestion();
+        state.setLineNumberSelecting(true, clamped);
+        state.setSelectAllState(false, false);
+        String lineText = callback.getLineTextForRender(clamped);
+        setSelection(clamped, 0, clamped, lineText.length(), true);
+        callback.setCursorPositionNoClear(clamped, state.selEndChar);
+        callback.hidePopup();
+        callback.invalidate();
+    }
+
+    public void updateLineNumberSelection(int line) {
+        if (!state.isLineNumberSelecting()) return;
+        int clamped = com.yn.sodiumeditor.utils.SelectionUtils.clampLineForSelection(
+                line, callback.isEof(), callback.getWindowStartLine(), callback.getLinesWindow().size());
+        if (!com.yn.sodiumeditor.utils.SelectionUtils.isLineSelectable(callback.getLineTextForRender(clamped))) return;
+        int anchorLine = state.lineNumberSelectAnchorLine;
+        int startLine = Math.min(anchorLine, clamped);
+        int endLine = Math.max(anchorLine, clamped);
+        callback.scrollToLineFastForSelectAll(endLine, 0);
+        String endLineText = callback.getLineTextForRender(endLine);
+        setSelection(startLine, 0, endLine, endLineText.length(), true);
+        callback.setCursorPositionNoClear(endLine, state.selEndChar);
+        state.setLineNumberSelecting(true, anchorLine);
+        callback.hidePopup();
+        callback.invalidate();
+    }
+
+    @Nullable
+    public String getSelectedText() {
+        if (!state.hasSelection()) return null;
+        if (shouldHideCopyCutForSelection()) return null;
+
+        int sL = state.selStartLine, sC = state.selStartChar, eL = state.selEndLine, eC = state.selEndChar;
+        if (callback.comparePos(sL, sC, eL, eC) > 0) {
+            int tL = sL, tC = sC;
+            sL = eL;
+            sC = eC;
+            eL = tL;
+            eC = tC;
+        }
+        return textBuilder.buildSelectedTextBlocking(sL, sC, eL, eC);
+    }
+
+    public boolean shouldHideCopyCutForSelection() {
+        if (!state.hasSelection()) return true;
+
+        int sL = state.selStartLine, eL = state.selEndLine;
+        if (sL > eL) {
+            int t = sL;
+            sL = eL;
+            eL = t;
+        }
+        long lines = (long) eL - (long) sL + 1L;
+        return lines > callback.getHideCopyCutMaxLines();
+    }
+
+    public void pasteFromClipboard() {
+        callback.invalidatePendingIOForEdit();
+        callback.incrementEditVersion();
+        callback.clearActiveSuggestion();
+
+        ClipboardManager cm = (ClipboardManager) callback.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+        if (cm == null || !cm.hasPrimaryClip()) return;
+        ClipData cd = cm.getPrimaryClip();
+        if (cd == null || cd.getItemCount() == 0) return;
+        CharSequence txt = cd.getItemAt(0).coerceToText(callback.getContext());
+        if (txt == null) return;
+        callback.setCursorLineAndChar(callback.getCursorLine(), callback.getCursorChar());
+        callback.insertTextAtCursor(txt.toString());
+        callback.inlinePredictionUpdate();
     }
 }

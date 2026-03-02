@@ -38,7 +38,7 @@ public final class CursorTargeting {
             int clamped = Math.max(0, Math.min(charIndex, view.getLogicalLineLength(pos.line, line)));
             return new SodiumEditor.CursorTarget(pos.line, clamped);
         }
-        int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, pos.line, line, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.paint);
+        int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, pos.line, line, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.editorConfig.paint);
         int seg = Math.min(Math.max(0, pos.segment), Math.max(0, starts.length - 1));
         int segStart = view.wrapWordEngine.getWrapSegmentStart(starts, seg);
         int segEnd = view.wrapWordEngine.getWrapSegmentEnd(starts, seg, line.length());

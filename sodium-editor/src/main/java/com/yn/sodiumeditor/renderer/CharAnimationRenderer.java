@@ -24,7 +24,7 @@ public final class CharAnimationRenderer {
         if (animator.getDelAnimAlpha() <= 0f) return;
 
         Paint ghostPaint = animator.getDelAnimPaint();
-        if (ghostPaint == null) ghostPaint = view.paint;
+        if (ghostPaint == null) ghostPaint = view.editorConfig.paint;
 
         Paint tempPaint = animator.getTempPaint();
         tempPaint.set(ghostPaint);
@@ -33,6 +33,26 @@ public final class CharAnimationRenderer {
                 (int) (baseAlpha * Math.max(0f, Math.min(1f, animator.getDelAnimAlpha()))));
 
         canvas.drawText(delText, x, y, tempPaint);
+    }
+
+    public void drawDeleteAnimationForSegment(
+            Canvas canvas, String line, int globalLine, int segStart, int segEnd, float y) {
+        if (!view.charAnimationConfig.isEnabled()) return;
+        if (globalLine != animator.getDelAnimLine()
+                || animator.getDelAnimText() == null
+                || animator.getDelAnimText().isEmpty()
+                || animator.getDelAnimAlpha() <= 0f) return;
+        if (line == null) line = "";
+        int at = Math.max(0, Math.min(animator.getDelAnimAtChar(), line.length()));
+        if (at < segStart || at > segEnd) return;
+        float x = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, segStart, at, view.editorConfig.paint);
+        Paint ghostPaint = (animator.getDelAnimPaint() != null) ? animator.getDelAnimPaint() : view.editorConfig.paint;
+        Paint tempPaint = animator.getTempPaint();
+        tempPaint.set(ghostPaint);
+        tempPaint.setUnderlineText(false);
+        int baseAlpha = ghostPaint.getAlpha();
+        tempPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, animator.getDelAnimAlpha()))));
+        canvas.drawText(animator.getDelAnimText(), x, y, tempPaint);
     }
 
     public void drawCharAnimationHighlight(

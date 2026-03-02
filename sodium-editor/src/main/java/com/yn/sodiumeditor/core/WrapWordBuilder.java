@@ -54,7 +54,7 @@ public final class WrapWordBuilder {
 
     final int token = state.wrapMetricsToken.incrementAndGet();
     final int widthPx = Math.max(1, Math.round(getWrapWidth(view)));
-    final Paint wrapPaint = new Paint(view.paint);
+    final Paint wrapPaint = new Paint(view.editorConfig.paint);
     state.wrapMetricsBuilding = true;
 
     view.ioHandler.post(() -> buildFromFile(view, token, widthPx, wrapPaint));
@@ -142,7 +142,7 @@ public final class WrapWordBuilder {
         int global = start + i;
         if (global < 0 || global >= total) continue;
         String line = snapshot.get(i);
-        counts[global] = engine.computeWrapCount(line, widthPx, view.paint);
+        counts[global] = engine.computeWrapCount(line, widthPx, view.editorConfig.paint);
       }
     }
 
@@ -271,7 +271,7 @@ public final class WrapWordBuilder {
         int global = start + i;
         if (global < 0 || global >= total) continue;
         String line = snapshot.get(i);
-        counts[global] = engine.computeWrapCount(line, widthPx, view.paint);
+        counts[global] = engine.computeWrapCount(line, widthPx, view.editorConfig.paint);
       }
     }
 
@@ -330,7 +330,7 @@ public final class WrapWordBuilder {
             ? metrics.wrapLinePrefix[anchorLine]
             : anchorLine;
 
-    final Paint wrapPaint = new Paint(view.paint);
+    final Paint wrapPaint = new Paint(view.editorConfig.paint);
 
     view.ioHandler.post(() -> {
       if (token != state.wrapPrefixToken.get()) return;
@@ -502,7 +502,7 @@ public final class WrapWordBuilder {
       return;
     }
 
-    int newCount = engine.computeWrapCount(newText, widthPx, view.paint);
+    int newCount = engine.computeWrapCount(newText, widthPx, view.editorConfig.paint);
     int oldCount = metrics.wrapLineCounts[globalLine];
     if (newCount == oldCount) return;
 
@@ -582,7 +582,7 @@ public final class WrapWordBuilder {
       if (line < 0 || line >= metrics.wrapLineCounts.length) break;
 
       String text = view.getLineTextForRenderWithDirect(line, directLines);
-      int[] starts = engine.getWrapStartsForLine(view, line, text, widthPx, view.paint);
+      int[] starts = engine.getWrapStartsForLine(view, line, text, widthPx, view.editorConfig.paint);
       int newCount = Math.max(1, starts.length);
       int oldCount = metrics.wrapLineCounts[line];
 

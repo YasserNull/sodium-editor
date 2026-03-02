@@ -82,7 +82,7 @@ public final class WrapWordIndicatorRender {
   public void setTextSize(SodiumEditor view, float sizeSp) {
     if (sizeSp <= 0f) return;
     float px = sizeSp * view.getResources().getDisplayMetrics().density;
-    float base = view.paint.getTextSize();
+    float base = view.editorConfig.paint.getTextSize();
     updateTextSize(base, px);
   }
 
@@ -104,7 +104,7 @@ public final class WrapWordIndicatorRender {
     int end = Math.max(segStart, Math.min(segEnd, line.length()));
     while (end > segStart) {
       float width = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(
-          view, line, segStart, end, view.paint);
+          view, line, segStart, end, view.editorConfig.paint);
       if (width <= available) break;
       end--;
     }

@@ -112,7 +112,7 @@ public final class TouchHandler {
                   float xLocal = view.viewToTextXForInput(e.getX());
                   float x;
                   if (view.wrapWordState.isWordWrapEnabled) {
-                    int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, line, ln, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.paint);
+                    int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, line, ln, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.editorConfig.paint);
                     int seg =
                         view.wrapWordEngine.getWrapSegmentIndexForChar(
                             starts, Math.max(0, Math.min(target.ch, ln.length())));

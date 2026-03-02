@@ -53,4 +53,92 @@ public class IndentGuideEngine {
             state.removeIntervalAt(state.getIntervalsCount() - 1);
         }
     }
+
+    /**
+     * Gets the leading whitespace from a line.
+     * @param line the line text
+     * @return the leading whitespace string
+     */
+    public static String getLineLeadingWhitespace(String line) {
+        if (line == null || line.isEmpty()) return "";
+        int i = 0;
+        while (i < line.length()) {
+            char c = line.charAt(i);
+            if (c != ' ' && c != '\t') break;
+            i++;
+        }
+        return (i == 0) ? "" : line.substring(0, i);
+    }
+
+    /**
+     * Gets the indent width of a line in spaces.
+     * @param line the line text
+     * @return the indent width
+     */
+    public static int getIndentWidth(String line) {
+        if (line == null || line.isEmpty()) return 0;
+        int width = 0;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == ' ') {
+                width++;
+            } else if (c == '\t') {
+                width += com.yn.sodiumeditor.core.WrapWordEngine.DEFAULT_TAB_SIZE_SPACES;
+            } else {
+                break;
+            }
+        }
+        return width;
+    }
+
+    /**
+     * Gets the index of the first non-space character in a line.
+     * @param line the line text
+     * @return the index of the first non-space character, or -1 if not found
+     */
+    public static int getFirstNonSpaceIndex(String line) {
+        if (line == null || line.isEmpty()) return -1;
+        for (int i = 0; i < line.length(); i++) {
+            if (!Character.isWhitespace(line.charAt(i))) return i;
+        }
+        return -1;
+    }
+
+    /**
+     * Calculates the brace guide column for a line containing a bracket.
+     * @param line the line text
+     * @param globalLine the global line index
+     * @param braceIndex the column index of the brace
+     * @param firstNonSpace the column index of the first non-space character
+     * @return the column index for the brace guide
+     */
+    public int getBraceGuideColumnForLine(
+            String line, int globalLine, int braceIndex, int firstNonSpace) {
+        int column = (firstNonSpace >= 0) ? firstNonSpace : braceIndex;
+        if (firstNonSpace >= 0 && braceIndex > firstNonSpace) {
+            char first = line.charAt(firstNonSpace);
+            if (first == ')' || first == ']') {
+                int prevIndent = getPreviousNonEmptyIndentColumn(globalLine - 1);
+                if (prevIndent >= 0) {
+                    column = prevIndent;
+                }
+            }
+        }
+        return column;
+    }
+
+    /**
+     * Gets the previous non-empty indent column.
+     * @param line the line index to search from (going backwards)
+     * @return the indent column of the previous non-empty line, or -1 if not found
+     */
+    public int getPreviousNonEmptyIndentColumn(int line) {
+        for (int l = line; l >= 0; l--) {
+            String prev = view.getLineTextForRender(l);
+            if (prev == null) continue;
+            int idx = getFirstNonSpaceIndex(prev);
+            if (idx >= 0) return idx;
+        }
+        return -1;
+    }
 }

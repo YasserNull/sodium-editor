@@ -45,7 +45,7 @@ public class InlinePredictionRenderer {
     public void setSuggestionTextSize(float sizeSp) {
         state.setSuggestionTextSizeCustom(true);
         float px = sizeSp * view.getResources().getDisplayMetrics().scaledDensity;
-        float base = view.paint.getTextSize();
+        float base = view.editorConfig.paint.getTextSize();
         if (base > 0f) {
             state.setSuggestionTextSizeScale(px / base);
         } else {
@@ -72,7 +72,7 @@ public class InlinePredictionRenderer {
 
         float suggestionStartX =
                 view.whitespaceGuideRenderer.measureTextWithVisualSpaces(
-                        view, lineContent, 0, cursorPositionInLine, view.paint);
+                        view, lineContent, 0, cursorPositionInLine, view.editorConfig.paint);
         canvas.drawText(state.activeSuggestion, suggestionStartX, textBaselineY, suggestionPaint);
 
         float suggestionTextWidth = suggestionPaint.measureText(state.activeSuggestion);
@@ -103,7 +103,7 @@ public class InlinePredictionRenderer {
 
         float suggestionStartX_canvas =
                 view.whitespaceGuideRenderer.measureTextWithVisualSpaces(
-                        view, lineContent, segStart, cursorPositionInLine, view.paint);
+                        view, lineContent, segStart, cursorPositionInLine, view.editorConfig.paint);
         canvas.drawText(state.activeSuggestion, suggestionStartX_canvas, textBaselineY, suggestionPaint);
 
         float suggestionTextWidth = suggestionPaint.measureText(state.activeSuggestion);

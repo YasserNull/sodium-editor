@@ -36,43 +36,11 @@ public final class ViewRender {
 
   private void computeStreamedSliceBounds(
       @Nullable String lineText, int globalLine, int lineLength, int[] out) {
-    if (out == null || out.length < 2) return;
-    int len = Math.max(0, lineLength);
-    if (len <= 0) {
-      out[0] = 0;
-      out[1] = 0;
-      return;
-    }
-    float avg = view.highlightRenderer.getAverageCharWidthForLine((lineText == null) ? "" : lineText, globalLine);
-    if (avg <= 0f) avg = view.paint.measureText(" ");
-    float viewLeft = view.lineNumberRenderer.getContentViewLeft(view.isRtl);
-    float viewRight = view.lineNumberRenderer.getContentViewRight(view.getWidth(), view.isRtl);
-    float leftX = viewLeft + view.getEffectiveScrollX() - view.getTextStartX();
-    float rightX = viewRight + view.getEffectiveScrollX() - view.getTextStartX();
-    if (view.isRtl) {
-      float w = avg * len;
-      float baseX = view.getTextAreaWidth();
-      leftX = w - (leftX - baseX);
-      rightX = w - (rightX - baseX);
-    }
-    int start = (int) Math.floor(leftX / avg);
-    int end = (int) Math.ceil(rightX / avg);
-    if (end < start) {
-      int t = start;
-      start = end;
-      end = t;
-    }
-    int pad = Math.max(0, view.editorConfig.visualConfig.visibleCharPadding);
-    start = Math.max(0, start - pad);
-    end = Math.min(len, end + pad);
-    out[0] = start;
-    out[1] = end;
+    view.highlightRenderer.computeStreamedSliceBounds(lineText, globalLine, lineLength, out);
   }
 
   private int getInitialStreamedSliceSize() {
-    int base = Math.max(128, view.colsWidthCacheSize);
-    int pad = Math.max(0, view.editorConfig.visualConfig.visibleCharPadding) * 2;
-    return Math.max(base, pad);
+    return view.highlightRenderer.getInitialStreamedSliceSize();
   }
 
   public void setWindowSize(int size) {
@@ -209,6 +177,20 @@ public final class ViewRender {
     }
   }
 
+  public void maybeKickWindowLoad(int firstVisibleLine) {
+    if (view.zoomGestureHandler.isZoomGestureActive()) return;
+    if (view.fileManager.getSourceFile() == null || view.fileManager.isFileCleared()) return;
+    if (view.editorState.isWindowLoading) return;
+
+    boolean inside =
+        firstVisibleLine >= view.editorState.windowStartLine
+            && firstVisibleLine < view.editorState.windowStartLine + view.editorState.linesWindow.size();
+    if (!inside) {
+      int targetStart = Math.max(0, firstVisibleLine - view.editorState.prefetchLines);
+      loadWindowAround(targetStart, null, false);
+    }
+  }
+
   public void loadWindowAround(int startLine, @Nullable Runnable onComplete) {
     loadWindowAround(startLine, onComplete, true);
   }
@@ -328,7 +310,7 @@ public final class ViewRender {
                 raf.seek(0);
                 int skipped = 0;
                 while (skipped < actualStart) {
-                  SodiumEditor.LineScanResult scan = view.scanLineLength(raf);
+                  com.yn.sodiumeditor.io.LineIndex.LineScanResult scan = view.editorIO.lineIndex.scanLineLength(raf);
                   if (scan.reachedEof) break;
                   skipped++;
                 }
@@ -342,7 +324,7 @@ public final class ViewRender {
                     reachedEof = true;
                     break;
                   }
-                  SodiumEditor.LineScanResult scan = view.scanLineLength(raf);
+                  com.yn.sodiumeditor.io.LineIndex.LineScanResult scan = view.editorIO.lineIndex.scanLineLength(raf);
                   long afterPos = raf.getFilePointer();
                   long lineByteLen = scan.length;
                   int lineLen = (int) Math.min(Integer.MAX_VALUE, lineByteLen);
@@ -734,5 +716,83 @@ public final class ViewRender {
       if (!Character.isWhitespace(line.charAt(i))) return i;
     }
     return -1;
+  }
+
+  //================================================================================
+  // Layout and Measurement
+  //================================================================================
+
+  /**
+   * Handles the measure pass of the view lifecycle.
+   * Computes gutter width for line numbers and triggers wrap word invalidation if needed.
+   */
+  public void onMeasure() {
+    float oldGutterWidth = view.lineNumberState.getLineNumbersGutterWidth();
+    
+    if (view.lineNumberState.isShowLineNumbers()) {
+      int maxLines;
+      if (view.editorIndexState.isIndexReady) {
+        maxLines = view.editorIndexState.lineOffsets.length;
+      } else if (view.editorState.isEof) {
+        maxLines = view.editorState.windowStartLine + view.editorState.linesWindow.size();
+      } else {
+        maxLines = 999999; // Wider fallback for width calculation until index is ready
+      }
+      
+      if (view.foldState.isCodeFoldingEnabled) {
+        view.foldRenderer.foldMarkerGutterWidth =
+            view.foldRenderer.foldMarkerPaint.measureText("v") 
+            + view.foldRenderer.foldMarkerSpacing 
+            + view.foldRenderer.foldMarkerEdgePadding;
+      } else {
+        view.foldRenderer.foldMarkerGutterWidth = 0f;
+      }
+      
+      view.lineNumberState.setLineNumbersGutterWidth(
+          view.lineNumberRenderer.computeGutterWidth(
+              maxLines, view.foldState.isCodeFoldingEnabled, view.foldRenderer.foldMarkerGutterWidth));
+    } else {
+      view.lineNumberState.setLineNumbersGutterWidth(0f);
+    }
+
+    float newGutterWidth = view.lineNumberState.getLineNumbersGutterWidth();
+    if (Math.abs(newGutterWidth - oldGutterWidth) > 0.1f) {
+      if (view.wrapWordState.isWordWrapEnabled) {
+        view.wrapWordBuilder.invalidate(true, true);
+        view.wrapWordBuilder.requestPrefixRebuild(view);
+      }
+      view.lineNumberRenderer.invalidateCache();
+    }
+  }
+
+  /**
+   * Handles size changes in the view.
+   * Invalidates caches and triggers wrap word rebuild when width changes.
+   * 
+   * @param w new width
+   * @param h new height
+   * @param oldw old width
+   * @param oldh old height
+   */
+  public void onSizeChanged(int w, int h, int oldw, int oldh) {
+    if (w != oldw || h != oldh) {
+      view.lineNumberRenderer.invalidateCache();
+    }
+    
+    if (w != oldw) {
+      view.scrollManager.maxScrollXForScroll = 0f;
+      view.scrollManager.maxTextStartXForScroll = 0f;
+    }
+    
+    int minWindow = computeMinWindowSizeForPrefetch(view.editorState.prefetchLines);
+    if (view.editorState.windowSize < minWindow) {
+      view.editorState.windowSize = minWindow;
+      view.reloadWindowAroundVisible(false);
+    }
+    
+    if (view.wrapWordState.isWordWrapEnabled && w != oldw) {
+      view.wrapWordBuilder.invalidate(true, true);
+      view.wrapWordBuilder.requestPrefixRebuild(view);
+    }
   }
 }

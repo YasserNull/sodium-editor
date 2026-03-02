@@ -38,7 +38,7 @@ public class HighlightRenderer {
             return;
         }
 
-        int[] visibleCharRange = view.visibleCharRangeTmpForRender;
+        int[] visibleCharRange = view.editorState.visibleCharRangeTmpForRender;
         view.getVisibleCharRangeForLine(line, globalLine, visibleCharRange);
         int visibleStart = visibleCharRange[0];
         int visibleEnd = visibleCharRange[1];
@@ -85,7 +85,7 @@ public class HighlightRenderer {
 
         if (state.highlightRules.isEmpty()) {
             drawTextSegmentWithFadeAndUnderlines(
-                    canvas, line, 0, line.length(), 0f, y, view.paint,
+                    canvas, line, 0, line.length(), 0f, y, view.editorConfig.paint,
                     fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
             drawDeletedTextAnimation(canvas, globalLine, y);
             drawErrorUnderlinesForLine(canvas, line, globalLine, y, lineTop, lineBottom);
@@ -100,7 +100,7 @@ public class HighlightRenderer {
 
         if (spans.isEmpty()) {
             drawTextSegmentWithFadeAndUnderlines(
-                    canvas, line, 0, line.length(), 0f, y, view.paint,
+                    canvas, line, 0, line.length(), 0f, y, view.editorConfig.paint,
                     fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
             drawDeletedTextAnimation(canvas, globalLine, y);
             drawErrorUnderlinesForLine(canvas, line, globalLine, y, lineTop, lineBottom);
@@ -117,7 +117,7 @@ public class HighlightRenderer {
 
             if (span.start > lastEnd) {
                 currentX += drawTextSegmentWithFadeAndUnderlines(
-                        canvas, line, lastEnd, span.start, currentX, y, view.paint,
+                        canvas, line, lastEnd, span.start, currentX, y, view.editorConfig.paint,
                         fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
             }
 
@@ -129,7 +129,7 @@ public class HighlightRenderer {
 
         if (lastEnd < line.length()) {
             drawTextSegmentWithFadeAndUnderlines(
-                    canvas, line, lastEnd, line.length(), currentX, y, view.paint,
+                    canvas, line, lastEnd, line.length(), currentX, y, view.editorConfig.paint,
                     fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
         }
 
@@ -144,7 +144,7 @@ public class HighlightRenderer {
                 && !view.charAnimator.getDelAnimText().isEmpty()
                 && view.charAnimator.getDelAnimAlpha() > 0f) {
             Paint ghostPaint = view.charAnimator.getDelAnimPaint() != null ?
-                    view.charAnimator.getDelAnimPaint() : view.paint;
+                    view.charAnimator.getDelAnimPaint() : view.editorConfig.paint;
             Paint tempPaint = view.charAnimator.getTempPaint();
             tempPaint.set(ghostPaint);
             tempPaint.setUnderlineText(false);
@@ -163,7 +163,7 @@ public class HighlightRenderer {
             if (drawEnd > drawStart) {
                 float avg = getAverageCharWidthForLine(line, globalLine);
                 float x = avg * drawStart;
-                canvas.drawText(line, drawStart - sliceStart, drawEnd - sliceStart, x, y, view.paint);
+                canvas.drawText(line, drawStart - sliceStart, drawEnd - sliceStart, x, y, view.editorConfig.paint);
             }
         }
     }
@@ -324,7 +324,7 @@ public class HighlightRenderer {
     }
 
     public float getAverageCharWidthForLine(String line, int lineIndex) {
-        if (line == null || line.isEmpty()) return view.paint.measureText(" ");
+        if (line == null || line.isEmpty()) return view.editorConfig.paint.measureText(" ");
         if (lineIndex >= 0) {
             synchronized (view.avgCharWidthCache) {
                 Float cached = view.avgCharWidthCache.get(lineIndex);
@@ -332,7 +332,7 @@ public class HighlightRenderer {
             }
         }
         int sampleLen = Math.min(line.length(), 256);
-        float w = (sampleLen > 0) ? view.paint.measureText(line, 0, sampleLen) : view.paint.measureText(" ");
+        float w = (sampleLen > 0) ? view.editorConfig.paint.measureText(line, 0, sampleLen) : view.editorConfig.paint.measureText(" ");
         float avg = (sampleLen > 0) ? (w / sampleLen) : w;
         if (lineIndex >= 0) {
             synchronized (view.avgCharWidthCache) {
@@ -605,7 +605,7 @@ public class HighlightRenderer {
             return avg * safeLen;
         }
         if (state.highlightRules.isEmpty() || line.isEmpty() || safeLen == 0) {
-            return view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, 0, safeLen, view.paint);
+            return view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, 0, safeLen, view.editorConfig.paint);
         }
 
         List<HighlightSpan> spans = state.highlightCache.get(globalLine);
@@ -615,7 +615,7 @@ public class HighlightRenderer {
         }
 
         if (spans.isEmpty()) {
-            return view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, 0, safeLen, view.paint);
+            return view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, 0, safeLen, view.editorConfig.paint);
         }
 
         float totalWidth = 0;
@@ -628,7 +628,7 @@ public class HighlightRenderer {
 
             if (span.start > lastEnd) {
                 int measureEnd = Math.min(span.start, safeLen);
-                totalWidth += view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, lastEnd, measureEnd, view.paint);
+                totalWidth += view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, lastEnd, measureEnd, view.editorConfig.paint);
             }
 
             lastEnd = span.start;
@@ -640,7 +640,7 @@ public class HighlightRenderer {
         }
 
         if (lastEnd < safeLen) {
-            totalWidth += view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, lastEnd, safeLen, view.paint);
+            totalWidth += view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, lastEnd, safeLen, view.editorConfig.paint);
         }
 
         return totalWidth;
@@ -653,8 +653,8 @@ public class HighlightRenderer {
         if (start >= end) return;
 
         if (state.highlightRules.isEmpty()) {
-            view.paint.setUnderlineText(false);
-            canvas.drawText(line, start, end, x, y, view.paint);
+            view.editorConfig.paint.setUnderlineText(false);
+            canvas.drawText(line, start, end, x, y, view.editorConfig.paint);
             return;
         }
 
@@ -665,8 +665,8 @@ public class HighlightRenderer {
         }
 
         if (spans.isEmpty()) {
-            view.paint.setUnderlineText(false);
-            canvas.drawText(line, start, end, x, y, view.paint);
+            view.editorConfig.paint.setUnderlineText(false);
+            canvas.drawText(line, start, end, x, y, view.editorConfig.paint);
             return;
         }
 
@@ -679,9 +679,9 @@ public class HighlightRenderer {
             if (span.start < lastEnd) continue;
 
             if (span.start > lastEnd) {
-                view.paint.setUnderlineText(false);
-                canvas.drawText(line, lastEnd, span.start, currentX, y, view.paint);
-                currentX += view.paint.measureText(line, lastEnd, span.start);
+                view.editorConfig.paint.setUnderlineText(false);
+                canvas.drawText(line, lastEnd, span.start, currentX, y, view.editorConfig.paint);
+                currentX += view.editorConfig.paint.measureText(line, lastEnd, span.start);
             }
 
             int safeSpanEnd = Math.min(span.end, end);
@@ -694,8 +694,8 @@ public class HighlightRenderer {
         }
 
         if (lastEnd < end) {
-            view.paint.setUnderlineText(false);
-            canvas.drawText(line, lastEnd, end, currentX, y, view.paint);
+            view.editorConfig.paint.setUnderlineText(false);
+            canvas.drawText(line, lastEnd, end, currentX, y, view.editorConfig.paint);
         }
     }
 
@@ -706,7 +706,7 @@ public class HighlightRenderer {
         if (start >= end) return 0f;
 
         if (state.highlightRules.isEmpty()) {
-            return view.paint.measureText(line, start, end);
+            return view.editorConfig.paint.measureText(line, start, end);
         }
 
         List<HighlightSpan> spans = state.highlightCache.get(globalLine);
@@ -716,7 +716,7 @@ public class HighlightRenderer {
         }
 
         if (spans.isEmpty()) {
-            return view.paint.measureText(line, start, end);
+            return view.editorConfig.paint.measureText(line, start, end);
         }
 
         float total = 0f;
@@ -728,7 +728,7 @@ public class HighlightRenderer {
             if (span.start < lastEnd) continue;
 
             if (span.start > lastEnd) {
-                total += view.paint.measureText(line, lastEnd, span.start);
+                total += view.editorConfig.paint.measureText(line, lastEnd, span.start);
             }
 
             int safeSpanEnd = Math.min(span.end, end);
@@ -739,7 +739,7 @@ public class HighlightRenderer {
         }
 
         if (lastEnd < end) {
-            total += view.paint.measureText(line, lastEnd, end);
+            total += view.editorConfig.paint.measureText(line, lastEnd, end);
         }
 
         return total;
@@ -756,13 +756,72 @@ public class HighlightRenderer {
     public Paint getPaintForChar(int lineIndex, int charIndex, String lineText) {
         List<HighlightSpan> spans = state.highlightCache.get(lineIndex);
         if (spans == null) {
-            return view.paint;
+            return view.editorConfig.paint;
         }
         for (HighlightSpan span : spans) {
             if (charIndex >= span.start && charIndex < span.end) {
                 return span.paint;
             }
         }
-        return view.paint;
+        return view.editorConfig.paint;
+    }
+
+    public void computeStreamedSliceBounds(
+            @Nullable String lineText, int globalLine, int lineLength, int[] out) {
+        if (out == null || out.length < 2) return;
+        int len = Math.max(0, lineLength);
+        if (len <= 0) {
+            out[0] = 0;
+            out[1] = 0;
+            return;
+        }
+        float avg = getAverageCharWidthForLine((lineText == null) ? "" : lineText, globalLine);
+        if (avg <= 0f) avg = view.editorConfig.paint.measureText(" ");
+        float viewLeft = view.lineNumberRenderer.getContentViewLeft(view.isRtl);
+        float viewRight = view.lineNumberRenderer.getContentViewRight(view.getWidth(), view.isRtl);
+        float leftX = viewLeft + view.getEffectiveScrollX() - view.getTextStartX();
+        float rightX = viewRight + view.getEffectiveScrollX() - view.getTextStartX();
+        if (view.isRtl) {
+            float w = avg * len;
+            float baseX = view.getTextAreaWidth() - w;
+            float l = leftX - baseX;
+            float r = rightX - baseX;
+            leftX = w - l;
+            rightX = w - r;
+        }
+        int start = (int) Math.floor(leftX / avg);
+        int end = (int) Math.ceil(rightX / avg);
+        if (end < start) {
+            int t = start;
+            start = end;
+            end = t;
+        }
+        int pad = Math.max(0, view.editorConfig.visualConfig.visibleCharPadding);
+        start = Math.max(0, start - pad);
+        end = Math.min(len, end + pad);
+        int visibleLen = Math.max(0, end - start);
+        int maxExtra = Math.max(0, view.editorState.colsWidthCacheSize - visibleLen);
+        int extraPad = Math.min(Math.max(0, view.editorState.prefetchCols), maxExtra / 2);
+        start = Math.max(0, start - extraPad);
+        end = Math.min(len, end + extraPad);
+        out[0] = start;
+        out[1] = end;
+    }
+
+    public int getInitialStreamedSliceSize() {
+        int base = Math.max(128, view.editorState.colsWidthCacheSize);
+        int pad = Math.max(0, view.editorState.prefetchCols) * 2;
+        return Math.max(base, pad);
+    }
+
+    /**
+     * Ensures highlight cache for a visible range of lines.
+     * Delegates to HighlightState.
+     */
+    public void ensureHighlightCacheForVisibleRange(
+            int firstVisibleLine,
+            int lastVisibleLine,
+            @Nullable java.util.HashMap<Integer, String> directLines) {
+        state.ensureHighlightCacheForVisibleRange(firstVisibleLine, lastVisibleLine, directLines);
     }
 }

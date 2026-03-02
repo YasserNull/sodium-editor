@@ -80,7 +80,7 @@ public final class EditorOperations {
         view.cursorState.moveCharDelta(1);
         float newWidth =
             view.whitespaceGuideRenderer.measureTextWithVisualSpaces(
-                view, modified, 0, modified.length(), view.paint);
+                view, modified, 0, modified.length(), view.editorConfig.paint);
         synchronized (view.lineWidthCache) {
           view.lineWidthCache.put(view.cursorState.getCursorLine(), newWidth);
         }
@@ -503,6 +503,92 @@ public final class EditorOperations {
     view.history.addLineCountDelta((insertedNewlines - removedNewlines));
     view.recordReplaceSelectionEditPublic(sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
     view.inlinePredictionEngine.updateSuggestion();
+  }
+
+  public void insertStringAtCursor(String text) {
+    if (view.editorConfig.behaviorConfig.isReadOnly) return;
+    view.invalidatePendingIOForEdit();
+    view.history.incrementEditVersion();
+
+    if (view.cursorState.hasComposing()) {
+      view.imeCompositionHandler.deleteComposing();
+      return;
+    }
+
+    final int beforeLine = view.cursorState.getCursorLine();
+    final int beforeChar = view.cursorState.getCursorChar();
+
+    view.scrollManager.ensureLineInWindow(view.cursorState.getCursorLine(), true);
+    if (view.isWindowLoading
+        && (view.cursorState.getCursorLine() < view.windowStartLine || view.cursorState.getCursorLine() >= view.windowStartLine + view.linesWindow.size())) {
+      view.mainHandler.post(() -> insertStringAtCursor(text));
+      return;
+    }
+
+    int localIdx = view.cursorState.getCursorLine() - view.windowStartLine;
+    if (localIdx < 0 || localIdx >= view.linesWindow.size()) {
+      synchronized (view.linesWindow) {
+        if (view.linesWindow.isEmpty()) view.linesWindow.add("");
+      }
+      localIdx = Math.max(0, Math.min(localIdx, view.linesWindow.size() - 1));
+    }
+
+    synchronized (view.linesWindow) {
+      String base = view.getLineFromWindowLocal(localIdx);
+      if (base == null) base = "";
+
+      int pos = Math.max(0, Math.min(view.cursorState.getCursorChar(), base.length()));
+      String modified = base.substring(0, pos) + text + base.substring(pos);
+      view.updateLocalLinePublic(localIdx, modified);
+      view.modifiedLines.put(view.cursorState.getCursorLine(), modified);
+      view.highlightState.invalidateHighlightCacheForLine(view.cursorState.getCursorLine());
+      
+      SodiumEditor.CursorTarget insertedEnd = view.computeCursorAfterInsert(beforeLine, beforeChar, text);
+      view.cursorState.setCursorPosition(insertedEnd.line, insertedEnd.ch);
+      
+      float newWidth =
+          view.whitespaceGuideRenderer.measureTextWithVisualSpaces(
+              view, modified, 0, modified.length(), view.editorConfig.paint);
+      synchronized (view.lineWidthCache) {
+        view.lineWidthCache.put(view.cursorState.getCursorLine(), newWidth);
+      }
+      view.currentMaxWindowLineWidth = Math.max(view.currentMaxWindowLineWidth, newWidth);
+      view.globalMaxLineWidth = Math.max(view.globalMaxLineWidth, view.currentMaxWindowLineWidth);
+      
+      view.invalidate();
+      view.scrollManager.keepCursorVisibleHorizontally();
+    }
+    view.inlinePredictionEngine.updateSuggestion();
+
+    EditOp op = new EditOp();
+    op.startLine = beforeLine;
+    op.startChar = beforeChar;
+    op.endLine = beforeLine;
+    op.endChar = beforeChar;
+    op.removedText = "";
+    op.insertedText = text;
+    SodiumEditor.CursorTarget insertedEnd = view.computeCursorAfterInsert(beforeLine, beforeChar, text);
+    op.insertedEndLine = insertedEnd.line;
+    op.insertedEndChar = insertedEnd.ch;
+    op.cursorLineBefore = beforeLine;
+    op.cursorCharBefore = beforeChar;
+    op.cursorLineAfter = view.cursorState.getCursorLine();
+    op.cursorCharAfter = view.cursorState.getCursorChar();
+    op.timestamp = System.currentTimeMillis();
+    view.recordEdit(op);
+  }
+
+  public static final int LARGE_PASTE_LINES = 1500;
+  public static final int LARGE_PASTE_CHARS = 200_000;
+
+  public static boolean isLargePasteText(String text) {
+    if (text == null) return false;
+    if (text.length() >= LARGE_PASTE_CHARS) return true;
+    int newLines = 0;
+    for (int i = 0; i < text.length(); i++) {
+      if (text.charAt(i) == '\n' && ++newLines >= LARGE_PASTE_LINES) return true;
+    }
+    return false;
   }
 
   public void handleAutoPairing(String text) {

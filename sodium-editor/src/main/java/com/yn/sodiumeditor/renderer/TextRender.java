@@ -182,6 +182,16 @@ public final class TextRender {
     }
 
     /**
+     * Gets the length of a line.
+     * @param line the line index
+     * @return the line length, or 0 if the line is null
+     */
+    public int getLineLength(int line) {
+        String ln = getLineTextForRender(line);
+        return ln != null ? ln.length() : 0;
+    }
+
+    /**
      * Populates direct lines cache for a range.
      */
     public void populateDirectLinesForRange(int startLine, int endLine, java.util.Map<Integer, String> direct) {

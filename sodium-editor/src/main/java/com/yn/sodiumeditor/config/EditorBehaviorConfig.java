@@ -1,5 +1,7 @@
 package com.yn.sodiumeditor.config;
 
+import android.view.inputmethod.InputMethodManager;
+
 /**
  * Configuration class for editor auto-behavior settings.
  */
@@ -108,5 +110,65 @@ public class EditorBehaviorConfig {
 
     public void setBinarySafeRenderingEnabled(boolean enabled) {
         binarySafeRenderingEnabled = enabled;
+    }
+
+    /**
+     * Sets binary safe rendering enabled and triggers necessary invalidations.
+     * @param enabled whether binary safe rendering is enabled
+     * @param editor the SodiumEditor instance to invalidate
+     */
+    public void setBinarySafeRenderingEnabled(boolean enabled, com.yn.sodiumeditor.SodiumEditor editor) {
+        if (this.binarySafeRenderingEnabled == enabled) return;
+        this.binarySafeRenderingEnabled = enabled;
+        synchronized (editor.editorState.lineWidthCache) {
+            editor.editorState.lineWidthCache.clear();
+        }
+        editor.editorState.currentMaxWindowLineWidth = 0f;
+        editor.editorState.globalMaxLineWidth = 0f;
+        editor.scrollManager.maxLineWidthForScroll = 0f;
+        editor.scrollManager.maxTextStartXForScroll = 0f;
+        editor.scrollManager.maxScrollXForScroll = 0f;
+        editor.invalidateHighlightEnsureRange();
+        editor.bracketGuideRenderer.invalidateCache();
+        if (editor.wrapWordState.isWordWrapEnabled) editor.wrapWordBuilder.invalidate(true, true);
+        editor.wrapWordBuilder.requestPrefixRebuild(editor);
+        editor.viewRender.reloadWindowAroundVisible(false);
+        editor.invalidate();
+    }
+
+    /**
+     * Sets indentation blocks enabled and triggers necessary updates.
+     * @param enabled whether indentation blocks are enabled
+     * @param editor the SodiumEditor instance to update
+     */
+    public void setIndentationBlocksEnabled(boolean enabled, com.yn.sodiumeditor.SodiumEditor editor) {
+        if (this.isIndentationBlocksEnabled == enabled) return;
+        this.isIndentationBlocksEnabled = enabled;
+        if (!enabled) {
+            editor.foldTouchHandler.removeIndentFolds();
+        }
+        editor.indentGuideEngine.markIntervalsDirty();
+        editor.foldState.foldIntervalsDirty = true;
+        editor.invalidate();
+    }
+
+    /**
+     * Sets read-only mode and triggers necessary updates.
+     * @param readOnly whether read-only mode is enabled
+     * @param editor the SodiumEditor instance to update
+     */
+    public void setReadOnly(boolean readOnly, com.yn.sodiumeditor.SodiumEditor editor) {
+        if (this.isReadOnly == readOnly) return;
+        this.isReadOnly = readOnly;
+        if (readOnly) {
+            editor.inlinePredictionState.clearActiveSuggestion();
+            editor.selectionState.clearSelectionKeepLineNumberState();
+            editor.popupTouchHandler.hidePopup();
+            InputMethodManager imm =
+                (InputMethodManager) editor.getContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+            if (imm != null) imm.hideSoftInputFromWindow(editor.getWindowToken(), 0);
+        }
+        editor.imeManager.restartInput();
+        editor.invalidate();
     }
 }

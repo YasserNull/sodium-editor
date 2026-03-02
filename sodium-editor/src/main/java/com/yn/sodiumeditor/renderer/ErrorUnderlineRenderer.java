@@ -83,8 +83,8 @@ public class ErrorUnderlineRenderer {
             Canvas canvas, float xStart, float xEnd, float baselineY, float lineTop, float lineBottom) {
         if (xEnd <= xStart) return;
         float lineH = Math.max(1f, lineBottom - lineTop);
-        float textSize = view.paint.getTextSize();
-        float y = baselineY + (view.paint.getFontMetrics().descent * 0.55f);
+        float textSize = view.editorConfig.paint.getTextSize();
+        float y = baselineY + (view.editorConfig.paint.getFontMetrics().descent * 0.55f);
         float maxY = lineBottom - 2f;
         float minY = lineTop + 1f;
         y = Math.max(minY, Math.min(y, maxY));
@@ -126,8 +126,8 @@ public class ErrorUnderlineRenderer {
     public void drawErrorSquigglePublic(Canvas canvas, float xStart, float xEnd, float baselineY, float lineTop, float lineBottom) {
         if (xEnd <= xStart) return;
         float lineH = Math.max(1f, lineBottom - lineTop);
-        float textSize = view.paint.getTextSize();
-        float y = baselineY + (view.paint.getFontMetrics().descent * 0.55f);
+        float textSize = view.editorConfig.paint.getTextSize();
+        float y = baselineY + (view.editorConfig.paint.getFontMetrics().descent * 0.55f);
         float maxY = lineBottom - 2f;
         float minY = lineTop + 1f;
         y = Math.max(minY, Math.min(y, maxY));
@@ -173,11 +173,11 @@ public class ErrorUnderlineRenderer {
             float avg = getAverageCharWidthForLine(line, globalLine);
             return avg * safeLen;
         }
-        return view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, 0, safeLen, view.paint);
+        return view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, 0, safeLen, view.editorConfig.paint);
     }
 
     private float getAverageCharWidthForLine(String line, int lineIndex) {
-        if (line == null || line.isEmpty()) return view.paint.measureText(" ");
+        if (line == null || line.isEmpty()) return view.editorConfig.paint.measureText(" ");
         if (lineIndex >= 0) {
             synchronized (view.avgCharWidthCache) {
                 Float cached = view.avgCharWidthCache.get(lineIndex);
@@ -185,7 +185,7 @@ public class ErrorUnderlineRenderer {
             }
         }
         int sampleLen = Math.min(line.length(), 256);
-        float w = (sampleLen > 0) ? view.paint.measureText(line, 0, sampleLen) : view.paint.measureText(" ");
+        float w = (sampleLen > 0) ? view.editorConfig.paint.measureText(line, 0, sampleLen) : view.editorConfig.paint.measureText(" ");
         float avg = (sampleLen > 0) ? (w / sampleLen) : w;
         if (lineIndex >= 0) {
             synchronized (view.avgCharWidthCache) {

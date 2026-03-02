@@ -20,6 +20,16 @@ public class EditorLoadingState {
     // Large edit UI state
     public static final int LARGE_EDIT_LINES = 8000;
     public static final int HIDE_COPY_CUT_LINES = 20000;
+    public static final int COPY_CUT_MAX_LINES = 20000;
+    public static final int COPY_CUT_MAX_CHARS = 8_000_000;
+    public static final int REPLACE_ALL_MAX_COUNT = 100000;
+    
+    // Mutable config values
+    public long copyCutMaxLines = COPY_CUT_MAX_LINES;
+    public int copyCutMaxChars = COPY_CUT_MAX_CHARS;
+    public int hideCopyCutMaxLines = HIDE_COPY_CUT_LINES;
+    public int replaceAllMaxCount = REPLACE_ALL_MAX_COUNT;
+    
     public final AtomicInteger largeEditUiToken = new AtomicInteger(0);
 
     // Max width recalc token
@@ -77,7 +87,23 @@ public class EditorLoadingState {
     }
 
     public int getHideCopyCutLines() {
-        return HIDE_COPY_CUT_LINES;
+        return hideCopyCutMaxLines;
+    }
+
+    public int getCopyCutMaxLines() {
+        return (int) copyCutMaxLines;
+    }
+
+    public long getCopyCutMaxLinesLong() {
+        return copyCutMaxLines;
+    }
+
+    public int getCopyCutMaxChars() {
+        return copyCutMaxChars;
+    }
+
+    public int getReplaceAllMaxCount() {
+        return replaceAllMaxCount;
     }
 
     public int getLargeEditUiToken() {

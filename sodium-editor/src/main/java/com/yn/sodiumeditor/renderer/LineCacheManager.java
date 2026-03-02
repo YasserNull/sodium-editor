@@ -115,22 +115,7 @@ public final class LineCacheManager {
      */
     public void drawDeleteAnimationForSegment(
             Canvas canvas, String line, int globalLine, int segStart, int segEnd, float y) {
-        if (!view.charAnimationConfig.isEnabled()) return;
-        if (globalLine != view.charAnimator.getDelAnimLine()
-                || view.charAnimator.getDelAnimText() == null
-                || view.charAnimator.getDelAnimText().isEmpty()
-                || view.charAnimator.getDelAnimAlpha() <= 0f) return;
-        if (line == null) line = "";
-        int at = Math.max(0, Math.min(view.charAnimator.getDelAnimAtChar(), line.length()));
-        if (at < segStart || at > segEnd) return;
-        float x = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, segStart, at, view.paint);
-        Paint ghostPaint = (view.charAnimator.getDelAnimPaint() != null) ? view.charAnimator.getDelAnimPaint() : view.paint;
-        Paint tempPaint = view.charAnimator.getTempPaint();
-        tempPaint.set(ghostPaint);
-        tempPaint.setUnderlineText(false);
-        int baseAlpha = ghostPaint.getAlpha();
-        tempPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, view.charAnimator.getDelAnimAlpha()))));
-        canvas.drawText(view.charAnimator.getDelAnimText(), x, y, tempPaint);
+        view.charAnimationRenderer.drawDeleteAnimationForSegment(canvas, line, globalLine, segStart, segEnd, y);
     }
 
     /**
@@ -175,7 +160,7 @@ public final class LineCacheManager {
         if (logicalLen > view.highlightState.maxSyntaxLineLength) {
             w = view.highlightRenderer.getAverageCharWidthForLine(safe, globalIndex) * logicalLen;
         } else {
-            w = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, safe, 0, safe.length(), view.paint);
+            w = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, safe, 0, safe.length(), view.editorConfig.paint);
         }
         return w;
     }

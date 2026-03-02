@@ -130,4 +130,16 @@ public final class HandleRenderer {
     public void setSelectionHandleColor(int color) {
         selectionHandleColor = color;
     }
+
+    /**
+     * Sets cursor width and updates dependent metrics.
+     * This is a delegate method for SodiumEditor.setCursorWidth().
+     */
+    public void setCursorWidthDelegate(float width, com.yn.sodiumeditor.SodiumEditor view) {
+        if (getBaseCursorWidthPx() == width && view.editorConfig.visualConfig.baseCursorTextSizePx == view.editorConfig.paint.getTextSize()) return;
+        setBaseCursorWidthPx(width);
+        view.editorConfig.visualConfig.baseCursorTextSizePx = view.editorConfig.paint.getTextSize();
+        view.zoomEngine.updateTextSizeDependentMetrics(view);
+        view.invalidate();
+    }
 }

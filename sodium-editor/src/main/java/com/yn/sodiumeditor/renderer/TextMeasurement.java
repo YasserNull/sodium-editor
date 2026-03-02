@@ -30,7 +30,7 @@ public final class TextMeasurement {
         if (logicalLen > view.highlightState.maxSyntaxLineLength) {
             w = view.highlightRenderer.getAverageCharWidthForLine(safe, globalIndex) * logicalLen;
         } else {
-            w = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, safe, 0, safe.length(), view.paint);
+            w = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, safe, 0, safe.length(), view.editorConfig.paint);
         }
         synchronized (view.lineWidthCache) {
             view.lineWidthCache.put(globalIndex, w);
@@ -51,7 +51,7 @@ public final class TextMeasurement {
         if (logicalLen > view.highlightState.maxSyntaxLineLength) {
             w = view.highlightRenderer.getAverageCharWidthForLine(safe, globalIndex) * logicalLen;
         } else {
-            w = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, safe, 0, safe.length(), view.paint);
+            w = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, safe, 0, safe.length(), view.editorConfig.paint);
         }
         synchronized (view.lineWidthCache) {
             view.lineWidthCache.put(globalIndex, w);
@@ -82,21 +82,21 @@ public final class TextMeasurement {
         }
         int textLen = text.length();
         if (view.getVisualSpaceScale() == 1) {
-            int count = view.paint.breakText(text, true, x, null);
+            int count = view.editorConfig.paint.breakText(text, true, x, null);
             if (count <= 0) return 0;
             if (count >= textLen) return textLen;
 
-            float wPrev = (count > 1) ? view.paint.measureText(text, 0, count - 1) : 0f;
-            float wCount = view.paint.measureText(text, 0, count);
+            float wPrev = (count > 1) ? view.editorConfig.paint.measureText(text, 0, count - 1) : 0f;
+            float wCount = view.editorConfig.paint.measureText(text, 0, count);
             float mid = wPrev + (wCount - wPrev) * 0.5f;
             return (x < mid) ? (count - 1) : count;
         }
 
         float[] widths = view.whitespaceGuideState.ensureMeasureWidthBuffer(textLen);
-        view.paint.getTextWidths(text, 0, textLen, widths);
+        view.editorConfig.paint.getTextWidths(text, 0, textLen, widths);
         float current = 0f;
         for (int i = 0; i < textLen; i++) {
-            float adv = view.whitespaceGuideRenderer.getCharAdvanceWidth(text.charAt(i), widths[i], view.paint, com.yn.sodiumeditor.core.WrapWordEngine.DEFAULT_TAB_SIZE_SPACES);
+            float adv = view.whitespaceGuideRenderer.getCharAdvanceWidth(text.charAt(i), widths[i], view.editorConfig.paint, com.yn.sodiumeditor.core.WrapWordEngine.DEFAULT_TAB_SIZE_SPACES);
             float mid = current + adv * 0.5f;
             if (x < mid) return i;
             if (x < current + adv) return i + 1;
@@ -122,15 +122,15 @@ public final class TextMeasurement {
         int len = end - start;
         if (len <= 0) return start;
         if (view.getVisualSpaceScale() == 1) {
-            int count = view.paint.breakText(text, start, end, true, x, null);
+            int count = view.editorConfig.paint.breakText(text, start, end, true, x, null);
             int idx = start + Math.max(0, count);
             return Math.min(idx, end);
         }
         float[] widths = view.whitespaceGuideState.ensureMeasureWidthBuffer(len);
-        view.paint.getTextWidths(text, start, end, widths);
+        view.editorConfig.paint.getTextWidths(text, start, end, widths);
         float current = 0f;
         for (int i = 0; i < len; i++) {
-            float adv = view.whitespaceGuideRenderer.getCharAdvanceWidth(text.charAt(start + i), widths[i], view.paint, com.yn.sodiumeditor.core.WrapWordEngine.DEFAULT_TAB_SIZE_SPACES);
+            float adv = view.whitespaceGuideRenderer.getCharAdvanceWidth(text.charAt(start + i), widths[i], view.editorConfig.paint, com.yn.sodiumeditor.core.WrapWordEngine.DEFAULT_TAB_SIZE_SPACES);
             float mid = current + adv * 0.5f;
             if (x < mid) return start + i;
             if (x < current + adv) return start + i + 1;
@@ -155,7 +155,7 @@ public final class TextMeasurement {
      * Gets the X position of the caret for a segment within a line.
      */
     public float getCaretXForSegment(String line, int globalLine, int segStart, int segEnd, int charIndex) {
-        float xRel = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, segStart, charIndex, view.paint);
+        float xRel = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, segStart, charIndex, view.editorConfig.paint);
         if (!view.isRtl) return xRel;
         float w = view.highlightRenderer.measureHighlightedSegmentWidth(line, globalLine, segStart, segEnd);
         float baseX = getRtlSegmentBaseX(line, globalLine, segStart, segEnd);
@@ -289,7 +289,7 @@ public final class TextMeasurement {
                 if (span.end <= pos) continue;
                 if (span.start > pos) {
                     for (int i = pos; i < Math.min(span.start, len); i++) {
-                        float adv = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, i, i + 1, view.paint);
+                        float adv = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, i, i + 1, view.editorConfig.paint);
                         if (x >= currentX - eps && x <= currentX + adv + eps) {
                             return Character.isWhitespace(line.charAt(i));
                         }
@@ -299,7 +299,7 @@ public final class TextMeasurement {
                 int start = Math.max(pos, span.start);
                 int end = Math.min(len, span.end);
                 for (int i = start; i < end; i++) {
-                    float adv = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, i, i + 1, view.paint);
+                    float adv = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, i, i + 1, view.editorConfig.paint);
                     if (x >= currentX - eps && x <= currentX + adv + eps) {
                         return Character.isWhitespace(line.charAt(i));
                     }
@@ -311,7 +311,7 @@ public final class TextMeasurement {
 
         if (pos < len) {
             for (int i = pos; i < len; i++) {
-                float adv = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, i, i + 1, view.paint);
+                float adv = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, i, i + 1, view.editorConfig.paint);
                 if (x >= currentX - eps && x <= currentX + adv + eps) {
                     return Character.isWhitespace(line.charAt(i));
                 }

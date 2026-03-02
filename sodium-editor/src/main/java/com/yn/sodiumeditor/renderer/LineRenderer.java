@@ -56,11 +56,11 @@ public final class LineRenderer {
         if (hiddenLines <= 0) return;
 
         String indicatorText = "▼ ... (" + hiddenLines + " lines)";
-        float x = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, 0, line.length(), view.paint);
+        float x = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, 0, line.length(), view.editorConfig.paint);
         float y = (view.lineHeight * 0.75f);
-        
+
         Paint foldPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        foldPaint.setTextSize(view.paint.getTextSize() * 0.85f);
+        foldPaint.setTextSize(view.editorConfig.paint.getTextSize() * 0.85f);
         foldPaint.setColor(0xFF888888); // Default gray color for fold indicator
         canvas.drawText(indicatorText, x, y, foldPaint);
     }
@@ -293,8 +293,8 @@ public final class LineRenderer {
             drawCurrentLineHighlight(canvas, globalLine, selPaint);
             drawSelection(canvas, globalLine, line, lineBaseX, lineWidth, selPaint);
 
-            float y = Math.round(view.scrollManager.getDrawLineTop(globalLine) + view.lineHeight - view.paint.descent());
-            view.paint.setUnderlineText(false);
+            float y = Math.round(view.scrollManager.getDrawLineTop(globalLine) + view.lineHeight - view.editorConfig.paint.descent());
+            view.editorConfig.paint.setUnderlineText(false);
 
             canvas.save();
             if (lineBaseX != 0f) canvas.translate(lineBaseX, 0f);
@@ -362,8 +362,8 @@ public final class LineRenderer {
             drawCurrentLineHighlight(canvas, globalLine, selPaint);
             drawSelection(canvas, globalLine, line, lineBaseX, lineWidth, selPaint);
 
-            float y = Math.round(view.scrollManager.getDrawLineTop(globalLine) + view.lineHeight - view.paint.descent());
-            view.paint.setUnderlineText(false);
+            float y = Math.round(view.scrollManager.getDrawLineTop(globalLine) + view.lineHeight - view.editorConfig.paint.descent());
+            view.editorConfig.paint.setUnderlineText(false);
 
             canvas.save();
             if (lineBaseX != 0f) canvas.translate(lineBaseX, 0f);
@@ -688,7 +688,7 @@ public final class LineRenderer {
         for (int line = firstLine; line <= lastLine; line++) {
             if (yOffset > view.getHeight() + view.lineHeight) break;
             String text = lineCacheManager.getLineTextForRenderWithDirect(line, directLines);
-            int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, line, text, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.paint);
+            int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, line, text, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.editorConfig.paint);
 
             for (int seg = 0; seg < starts.length; seg++) {
                 int segStart = view.wrapWordEngine.getWrapSegmentStart(starts, seg);
@@ -697,7 +697,7 @@ public final class LineRenderer {
 
                 float top = Math.round(yOffset);
                 float bottom = top + view.lineHeight;
-                float y = Math.round(top + view.lineHeight - view.paint.descent());
+                float y = Math.round(top + view.lineHeight - view.editorConfig.paint.descent());
 
                 if (view.highlightState.highlightCurrentLine && line == view.cursorState.getCursorLine() && !view.selectionState.hasSelection()) {
                     canvas.drawRect(-view.paddingLeft, top, Math.max(view.getWidth() - view.getTextStartX(), view.getWidth()), bottom, view.highlightState.currentLinePaint);

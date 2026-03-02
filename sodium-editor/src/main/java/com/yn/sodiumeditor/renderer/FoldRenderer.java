@@ -37,7 +37,7 @@ public class FoldRenderer {
 
     public void init(float density) {
         foldMarkerPaint.setTextAlign(Paint.Align.CENTER);
-        foldMarkerPaint.setTextSize(view.paint.getTextSize() * foldMarkerTextScale);
+        foldMarkerPaint.setTextSize(view.editorConfig.paint.getTextSize() * foldMarkerTextScale);
         foldPlaceholderPaint.setStyle(Paint.Style.FILL);
         foldRipplePaint.setStyle(Paint.Style.FILL);
         foldMarkerSpacing = 0f;
@@ -58,7 +58,7 @@ public class FoldRenderer {
     }
 
     public void setFoldMarkerTextSize(float size) {
-        float base = view.paint.getTextSize();
+        float base = view.editorConfig.paint.getTextSize();
         if (base <= 0f) return;
         foldMarkerTextScale = size / base;
         foldMarkerPaint.setTextSize(base * foldMarkerTextScale);
@@ -84,7 +84,39 @@ public class FoldRenderer {
     }
 
     public String buildFoldDisplayLine(String line, FoldRange range, int[] placeholderBoundsOut) {
-        return view.buildFoldDisplayLineInternal(line, range, placeholderBoundsOut);
+        return buildFoldDisplayLineInternal(line, range, placeholderBoundsOut);
+    }
+
+    public String buildFoldDisplayLineInternal(String line, FoldRange range, int[] placeholderBoundsOut) {
+        if (line == null) line = "";
+        int placeholderStart = 0;
+        int placeholderEnd = 0;
+        String display;
+
+        if (range.isBlockComment) {
+            int safeIdx = Math.max(0, Math.min(range.openCharIndex, line.length()));
+            String prefix = line.substring(0, safeIdx);
+            placeholderStart = prefix.length() + 2;
+            placeholderEnd = placeholderStart + view.editorConfig.visualConfig.FOLD_PLACEHOLDER_TEXT.length();
+            display = prefix + "/*" + view.editorConfig.visualConfig.FOLD_PLACEHOLDER_TEXT + "*/";
+        } else if (range.isIndentFold) {
+            String prefix = line;
+            placeholderStart = prefix.length();
+            placeholderEnd = placeholderStart + view.editorConfig.visualConfig.FOLD_PLACEHOLDER_TEXT.length();
+            display = prefix + view.editorConfig.visualConfig.FOLD_PLACEHOLDER_TEXT;
+        } else {
+            int safeIdx = Math.max(0, Math.min(range.openCharIndex, Math.max(0, line.length() - 1)));
+            String prefix = line.substring(0, safeIdx + 1);
+            placeholderStart = prefix.length();
+            placeholderEnd = placeholderStart + view.editorConfig.visualConfig.FOLD_PLACEHOLDER_TEXT.length();
+            display = prefix + view.editorConfig.visualConfig.FOLD_PLACEHOLDER_TEXT + range.closeChar;
+        }
+
+        if (placeholderBoundsOut != null && placeholderBoundsOut.length >= 2) {
+            placeholderBoundsOut[0] = placeholderStart;
+            placeholderBoundsOut[1] = placeholderEnd;
+        }
+        return display;
     }
 
     public String getFoldMarkerForLine(int line, String lineText) {
@@ -152,7 +184,7 @@ public class FoldRenderer {
             if (marker == null) continue;
             float y =
                     Math.round(
-                            v * view.lineHeight - view.scrollManager.scrollY + view.lineHeight - view.paint.descent());
+                            v * view.lineHeight - view.scrollManager.scrollY + view.lineHeight - view.editorConfig.paint.descent());
             if (line == state.foldRippleLine && state.foldRippleAlpha > 0f) {
                 int base = foldMarkerPaint.getColor();
                 int alpha = Math.min(255, Math.max(0, (int) (255f * state.foldRippleAlpha)));
@@ -172,8 +204,8 @@ public class FoldRenderer {
 
         float y =
                 Math.round(
-                        view.scrollManager.getDrawLineTop(globalLine) + view.lineHeight - view.paint.descent());
-        view.paint.getTextBounds(
+                        view.scrollManager.getDrawLineTop(globalLine) + view.lineHeight - view.editorConfig.paint.descent());
+        view.editorConfig.paint.getTextBounds(
                 SodiumEditor.FOLD_PLACEHOLDER_TEXT,
                 0,
                 SodiumEditor.FOLD_PLACEHOLDER_TEXT.length(),
@@ -191,25 +223,25 @@ public class FoldRenderer {
         }
 
         float xStart = view.highlightRenderer.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
-        float placeholderWidth = Math.max(0f, view.paint.measureText(SodiumEditor.FOLD_PLACEHOLDER_TEXT));
+        float placeholderWidth = Math.max(0f, view.editorConfig.paint.measureText(SodiumEditor.FOLD_PLACEHOLDER_TEXT));
         foldPlaceholderRect.set(xStart, top, xStart + placeholderWidth, bottom);
         canvas.drawRoundRect(foldPlaceholderRect, foldPlaceholderCorner, foldPlaceholderCorner, foldPlaceholderPaint);
 
         view.highlightRenderer.drawHighlightedSegment(canvas, line, globalLine, 0, prefixEnd, 0f, y);
 
-        view.paint.setUnderlineText(false);
-        canvas.drawText(SodiumEditor.FOLD_PLACEHOLDER_TEXT, xStart, y, view.paint);
+        view.editorConfig.paint.setUnderlineText(false);
+        canvas.drawText(SodiumEditor.FOLD_PLACEHOLDER_TEXT, xStart, y, view.editorConfig.paint);
 
         float xAfter = xStart + placeholderWidth;
         if (range.isBlockComment) {
             Paint commentPaint =
                     (view.highlightState.blockCommentHighlightRule != null)
                             ? view.highlightState.blockCommentHighlightRule.paint
-                            : view.paint;
+                            : view.editorConfig.paint;
             commentPaint.setUnderlineText(false);
             canvas.drawText("*/", xAfter, y, commentPaint);
         } else if (!range.isIndentFold) {
-            canvas.drawText(String.valueOf(range.closeChar), xAfter, y, view.paint);
+            canvas.drawText(String.valueOf(range.closeChar), xAfter, y, view.editorConfig.paint);
         }
     }
 
@@ -228,7 +260,7 @@ public class FoldRenderer {
             prefixEnd = Math.min(range.openCharIndex + 1, line.length());
         }
         float xStart = view.highlightRenderer.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
-        float placeholderWidth = Math.max(0f, view.paint.measureText(SodiumEditor.FOLD_PLACEHOLDER_TEXT));
+        float placeholderWidth = Math.max(0f, view.editorConfig.paint.measureText(SodiumEditor.FOLD_PLACEHOLDER_TEXT));
         float pad = Math.max(0f, foldPlaceholderPadX);
         float left = xStart - pad;
         float right = xStart + placeholderWidth + pad;

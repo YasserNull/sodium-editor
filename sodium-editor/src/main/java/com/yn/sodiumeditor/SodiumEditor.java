@@ -82,9 +82,12 @@ public class SodiumEditor extends View {
 
   // --- Cursor Animation State ---
   private final InputManager inputManager;
+  public final com.yn.sodiumeditor.input.EditorOperations editorOperations;
   @Nullable ValueAnimator flingStopAnimator;
   public final InputMethodHandler imeManager;
   public final ScrollEngine scrollManager;
+  public final com.yn.sodiumeditor.input.FocusChangeHandler focusChangeHandler;
+  public final com.yn.sodiumeditor.input.TypefaceManager typefaceManager;
 
   // Zoom Components
   public final com.yn.sodiumeditor.config.ZoomConfig zoomConfig = new com.yn.sodiumeditor.config.ZoomConfig();
@@ -102,6 +105,7 @@ public class SodiumEditor extends View {
   
   public final com.yn.sodiumeditor.renderer.animation.CursorAnimator cursorAnimator;
   public final com.yn.sodiumeditor.renderer.animation.CharAnimator charAnimator;
+  public final com.yn.sodiumeditor.renderer.CharAnimationRenderer charAnimationRenderer;
   public final com.yn.sodiumeditor.config.CursorAnimationConfig cursorAnimationConfig;
   public final com.yn.sodiumeditor.config.CharAnimationConfig charAnimationConfig;
   
@@ -198,7 +202,7 @@ public class SodiumEditor extends View {
   public com.yn.sodiumeditor.renderer.animation.LoadingCircleAnimator loadingCircleAnimator;
 
   public final java.util.HashMap<Integer, String> directLinesTmp = new java.util.HashMap<>();
-  
+
   // Fold components
   public final com.yn.sodiumeditor.state.FoldState foldState = new com.yn.sodiumeditor.state.FoldState();
   public com.yn.sodiumeditor.renderer.FoldRenderer foldRenderer;
@@ -207,23 +211,7 @@ public class SodiumEditor extends View {
 
   // handle dragging edge flags moved to HandleDragHandler
 
-  private final ViewRender viewRender = new ViewRender(this);
-
-  // Visible char range temp arrays
-  public final int[] visibleCharRangeTmp = new int[2];
-  public final int[] visibleCharRangeTmpForRender = new int[2];
-
-  // Double tap selection fields
-  public int lastDoubleTapLine = -1;
-  public int lastDoubleTapWordStart = -1;
-  public int lastDoubleTapWordEnd = -1;
-  public int lastDoubleTapStage = 0;
-
-  // Paint alias for convenience
-  public final Paint paint = editorConfig.paint;
-
-  // Location in window temp array
-  private final int[] tmpLocationInWindow = new int[2];
+  public final ViewRender viewRender = new ViewRender(this);
 
   // Fling stop animation duration
   public static final long FLING_STOP_ANIM_DURATION_MS = 90;
@@ -452,8 +440,8 @@ public class SodiumEditor extends View {
     // Initialize Line number components
     float density = getContext().getResources().getDisplayMetrics().density;
     lineNumberRenderer = new com.yn.sodiumeditor.renderer.LineNumberRenderer(this, lineNumberState, lineNumberConfig);
-    lineNumberRenderer.initDefaults(paint, density);
-    
+    lineNumberRenderer.initDefaults(editorConfig.paint, density);
+
     // Initialize Fold components
     foldRenderer = new com.yn.sodiumeditor.renderer.FoldRenderer(this, foldState);
     foldRenderer.init(density);
@@ -470,7 +458,7 @@ public class SodiumEditor extends View {
     wrapWordEngine = new com.yn.sodiumeditor.core.WrapWordEngine(wrapWordMetrics, whitespaceGuideState);
     wrapWordMapper = new com.yn.sodiumeditor.core.WrapWordMapper(wrapWordMetrics, wrapWordEngine);
     wrapWordBuilder = new com.yn.sodiumeditor.core.WrapWordBuilder(wrapWordMetrics, wrapWordState, wrapWordEngine, wrapWordMapper, wrapWordDocument);
-    wrapWordIndicatorRender.init(paint, density);
+    wrapWordIndicatorRender.init(editorConfig.paint, density);
 
     editorInputState.touchSlop = ViewConfiguration.get(ctx).getScaledTouchSlop();
 
@@ -505,7 +493,12 @@ public class SodiumEditor extends View {
     charAnimationConfig = new com.yn.sodiumeditor.config.CharAnimationConfig();
     cursorAnimator = new com.yn.sodiumeditor.renderer.animation.CursorAnimator(this, cursorAnimationConfig);
     charAnimator = new com.yn.sodiumeditor.renderer.animation.CharAnimator(this, charAnimationConfig);
+    charAnimationRenderer = new com.yn.sodiumeditor.renderer.CharAnimationRenderer(this, charAnimator);
     inputManager = new InputManager(this, ctx);
+    editorOperations = new com.yn.sodiumeditor.input.EditorOperations(this);
+    focusChangeHandler = new com.yn.sodiumeditor.input.FocusChangeHandler(
+        this, cursorState, selectionState, inlinePredictionState, popupMenuState, cursorAnimator);
+    typefaceManager = new com.yn.sodiumeditor.input.TypefaceManager(this);
 
     setFocusable(true);
     setFocusableInTouchMode(true);
@@ -519,14 +512,14 @@ public class SodiumEditor extends View {
                 int imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
                 int windowHeight = getRootView().getHeight();
                 int imeTop = windowHeight - imeBottom;
-                getLocationInWindow(tmpLocationInWindow);
-                int viewBottom = tmpLocationInWindow[1] + getHeight();
+                getLocationInWindow(editorInputState.tmpLocationInWindow);
+                int viewBottom = editorInputState.tmpLocationInWindow[1] + getHeight();
                 int overlap = Math.max(0, viewBottom - imeTop);
                 newKeyboardHeight = Math.min(overlap, getHeight());
               } else {
                 getWindowVisibleDisplayFrame(editorInputState.visibleDisplayFrame);
-                getLocationInWindow(tmpLocationInWindow);
-                int viewBottom = tmpLocationInWindow[1] + getHeight();
+                getLocationInWindow(editorInputState.tmpLocationInWindow);
+                int viewBottom = editorInputState.tmpLocationInWindow[1] + getHeight();
                 int overlap = Math.max(0, viewBottom - editorInputState.visibleDisplayFrame.bottom);
                 newKeyboardHeight = overlap;
               }
@@ -541,7 +534,7 @@ public class SodiumEditor extends View {
     inlinePredictionPathEngine = new com.yn.sodiumeditor.core.PathPredictionEngine();
     inlinePredictionEngine = new com.yn.sodiumeditor.core.InlinePredictionEngine(this, inlinePredictionState, inlinePredictionTrie, inlinePredictionPathEngine);
     inlinePredictionRenderer = new com.yn.sodiumeditor.renderer.InlinePredictionRenderer(this, inlinePredictionState);
-    inlinePredictionRenderer.initPaints(paint);
+    inlinePredictionRenderer.initPaints(editorConfig.paint);
 
     pathUnderlineRenderer.setPathUnderliningEnabled(true); // Enable path underlining by default
   }
@@ -552,130 +545,52 @@ public class SodiumEditor extends View {
 
 
 
+  // --- Public APIs for Binary Safe Rendering ---
+
   public void setBinarySafeRenderingEnabled(boolean enabled) {
-    if (editorConfig.behaviorConfig.binarySafeRenderingEnabled == enabled) return;
-    editorConfig.behaviorConfig.binarySafeRenderingEnabled = enabled;
-    synchronized (editorState.lineWidthCache) {
-      editorState.lineWidthCache.clear();
-    }
-    editorState.currentMaxWindowLineWidth = 0f;
-    editorState.globalMaxLineWidth = 0f;
-    scrollManager.maxLineWidthForScroll = 0f;
-    scrollManager.maxTextStartXForScroll = 0f;
-    scrollManager.maxScrollXForScroll = 0f;
-    invalidateHighlightEnsureRange();
-    bracketGuideRenderer.invalidateCache();
-    if (wrapWordState.isWordWrapEnabled) wrapWordBuilder.invalidate(true, true);
-    wrapWordBuilder.requestPrefixRebuild(this);
-    viewRender.reloadWindowAroundVisible(false);
-    invalidate();
+    editorConfig.behaviorConfig.setBinarySafeRenderingEnabled(enabled, this);
   }
+
+  // --- Public APIs for Visible Char Padding ---
 
   public void setVisibleCharPadding(int paddingChars) {
-    int safe = Math.max(0, paddingChars);
-    if (editorConfig.visualConfig.visibleCharPadding == safe) return;
-    editorConfig.visualConfig.visibleCharPadding = safe;
-    invalidate();
+    editorConfig.visualConfig.setVisibleCharPadding(paddingChars, this);
   }
+
+  // --- Public APIs for Stable Glyph Positions ---
 
   public void setStableGlyphPositionsEnabled(boolean enabled) {
-    if (this.editorConfig.performanceConfig.isStableGlyphPositionsEnabled == enabled) return;
-    this.editorConfig.performanceConfig.isStableGlyphPositionsEnabled = enabled;
-    invalidate();
+    editorConfig.performanceConfig.setStableGlyphPositionsEnabled(enabled, this);
   }
+
+  // --- Public APIs for Performance Mode ---
 
   public void setPerformanceModeEnabled(boolean enabled) {
-    if (this.editorConfig.performanceConfig.isPerformanceModeEnabled == enabled) return;
-    this.editorConfig.performanceConfig.isPerformanceModeEnabled = enabled;
-    if (enabled) {
-      urlUnderlineRenderer.setUrlUnderliningEnabled(false);
-      pathUnderlineRenderer.setPathUnderliningEnabled(false);
-      highlightState.isColorHighlightingEnabled = false;
-      bracketMatchState.setEnabled(false);
-      bracketGuideRenderer.setEnabled(false);
-      indentGuideRenderer.setIndentGuidesEnabled(false);
-      whitespaceGuideState.setWhitespaceGuidesEnabled(false);
-      wrapWordIndicatorRender.setEnabled(false);
-      inlinePredictionState.setAutoCompletionEnabled(false);
-      inlinePredictionState.setAutoPathCompletionEnabled(false);
-      charAnimationConfig.setEnabled(false);
-      highlightState.setHighlightCurrentLine(false);
-      setIndentationBlocksEnabled(false);
-      foldState.setCodeFoldingEnabled(false);
-    }
-    invalidate();
-  }
-
-
-
-
-
-
-
-
-
-  private void insertStringAtCursor(String text) {
-    cursorState.setCursorPosition(cursorState.getCursorLine(), cursorState.getCursorChar());
-    editorTextInserter.insertTextAtCursor(text);
+    editorConfig.performanceConfig.setPerformanceModeEnabled(enabled, this);
   }
 
 
   // --- Public APIs for Line Numbers ---
 
   public void setEditorBackgroundColor(int color) {
-    editorConfig.visualConfig.hasEditorBackgroundColor = true;
-    editorConfig.visualConfig.editorBackgroundColor = color;
-    invalidate();
+    editorConfig.visualConfig.setEditorBackgroundColor(color, this);
   }
 
   public void clearEditorBackgroundColor() {
-    if (!editorConfig.visualConfig.hasEditorBackgroundColor) return;
-    editorConfig.visualConfig.hasEditorBackgroundColor = false;
-    invalidate();
+    editorConfig.visualConfig.clearEditorBackgroundColor(this);
   }
 
   public void setEditorBackgroundImageFromAssets(String assetPath) {
-    if (assetPath == null) return;
-    try (InputStream input = getContext().getAssets().open(assetPath)) {
-      Bitmap bmp = BitmapFactory.decodeStream(input);
-      if (bmp != null) {
-        setEditorBackgroundBitmap(bmp);
-      }
-    } catch (Exception e) {
-      Log.e("SodiumEditor", "setEditorBackgroundImageFromAssets failed: " + assetPath, e);
-    }
+    editorConfig.visualConfig.setEditorBackgroundImageFromAssets(assetPath, this);
   }
 
   public void setEditorBackgroundImageFromFile(String filePath) {
-    if (filePath == null) return;
-    try {
-      Bitmap bmp = BitmapFactory.decodeFile(filePath);
-      if (bmp != null) {
-        setEditorBackgroundBitmap(bmp);
-      }
-    } catch (Exception e) {
-      Log.e("SodiumEditor", "setEditorBackgroundImageFromFile failed: " + filePath, e);
-    }
+    editorConfig.visualConfig.setEditorBackgroundImageFromFile(filePath, this);
   }
 
   public void clearEditorBackgroundImage() {
-    if (editorConfig.visualConfig.editorBackgroundBitmap != null && !editorConfig.visualConfig.editorBackgroundBitmap.isRecycled()) {
-      editorConfig.visualConfig.editorBackgroundBitmap.recycle();
-    }
-    editorConfig.visualConfig.editorBackgroundBitmap = null;
-    invalidate();
+    editorConfig.visualConfig.clearEditorBackgroundBitmap(this);
   }
-
-  private void setEditorBackgroundBitmap(Bitmap bitmap) {
-    if (editorConfig.visualConfig.editorBackgroundBitmap != null && !editorConfig.visualConfig.editorBackgroundBitmap.isRecycled()) {
-      editorConfig.visualConfig.editorBackgroundBitmap.recycle();
-    }
-    editorConfig.visualConfig.editorBackgroundBitmap = bitmap;
-    invalidate();
-  }
-
-
-
 
 
 
@@ -787,11 +702,7 @@ public class SodiumEditor extends View {
   }
 
   public void setCursorWidth(float width) {
-    if (handleRenderer.getBaseCursorWidthPx() == width && editorConfig.visualConfig.baseCursorTextSizePx == editorConfig.paint.getTextSize()) return;
-    handleRenderer.setBaseCursorWidthPx(width);
-    editorConfig.visualConfig.baseCursorTextSizePx = editorConfig.paint.getTextSize();
-    updateTextSizeDependentMetrics();
-    invalidate();
+    handleRenderer.setCursorWidthDelegate(width, this);
   }
 
 
@@ -817,14 +728,7 @@ public class SodiumEditor extends View {
   }
 
   public void setIndentationBlocksEnabled(boolean enabled) {
-    if (this.editorConfig.behaviorConfig.isIndentationBlocksEnabled == enabled) return;
-    this.editorConfig.behaviorConfig.isIndentationBlocksEnabled = enabled;
-    if (!enabled) {
-      foldTouchHandler.removeIndentFolds();
-    }
-    indentGuideEngine.markIntervalsDirty();
-    foldState.foldIntervalsDirty = true;
-    invalidate();
+    editorConfig.behaviorConfig.setIndentationBlocksEnabled(enabled, this);
   }
 
 
@@ -881,18 +785,7 @@ public class SodiumEditor extends View {
 
 
   public void setLayoutDirection(boolean isRtl) {
-    if (this.editorConfig.isRtl() == isRtl) return;
-    this.editorConfig.setRtl(isRtl);
-    lineNumberRenderer.setTextAlign(editorConfig.isRtl());
-    foldRenderer.foldMarkerPaint.setTextAlign(editorConfig.isRtl() ? Paint.Align.LEFT : Paint.Align.RIGHT);
-    lineNumberRenderer.invalidateCache();
-    requestLayout();
-    if (wrapWordState.isWordWrapEnabled) wrapWordBuilder.invalidate(true, true);
-    scrollManager.maxScrollXForScroll = 0f;
-    scrollManager.maxTextStartXForScroll = 0f;
-    scrollManager.scrollX = 0f;
-    scrollManager.keepCursorVisibleHorizontally();
-    invalidate();
+    editorConfig.visualConfig.setLayoutDirection(isRtl, this);
   }
 
 
@@ -902,29 +795,19 @@ public class SodiumEditor extends View {
   }
 
   public void setFontFromAssets(String assetPath, int style) {
-    try {
-      Typeface tf = Typeface.createFromAsset(getContext().getAssets(), assetPath);
-      applyTypeface(tf, style);
-    } catch (Exception e) {
-      Log.e("SodiumEditor", "setFontFromAssets failed: " + assetPath, e);
-    }
+    editorConfig.visualConfig.setFontFromAssets(assetPath, style, this);
   }
 
   public void setFontFromFile(String filePath, int style) {
-    try {
-      Typeface tf = Typeface.createFromFile(filePath);
-      applyTypeface(tf, style);
-    } catch (Exception e) {
-      Log.e("SodiumEditor", "setFontFromFile failed: " + filePath, e);
-    }
+    editorConfig.visualConfig.setFontFromFile(filePath, style, this);
   }
 
   public void setFont(@Nullable Typeface typeface, int style) {
-    applyTypeface(typeface, style);
+    editorConfig.visualConfig.setTypeface(typeface, style, this);
   }
 
   public void setTextSize(float size) {
-    applyTextSizePx(spToPx(size));
+    editorConfig.visualConfig.setTextSizePx(spToPx(size), this);
   }
 
   public float getTextSizeSp() {
@@ -970,80 +853,16 @@ public class SodiumEditor extends View {
     return baseValue * (newTextSizePx / baseTextSizePx);
   }
 
-  void updateTextSizeDependentMetrics() {
-    float sizePx = editorConfig.paint.getTextSize();
-    handleRenderer.setHandleRadius(
-        Math.max(
-            4f,
-            scaleByTextSize(
-                handleRenderer.getBaseHandleRadiusPx(),
-                editorConfig.visualConfig.baseCursorTextSizePx,
-                sizePx)));
-    handleRenderer.setCursorWidth(
-        Math.max(1f, scaleByTextSize(handleRenderer.getBaseCursorWidthPx(), editorConfig.visualConfig.baseCursorTextSizePx, sizePx)));
-
-    bracketMatchRenderer.applyScaledStrokeWidth(
-        Math.max(1f, scaleByTextSize(bracketMatchRenderer.getBaseStrokeWidth(), bracketMatchRenderer.getBaseTextSizePx(), sizePx)));
-
-    bracketGuideRenderer.applyScaledStrokeWidth(
-        Math.max(1f, scaleByTextSize(bracketGuideRenderer.getBaseStrokeWidth(), bracketGuideRenderer.getBaseTextSizePx(), sizePx)));
-    indentGuideRenderer.updateForTextSize(sizePx);
-  }
-
-  private void applyTextSizePx(float sizePx) {
-    applyTextSizePx(sizePx, false);
-  }
-
-  private void applyTextSizePx(float sizePx, boolean deferWrapRebuild) {
-    float oldSize = editorConfig.paint.getTextSize();
-    if (Math.abs(sizePx - oldSize) < 0.1f) return;
-
-    editorConfig.paint.setTextSize(sizePx);
-    inlinePredictionRenderer.onTextSizeChanged(sizePx);
-    lineNumberRenderer.setTextSize(sizePx);
-    foldRenderer.foldMarkerPaint.setTextSize(sizePx * foldRenderer.foldMarkerTextScale);
-    wrapWordIndicatorRender.updatePaintForTextSize(sizePx, paint);
-    editorConfig.lineHeight = editorConfig.paint.getFontSpacing();
-    updateTextSizeDependentMetrics();
-    updateWhitespaceGuideMetrics();
-    lineNumberRenderer.invalidateCache();
-
-    for (com.yn.sodiumeditor.core.HighlightRule rule : highlightState.highlightRules) {
-      rule.updateTextSize(sizePx);
-    }
-    whitespaceGuideRenderer.updateRuleTextSize(sizePx, highlightState.stringHighlightRule, highlightState.blockCommentHighlightRule);
-    if (highlightState.lineCommentHighlightRule != null) highlightState.lineCommentHighlightRule.updateTextSize(sizePx);
-    highlightState.clearHighlightCaches();
-
-    // Invalidate caches and approximate new max width
-    synchronized (editorState.lineWidthCache) {
-      editorState.lineWidthCache.clear();
-    }
-    // Scale the max width instead of recalculating it synchronously.
-    // This is an approximation but avoids massive lag.
-    float scale = sizePx / oldSize;
-    editorState.currentMaxWindowLineWidth *= scale;
-    editorState.globalMaxLineWidth *= scale;
-    scrollManager.maxLineWidthForScroll *= scale;
-    scrollManager.maxScrollXForScroll *= scale;
-    scrollManager.maxTextStartXForScroll = 0f;
-    if (scale < 1f) {
-      scrollManager.maxLineWidthForScroll = 0f;
-      scrollManager.maxScrollXForScroll = 0f;
-    }
-
-    requestLayout(); // Still needed for gutter
-    if (wrapWordState.isWordWrapEnabled) wrapWordBuilder.invalidate(true, !deferWrapRebuild);
-    wrapWordBuilder.requestPrefixRebuild(this);
-    invalidate();
+  public void updateTextSizeDependentMetrics() {
+    zoomEngine.updateTextSizeDependentMetrics(this);
   }
 
   public void applyZoomTextSizePx(float sizePx) {
-    applyTextSizePx(sizePx);
+    editorConfig.visualConfig.setTextSizePx(sizePx, this);
   }
 
   public void applyZoomTextSizePx(float sizePx, boolean deferWrapRebuild) {
-    applyTextSizePx(sizePx, deferWrapRebuild);
+    editorConfig.visualConfig.setTextSizePx(sizePx, this, deferWrapRebuild);
   }
 
   public float getPaintTextSizePxForZoom() {
@@ -1063,7 +882,7 @@ public class SodiumEditor extends View {
   }
 
   float measureTextWithVisualSpacesForSearch(String line, int start, int end) {
-    return whitespaceGuideRenderer.measureTextWithVisualSpaces(this, line, start, end, paint);
+    return whitespaceGuideRenderer.measureTextWithVisualSpaces(this, line, start, end, editorConfig.paint);
   }
 
   void ensureLineInWindowForSearch(int line, boolean immediate) {
@@ -1216,12 +1035,6 @@ public class SodiumEditor extends View {
     return editorConfig.lineHeight;
   }
 
-
-  public int getBraceGuideColumnForLineForBracket(
-      String line, int globalLine, int braceIndex, int firstNonSpace) {
-    return getBraceGuideColumnForLine(line, globalLine, braceIndex, firstNonSpace);
-  }
-
   public void resetScrollLockAxisForInput() {
     scrollManager.scrollLockAxis = 0;
   }
@@ -1318,7 +1131,7 @@ public class SodiumEditor extends View {
   }
 
   public float measureTextWithVisualSpacesForInput(String s, int start, int end) {
-    return whitespaceGuideRenderer.measureTextWithVisualSpaces(this, s, start, end, paint);
+    return whitespaceGuideRenderer.measureTextWithVisualSpaces(this, s, start, end, editorConfig.paint);
   }
 
   public boolean isFoldPlaceholderHitForInput(int line, String ln, float x) {
@@ -1379,66 +1192,12 @@ public class SodiumEditor extends View {
     return scrollManager.onFling(velocityX, velocityY);
   }
 
-  private void applyTypeface(@Nullable Typeface typeface, int style) {
-    if (Looper.myLooper() != Looper.getMainLooper()) {
-      final Typeface tf = typeface;
-      final int st = style;
-      post(() -> applyTypeface(tf, st));
-      return;
-    }
-    Typeface safeBase = (typeface != null) ? typeface : Typeface.DEFAULT;
-    editorConfig.baseTypeface = safeBase;
-    int typefaceStyle;
-    switch (style) {
-      case com.yn.sodiumeditor.config.EditorConfig.STYLE_BOLD:
-        typefaceStyle = Typeface.BOLD;
-        break;
-      case com.yn.sodiumeditor.config.EditorConfig.STYLE_ITALIC:
-        typefaceStyle = Typeface.ITALIC;
-        break;
-      case com.yn.sodiumeditor.config.EditorConfig.STYLE_BOLD_ITALIC:
-        typefaceStyle = Typeface.BOLD_ITALIC;
-        break;
-      default:
-        typefaceStyle = Typeface.NORMAL;
-        break;
-    }
-    Typeface finalTypeface = Typeface.create(safeBase, typefaceStyle);
-    editorConfig.paint.setTypeface(finalTypeface);
-    inlinePredictionRenderer.onEditorTypefaceChanged(finalTypeface);
-    lineNumberRenderer.setTypeface(finalTypeface);
-    foldRenderer.foldMarkerPaint.setTypeface(finalTypeface);
-    wrapWordIndicatorRender.updateTypeface(paint);
-    whitespaceGuideRenderer.updateTypeface(paint);
-    popupMenuRenderer.onEditorTypefaceChanged(finalTypeface);
-    whitespaceGuideRenderer.updateRuleTypeface(safeBase, highlightState.stringHighlightRule, highlightState.blockCommentHighlightRule);
-    if (highlightState.lineCommentHighlightRule != null) highlightState.lineCommentHighlightRule.updateTypeface(safeBase);
-    for (com.yn.sodiumeditor.core.HighlightRule rule : highlightState.highlightRules) {
-      rule.updateTypeface(safeBase);
-    }
-    highlightState.clearHighlightCaches();
-
-    editorConfig.lineHeight = editorConfig.paint.getFontSpacing();
-    updateWhitespaceGuideMetrics();
-    lineNumberRenderer.invalidateCache();
-    synchronized (editorState.lineWidthCache) {
-      editorState.lineWidthCache.clear();
-    }
-    editorState.currentMaxWindowLineWidth = 0f;
-    editorState.globalMaxLineWidth = 0f;
-    scrollManager.maxLineWidthForScroll = 0f;
-    scrollManager.maxTextStartXForScroll = 0f;
-    scrollManager.maxScrollXForScroll = 0f;
-    recalculateMaxLineWidth();
-
-    requestLayout();
-    if (wrapWordState.isWordWrapEnabled) wrapWordBuilder.invalidate(true, true);
-    wrapWordBuilder.requestPrefixRebuild(this);
-    invalidate();
+  public void applyTypeface(@Nullable Typeface typeface, int style) {
+    typefaceManager.applyTypeface(typeface, style);
   }
 
-  private void updateWhitespaceGuideMetrics() {
-    whitespaceGuideRenderer.updateMetrics(paint, editorConfig.visualConfig.WHITESPACE_GUIDE_SPACE, editorConfig.visualConfig.WHITESPACE_GUIDE_TAB);
+  public void updateWhitespaceGuideMetrics() {
+    whitespaceGuideRenderer.updateMetrics(editorConfig.paint, editorConfig.visualConfig.WHITESPACE_GUIDE_SPACE, editorConfig.visualConfig.WHITESPACE_GUIDE_TAB);
 
   }
 
@@ -1446,7 +1205,7 @@ public class SodiumEditor extends View {
       int firstVisibleLine,
       int lastVisibleLine,
       @Nullable java.util.HashMap<Integer, String> directLines) {
-    highlightState.ensureHighlightCacheForVisibleRange(firstVisibleLine, lastVisibleLine, directLines);
+    highlightRenderer.ensureHighlightCacheForVisibleRange(firstVisibleLine, lastVisibleLine, directLines);
   }
 
   public void maybeEnsureHighlightCacheForRange(
@@ -1463,57 +1222,13 @@ public class SodiumEditor extends View {
   @Override
   protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
     super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-    float oldGutterWidth = lineNumberState.getLineNumbersGutterWidth();
-    if (lineNumberState.isShowLineNumbers()) {
-      int maxLines;
-      if (editorIndexState.isIndexReady) {
-        maxLines = editorIndexState.lineOffsets.length;
-      } else if (editorState.isEof) {
-        maxLines = editorState.windowStartLine + editorState.linesWindow.size();
-      } else {
-        maxLines = 999999; // Wider fallback for width calculation until index is ready
-      }
-      if (foldState.isCodeFoldingEnabled) {
-        foldRenderer.foldMarkerGutterWidth =
-            foldRenderer.foldMarkerPaint.measureText("v") + foldRenderer.foldMarkerSpacing + foldRenderer.foldMarkerEdgePadding;
-      } else {
-        foldRenderer.foldMarkerGutterWidth = 0f;
-      }
-      lineNumberState.setLineNumbersGutterWidth(
-          lineNumberRenderer.computeGutterWidth(
-              maxLines, foldState.isCodeFoldingEnabled, foldRenderer.foldMarkerGutterWidth));
-    } else {
-      lineNumberState.setLineNumbersGutterWidth(0f);
-    }
-
-    if (wrapWordState.isWordWrapEnabled && Math.abs(lineNumberState.getLineNumbersGutterWidth() - oldGutterWidth) > 0.1f) {
-      wrapWordBuilder.invalidate(true, true);
-      wrapWordBuilder.requestPrefixRebuild(this);
-    }
-    if (Math.abs(lineNumberState.getLineNumbersGutterWidth() - oldGutterWidth) > 0.1f) {
-      lineNumberRenderer.invalidateCache();
-    }
+    viewRender.onMeasure();
   }
 
   @Override
   protected void onSizeChanged(int w, int h, int oldw, int oldh) {
     super.onSizeChanged(w, h, oldw, oldh);
-    if (w != oldw || h != oldh) {
-      lineNumberRenderer.invalidateCache();
-    }
-    if (w != oldw) {
-      scrollManager.maxScrollXForScroll = 0f;
-      scrollManager.maxTextStartXForScroll = 0f;
-    }
-    int minWindow = computeMinWindowSize();
-    if (editorState.windowSize < minWindow) {
-      editorState.windowSize = minWindow;
-      reloadWindowAroundVisible(false);
-    }
-    if (wrapWordState.isWordWrapEnabled && w != oldw) {
-      wrapWordBuilder.invalidate(true, true);
-      wrapWordBuilder.requestPrefixRebuild(this);
-    }
+    viewRender.onSizeChanged(w, h, oldw, oldh);
   }
 
   public float getTextStartX() {
@@ -1586,70 +1301,16 @@ public class SodiumEditor extends View {
     return lineNumberRenderer.isInLineNumberGutter(x, getGutterStartX());
   }
 
-  private void beginLineNumberSelection(int line) {
-    int clamped = com.yn.sodiumeditor.utils.SelectionUtils.clampLineForSelection(line, editorState.isEof, editorState.windowStartLine, editorState.linesWindow.size());
-    if (!com.yn.sodiumeditor.utils.SelectionUtils.isLineSelectable(getLineTextForRender(clamped))) return;
-    inlinePredictionState.clearActiveSuggestion();
-    selectionState.setLineNumberSelecting(true, clamped);
-    selectionState.setSelectAllState(false, false);
-    String lineText = getLineTextForRender(clamped);
-    selectionState.setSelection(clamped, 0, clamped, lineText.length(), true);
-    cursorState.setCursorPosition(clamped, selectionState.selEndChar);
-    popupTouchHandler.hidePopup();
-    cursorAnimator.resetCursorBlink();
-    invalidate();
+  public void beginLineNumberSelection(int line) {
+    selectionHandler.beginLineNumberSelection(line);
   }
 
-  private void updateLineNumberSelection(int line) {
-    if (!selectionState.isLineNumberSelecting()) return;
-    int clamped = com.yn.sodiumeditor.utils.SelectionUtils.clampLineForSelection(line, editorState.isEof, editorState.windowStartLine, editorState.linesWindow.size());
-    if (!com.yn.sodiumeditor.utils.SelectionUtils.isLineSelectable(getLineTextForRender(clamped))) return;
-    int anchorLine = selectionState.getLineNumberSelectAnchorLine();
-    int startLine = Math.min(anchorLine, clamped);
-    int endLine = Math.max(anchorLine, clamped);
-    scrollManager.ensureLineInWindow(endLine, true);
-    String endLineText = getLineTextForRender(endLine);
-    selectionState.setSelection(startLine, 0, endLine, endLineText.length(), true);
-    cursorState.setCursorPosition(endLine, selectionState.selEndChar);
-    selectionState.setLineNumberSelecting(true, anchorLine);
-    popupTouchHandler.hidePopup();
-    invalidate();
-  }
-
-  private String buildFoldDisplayLine(String line, com.yn.sodiumeditor.state.FoldRange range, int[] placeholderBoundsOut) {
-    return foldRenderer.buildFoldDisplayLine(line, range, placeholderBoundsOut);
+  public void updateLineNumberSelection(int line) {
+    selectionHandler.updateLineNumberSelection(line);
   }
 
   public String buildFoldDisplayLineInternal(String line, com.yn.sodiumeditor.state.FoldRange range, int[] placeholderBoundsOut) {
-    if (line == null) line = "";
-    int placeholderStart = 0;
-    int placeholderEnd = 0;
-    String display;
-
-    if (range.isBlockComment) {
-      int safeIdx = Math.max(0, Math.min(range.openCharIndex, line.length()));
-      String prefix = line.substring(0, safeIdx);
-      placeholderStart = prefix.length() + 2;
-      placeholderEnd = placeholderStart + editorConfig.visualConfig.FOLD_PLACEHOLDER_TEXT.length();
-      display = prefix + "/*" + editorConfig.visualConfig.FOLD_PLACEHOLDER_TEXT + "*/";
-    } else if (range.isIndentFold) {
-      String prefix = line;
-      placeholderStart = prefix.length();
-      placeholderEnd = placeholderStart + editorConfig.visualConfig.FOLD_PLACEHOLDER_TEXT.length();
-      display = prefix + editorConfig.visualConfig.FOLD_PLACEHOLDER_TEXT;
-    } else {
-      int safeIdx = Math.max(0, Math.min(range.openCharIndex, Math.max(0, line.length() - 1)));
-      String prefix = line.substring(0, safeIdx + 1);
-      placeholderStart = prefix.length();
-      placeholderEnd = placeholderStart + editorConfig.visualConfig.FOLD_PLACEHOLDER_TEXT.length();
-      display = prefix + editorConfig.visualConfig.FOLD_PLACEHOLDER_TEXT + range.closeChar;
-    }
-
-    if (placeholderBoundsOut != null && placeholderBoundsOut.length >= 2) {
-      placeholderBoundsOut[0] = placeholderStart;
-      placeholderBoundsOut[1] = placeholderEnd;
-    }
-    return display;
+    return foldRenderer.buildFoldDisplayLineInternal(line, range, placeholderBoundsOut);
   }
 
   public void drawFoldedLine(Canvas canvas, String line, int globalLine) {
@@ -1701,75 +1362,16 @@ public class SodiumEditor extends View {
 
   public void computeStreamedSliceBounds(
       @Nullable String lineText, int globalLine, int lineLength, int[] out) {
-    if (out == null || out.length < 2) return;
-    int len = Math.max(0, lineLength);
-    if (len <= 0) {
-      out[0] = 0;
-      out[1] = 0;
-      return;
-    }
-    float avg = highlightRenderer.getAverageCharWidthForLine((lineText == null) ? "" : lineText, globalLine);
-    if (avg <= 0f) avg = paint.measureText(" ");
-    float viewLeft = lineNumberRenderer.getContentViewLeft(isRtl);
-    float viewRight = lineNumberRenderer.getContentViewRight(getWidth(), isRtl);
-    float leftX = viewLeft + getEffectiveScrollX() - getTextStartX();
-    float rightX = viewRight + getEffectiveScrollX() - getTextStartX();
-    if (isRtl) {
-      float w = avg * len;
-      float baseX = getTextAreaWidth() - w;
-      float l = leftX - baseX;
-      float r = rightX - baseX;
-      leftX = w - l;
-      rightX = w - r;
-    }
-    int start = (int) Math.floor(leftX / avg);
-    int end = (int) Math.ceil(rightX / avg);
-    if (end < start) {
-      int t = start;
-      start = end;
-      end = t;
-    }
-    int pad = Math.max(0, editorConfig.visualConfig.visibleCharPadding);
-    start = Math.max(0, start - pad);
-    end = Math.min(len, end + pad);
-    int visibleLen = Math.max(0, end - start);
-    int maxExtra = Math.max(0, editorState.colsWidthCacheSize - visibleLen);
-    int extraPad = Math.min(Math.max(0, editorState.prefetchCols), maxExtra / 2);
-    start = Math.max(0, start - extraPad);
-    end = Math.min(len, end + extraPad);
-    out[0] = start;
-    out[1] = end;
+    highlightRenderer.computeStreamedSliceBounds(lineText, globalLine, lineLength, out);
   }
 
   public int getInitialStreamedSliceSize() {
-    int base = Math.max(128, editorState.colsWidthCacheSize);
-    int pad = Math.max(0, editorState.prefetchCols) * 2;
-    return Math.max(base, pad);
-  }
-
-  public void drawFoldMarkersForVisibleLines(
-      Canvas canvas, int firstVisibleIndex, int lastVisibleIndex) {
-    foldRenderer.drawFoldMarkersForVisibleLines(canvas, firstVisibleIndex, lastVisibleIndex);
+    return highlightRenderer.getInitialStreamedSliceSize();
   }
 
   public void drawDeleteAnimationForSegment(
       Canvas canvas, String line, int globalLine, int segStart, int segEnd, float y) {
-    if (!charAnimationConfig.isEnabled()) return;
-    if (globalLine != charAnimator.getDelAnimLine()
-        || charAnimator.getDelAnimText() == null
-        || charAnimator.getDelAnimText().isEmpty()
-        || charAnimator.getDelAnimAlpha() <= 0f) return;
-    if (line == null) line = "";
-    int at = Math.max(0, Math.min(charAnimator.getDelAnimAtChar(), line.length()));
-    if (at < segStart || at > segEnd) return;
-    float x = whitespaceGuideRenderer.measureTextWithVisualSpaces(this, line, segStart, at, paint);
-    Paint ghostPaint = (charAnimator.getDelAnimPaint() != null) ? charAnimator.getDelAnimPaint() : paint;
-    Paint tempPaint = charAnimator.getTempPaint();
-    tempPaint.set(ghostPaint);
-    tempPaint.setUnderlineText(false);
-    int baseAlpha = ghostPaint.getAlpha();
-    tempPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, charAnimator.getDelAnimAlpha()))));
-    canvas.drawText(charAnimator.getDelAnimText(), x, y, tempPaint);
+    charAnimationRenderer.drawDeleteAnimationForSegment(canvas, line, globalLine, segStart, segEnd, y);
   }
 
 
@@ -1811,7 +1413,7 @@ public class SodiumEditor extends View {
   }
 
   public float measureTextWithVisualSpacesForIndentGuides(String line, int start, int end) {
-    return whitespaceGuideRenderer.measureTextWithVisualSpaces(this, line, start, end, paint);
+    return whitespaceGuideRenderer.measureTextWithVisualSpaces(this, line, start, end, editorConfig.paint);
   }
 
   public boolean isWhitespaceAtXForIndentGuides(String line, int globalLine, float x) {
@@ -1830,42 +1432,10 @@ public class SodiumEditor extends View {
     return editorConfig.paint.getTextSize();
   }
 
-
-  private static int getFirstNonSpaceIndex(String line) {
-    for (int i = 0; i < line.length(); i++) {
-      if (!Character.isWhitespace(line.charAt(i))) return i;
-    }
-    return -1;
-  }
-
-  private int getBraceGuideColumnForLine(
+  public int getBraceGuideColumnForLineForBracket(
       String line, int globalLine, int braceIndex, int firstNonSpace) {
-    int column = (firstNonSpace >= 0) ? firstNonSpace : braceIndex;
-    if (firstNonSpace >= 0 && braceIndex > firstNonSpace) {
-      char first = line.charAt(firstNonSpace);
-      if (first == ')' || first == ']') {
-        int prevIndent = getPreviousNonEmptyIndentColumn(globalLine - 1);
-        if (prevIndent >= 0) {
-          column = prevIndent;
-        }
-      }
-    }
-    return column;
+    return indentGuideEngine.getBraceGuideColumnForLine(line, globalLine, braceIndex, firstNonSpace);
   }
-
-  private int getPreviousNonEmptyIndentColumn(int line) {
-    for (int l = line; l >= 0; l--) {
-      String prev = getLineTextForRender(l);
-      if (prev == null) continue;
-      int idx = getFirstNonSpaceIndex(prev);
-      if (idx >= 0) return idx;
-    }
-    return -1;
-  }
-
-
-
-
 
   private static final class StreamedSliceRequest {
     final int line;
@@ -1879,58 +1449,12 @@ public class SodiumEditor extends View {
     }
   }
 
-  public static final class LineScanResult {
-    public final long length;
-    public final boolean reachedEof;
-
-    public LineScanResult(long length, boolean reachedEof) {
-      this.length = length;
-      this.reachedEof = reachedEof;
-    }
-  }
-
-  public LineScanResult scanLineLength(RandomAccessFile raf) throws Exception {
-    byte[] buf = new byte[8192];
-    long lineLen = 0L;
-    int prev = -1;
-    while (true) {
-      long chunkStart = raf.getFilePointer();
-      int n = raf.read(buf);
-      if (n <= 0) {
-        return new LineScanResult(lineLen, true);
-      }
-      for (int i = 0; i < n; i++) {
-        int b = buf[i] & 0xFF;
-        if (b == '\n') {
-          if (prev == '\r' && lineLen > 0L) lineLen -= 1L;
-          long nextPos = chunkStart + i + 1;
-          raf.seek(nextPos);
-          return new LineScanResult(lineLen, false);
-        }
-        lineLen++;
-        prev = b;
-      }
-    }
-  }
-
   public void maybeUpdateStreamedSlicesForVisibleRange(int firstVisibleLine, int lastVisibleLine) {
     viewRender.maybeUpdateStreamedSlicesForVisibleRange(firstVisibleLine, lastVisibleLine);
   }
 
   public void maybeKickWindowLoad(int firstVisibleLine) {
-    if (zoomGestureHandler.isZoomGestureActive()) return;
-    if (editorIO.document.getSourceFile() == null || editorIO.isFileCleared()) {
-      return;
-    }
-    if (editorState.isWindowLoading) return;
-
-    boolean inside =
-        firstVisibleLine >= editorState.windowStartLine
-            && firstVisibleLine < editorState.windowStartLine + editorState.linesWindow.size();
-    if (!inside) {
-      int targetStart = Math.max(0, firstVisibleLine - editorState.prefetchLines);
-      loadWindowAround(targetStart, null, false);
-    }
+    viewRender.maybeKickWindowLoad(firstVisibleLine);
   }
 
   public void checkAndLoadWindow() {
@@ -1947,40 +1471,31 @@ public class SodiumEditor extends View {
   }
 
   public boolean shouldHideCopyCutForSelection() {
-    if (!selectionState.hasSelection()) return true;
-
-    int sL = selectionState.selStartLine, eL = selectionState.selEndLine;
-    if (sL > eL) {
-      int t = sL;
-      sL = eL;
-      eL = t;
-    }
-    long lines = (long) eL - (long) sL + 1L;
-    return lines > hideCopyCutMaxLines;
+    return selectionHandler.shouldHideCopyCutForSelection();
   }
 
   public void setCopyCutMaxLines(long maxLines) {
-    copyCutMaxLines = Math.max(1L, maxLines);
+    editorLoadingState.copyCutMaxLines = Math.max(1L, maxLines);
   }
 
   public void setCopyCutMaxChars(int maxChars) {
-    copyCutMaxChars = Math.max(1, maxChars);
+    editorLoadingState.copyCutMaxChars = Math.max(1, maxChars);
   }
 
   public void setHideCopyCutMaxLines(int maxLines) {
-    hideCopyCutMaxLines = Math.max(1, maxLines);
+    editorLoadingState.hideCopyCutMaxLines = Math.max(1, maxLines);
   }
 
   public void setReplaceAllMaxCount(int maxCount) {
-    replaceAllMaxCount = Math.max(1, maxCount);
+    editorLoadingState.replaceAllMaxCount = Math.max(1, maxCount);
   }
 
   public int getReplaceAllMaxCount() {
-    return replaceAllMaxCount;
+    return editorLoadingState.replaceAllMaxCount;
   }
 
   public void setHideKeyboardOnFocusLoss(boolean enabled) {
-    hideKeyboardOnFocusLoss = enabled;
+    focusChangeHandler.setHideKeyboardOnFocusLoss(enabled);
   }
 
   private void startFlingStopAnimation(float targetX, float targetY) {
@@ -2014,19 +1529,11 @@ public class SodiumEditor extends View {
   }
 
   public void abortScrollAnimationForZoom() {
-    if (!scrollManager.scroller.isFinished()) {
-      scrollManager.scroller.abortAnimation();
-    }
+    scrollManager.abortScrollAnimationForZoom();
   }
 
   public void invalidatePendingIOForEdit() {
-    editorIO.ioTaskVersion.incrementAndGet();
-    editorIO.ioHandler.removeCallbacksAndMessages(null);
-    highlightState.clearHighlightCaches();
-    if (foldState.isCodeFoldingEnabled) {
-      foldTouchHandler.clearAllFolds();
-      indentGuideEngine.markIntervalsDirty();
-    }
+    editorIO.invalidatePendingIOForEdit(this);
   }
 
   public void clearContent() {
@@ -2057,18 +1564,7 @@ public class SodiumEditor extends View {
   }
 
   public void setReadOnly(boolean readOnly) {
-    if (editorConfig.behaviorConfig.isReadOnly == readOnly) return;
-    editorConfig.behaviorConfig.isReadOnly = readOnly;
-    if (readOnly) {
-      inlinePredictionState.clearActiveSuggestion();
-      selectionState.clearSelectionKeepLineNumberState();
-      popupTouchHandler.hidePopup();
-      InputMethodManager imm =
-          (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-      if (imm != null) imm.hideSoftInputFromWindow(getWindowToken(), 0);
-    }
-    restartInput();
-    invalidate();
+    editorConfig.behaviorConfig.setReadOnly(readOnly, this);
   }
 
   public void setDisable(boolean disable) {
@@ -2092,36 +1588,23 @@ public class SodiumEditor extends View {
     editorIO.document.setShowLoadingOnFileOpen(enabled);
   }
 
-  private boolean shouldShowLargeEditUi(int sL, int eL, boolean isSelectAllLike) {
-    int span = Math.abs(eL - sL) + 1;
-    return isSelectAllLike || span >= editorLoadingState.LARGE_EDIT_LINES;
-  }
-
   public void beginLargeEditUiIfNeeded(boolean enable, int sL, int eL, boolean isSelectAllLike) {
-    if (!enable) return;
-    if (!shouldShowLargeEditUi(sL, eL, isSelectAllLike)) return;
-
-    final int token = editorLoadingState.largeEditUiToken.incrementAndGet();
-    setDisable(true);
-    loadingCircleAnimator.show(true);
-
-    // Watchdog: force hide after a short time in case any path forgets to hide.
-    mainHandler.removeCallbacks(largeEditUiWatchdog);
-    mainHandler.postDelayed(largeEditUiWatchdog, 1500);
-
-    // Also ensure token validity for later hides.
-    post(
-        () -> {
-          if (token != editorLoadingState.largeEditUiToken.get()) return;
-        });
+    loadingCircleAnimator.beginLargeEditUiIfNeeded(
+        enable, sL, eL, isSelectAllLike,
+        editorLoadingState.LARGE_EDIT_LINES,
+        mainHandler,
+        largeEditUiWatchdog,
+        this,
+        editorLoadingState.largeEditUiToken);
   }
 
-  private void endLargeEditUi(boolean invalidate) {
-    editorLoadingState.largeEditUiToken.incrementAndGet();
-    mainHandler.removeCallbacks(largeEditUiWatchdog);
-    setDisable(false);
-    loadingCircleAnimator.show(false);
-    if (invalidate) invalidate();
+  public void endLargeEditUi(boolean invalidate) {
+    loadingCircleAnimator.endLargeEditUi(
+        invalidate,
+        this,
+        editorLoadingState.largeEditUiToken,
+        mainHandler,
+        largeEditUiWatchdog);
   }
 
   public void endLargeEditUiPublic(boolean invalidate) {
@@ -2145,17 +1628,8 @@ public class SodiumEditor extends View {
     selectionHandler.setSelectionInternal(sL, sC, eL, eC);
   }
 
-  public static final int LARGE_PASTE_LINES = 1500;
-  public static final int LARGE_PASTE_CHARS = 200_000;
-
   public static boolean isLargePasteText(String text) {
-    if (text == null) return false;
-    if (text.length() >= LARGE_PASTE_CHARS) return true;
-    int newLines = 0;
-    for (int i = 0; i < text.length(); i++) {
-      if (text.charAt(i) == '\n' && ++newLines >= LARGE_PASTE_LINES) return true;
-    }
-    return false;
+    return com.yn.sodiumeditor.input.EditorOperations.isLargePasteText(text);
   }
 
   public void goToLine(int line) {
@@ -2163,47 +1637,53 @@ public class SodiumEditor extends View {
   }
 
   public void goToLine(int line, int col) {
-    final int currentGoToLineVersion = editorIndexState.incrementGoToLineVersion();
-    setDisable(true);
-    loadingCircleAnimator.show(true);
+    cursorNavigation.goToLine(line, col, new GoToLineWithUICallbackImpl());
+  }
 
-    if (selectionState.hasSelection()) {
+  private class GoToLineWithUICallbackImpl implements com.yn.sodiumeditor.core.CursorNavigation.GoToLineWithUICallback {
+    @Override
+    public int incrementGoToLineVersion() {
+      return editorIndexState.incrementGoToLineVersion();
+    }
+
+    @Override
+    public void setDisable(boolean disable) {
+      SodiumEditor.this.setDisable(disable);
+    }
+
+    @Override
+    public void showLoadingCircle(boolean show) {
+      loadingCircleAnimator.show(show);
+    }
+
+    @Override
+    public boolean hasSelection() {
+      return selectionState.hasSelection();
+    }
+
+    @Override
+    public void clearSelection() {
       selectionState.clearSelectionKeepLineNumberState();
-      selectionState.setSelecting(false);
+    }
+
+    @Override
+    public void setSelecting(boolean selecting) {
+      selectionState.setSelecting(selecting);
+    }
+
+    @Override
+    public void hidePopup() {
       popupTouchHandler.hidePopup();
     }
 
-    final int requestedLine = Math.max(0, line - 1);
-    final int requestedCol = Math.max(0, col - 1);
-
-    Integer knownTotal = null;
-
-    if (editorIO.sourceFile == null || editorIO.isFileCleared) {
-      // In-memory mode: the "editorIO.document" is exactly what we have in memory.
-      synchronized (editorState.linesWindow) {
-        knownTotal = Math.max(1, editorState.windowStartLine + editorState.linesWindow.size());
-      }
-    } else if (editorIndexState.isIndexReady) {
-      synchronized (editorIndexState.lineOffsetsLock) {
-        knownTotal = Math.max(1, editorIndexState.lineOffsets.length);
-      }
-    } else if (editorState.isEof) {
-      synchronized (editorState.linesWindow) {
-        knownTotal = Math.max(1, editorState.windowStartLine + editorState.linesWindow.size());
-      }
+    @Override
+    public Integer getKnownTotalLines() {
+      return editorIO.getKnownTotalLines(SodiumEditor.this);
     }
 
-    if (knownTotal != null) {
-      int clampedLine = Math.min(requestedLine, Math.max(0, knownTotal - 1));
-      cursorNavigation.proceedGoToLineClamped(currentGoToLineVersion, clampedLine, requestedCol);
-    } else {
-      countTotalLines(
-          totalLines -> {
-            if (currentGoToLineVersion != editorIndexState.getGoToLineVersion()) return;
-            int total = (totalLines > 0) ? totalLines : (requestedLine + 1);
-            int clampedLine = Math.min(requestedLine, Math.max(0, total - 1));
-            cursorNavigation.proceedGoToLineClamped(currentGoToLineVersion, clampedLine, requestedCol);
-          });
+    @Override
+    public void countTotalLines(com.yn.sodiumeditor.core.CursorNavigation.GoToLineCallback.LineCountCallback callback) {
+      editorIO.lineIndex.countTotalLines(total -> callback.onResult(total));
     }
   }
 
@@ -2225,30 +1705,11 @@ public class SodiumEditor extends View {
 
   public String getLineLeadingWhitespace(int line) {
     String ln = getLineTextForRender(line);
-    if (ln == null || ln.isEmpty()) return "";
-    int i = 0;
-    while (i < ln.length()) {
-      char c = ln.charAt(i);
-      if (c != ' ' && c != '\t') break;
-      i++;
-    }
-    return (i == 0) ? "" : ln.substring(0, i);
+    return com.yn.sodiumeditor.core.IndentGuideEngine.getLineLeadingWhitespace(ln);
   }
 
   public int getIndentWidth(String line) {
-    if (line == null || line.isEmpty()) return 0;
-    int width = 0;
-    for (int i = 0; i < line.length(); i++) {
-      char c = line.charAt(i);
-      if (c == ' ') {
-        width++;
-      } else if (c == '\t') {
-        width += com.yn.sodiumeditor.core.WrapWordEngine.DEFAULT_TAB_SIZE_SPACES;
-      } else {
-        break;
-      }
-    }
-    return width;
+    return com.yn.sodiumeditor.core.IndentGuideEngine.getIndentWidth(line);
   }
 
 
@@ -2267,27 +1728,8 @@ public class SodiumEditor extends View {
     invalidate();
   }
 
-  private static final long COPY_CUT_MAX_LINES = 20000L;
-  private static final int COPY_CUT_MAX_CHARS = 8_000_000; // safety cap
-  private long copyCutMaxLines = COPY_CUT_MAX_LINES;
-  private int copyCutMaxChars = COPY_CUT_MAX_CHARS;
-  private int hideCopyCutMaxLines = editorLoadingState.HIDE_COPY_CUT_LINES;
-  private int replaceAllMaxCount = 100000;
-  private boolean hideKeyboardOnFocusLoss = true;
-
   public String getSelectedText() {
-    if (!selectionState.hasSelection()) return null;
-    if (shouldHideCopyCutForSelection()) return null;
-
-    int sL = selectionState.selStartLine, sC = selectionState.selStartChar, eL = selectionState.selEndLine, eC = selectionState.selEndChar;
-    if (comparePos(sL, sC, eL, eC) > 0) {
-      int tL = sL, tC = sC;
-      sL = eL;
-      sC = eC;
-      eL = tL;
-      eC = tC;
-    }
-    return selectionTextBuilder.buildSelectedTextBlocking(sL, sC, eL, eC);
+    return selectionHandler.getSelectedText();
   }
 
   public void copySelectionToClipboard() {
@@ -2307,20 +1749,7 @@ public class SodiumEditor extends View {
   }
 
   public void pasteFromClipboard() {
-    invalidatePendingIOForEdit();
-    history.incrementEditVersion();
-    inlinePredictionState.clearActiveSuggestion(); // Clear suggestion when pasting
-
-    ClipboardManager cm =
-        (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-    if (cm == null || !cm.hasPrimaryClip()) return;
-    ClipData cd = cm.getPrimaryClip();
-    if (cd == null || cd.getItemCount() == 0) return;
-    CharSequence txt = cd.getItemAt(0).coerceToText(getContext());
-    if (txt == null) return;
-    cursorState.setCursorPosition(cursorState.getCursorLine(), cursorState.getCursorChar());
-    editorTextInserter.insertTextAtCursor(txt.toString());
-    inlinePredictionEngine.updateSuggestion(); // Update suggestion after pasting
+    selectionHandler.pasteFromClipboard();
   }
 
   public void actionPaste() {
@@ -2401,27 +1830,12 @@ public class SodiumEditor extends View {
   }
 
   public CursorTarget computeCursorAfterInsert(int baseLine, int baseChar, String insertText) {
-    if (insertText == null) insertText = "";
-    int newLines = 0;
-
-    int lastNl = insertText.lastIndexOf('\n');
-    if (lastNl >= 0) {
-      for (int i = 0; i < insertText.length(); i++) {
-        if (insertText.charAt(i) == '\n') newLines++;
-      }
-      int lastSegLen = insertText.length() - lastNl - 1;
-      return new CursorTarget(baseLine + newLines, lastSegLen);
-    }
-    return new CursorTarget(baseLine, baseChar + insertText.length());
+    com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget target = editorTextInserter.computeCursorAfterInsert(baseLine, baseChar, insertText);
+    return new CursorTarget(target.line, target.ch);
   }
 
   public int countNewlines(@Nullable String text) {
-    if (text == null || text.isEmpty()) return 0;
-    int count = 0;
-    for (int i = 0; i < text.length(); i++) {
-      if (text.charAt(i) == '\n') count++;
-    }
-    return count;
+    return editorTextInserter.countNewlines(text);
   }
 
   public CursorTarget computeCursorAfterInsertForUndo(int baseLine, int baseChar, String insertText) {
@@ -2708,19 +2122,7 @@ public class SodiumEditor extends View {
   @Override
   protected void onFocusChanged(boolean focused, int direction, Rect previouslyFocusedRect) {
     super.onFocusChanged(focused, direction, previouslyFocusedRect);
-    inlinePredictionState.clearActiveSuggestion(); // Clear suggestion on focus change
-    InputMethodManager imm =
-        (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-    if (focused) {
-      if (imm != null) imm.restartInput(this);
-      cursorAnimator.onFocusChanged(true);
-    } else {
-      if (hideKeyboardOnFocusLoss && imm != null) imm.hideSoftInputFromWindow(getWindowToken(), 0);
-      cursorAnimator.onFocusChanged(false);
-      cursorState.setHasComposing(false);
-      selectionState.clearSelectionKeepLineNumberState();
-      popupTouchHandler.hidePopup();
-    }
+    focusChangeHandler.onFocusChanged(focused);
   }
 
   public void invalidateLineGlobal(int globalLine) {
@@ -2882,11 +2284,11 @@ public class SodiumEditor extends View {
   }
 
   public int getCopyCutMaxChars() {
-    return copyCutMaxChars;
+    return editorLoadingState.copyCutMaxChars;
   }
 
   public long getCopyCutMaxLines() {
-    return copyCutMaxLines;
+    return editorLoadingState.copyCutMaxLines;
   }
 
   public long findLineStartByteByScanningPublic(RandomAccessFile raf, int targetLine) throws Exception {
@@ -3131,7 +2533,7 @@ public class SodiumEditor extends View {
 
     @Override
     public int getCopyCutMaxChars() {
-      return copyCutMaxChars;
+      return editorLoadingState.copyCutMaxChars;
     }
 
     @Override
@@ -3283,6 +2685,26 @@ public class SodiumEditor extends View {
     public void setCursorPositionNoClear(int line, int ch) {
       cursorNavigation.setPositionNoClear(line, ch);
     }
+
+    @Override
+    public void invalidatePendingIOForEdit() {
+      SodiumEditor.this.invalidatePendingIOForEdit();
+    }
+
+    @Override
+    public void insertTextAtCursor(String text) {
+      editorTextInserter.insertTextAtCursor(text);
+    }
+
+    @Override
+    public void inlinePredictionUpdate() {
+      inlinePredictionEngine.updateSuggestion();
+    }
+
+    @Override
+    public int getHideCopyCutMaxLines() {
+      return editorLoadingState.hideCopyCutMaxLines;
+    }
   }
 
   // Selection Text Builder Callback
@@ -3344,7 +2766,7 @@ public class SodiumEditor extends View {
 
     @Override
     public int getCopyCutMaxChars() {
-      return copyCutMaxChars;
+      return editorLoadingState.copyCutMaxChars;
     }
 
     @Override
@@ -3782,8 +3204,7 @@ public class SodiumEditor extends View {
 
     @Override
     public int getLineLength(int line) {
-      String ln = getLineTextForRender(line);
-      return ln != null ? ln.length() : 0;
+      return viewRender.textRender.getLineLength(line);
     }
   }
 
@@ -3810,22 +3231,7 @@ public class SodiumEditor extends View {
 
     @Override
     public boolean isLineCommentStart(String line, int index) {
-      if (index < 0 || index >= line.length()) return false;
-      for (String token : highlightState.lineCommentDelimiters) {
-        int len = token.length();
-        if (len == 0) continue;
-        if (index + len > line.length()) continue;
-        if (len == 1) {
-          if (line.charAt(index) == token.charAt(0) && !com.yn.sodiumeditor.core.HighlightParser.isTokenEscaped(line, index)) {
-            return true;
-          }
-        } else {
-          if (line.regionMatches(index, token, 0, len) && !com.yn.sodiumeditor.core.HighlightParser.isTokenEscaped(line, index)) {
-            return true;
-          }
-        }
-      }
-      return false;
+      return com.yn.sodiumeditor.core.HighlightParser.isLineCommentStart(line, index, highlightState.lineCommentDelimiters);
     }
   }
 }

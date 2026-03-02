@@ -273,7 +273,7 @@ public class PopupMenuRenderer {
 
     @Nullable
     private android.graphics.Typeface getEditorTypefaceForPopup() {
-        return view.paint.getTypeface();
+        return view.editorConfig.paint.getTypeface();
     }
 
     private boolean shouldHideCopyCutForSelection() {
@@ -288,12 +288,12 @@ public class PopupMenuRenderer {
                     + view.highlightRenderer.measureText(line, safeChar, globalLine)
                     - view.getEffectiveScrollX();
         }
-        int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, globalLine, line, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.paint);
+        int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, globalLine, line, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.editorConfig.paint);
         int seg = view.wrapWordEngine.getWrapSegmentIndexForChar(starts, safeChar);
         int segStart = view.wrapWordEngine.getWrapSegmentStart(starts, seg);
         float x =
                 view.whitespaceGuideRenderer.measureTextWithVisualSpaces(
-                        view, line, segStart, safeChar, view.paint);
+                        view, line, segStart, safeChar, view.editorConfig.paint);
         return view.getTextStartX() + x - view.getEffectiveScrollX();
     }
 

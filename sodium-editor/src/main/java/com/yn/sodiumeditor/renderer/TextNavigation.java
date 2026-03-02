@@ -42,7 +42,7 @@ public final class TextNavigation {
         int totalLines = view.wrapWordMetrics.wrapLinePrefix.length - 1;
         int safeLine = Math.max(0, Math.min(line, Math.max(0, totalLines - 1)));
         String text = lineCacheManager.getLineTextForRender(safeLine);
-        int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, safeLine, text, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.paint);
+        int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, safeLine, text, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.editorConfig.paint);
         int seg = view.wrapWordEngine.getWrapSegmentIndexForChar(starts, Math.max(0, Math.min(ch, text.length())));
         return view.wrapWordMetrics.wrapLinePrefix[safeLine] + seg;
     }
@@ -163,16 +163,16 @@ public final class TextNavigation {
         if (candidates.isEmpty()) return false;
 
         boolean sameAnchor =
-                line == view.lastDoubleTapLine
-                        && bounds[0] == view.lastDoubleTapWordStart
-                        && bounds[1] == view.lastDoubleTapWordEnd;
+                line == view.editorInputState.lastDoubleTapLine
+                        && bounds[0] == view.editorInputState.lastDoubleTapWordStart
+                        && bounds[1] == view.editorInputState.lastDoubleTapWordEnd;
         int currentIdx = findSelectionCandidateIndex(line, candidates);
         int nextIdx;
         if (sameAnchor) {
             if (currentIdx >= 0) {
                 nextIdx = Math.min(currentIdx + 1, candidates.size() - 1);
             } else {
-                nextIdx = Math.min(view.lastDoubleTapStage + 1, candidates.size() - 1);
+                nextIdx = Math.min(view.editorInputState.lastDoubleTapStage + 1, candidates.size() - 1);
             }
         } else {
             nextIdx = 0;
@@ -182,10 +182,10 @@ public final class TextNavigation {
         view.selectionState.setSelection(line, pick.start, line, pick.end, true);
         view.selectionState.setSelectAllState(false, false);
         view.cursorState.setCursorPosition(line, pick.end);
-        view.lastDoubleTapLine = line;
-        view.lastDoubleTapWordStart = bounds[0];
-        view.lastDoubleTapWordEnd = bounds[1];
-        view.lastDoubleTapStage = nextIdx;
+        view.editorInputState.lastDoubleTapLine = line;
+        view.editorInputState.lastDoubleTapWordStart = bounds[0];
+        view.editorInputState.lastDoubleTapWordEnd = bounds[1];
+        view.editorInputState.lastDoubleTapStage = nextIdx;
         return true;
     }
 

@@ -475,4 +475,13 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
         scrollBounds.clampScrollX();
         view.invalidate();
     }
+
+    /**
+     * Aborts the scroll animation for zoom operations.
+     */
+    public void abortScrollAnimationForZoom() {
+        if (!scroller.isFinished()) {
+            scroller.abortAnimation();
+        }
+    }
 }

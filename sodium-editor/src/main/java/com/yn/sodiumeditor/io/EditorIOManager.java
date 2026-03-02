@@ -203,4 +203,47 @@ public class EditorIOManager {
     public HandlerThread getIoThread() {
         return ioThread;
     }
+
+    /**
+     * Invalidates pending IO operations for edit.
+     * Increments IO task version and removes pending callbacks.
+     */
+    public void invalidatePendingIOForEdit() {
+        ioTaskVersion.incrementAndGet();
+        ioHandler.removeCallbacksAndMessages(null);
+    }
+
+    /**
+     * Invalidates pending IO operations for edit with full cleanup.
+     * This is a delegate method for SodiumEditor.invalidatePendingIOForEdit().
+     */
+    public void invalidatePendingIOForEdit(com.yn.sodiumeditor.SodiumEditor view) {
+        invalidatePendingIOForEdit();
+        view.highlightState.clearHighlightCaches();
+        if (view.foldState.isCodeFoldingEnabled) {
+            view.foldTouchHandler.clearAllFolds();
+            view.indentGuideEngine.markIntervalsDirty();
+        }
+    }
+
+    /**
+     * Gets the known total line count from available sources.
+     * Returns null if the total line count is not known.
+     */
+    public Integer getKnownTotalLines(SodiumEditor view) {
+        if (sourceFile == null || isFileCleared) {
+            synchronized (view.editorState.linesWindow) {
+                return Math.max(1, view.editorState.windowStartLine + view.editorState.linesWindow.size());
+            }
+        } else if (view.editorIndexState.isIndexReady) {
+            synchronized (view.editorIndexState.lineOffsetsLock) {
+                return Math.max(1, view.editorIndexState.lineOffsets.length);
+            }
+        } else if (view.editorState.isEof) {
+            synchronized (view.editorState.linesWindow) {
+                return Math.max(1, view.editorState.windowStartLine + view.editorState.linesWindow.size());
+            }
+        }
+        return null;
+    }
 }

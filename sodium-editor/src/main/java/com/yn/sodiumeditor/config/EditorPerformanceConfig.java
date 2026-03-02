@@ -141,4 +141,43 @@ public class EditorPerformanceConfig {
     public void setClickAfterEndToAddLineEnabled(boolean enabled) {
         isClickAfterEndToAddLineEnabled = enabled;
     }
+
+    /**
+     * Sets stable glyph positions enabled and triggers invalidation.
+     * @param enabled whether stable glyph positions are enabled
+     * @param editor the SodiumEditor instance to invalidate
+     */
+    public void setStableGlyphPositionsEnabled(boolean enabled, com.yn.sodiumeditor.SodiumEditor editor) {
+        if (this.isStableGlyphPositionsEnabled == enabled) return;
+        this.isStableGlyphPositionsEnabled = enabled;
+        editor.invalidate();
+    }
+
+    /**
+     * Sets performance mode enabled and disables visual features for better performance.
+     * @param enabled whether performance mode is enabled
+     * @param editor the SodiumEditor instance to update
+     */
+    public void setPerformanceModeEnabled(boolean enabled, com.yn.sodiumeditor.SodiumEditor editor) {
+        if (this.isPerformanceModeEnabled == enabled) return;
+        this.isPerformanceModeEnabled = enabled;
+        
+        if (enabled) {
+            editor.urlUnderlineRenderer.setUrlUnderliningEnabled(false);
+            editor.pathUnderlineRenderer.setPathUnderliningEnabled(false);
+            editor.highlightState.isColorHighlightingEnabled = false;
+            editor.bracketMatchState.setEnabled(false);
+            editor.bracketGuideRenderer.setEnabled(false);
+            editor.indentGuideRenderer.setIndentGuidesEnabled(false);
+            editor.whitespaceGuideState.setWhitespaceGuidesEnabled(false);
+            editor.wrapWordIndicatorRender.setEnabled(false);
+            editor.inlinePredictionState.setAutoCompletionEnabled(false);
+            editor.inlinePredictionState.setAutoPathCompletionEnabled(false);
+            editor.charAnimationConfig.setEnabled(false);
+            editor.highlightState.setHighlightCurrentLine(false);
+            editor.setIndentationBlocksEnabled(false);
+            editor.foldState.setCodeFoldingEnabled(false);
+        }
+        editor.invalidate();
+    }
 }

@@ -237,4 +237,102 @@ public final class CursorNavigation {
         // This should be provided by callback if needed
         return 0;
     }
+
+    //================================================================================
+    // Go To Line
+    //================================================================================
+
+    /**
+     * Navigates to a specific line and column in the document.
+     * This is a high-level method that coordinates loading, selection clearing, and cursor positioning.
+     * 
+     * @param line the 1-based line number to navigate to
+     * @param col the 1-based column number to navigate to
+     * @param currentGoToLineVersion the current version token for cancellation
+     * @param requestedLine the 0-based requested line
+     * @param requestedCol the 0-based requested column
+     * @param knownTotal the known total line count, or null if unknown
+     * @param callback callback for line counting and UI operations
+     */
+    public void goToLine(
+            int line,
+            int col,
+            int currentGoToLineVersion,
+            int requestedLine,
+            int requestedCol,
+            Integer knownTotal,
+            GoToLineCallback callback) {
+
+        if (knownTotal != null) {
+            int clampedLine = Math.min(requestedLine, Math.max(0, knownTotal - 1));
+            proceedGoToLineClamped(currentGoToLineVersion, clampedLine, requestedCol);
+        } else {
+            callback.countTotalLines(totalLines -> {
+                if (currentGoToLineVersion != getCurrentGoToLineVersion()) return;
+                int total = (totalLines > 0) ? totalLines : (requestedLine + 1);
+                int clampedLine = Math.min(requestedLine, Math.max(0, total - 1));
+                proceedGoToLineClamped(currentGoToLineVersion, clampedLine, requestedCol);
+            });
+        }
+    }
+
+    /**
+     * High-level goToLine method that handles UI state and navigation.
+     * 
+     * @param line the 1-based line number to navigate to
+     * @param col the 1-based column number to navigate to
+     * @param callback callback for UI operations and line counting
+     */
+    public void goToLine(int line, int col, GoToLineWithUICallback callback) {
+        final int currentGoToLineVersion = callback.incrementGoToLineVersion();
+
+        // Show loading indicator and disable view
+        callback.setDisable(true);
+        callback.showLoadingCircle(true);
+
+        // Clear selection if any
+        if (callback.hasSelection()) {
+            callback.clearSelection();
+            callback.setSelecting(false);
+            callback.hidePopup();
+        }
+
+        final int requestedLine = Math.max(0, line - 1);
+        final int requestedCol = Math.max(0, col - 1);
+
+        // Get known total lines
+        Integer knownTotal = callback.getKnownTotalLines();
+
+        goToLine(line, col, currentGoToLineVersion, requestedLine, requestedCol, knownTotal,
+            new GoToLineCallback() {
+                @Override
+                public void countTotalLines(LineCountCallback lineCountCallback) {
+                    callback.countTotalLines(lineCountCallback::onResult);
+                }
+            });
+    }
+
+    /**
+     * Callback interface for goToLine operations with UI management.
+     */
+    public interface GoToLineCallback {
+        void countTotalLines(LineCountCallback callback);
+        interface LineCountCallback {
+            void onResult(int count);
+        }
+    }
+
+    /**
+     * Extended callback interface for goToLine with UI operations.
+     */
+    public interface GoToLineWithUICallback extends GoToLineCallback {
+        int incrementGoToLineVersion();
+        void setDisable(boolean disable);
+        void showLoadingCircle(boolean show);
+        boolean hasSelection();
+        void clearSelection();
+        void setSelecting(boolean selecting);
+        void hidePopup();
+        Integer getKnownTotalLines();
+    }
 }

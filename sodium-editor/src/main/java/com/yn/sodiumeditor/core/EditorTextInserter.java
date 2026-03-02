@@ -222,6 +222,21 @@ public final class EditorTextInserter {
         return count;
     }
 
+    public CursorTarget computeCursorAfterInsert(int baseLine, int baseChar, String insertText) {
+        if (insertText == null) insertText = "";
+        int newLines = 0;
+
+        int lastNl = insertText.lastIndexOf('\n');
+        if (lastNl >= 0) {
+            for (int i = 0; i < insertText.length(); i++) {
+                if (insertText.charAt(i) == '\n') newLines++;
+            }
+            int lastSegLen = insertText.length() - lastNl - 1;
+            return new CursorTarget(baseLine + newLines, lastSegLen);
+        }
+        return new CursorTarget(baseLine, baseChar + insertText.length());
+    }
+
     public void insertTextAt(int line, int col, String text) {
         if (text == null) return;
         if (Looper.myLooper() != Looper.getMainLooper()) {

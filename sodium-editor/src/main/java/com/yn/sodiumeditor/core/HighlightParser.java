@@ -249,4 +249,30 @@ public class HighlightParser {
             this.endIndex = endIndex;
         }
     }
+
+    /**
+     * Checks if the given index is the start of a line comment.
+     * @param line the line text
+     * @param index the index to check
+     * @param lineCommentDelimiters the line comment delimiters
+     * @return true if the index is the start of a line comment
+     */
+    public static boolean isLineCommentStart(String line, int index, List<String> lineCommentDelimiters) {
+        if (line == null || lineCommentDelimiters == null || index < 0 || index >= line.length()) return false;
+        for (String token : lineCommentDelimiters) {
+            if (token == null || token.isEmpty()) continue;
+            int len = token.length();
+            if (index + len > line.length()) continue;
+            if (len == 1) {
+                if (line.charAt(index) == token.charAt(0) && !isTokenEscaped(line, index)) {
+                    return true;
+                }
+            } else {
+                if (line.regionMatches(index, token, 0, len) && !isTokenEscaped(line, index)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 }

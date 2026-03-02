@@ -23,7 +23,7 @@ public class IndentGuideRenderer {
     public IndentGuideRenderer(SodiumEditor view, IndentGuideState state) {
         this.view = view;
         this.state = state;
-        initDefaults(view.paint);
+        initDefaults(view.editorConfig.paint);
     }
 
     public void initDefaults(Paint basePaint) {

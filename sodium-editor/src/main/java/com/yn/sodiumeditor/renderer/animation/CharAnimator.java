@@ -115,7 +115,7 @@ public final class CharAnimator {
         final int lineForAnim = targetLine;
         final int atForAnim = Math.max(0, atChar);
         final String textForAnim = removedText;
-        final Paint p = (paintToUse != null) ? paintToUse : view.paint;
+        final Paint p = (paintToUse != null) ? paintToUse : view.editorConfig.paint;
         long now = SystemClock.uptimeMillis();
         long delta = (lastCharAnimUptime == 0L) ? Long.MAX_VALUE : (now - lastCharAnimUptime);
         lastCharAnimUptime = now;

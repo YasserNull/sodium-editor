@@ -213,7 +213,7 @@ public class LineNumberRenderer {
                     int count = lineNumberChars.length - start;
                     float y =
                             Math.round(
-                                    v * lineHeight - baseScrollY + lineHeight - view.paint.descent());
+                                    v * lineHeight - baseScrollY + lineHeight - view.editorConfig.paint.descent());
                     state.lineNumberCacheCanvas.drawText(
                             lineNumberChars, start, count, lineNumXLocal, y, lineNumbersPaint);
                 }
@@ -223,7 +223,7 @@ public class LineNumberRenderer {
                     int count = lineNumberChars.length - start;
                     float y =
                             Math.round(
-                                    i * lineHeight - baseScrollY + lineHeight - view.paint.descent());
+                                    i * lineHeight - baseScrollY + lineHeight - view.editorConfig.paint.descent());
                     state.lineNumberCacheCanvas.drawText(
                             lineNumberChars, start, count, lineNumXLocal, y, lineNumbersPaint);
                 }
@@ -287,7 +287,7 @@ public class LineNumberRenderer {
                 int count = lineNumberChars.length - start;
                 float y =
                         Math.round(
-                                v * lineHeight - baseScrollY + lineHeight - view.paint.descent());
+                                v * lineHeight - baseScrollY + lineHeight - view.editorConfig.paint.descent());
                 state.lineNumberCacheCanvas.drawText(
                         lineNumberChars, start, count, lineNumXLocal, y, lineNumbersPaint);
             }
@@ -342,7 +342,7 @@ public class LineNumberRenderer {
                                 v * lineHeight
                                         - view.scrollManager.scrollY
                                         + lineHeight
-                                        - view.paint.descent());
+                                        - view.editorConfig.paint.descent());
                 if (i == view.cursorState.getCursorLine()) {
                     int originalColor = lineNumbersPaint.getColor();
                     lineNumbersPaint.setColor(config.getCurrentLineNumberColor());
@@ -361,7 +361,7 @@ public class LineNumberRenderer {
                                 i * lineHeight
                                         - view.scrollManager.scrollY
                                         + lineHeight
-                                        - view.paint.descent());
+                                        - view.editorConfig.paint.descent());
                 if (i == view.cursorState.getCursorLine()) {
                     int originalColor = lineNumbersPaint.getColor();
                     lineNumbersPaint.setColor(config.getCurrentLineNumberColor());
@@ -398,7 +398,7 @@ public class LineNumberRenderer {
                             v * lineHeight
                                     - view.scrollManager.scrollY
                                     + lineHeight
-                                    - view.paint.descent());
+                                    - view.editorConfig.paint.descent());
             if (pos.line == view.cursorState.getCursorLine()) {
                 int originalColor = lineNumbersPaint.getColor();
                 lineNumbersPaint.setColor(config.getCurrentLineNumberColor());
@@ -439,7 +439,7 @@ public class LineNumberRenderer {
                         visibleIndex * lineHeight
                                 - view.scrollManager.scrollY
                                 + lineHeight
-                                - view.paint.descent());
+                                - view.editorConfig.paint.descent());
         int originalColor = lineNumbersPaint.getColor();
         lineNumbersPaint.setColor(config.getCurrentLineNumberColor());
         canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
@@ -466,7 +466,7 @@ public class LineNumberRenderer {
                         visualIndex * lineHeight
                                 - view.scrollManager.scrollY
                                 + lineHeight
-                                - view.paint.descent());
+                                - view.editorConfig.paint.descent());
         int originalColor = lineNumbersPaint.getColor();
         lineNumbersPaint.setColor(config.getCurrentLineNumberColor());
         canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
