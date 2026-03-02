@@ -1,6 +1,6 @@
 package com.yn.sodiumeditor.input;
 
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.FoldRenderer;
 import com.yn.sodiumeditor.state.FoldRange;
 import com.yn.sodiumeditor.state.FoldState;
@@ -11,11 +11,11 @@ import com.yn.sodiumeditor.state.FoldState;
  */
 public class FoldTouchHandler {
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final FoldState state;
     private final FoldRenderer renderer;
 
-    public FoldTouchHandler(SodiumEditorView view, FoldState state, FoldRenderer renderer) {
+    public FoldTouchHandler(SodiumEditor view, FoldState state, FoldRenderer renderer) {
         this.view = view;
         this.state = state;
         this.renderer = renderer;

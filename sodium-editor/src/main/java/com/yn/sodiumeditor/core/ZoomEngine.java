@@ -1,7 +1,7 @@
 package com.yn.sodiumeditor.core;
 
 import android.os.Handler;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.utils.ZoomUtils;
 
 public final class ZoomEngine {
@@ -26,7 +26,7 @@ public final class ZoomEngine {
       float minTextSizePx,
       float maxTextSizePx,
       float zoomStepClampSp,
-      SodiumEditorView view) {
+      SodiumEditor view) {
 
     int anchorGlobalLineAtFocus = -1;
     if (view.wrapWordState.isWordWrapEnabled) {
@@ -79,7 +79,7 @@ public final class ZoomEngine {
       float focusX,
       float focusY,
       int anchorLine,
-      SodiumEditorView view) {
+      SodiumEditor view) {
 
     float oldSize = view.getPaintTextSizePxForZoom();
     float oldLineHeight = view.getPaintFontSpacingPxForZoom();
@@ -127,7 +127,7 @@ public final class ZoomEngine {
   public void applyPendingScrollAdjustment(
       int targetGlobalLine,
       float targetFocusY,
-      SodiumEditorView view) {
+      SodiumEditor view) {
 
     final int targetLine = targetGlobalLine;
     final float focusY = targetFocusY;
@@ -158,7 +158,7 @@ public final class ZoomEngine {
   public void setZoomTextSizeRange(
       float minSp,
       float maxSp,
-      SodiumEditorView view) {
+      SodiumEditor view) {
 
     float minPx = view.spToPxForZoom(minSp);
     float maxPx = view.spToPxForZoom(maxSp);
@@ -200,7 +200,7 @@ public final class ZoomEngine {
   /**
    * Calculates the visual index for a line after zoom.
    */
-  public int calculateVisualIndexForLine(int globalLine, SodiumEditorView view) {
+  public int calculateVisualIndexForLine(int globalLine, SodiumEditor view) {
     if (view.wrapWordState.isWordWrapEnabled && view.wrapWordMetrics.wrapMetricsReady) {
       return view.getVisualIndexForLineAndChar(globalLine, 0);
     }

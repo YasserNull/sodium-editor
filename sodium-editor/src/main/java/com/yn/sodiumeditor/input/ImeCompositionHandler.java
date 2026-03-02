@@ -27,7 +27,7 @@ public final class ImeCompositionHandler {
         void computeWidthForLine(int line, String lineText);
         void recalculateMaxLineWidth();
         void invalidate();
-        void autoSuggestionUpdate();
+        void inlinePredictionUpdate();
         void clearComposingPendingOp();
         void clearLastComposingTextForCharAnim();
         Paint getPaintForChar(int line, int at, String base);
@@ -59,7 +59,7 @@ public final class ImeCompositionHandler {
         callback.clearComposingPendingOp();
         callback.clearLastComposingTextForCharAnim();
         callback.invalidate();
-        callback.autoSuggestionUpdate();
+        callback.inlinePredictionUpdate();
     }
 
     public void replaceComposingWith(@Nullable CharSequence textSeq) {
@@ -113,6 +113,6 @@ public final class ImeCompositionHandler {
             callback.recalculateMaxLineWidth();
             callback.invalidate();
         }
-        callback.autoSuggestionUpdate();
+        callback.inlinePredictionUpdate();
     }
 }

@@ -3,11 +3,11 @@ package com.yn.sodiumeditor.renderer.animation;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.config.CursorAnimationConfig;
 
 public final class CursorAnimator {
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final CursorAnimationConfig config;
 
     private boolean isCursorVisible = true;
@@ -79,7 +79,7 @@ public final class CursorAnimator {
                 }
             };
 
-    public CursorAnimator(SodiumEditorView view, CursorAnimationConfig config) {
+    public CursorAnimator(SodiumEditor view, CursorAnimationConfig config) {
         this.view = view;
         this.config = config;
     }

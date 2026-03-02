@@ -4,17 +4,17 @@ import androidx.annotation.Nullable;
 
 import java.util.Map;
 
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 
 /**
  * Handles cursor targeting and position calculations.
  */
 public final class CursorTargeting {
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final TextMeasurement textMeasurement;
     private final LineCacheManager lineCacheManager;
 
-    public CursorTargeting(SodiumEditorView view, TextMeasurement textMeasurement, LineCacheManager lineCacheManager) {
+    public CursorTargeting(SodiumEditor view, TextMeasurement textMeasurement, LineCacheManager lineCacheManager) {
         this.view = view;
         this.textMeasurement = textMeasurement;
         this.lineCacheManager = lineCacheManager;
@@ -23,20 +23,20 @@ public final class CursorTargeting {
     /**
      * Gets the cursor target (line and character) for a given view position.
      */
-    public SodiumEditorView.CursorTarget getCursorTargetForPosition(
+    public SodiumEditor.CursorTarget getCursorTargetForPosition(
             float viewX, float viewY, @Nullable Map<Integer, String> directLines) {
         float y = viewY + view.scrollManager.scrollY;
         int visualIndex = Math.max(0, (int) (y / view.lineHeight));
-        SodiumEditorView.VisualLinePosition pos =
+        SodiumEditor.VisualLinePosition pos =
                 view.wrapWordState.isWordWrapEnabled
                         ? view.wrapWordMapper.getVisualPositionForIndex(view, visualIndex, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())))
-                        : new SodiumEditorView.VisualLinePosition(view.mapVisibleIndexToGlobal(visualIndex), 0);
+                        : new SodiumEditor.VisualLinePosition(view.mapVisibleIndexToGlobal(visualIndex), 0);
         String line = lineCacheManager.getLineTextForRenderWithDirect(pos.line, directLines);
         if (!view.wrapWordState.isWordWrapEnabled) {
             float x = view.viewToTextXPublic(viewX);
             int charIndex = textMeasurement.getCharIndexForX(line, x, pos.line);
             int clamped = Math.max(0, Math.min(charIndex, view.getLogicalLineLength(pos.line, line)));
-            return new SodiumEditorView.CursorTarget(pos.line, clamped);
+            return new SodiumEditor.CursorTarget(pos.line, clamped);
         }
         int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, pos.line, line, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.paint);
         int seg = Math.min(Math.max(0, pos.segment), Math.max(0, starts.length - 1));
@@ -45,6 +45,6 @@ public final class CursorTargeting {
         float x = view.viewToTextXPublic(viewX);
         int charIndex = textMeasurement.getCharIndexForXInRange(line, pos.line, segStart, segEnd, x);
         int clamped = Math.max(0, Math.min(charIndex, line.length()));
-        return new SodiumEditorView.CursorTarget(pos.line, clamped);
+        return new SodiumEditor.CursorTarget(pos.line, clamped);
     }
 }

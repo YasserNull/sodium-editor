@@ -3,7 +3,7 @@ package com.yn.sodiumeditor.input;
 import android.content.Context;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.config.ZoomConfig;
 import com.yn.sodiumeditor.core.ZoomEngine;
 import com.yn.sodiumeditor.renderer.ZoomPreviewRender;
@@ -14,7 +14,7 @@ public final class ZoomGestureHandler {
   // Dependencies
   //================================================================================
 
-  private final SodiumEditorView view;
+  private final SodiumEditor view;
   private final ZoomConfig config;
   private final ZoomEngine engine;
   private final ZoomPreviewRender previewRender;
@@ -32,7 +32,7 @@ public final class ZoomGestureHandler {
   //================================================================================
 
   public ZoomGestureHandler(
-      SodiumEditorView view,
+      SodiumEditor view,
       ZoomConfig config,
       ZoomEngine engine,
       ZoomPreviewRender previewRender,

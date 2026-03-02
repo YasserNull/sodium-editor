@@ -16,7 +16,7 @@ public class HighlightRule {
         LINE_COMMENT
     }
 
-    // Style constants (copied from SodiumEditorView)
+    // Style constants (copied from SodiumEditor)
     public static final int STYLE_NORMAL = 0;
     public static final int STYLE_BOLD = 1;
     public static final int STYLE_ITALIC = 2;

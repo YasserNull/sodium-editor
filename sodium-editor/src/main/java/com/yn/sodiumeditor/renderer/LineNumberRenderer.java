@@ -4,7 +4,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Typeface;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.config.LineNumberConfig;
 import com.yn.sodiumeditor.state.LineNumberState;
 
@@ -14,7 +14,7 @@ import com.yn.sodiumeditor.state.LineNumberState;
  */
 public class LineNumberRenderer {
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final LineNumberState state;
     private final LineNumberConfig config;
     private final char[] lineNumberChars = new char[16];
@@ -23,7 +23,7 @@ public class LineNumberRenderer {
     public final Paint gutterPaint = new Paint();
     public final Paint gutterSeparatorPaint = new Paint();
 
-    public LineNumberRenderer(SodiumEditorView view, LineNumberState state, LineNumberConfig config) {
+    public LineNumberRenderer(SodiumEditor view, LineNumberState state, LineNumberConfig config) {
         this.view = view;
         this.state = state;
         this.config = config;
@@ -280,7 +280,7 @@ public class LineNumberRenderer {
             float lineNumXLocal = lineNumX - view.getGutterStartX();
 
             for (int v = firstVisualIndex; v <= drawLastIndex; v++) {
-                SodiumEditorView.VisualLinePosition pos =
+                SodiumEditor.VisualLinePosition pos =
                         view.wrapWordMapper.getVisualPositionForIndex(view, v, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())));
                 if (pos.segment != 0) continue;
                 int start = writeIntToChars(pos.line + 1, lineNumberChars);
@@ -388,7 +388,7 @@ public class LineNumberRenderer {
         if (totalVisual > 0) drawLastIndex = Math.min(lastVisualIndex + 1, totalVisual - 1);
 
         for (int v = firstVisualIndex; v <= drawLastIndex; v++) {
-            SodiumEditorView.VisualLinePosition pos =
+            SodiumEditor.VisualLinePosition pos =
                     view.wrapWordMapper.getVisualPositionForIndex(view, v, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())));
             if (pos.segment != 0) continue;
             int start = writeIntToChars(pos.line + 1, lineNumberChars);

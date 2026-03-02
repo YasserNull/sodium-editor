@@ -7,7 +7,7 @@ import android.graphics.Rect;
 import java.util.HashMap;
 import java.util.List;
 
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.state.BracketGuideToken;
 import com.yn.sodiumeditor.state.BracketMatch;
 import com.yn.sodiumeditor.state.FoldRange;
@@ -16,11 +16,11 @@ import com.yn.sodiumeditor.state.FoldRange;
  * Handles all line rendering operations for the text editor.
  */
 public final class LineRenderer {
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final TextMeasurement textMeasurement;
     private final LineCacheManager lineCacheManager;
 
-    public LineRenderer(SodiumEditorView view, TextMeasurement textMeasurement, LineCacheManager lineCacheManager) {
+    public LineRenderer(SodiumEditor view, TextMeasurement textMeasurement, LineCacheManager lineCacheManager) {
         this.view = view;
         this.textMeasurement = textMeasurement;
         this.lineCacheManager = lineCacheManager;
@@ -30,11 +30,11 @@ public final class LineRenderer {
      * Draws the editor background (color and/or bitmap).
      */
     public void drawEditorBackground(Canvas canvas) {
-        if (view.hasEditorBackgroundColor) {
-            canvas.drawColor(view.editorBackgroundColor);
+        if (view.editorConfig.visualConfig.hasEditorBackgroundColor) {
+            canvas.drawColor(view.editorConfig.visualConfig.editorBackgroundColor);
         }
-        if (view.editorBackgroundBitmap != null && !view.editorBackgroundBitmap.isRecycled()) {
-            canvas.drawBitmap(view.editorBackgroundBitmap, null, view.editorBackgroundDst, null);
+        if (view.editorConfig.visualConfig.editorBackgroundBitmap != null && !view.editorConfig.visualConfig.editorBackgroundBitmap.isRecycled()) {
+            canvas.drawBitmap(view.editorConfig.visualConfig.editorBackgroundBitmap, null, view.editorConfig.visualConfig.editorBackgroundDst, null);
         }
     }
 
@@ -325,7 +325,7 @@ public final class LineRenderer {
                 view.indentGuideRenderer.drawIndentGuidesForLine(canvas, line, globalLine);
             }
 
-            view.autoSuggestionManager.drawAutoSuggestion(canvas, line, globalLine, y);
+            view.inlinePredictionRenderer.drawInlinePrediction(canvas, line, globalLine, y);
 
             if (view.bracketGuideState.isBracketGuidesEnabled() && drawDecorations) {
                 List<BracketGuideToken> guideTokens = view.bracketGuideParser.getTokensForLine(globalLine);
@@ -379,7 +379,7 @@ public final class LineRenderer {
                 view.indentGuideRenderer.drawIndentGuidesForLine(canvas, line, globalLine);
             }
 
-            view.autoSuggestionManager.drawAutoSuggestion(canvas, line, globalLine, y);
+            view.inlinePredictionRenderer.drawInlinePrediction(canvas, line, globalLine, y);
 
             if (view.bracketGuideState.isBracketGuidesEnabled() && drawDecorations) {
                 List<BracketGuideToken> guideTokens = view.bracketGuideParser.getTokensForLine(globalLine);
@@ -532,7 +532,7 @@ public final class LineRenderer {
      */
     private void drawCursorAndHandles(Canvas canvas, int firstVisibleLine, int lastVisibleLine) {
         if (view.isFocused()
-                && !view.isReadOnly
+                && !view.editorConfig.behaviorConfig.isReadOnly
                 && !view.selectionState.hasSelection()
                 && view.cursorState.getCursorLine() >= firstVisibleLine
                 && view.cursorState.getCursorLine() <= lastVisibleLine
@@ -547,7 +547,7 @@ public final class LineRenderer {
             view.handleRenderer.drawCursorHandle(canvas, drawX, drawY, view.lineHeight, view.handleState.getCursorHandleRect());
         }
 
-        if (view.selectionState.hasSelection() && !view.isReadOnly) {
+        if (view.selectionState.hasSelection() && !view.editorConfig.behaviorConfig.isReadOnly) {
             drawSelectionHandles(canvas, firstVisibleLine, lastVisibleLine);
         }
     }
@@ -716,7 +716,7 @@ public final class LineRenderer {
                 if (drawDecorations) {
                     view.whitespaceGuideRenderer.drawWhitespaceGuidesForSegment(view, canvas, text, line, segStart, segDrawEnd, y);
                 }
-                view.autoSuggestionManager.drawAutoSuggestionWrapped(canvas, text, line, segStart, segDrawEnd, line, y);
+                view.inlinePredictionRenderer.drawInlinePredictionWrapped(canvas, text, line, segStart, segDrawEnd, line, y);
                 canvas.restore();
 
                 yOffset += view.lineHeight;

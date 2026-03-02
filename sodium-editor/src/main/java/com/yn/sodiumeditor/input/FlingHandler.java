@@ -3,11 +3,11 @@ package com.yn.sodiumeditor;
 import android.widget.OverScroller;
 
 public final class FlingHandler {
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final ScrollConfig config;
     public final OverScroller scroller;
 
-    public FlingHandler(SodiumEditorView view, ScrollConfig config) {
+    public FlingHandler(SodiumEditor view, ScrollConfig config) {
         this.view = view;
         this.config = config;
         this.scroller = new OverScroller(view.getContext());
@@ -19,7 +19,7 @@ public final class FlingHandler {
         if (view.wrapWordState.isWordWrapEnabled && view.wrapWordState.wrapPrefixBuilding) {
             view.wrapWordBuilder.cancelPrefixRebuildForInteraction();
         }
-        if (view.autoSuggestionManager.isSuggestionAcceptedThisTouch()) return false;
+        if (view.inlinePredictionState.suggestionAcceptedThisTouch) return false;
 
         int startX = Math.round(config.scrollX);
         int startY = Math.round(config.scrollY);
@@ -45,8 +45,8 @@ public final class FlingHandler {
         if (view.isEof) {
             float paddingToUse =
                     (view.keyboardHeight > 0)
-                            ? Math.min(SodiumEditorView.BOTTOM_SCROLL_OFFSET, view.keyboardHeight * 0.4f)
-                            : SodiumEditorView.BOTTOM_SCROLL_OFFSET;
+                            ? Math.min(SodiumEditor.BOTTOM_SCROLL_OFFSET, view.keyboardHeight * 0.4f)
+                            : SodiumEditor.BOTTOM_SCROLL_OFFSET;
             maxScrollYFloat =
                     Math.max(0f, lineCount * view.lineHeight - (effectiveHeight - paddingToUse));
         } else {

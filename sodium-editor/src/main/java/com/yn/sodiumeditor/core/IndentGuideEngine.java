@@ -1,6 +1,6 @@
 package com.yn.sodiumeditor.core;
 
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.state.FoldRange;
 import com.yn.sodiumeditor.state.IndentGuideState;
 
@@ -10,10 +10,10 @@ import com.yn.sodiumeditor.state.IndentGuideState;
  */
 public class IndentGuideEngine {
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final IndentGuideState state;
 
-    public IndentGuideEngine(SodiumEditorView view, IndentGuideState state) {
+    public IndentGuideEngine(SodiumEditor view, IndentGuideState state) {
         this.view = view;
         this.state = state;
     }

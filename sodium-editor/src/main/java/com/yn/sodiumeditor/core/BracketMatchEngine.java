@@ -1,7 +1,7 @@
 package com.yn.sodiumeditor.core;
 
 import androidx.annotation.Nullable;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.state.BracketMatch;
 import com.yn.sodiumeditor.state.BracketMatchLineState;
 import com.yn.sodiumeditor.state.BracketMatchState;
@@ -17,10 +17,10 @@ import java.util.HashMap;
  */
 public class BracketMatchEngine {
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final BracketMatchState state;
 
-    public BracketMatchEngine(SodiumEditorView view, BracketMatchState state) {
+    public BracketMatchEngine(SodiumEditor view, BracketMatchState state) {
         this.view = view;
         this.state = state;
     }

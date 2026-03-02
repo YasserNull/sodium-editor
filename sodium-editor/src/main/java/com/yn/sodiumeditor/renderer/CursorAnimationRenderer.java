@@ -2,14 +2,14 @@ package com.yn.sodiumeditor.renderer;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.animation.CursorAnimator;
 
 public final class CursorAnimationRenderer {
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final CursorAnimator animator;
 
-    public CursorAnimationRenderer(SodiumEditorView view, CursorAnimator animator) {
+    public CursorAnimationRenderer(SodiumEditor view, CursorAnimator animator) {
         this.view = view;
         this.animator = animator;
     }

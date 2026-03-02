@@ -1,7 +1,7 @@
 package com.yn.sodiumeditor.utils;
 
 import android.graphics.Paint;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import java.util.Map;
 
 public final class WrapWordUtils {
@@ -14,7 +14,7 @@ public final class WrapWordUtils {
   // Scroll Helpers
   //================================================================================
 
-  public static float getScrollY(SodiumEditorView view) {
+  public static float getScrollY(SodiumEditor view) {
     return view.scrollManager.scrollY;
   }
 
@@ -30,7 +30,7 @@ public final class WrapWordUtils {
     }
   }
 
-  public static void addScrollY(SodiumEditorView view, float delta) {
+  public static void addScrollY(SodiumEditor view, float delta) {
     view.scrollManager.scrollY += delta;
   }
 
@@ -54,7 +54,7 @@ public final class WrapWordUtils {
   // Wrap Width
   //================================================================================
 
-  public static float calculateWrapWidth(SodiumEditorView view) {
+  public static float calculateWrapWidth(SodiumEditor view) {
     return Math.max(1f, view.getWidth() - view.getTextStartX());
   }
 

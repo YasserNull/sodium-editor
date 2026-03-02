@@ -3,14 +3,14 @@ package com.yn.sodiumeditor.renderer;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import androidx.annotation.Nullable;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.animation.CharAnimator;
 
 public final class CharAnimationRenderer {
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final CharAnimator animator;
 
-    public CharAnimationRenderer(SodiumEditorView view, CharAnimator animator) {
+    public CharAnimationRenderer(SodiumEditor view, CharAnimator animator) {
         this.view = view;
         this.animator = animator;
     }

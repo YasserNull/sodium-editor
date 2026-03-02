@@ -8,15 +8,15 @@ import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 
 /**
  * إدارة محتوى النص والترميز والتحميل
  */
 public class Document {
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
 
-    // Proxy fields for backward compatibility (point to SodiumEditorView fields)
+    // Proxy fields for backward compatibility (point to SodiumEditor fields)
     public final Object lineOffsetsLock;
     public volatile boolean streamedSliceUpdatePending = false;
     
@@ -40,7 +40,7 @@ public class Document {
     public volatile boolean isEof = false;
     private boolean isFileOpened = false;
 
-    public Document(SodiumEditorView view) {
+    public Document(SodiumEditor view) {
         this.view = view;
         this.lineOffsetsLock = view.lineOffsetsLock;
         // Initialize proxy fields from view
@@ -197,7 +197,7 @@ public class Document {
         return view.textIO.readLineSliceAtByte(raf, lineStart, lineByteLen, startChar, endChar);
     }
 
-    public SodiumEditorView.StreamedCharSlice readLineSliceByChars(
+    public SodiumEditor.StreamedCharSlice readLineSliceByChars(
             java.io.RandomAccessFile raf, long lineStart, int startChar, int endChar, boolean needTotalLength)
             throws Exception {
         return view.textIO.readLineSliceByChars(raf, lineStart, startChar, endChar, needTotalLength);
@@ -223,7 +223,7 @@ public class Document {
         int eL,
         int eC,
         String insertText,
-        SodiumEditorView.CursorTarget target,
+        SodiumEditor.CursorTarget target,
         boolean finishLargeEditUi) {
         view.textIO.rewriteReplaceRangeAsync(opToken, inFile, sL, sC, eL, eC, insertText, target, finishLargeEditUi);
     }

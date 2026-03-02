@@ -3,7 +3,7 @@ package com.yn.sodiumeditor.renderer;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.state.HighlightState;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -15,10 +15,10 @@ import java.util.Map;
  */
 public class ErrorUnderlineRenderer {
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final HighlightState state;
 
-    public ErrorUnderlineRenderer(SodiumEditorView view, HighlightState state) {
+    public ErrorUnderlineRenderer(SodiumEditor view, HighlightState state) {
         this.view = view;
         this.state = state;
     }

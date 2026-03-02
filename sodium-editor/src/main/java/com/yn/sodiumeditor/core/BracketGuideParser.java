@@ -1,6 +1,6 @@
 package com.yn.sodiumeditor.core;
 
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.state.BracketGuideLineState;
 import com.yn.sodiumeditor.state.BracketGuideState;
 import com.yn.sodiumeditor.state.BracketGuideToken;
@@ -16,11 +16,11 @@ import java.util.List;
  */
 public class BracketGuideParser {
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final BracketGuideState state;
     private final BracketGuideRenderer renderer;
 
-    public BracketGuideParser(SodiumEditorView view, BracketGuideState state, BracketGuideRenderer renderer) {
+    public BracketGuideParser(SodiumEditor view, BracketGuideState state, BracketGuideRenderer renderer) {
         this.view = view;
         this.state = state;
         this.renderer = renderer;

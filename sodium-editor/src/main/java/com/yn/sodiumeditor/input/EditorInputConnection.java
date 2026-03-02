@@ -11,15 +11,15 @@ import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.SurroundingText;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 
 final class EditorInputConnection extends BaseInputConnection {
-  private final SodiumEditorView view;
+  private final SodiumEditor view;
   private final InputMethodHandler manager;
   private final ImeTextHelper textHelper;
   private final Editable imeEditable = Editable.Factory.getInstance().newEditable("");
 
-  EditorInputConnection(SodiumEditorView targetView, InputMethodHandler manager, ImeTextHelper textHelper) {
+  EditorInputConnection(SodiumEditor targetView, InputMethodHandler manager, ImeTextHelper textHelper) {
     super(targetView, true);
     this.view = targetView;
     this.manager = manager;
@@ -33,7 +33,7 @@ final class EditorInputConnection extends BaseInputConnection {
 
   @Override
   public ExtractedText getExtractedText(ExtractedTextRequest request, int flags) {
-    if (view.isDisabled || view.isReadOnly) return null;
+    if (view.editorConfig.behaviorConfig.isDisabled || view.editorConfig.behaviorConfig.isReadOnly) return null;
     int before = ImeTextHelper.IME_CONTEXT_BEFORE_CHARS;
     int after = ImeTextHelper.IME_CONTEXT_AFTER_CHARS;
     if (request != null && request.hintMaxChars > 0) {
@@ -53,25 +53,25 @@ final class EditorInputConnection extends BaseInputConnection {
 
   @Override
   public CharSequence getTextBeforeCursor(int length, int flags) {
-    if (view.isDisabled || view.isReadOnly) return "";
+    if (view.editorConfig.behaviorConfig.isDisabled || view.editorConfig.behaviorConfig.isReadOnly) return "";
     return textHelper.getImeTextBeforeCursor(length);
   }
 
   @Override
   public CharSequence getTextAfterCursor(int length, int flags) {
-    if (view.isDisabled || view.isReadOnly) return "";
+    if (view.editorConfig.behaviorConfig.isDisabled || view.editorConfig.behaviorConfig.isReadOnly) return "";
     return textHelper.getImeTextAfterCursor(length);
   }
 
   @Override
   public CharSequence getSelectedText(int flags) {
-    if (view.isDisabled || view.isReadOnly) return "";
+    if (view.editorConfig.behaviorConfig.isDisabled || view.editorConfig.behaviorConfig.isReadOnly) return "";
     return view.getSelectedText();
   }
 
   @Override
   public SurroundingText getSurroundingText(int beforeLength, int afterLength, int flags) {
-    if (view.isDisabled || view.isReadOnly) return null;
+    if (view.editorConfig.behaviorConfig.isDisabled || view.editorConfig.behaviorConfig.isReadOnly) return null;
     int before = Math.max(0, beforeLength);
     int after = Math.max(0, afterLength);
     ImeTextHelper.ImeContext ctx = textHelper.buildImeContext(before, after);
@@ -103,7 +103,7 @@ final class EditorInputConnection extends BaseInputConnection {
 
   @Override
   public boolean setSelection(int start, int end) {
-    if (view.isDisabled || view.isReadOnly) return true;
+    if (view.editorConfig.behaviorConfig.isDisabled || view.editorConfig.behaviorConfig.isReadOnly) return true;
     ImeTextHelper.ImeContext ctx = textHelper.buildImeContext(ImeTextHelper.IME_CONTEXT_BEFORE_CHARS, ImeTextHelper.IME_CONTEXT_AFTER_CHARS);
     if (ctx.text.isEmpty()) return true;
     int textLen = ctx.text.length();
@@ -112,19 +112,19 @@ final class EditorInputConnection extends BaseInputConnection {
     int cursorOff = textHelper.lineCharToOffsetInContext(ctx, view.cursorState.getCursorLine(), view.cursorState.getCursorChar());
     if (sOff == eOff && sOff == cursorOff && !view.selectionState.hasSelection()) return true;
     if (sOff == 0 && eOff == 0 && cursorOff > 0 && !view.selectionState.hasSelection()) return true;
-    SodiumEditorView.CursorTarget s = textHelper.offsetToLineCharInContext(ctx, sOff);
-    SodiumEditorView.CursorTarget e = textHelper.offsetToLineCharInContext(ctx, eOff);
+    SodiumEditor.CursorTarget s = textHelper.offsetToLineCharInContext(ctx, sOff);
+    SodiumEditor.CursorTarget e = textHelper.offsetToLineCharInContext(ctx, eOff);
     view.setSelectionInternal(s.line, s.ch, e.line, e.ch);
     view.cursorState.setCursorPosition(e.line, e.ch);
     view.cursorAnimator.resetCursorBlink();
     view.invalidate();
-    view.autoSuggestionManager.updateSuggestion();
+    view.inlinePredictionEngine.updateSuggestion();
     return true;
   }
 
   @Override
   public boolean setComposingRegion(int start, int end) {
-    if (view.isDisabled || view.isReadOnly) return true;
+    if (view.editorConfig.behaviorConfig.isDisabled || view.editorConfig.behaviorConfig.isReadOnly) return true;
     if (start > end) {
       int t = start;
       start = end;
@@ -135,14 +135,14 @@ final class EditorInputConnection extends BaseInputConnection {
     int textLen = ctx.text.length();
     int sOff = Math.max(0, Math.min(start, textLen));
     int eOff = Math.max(0, Math.min(end, textLen));
-    SodiumEditorView.CursorTarget s = textHelper.offsetToLineCharInContext(ctx, sOff);
-    SodiumEditorView.CursorTarget e = textHelper.offsetToLineCharInContext(ctx, eOff);
+    SodiumEditor.CursorTarget s = textHelper.offsetToLineCharInContext(ctx, sOff);
+    SodiumEditor.CursorTarget e = textHelper.offsetToLineCharInContext(ctx, eOff);
     if (s.line != e.line) {
       view.setSelectionInternal(s.line, s.ch, e.line, e.ch);
       view.cursorState.setCursorPosition(e.line, e.ch);
       view.cursorAnimator.resetCursorBlink();
       view.invalidate();
-      view.autoSuggestionManager.updateSuggestion();
+      view.inlinePredictionEngine.updateSuggestion();
       return true;
     }
     view.cursorState.setComposingLine(s.line);
@@ -154,13 +154,13 @@ final class EditorInputConnection extends BaseInputConnection {
     view.cursorState.setComposingStartActive(true);
     view.charAnimator.clearLastComposingTextForCharAnim();
     view.invalidate();
-    view.autoSuggestionManager.updateSuggestion();
+    view.inlinePredictionEngine.updateSuggestion();
     return true;
   }
 
   @Override
   public boolean finishComposingText() {
-    if (view.isDisabled || view.isReadOnly) return true;
+    if (view.editorConfig.behaviorConfig.isDisabled || view.editorConfig.behaviorConfig.isReadOnly) return true;
     if (view.charAnimator.getLastComposingTextForCharAnim() != null
         && !view.charAnimator.getLastComposingTextForCharAnim().isEmpty()) {
       manager.markImeCommit(view.charAnimator.getLastComposingTextForCharAnim());
@@ -171,13 +171,13 @@ final class EditorInputConnection extends BaseInputConnection {
     view.clearComposingPendingOpPublic();
     view.charAnimator.clearLastComposingTextForCharAnim();
     view.invalidate();
-    view.autoSuggestionManager.updateSuggestion();
+    view.inlinePredictionEngine.updateSuggestion();
     return true;
   }
 
   @Override
   public boolean commitCompletion(CompletionInfo text) {
-    if (view.isDisabled || view.isReadOnly) return true;
+    if (view.editorConfig.behaviorConfig.isDisabled || view.editorConfig.behaviorConfig.isReadOnly) return true;
     if (text == null || text.getText() == null) return true;
     if (!view.cursorState.hasComposing() && !view.selectionState.hasSelection() && replaceWordAtCursorWith(text.getText())) {
       manager.markImeCommit(text.getText());
@@ -188,7 +188,7 @@ final class EditorInputConnection extends BaseInputConnection {
 
   @Override
   public boolean commitCorrection(CorrectionInfo correctionInfo) {
-    if (view.isDisabled || view.isReadOnly) return true;
+    if (view.editorConfig.behaviorConfig.isDisabled || view.editorConfig.behaviorConfig.isReadOnly) return true;
     if (correctionInfo == null || correctionInfo.getNewText() == null) return true;
     if (!view.cursorState.hasComposing()
         && !view.selectionState.hasSelection()
@@ -201,7 +201,7 @@ final class EditorInputConnection extends BaseInputConnection {
 
   @Override
   public boolean commitText(CharSequence text, int newCursorPosition) {
-    if (view.isDisabled || view.isReadOnly) return true;
+    if (view.editorConfig.behaviorConfig.isDisabled || view.editorConfig.behaviorConfig.isReadOnly) return true;
     if (view.zoomGestureHandler.isZoomGestureActive()) return true;
     if (text == null) return super.commitText(text, newCursorPosition);
 
@@ -213,12 +213,12 @@ final class EditorInputConnection extends BaseInputConnection {
       view.cursorState.setComposingStartActive(false);
       view.clearComposingPendingOpPublic();
       view.charAnimator.startCharAnimationFromText(text);
-      view.autoSuggestionManager.updateSuggestion();
+      view.inlinePredictionEngine.updateSuggestion();
       return true;
     }
 
     if (manager.tryReplaceWordFromImeCommit(str)) {
-      view.autoSuggestionManager.updateSuggestion();
+      view.inlinePredictionEngine.updateSuggestion();
       return true;
     }
 
@@ -282,7 +282,7 @@ final class EditorInputConnection extends BaseInputConnection {
                 view.clearComposingPendingOpPublic();
                 view.charAnimator.startCharAnimationFromText(suffix);
                 view.handleAutoPairing(suffix);
-                view.autoSuggestionManager.updateSuggestion();
+                view.inlinePredictionEngine.updateSuggestion();
               }
               return true;
             }
@@ -300,7 +300,7 @@ final class EditorInputConnection extends BaseInputConnection {
       view.clearComposingPendingOpPublic();
       view.charAnimator.startCharAnimationFromText(text);
       view.handleAutoPairing(str);
-      view.autoSuggestionManager.updateSuggestion();
+      view.inlinePredictionEngine.updateSuggestion();
       return true;
     }
 
@@ -316,7 +316,7 @@ final class EditorInputConnection extends BaseInputConnection {
       manager.markImeCommit(str);
       view.charAnimator.startCharAnimationFromText(text);
       view.handleAutoPairing(str);
-      view.autoSuggestionManager.updateSuggestion();
+      view.inlinePredictionEngine.updateSuggestion();
       return true;
     }
 
@@ -328,20 +328,20 @@ final class EditorInputConnection extends BaseInputConnection {
     view.charAnimator.startCharAnimationFromText(text);
     view.handleAutoPairing(str);
 
-    view.autoSuggestionManager.updateSuggestion();
+    view.inlinePredictionEngine.updateSuggestion();
     return true;
   }
 
   @Override
   public boolean setComposingText(CharSequence text, int newCursorPosition) {
-    if (view.isDisabled || view.isReadOnly) return true;
+    if (view.editorConfig.behaviorConfig.isDisabled || view.editorConfig.behaviorConfig.isReadOnly) return true;
     if (view.zoomGestureHandler.isZoomGestureActive()) return true;
     if (text == null) return true;
 
     if (view.selectionState.hasSelection()) {
       view.replaceSelectionWithText(text.toString());
       view.charAnimator.startCharAnimationFromText(text);
-      view.autoSuggestionManager.updateSuggestion();
+      view.inlinePredictionEngine.updateSuggestion();
       return true;
     }
 
@@ -365,23 +365,23 @@ final class EditorInputConnection extends BaseInputConnection {
     view.updateComposingPendingOpPublic(newText, view.cursorState.getComposingStartLine(), view.cursorState.getComposingStartChar());
     view.charAnimator.setLastComposingTextForCharAnim(newText);
     if (shouldAnim) view.charAnimator.startCharAnimationFromText(newText);
-    view.autoSuggestionManager.updateSuggestion();
+    view.inlinePredictionEngine.updateSuggestion();
     return true;
   }
 
   @Override
   public boolean deleteSurroundingText(int beforeLength, int afterLength) {
-    if (view.isDisabled || view.isReadOnly) return true;
+    if (view.editorConfig.behaviorConfig.isDisabled || view.editorConfig.behaviorConfig.isReadOnly) return true;
     if (view.zoomGestureHandler.isZoomGestureActive()) return true;
 
     if (view.selectionState.hasSelection()) {
       view.replaceSelectionWithText("");
-      view.autoSuggestionManager.updateSuggestion();
+      view.inlinePredictionEngine.updateSuggestion();
       return true;
     }
     for (int i = 0; i < beforeLength; i++) view.cursorNavigation.moveCursorLeft();
     for (int i = 0; i < afterLength; i++) view.cursorNavigation.moveCursorRight();
-    view.autoSuggestionManager.updateSuggestion();
+    view.inlinePredictionEngine.updateSuggestion();
     return true;
   }
 

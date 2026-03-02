@@ -3,7 +3,7 @@ package com.yn.sodiumeditor.renderer;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import androidx.annotation.Nullable;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.HighlightParser;
 import com.yn.sodiumeditor.core.HighlightRule;
 import com.yn.sodiumeditor.core.UnderlineSpan;
@@ -20,12 +20,12 @@ import java.util.List;
  */
 public class HighlightRenderer {
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final HighlightState state;
     private final HighlightParser parser;
     private final ErrorUnderlineRenderer errorRenderer;
 
-    public HighlightRenderer(SodiumEditorView view, HighlightState state, HighlightParser parser) {
+    public HighlightRenderer(SodiumEditor view, HighlightState state, HighlightParser parser) {
         this.view = view;
         this.state = state;
         this.parser = parser;

@@ -1,7 +1,7 @@
 package com.yn.sodiumeditor.renderer.animation;
 
 import android.animation.ValueAnimator;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.state.LoadingCircleState;
 
 /**
@@ -12,11 +12,11 @@ public class LoadingCircleAnimator {
 
     private static final long ANIMATION_DURATION_MS = 1000;
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final LoadingCircleState state;
     private ValueAnimator rotationAnimator;
 
-    public LoadingCircleAnimator(SodiumEditorView view, LoadingCircleState state) {
+    public LoadingCircleAnimator(SodiumEditor view, LoadingCircleState state) {
         this.view = view;
         this.state = state;
     }

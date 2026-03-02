@@ -6,12 +6,12 @@ import android.view.MotionEvent;
 import com.yn.sodiumeditor.*;
 
 public final class InputManager {
-  private final SodiumEditorView view;
+  private final SodiumEditor view;
   private final TouchHandler touchHandler;
   private final KeyboardHandler keyboardHandler;
   private final EditorOperations editorOperations;
 
-  public InputManager(SodiumEditorView view, Context context) {
+  public InputManager(SodiumEditor view, Context context) {
     this.view = view;
     this.editorOperations = new EditorOperations(view);
     this.touchHandler = new TouchHandler(view, context);

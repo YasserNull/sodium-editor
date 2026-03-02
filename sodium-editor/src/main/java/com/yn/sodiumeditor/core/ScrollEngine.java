@@ -9,7 +9,7 @@ import android.view.animation.DecelerateInterpolator;
 import android.widget.OverScroller;
 
 public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, ScrollHandler.ScrollBoundsProvider {
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     public final ScrollConfig config;
     public final FlingHandler flingHandler;
     public final ScrollHandler scrollHandler;
@@ -54,7 +54,7 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
     public boolean stretchOverscrollEnabled;
     public float stretchOverscrollStrength;
 
-    public ScrollEngine(SodiumEditorView view) {
+    public ScrollEngine(SodiumEditor view) {
         this.view = view;
         this.config = new ScrollConfig();
         this.stretch = new Stretch(view, config);
@@ -191,7 +191,7 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
             return;
         }
         view.flingStopAnimator = ValueAnimator.ofFloat(0f, 1f);
-        view.flingStopAnimator.setDuration(SodiumEditorView.FLING_STOP_ANIM_DURATION_MS);
+        view.flingStopAnimator.setDuration(SodiumEditor.FLING_STOP_ANIM_DURATION_MS);
         view.flingStopAnimator.setInterpolator(new DecelerateInterpolator());
         view.flingStopAnimator.addUpdateListener(
                 a -> {
@@ -261,7 +261,7 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
     }
 
     public void ensureLineInWindow(int globalLine, boolean blockingIfAbsent) {
-        view.autoSuggestionManager.clearActiveSuggestion();
+        view.inlinePredictionState.clearActiveSuggestion();
         if (globalLine >= view.windowStartLine
                 && globalLine < view.windowStartLine + view.linesWindow.size()) return;
         if (view.sourceFile != null) {
@@ -271,11 +271,11 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
     }
 
     private float getKeyboardBarrierPaddingInternal() {
-        return Math.min(SodiumEditorView.BOTTOM_SCROLL_OFFSET, view.keyboardHeight * 0.4f);
+        return Math.min(SodiumEditor.BOTTOM_SCROLL_OFFSET, view.keyboardHeight * 0.4f);
     }
 
     private float getBottomBarrierPaddingInternal() {
-        return SodiumEditorView.BOTTOM_SCROLL_OFFSET;
+        return SodiumEditor.BOTTOM_SCROLL_OFFSET;
     }
 
     public void setScrollMode(int mode) {

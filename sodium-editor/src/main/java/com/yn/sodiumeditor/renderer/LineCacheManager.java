@@ -7,16 +7,16 @@ import androidx.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Map;
 
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 
 /**
  * Handles line caching and file-based line retrieval operations.
  */
 public final class LineCacheManager {
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private TextMeasurement textMeasurement;
 
-    public LineCacheManager(SodiumEditorView view) {
+    public LineCacheManager(SodiumEditor view) {
         this.view = view;
     }
 

@@ -2,7 +2,7 @@ package com.yn.sodiumeditor.renderer;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.UnderlineSpan;
 import com.yn.sodiumeditor.state.HighlightState;
 import java.util.ArrayList;
@@ -13,10 +13,10 @@ import java.util.List;
  */
 public class UrlUnderlineRenderer {
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final HighlightState state;
 
-    public UrlUnderlineRenderer(SodiumEditorView view, HighlightState state) {
+    public UrlUnderlineRenderer(SodiumEditor view, HighlightState state) {
         this.view = view;
         this.state = state;
     }

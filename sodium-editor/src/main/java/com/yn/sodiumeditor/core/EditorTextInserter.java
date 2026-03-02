@@ -30,7 +30,7 @@ public final class EditorTextInserter {
         void postDelayed(Runnable r, long delayMillis);
         CursorTarget computeCursorAfterInsert(int line, int ch, String text);
         void rewriteReplaceRangeAsync(int opToken, File inFile, int sL, int sC, int eL, int eC, String text, CursorTarget target, boolean finishLargeEdit);
-        void autoSuggestionUpdate();
+        void inlinePredictionUpdate();
         void addLineCountDelta(int delta);
         int getUndoTextLimit();
         void recordEdit(EditOp op);
@@ -102,7 +102,7 @@ public final class EditorTextInserter {
         
         callback.rewriteReplaceRangeAsync(opToken, inFile, state.getCursorLine(), state.getCursorChar(), 
                 state.getCursorLine(), state.getCursorChar(), text, target, true);
-        callback.autoSuggestionUpdate();
+        callback.inlinePredictionUpdate();
         callback.addLineCountDelta(countNewlines(text));
         
         if (text.length() <= callback.getUndoTextLimit()) {
@@ -188,7 +188,7 @@ public final class EditorTextInserter {
             callback.resetCursorBlink();
             callback.invalidate();
         }
-        callback.autoSuggestionUpdate();
+        callback.inlinePredictionUpdate();
 
         CursorTarget insertedEnd = callback.computeCursorAfterInsert(
                 state.getCursorLine(), state.getCursorChar(), text);

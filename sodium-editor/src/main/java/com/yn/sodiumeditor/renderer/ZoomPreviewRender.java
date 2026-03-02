@@ -3,7 +3,7 @@ package com.yn.sodiumeditor.renderer;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Paint;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.utils.ZoomUtils;
 
 public final class ZoomPreviewRender {
@@ -60,7 +60,7 @@ public final class ZoomPreviewRender {
       float minTextSizePx,
       float maxTextSizePx,
       float zoomStepClampSp,
-      SodiumEditorView view) {
+      SodiumEditor view) {
 
     pinchFocusX = focusX;
     pinchFocusY = focusY;
@@ -111,7 +111,7 @@ public final class ZoomPreviewRender {
   /**
    * Draws zoom preview overlay.
    */
-  public void drawZoomPreview(Canvas canvas, SodiumEditorView view) {
+  public void drawZoomPreview(Canvas canvas, SodiumEditor view) {
     if (!pinchVisualZoomActive) return;
 
     // Optional: Draw zoom indicator or preview overlay

@@ -3,7 +3,7 @@ package com.yn.sodiumeditor.renderer;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.state.LoadingCircleState;
 
 /**
@@ -14,12 +14,12 @@ public class LoadingCircleRenderer {
 
     private static final float DEFAULT_STROKE_WIDTH = 8f;
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final LoadingCircleState state;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF rect = new RectF();
 
-    public LoadingCircleRenderer(SodiumEditorView view, LoadingCircleState state) {
+    public LoadingCircleRenderer(SodiumEditor view, LoadingCircleState state) {
         this.view = view;
         this.state = state;
         paint.setStyle(Paint.Style.STROKE);

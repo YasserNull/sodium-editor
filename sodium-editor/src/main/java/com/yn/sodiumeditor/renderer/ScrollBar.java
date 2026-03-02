@@ -10,7 +10,7 @@ import android.view.animation.DecelerateInterpolator;
 import androidx.annotation.Nullable;
 
 public final class ScrollBar {
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final ScrollConfig config;
     private final ScrollBoundsProvider boundsProvider;
 
@@ -24,7 +24,7 @@ public final class ScrollBar {
         float getMaxScrollYForClamp();
     }
 
-    public ScrollBar(SodiumEditorView view, ScrollConfig config, ScrollBoundsProvider boundsProvider) {
+    public ScrollBar(SodiumEditor view, ScrollConfig config, ScrollBoundsProvider boundsProvider) {
         this.view = view;
         this.config = config;
         this.boundsProvider = boundsProvider;

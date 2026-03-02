@@ -3,7 +3,7 @@ package com.yn.sodiumeditor.renderer;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Typeface;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.HighlightRule;
 import com.yn.sodiumeditor.state.HighlightSpan;
 import com.yn.sodiumeditor.state.WhitespaceGuideState;
@@ -100,7 +100,7 @@ public class WhitespaceGuideRenderer {
     }
 
     public float measureTextWithVisualSpaces(
-            SodiumEditorView view, String text, int start, int end, Paint p) {
+            SodiumEditor view, String text, int start, int end, Paint p) {
         if (text == null) return 0f;
         start = Math.max(0, Math.min(start, text.length()));
         end = Math.max(start, Math.min(end, text.length()));
@@ -122,7 +122,7 @@ public class WhitespaceGuideRenderer {
     }
 
     public List<HighlightSpan> calculateSyntaxSpansForLine(
-            SodiumEditorView view, String line, int globalLine) {
+            SodiumEditor view, String line, int globalLine) {
         if (view.getLogicalLineLength(globalLine, line) > view.highlightState.maxSyntaxLineLength) {
             return Collections.emptyList();
         }
@@ -157,7 +157,7 @@ public class WhitespaceGuideRenderer {
     }
 
     public List<HighlightSpan> getWhitespaceGuideSyntaxSpans(
-            SodiumEditorView view, String line, int globalLine) {
+            SodiumEditor view, String line, int globalLine) {
         HighlightRule stringRule = view.highlightState.stringHighlightRule;
         HighlightRule commentRule = view.highlightState.blockCommentHighlightRule;
         if (stringRule == null && commentRule == null) {
@@ -186,7 +186,7 @@ public class WhitespaceGuideRenderer {
     }
 
     public void drawWhitespaceGuidesForSegment(
-            SodiumEditorView view,
+            SodiumEditor view,
             Canvas canvas,
             String line,
             int globalLine,
@@ -323,7 +323,7 @@ public class WhitespaceGuideRenderer {
     }
 
     public void drawWhitespaceGuidesForRangeRtl(
-            SodiumEditorView view,
+            SodiumEditor view,
             Canvas canvas,
             String line,
             int globalLine,

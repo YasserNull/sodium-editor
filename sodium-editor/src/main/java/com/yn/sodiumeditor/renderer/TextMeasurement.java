@@ -7,16 +7,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.HighlightParser;
 
 /**
  * Handles text measurement and calculation operations for the text editor.
  */
 public final class TextMeasurement {
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
 
-    public TextMeasurement(SodiumEditorView view) {
+    public TextMeasurement(SodiumEditor view) {
         this.view = view;
     }
 
@@ -216,7 +216,7 @@ public final class TextMeasurement {
             end = t;
         }
 
-        int pad = view.visibleCharPadding;
+        int pad = view.editorConfig.visualConfig.visibleCharPadding;
         start = Math.max(0, start - pad);
         end = Math.min(len, end + pad);
         out[0] = start;
@@ -258,7 +258,7 @@ public final class TextMeasurement {
             start = end;
             end = t;
         }
-        int pad = view.visibleCharPadding + Math.max(0, view.prefetchCols);
+        int pad = view.editorConfig.visualConfig.visibleCharPadding + Math.max(0, view.prefetchCols);
         start = Math.max(0, start - pad);
         end = Math.min(len, end + pad);
         out[0] = start;

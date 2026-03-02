@@ -3,7 +3,7 @@ package com.yn.sodiumeditor.renderer;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.state.BracketMatch;
 import com.yn.sodiumeditor.state.BracketMatchState;
 
@@ -13,12 +13,12 @@ import com.yn.sodiumeditor.state.BracketMatchState;
  */
 public class BracketMatchRenderer {
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final BracketMatchState state;
 
     public final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-    public BracketMatchRenderer(SodiumEditorView view, BracketMatchState state) {
+    public BracketMatchRenderer(SodiumEditor view, BracketMatchState state) {
         this.view = view;
         this.state = state;
         paint.setStyle(Paint.Style.STROKE);

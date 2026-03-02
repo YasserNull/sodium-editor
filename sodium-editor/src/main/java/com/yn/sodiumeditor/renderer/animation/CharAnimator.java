@@ -7,11 +7,11 @@ import android.graphics.Paint;
 import android.os.Looper;
 import android.os.SystemClock;
 import androidx.annotation.Nullable;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.config.CharAnimationConfig;
 
 public final class CharAnimator {
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final CharAnimationConfig config;
 
     private long lastCharAnimUptime = 0L;
@@ -30,7 +30,7 @@ public final class CharAnimator {
     private float delAnimAlpha = 0f;
     @Nullable private ValueAnimator delAnimAnimator;
 
-    public CharAnimator(SodiumEditorView view, CharAnimationConfig config) {
+    public CharAnimator(SodiumEditor view, CharAnimationConfig config) {
         this.view = view;
         this.config = config;
     }

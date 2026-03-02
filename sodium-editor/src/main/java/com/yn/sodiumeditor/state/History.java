@@ -2,7 +2,7 @@ package com.yn.sodiumeditor.state;
 
 import android.util.Log;
 import androidx.annotation.Nullable;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.EditOp;
 import com.yn.sodiumeditor.core.EditTransformer;
 import com.yn.sodiumeditor.io.FileBufferModifier;
@@ -21,7 +21,7 @@ public final class History {
     private static final int UNDO_STACK_LIMIT = 200;
     private static final int UNDO_TEXT_LIMIT = 1_000_000;
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final FileBufferModifier fileModifier;
     private final AtomicInteger editVersion = new AtomicInteger(0);
 
@@ -35,7 +35,7 @@ public final class History {
     private int lineCountDelta = 0;
     @Nullable private EditOp composingPendingOp = null;
 
-    public History(SodiumEditorView view) {
+    public History(SodiumEditor view) {
         this.view = view;
         this.fileModifier = new FileBufferModifier(view);
     }
@@ -201,12 +201,12 @@ public final class History {
             return;
         }
         if (view.cursorState.hasComposing()) {
-            Log.d("SodiumEditorViewSave", "commitComposing before save");
+            Log.d("SodiumEditorSave", "commitComposing before save");
             view.imeCompositionHandler.commitComposing(true);
         }
         final ArrayList<EditOp> ops = new ArrayList<>();
         synchronized (pendingEdits) {
-            Log.d("SodiumEditorViewSave", "pendingEdits.size=" + pendingEdits.size());
+            Log.d("SodiumEditorSave", "pendingEdits.size=" + pendingEdits.size());
             ops.addAll(pendingEdits);
             pendingEdits.clear();
             pendingRedo.clear();
@@ -215,14 +215,14 @@ public final class History {
             if (onComplete != null) view.post(onComplete);
             return;
         }
-        Log.d("SodiumEditorViewSave", "Saving pending ops=" + ops.size());
+        Log.d("SodiumEditorSave", "Saving pending ops=" + ops.size());
         view.getIoHandlerForUndo()
                 .post(
                         () -> {
                             boolean ok = true;
                             for (EditOp op : ops) {
                                 Log.d(
-                                        "SodiumEditorViewSave",
+                                        "SodiumEditorSave",
                                         "Op s="
                                                 + op.startLine
                                                 + ":"
@@ -254,10 +254,10 @@ public final class History {
                             view.post(
                                     () -> {
                                         if (!success) {
-                                            Log.d("SodiumEditorViewSave", "Save failed");
+                                            Log.d("SodiumEditorSave", "Save failed");
                                             pendingEdits.addAll(ops);
                                         } else {
-                                            Log.d("SodiumEditorViewSave", "Save success");
+                                            Log.d("SodiumEditorSave", "Save success");
                                             synchronized (view.modifiedLines) {
                                                 view.modifiedLines.clear();
                                             }
@@ -300,7 +300,7 @@ public final class History {
                     && lastPending.insertedEndLine == op.startLine
                     && lastPending.insertedEndChar == op.startChar) {
                 Log.d(
-                        "SodiumEditorViewEdit",
+                        "SodiumEditorEdit",
                         "merge insert start="
                                 + op.startLine
                                 + ":"
@@ -309,7 +309,7 @@ public final class History {
                                 + op.insertedText.length());
                 String beforeText = lastPending.insertedText;
                 lastPending.insertedText = lastPending.insertedText + op.insertedText;
-                SodiumEditorView.CursorTarget newEnd =
+                SodiumEditor.CursorTarget newEnd =
                         view.computeCursorAfterInsertForUndo(
                                 lastPending.startLine, lastPending.startChar, lastPending.insertedText);
                 lastPending.insertedEndLine = newEnd.line;
@@ -350,7 +350,7 @@ public final class History {
         pendingRedo.clear();
         lastEditTimestamp = op.timestamp;
         Log.d(
-                "SodiumEditorViewEdit",
+                "SodiumEditorEdit",
                 "record op s="
                         + op.startLine
                         + ":"
@@ -378,7 +378,7 @@ public final class History {
         redoStack.clear();
         lastEditTimestamp = op.timestamp;
         Log.d(
-                "SodiumEditorViewEdit",
+                "SodiumEditorEdit",
                 "record save-only op s="
                         + op.startLine
                         + ":"
@@ -416,7 +416,7 @@ public final class History {
             op.endChar = eC;
             op.removedText = null;
             op.insertedText = insert;
-            SodiumEditorView.CursorTarget insertedEnd =
+            SodiumEditor.CursorTarget insertedEnd =
                     view.computeCursorAfterInsertForUndo(sL, sC, insert);
             op.insertedEndLine = insertedEnd.line;
             op.insertedEndChar = insertedEnd.ch;
@@ -436,7 +436,7 @@ public final class History {
             op.endChar = eC;
             op.removedText = null;
             op.insertedText = insert;
-            SodiumEditorView.CursorTarget insertedEnd =
+            SodiumEditor.CursorTarget insertedEnd =
                     view.computeCursorAfterInsertForUndo(sL, sC, insert);
             op.insertedEndLine = insertedEnd.line;
             op.insertedEndChar = insertedEnd.ch;
@@ -455,7 +455,7 @@ public final class History {
         op.endChar = eC;
         op.removedText = removedText;
         op.insertedText = insert;
-        SodiumEditorView.CursorTarget insertedEnd =
+        SodiumEditor.CursorTarget insertedEnd =
                 view.computeCursorAfterInsertForUndo(sL, sC, insert);
         op.insertedEndLine = insertedEnd.line;
         op.insertedEndChar = insertedEnd.ch;
@@ -493,7 +493,7 @@ public final class History {
             op.endChar = startChar;
             op.removedText = "";
             op.insertedText = text;
-            SodiumEditorView.CursorTarget insertedEnd =
+            SodiumEditor.CursorTarget insertedEnd =
                     view.computeCursorAfterInsertForUndo(startLine, startChar, text);
             op.insertedEndLine = insertedEnd.line;
             op.insertedEndChar = insertedEnd.ch;
@@ -513,7 +513,7 @@ public final class History {
             pendingRedo.clear();
             lastEditTimestamp = op.timestamp;
             Log.d(
-                    "SodiumEditorViewCompose",
+                    "SodiumEditorCompose",
                     "start composing op s=" + startLine + ":" + startChar + " textLen=" + text.length());
             return;
         }
@@ -525,7 +525,7 @@ public final class History {
         lineCountDelta += (newNewlines - prevNewlines);
 
         composingPendingOp.insertedText = text;
-        SodiumEditorView.CursorTarget insertedEnd =
+        SodiumEditor.CursorTarget insertedEnd =
                 view.computeCursorAfterInsertForUndo(startLine, startChar, text);
         composingPendingOp.insertedEndLine = insertedEnd.line;
         composingPendingOp.insertedEndChar = insertedEnd.ch;
@@ -534,13 +534,13 @@ public final class History {
         composingPendingOp.timestamp = System.currentTimeMillis();
         lastEditTimestamp = composingPendingOp.timestamp;
 
-        Log.d("SodiumEditorViewCompose", "update composing op textLen=" + text.length());
+        Log.d("SodiumEditorCompose", "update composing op textLen=" + text.length());
 
         if (text.isEmpty()) {
             pendingEdits.remove(composingPendingOp);
             undoStack.remove(composingPendingOp);
             composingPendingOp = null;
-            Log.d("SodiumEditorViewCompose", "remove composing op (empty)");
+            Log.d("SodiumEditorCompose", "remove composing op (empty)");
         }
     }
 

@@ -2,7 +2,7 @@ package com.yn.sodiumeditor.core;
 
 import android.graphics.Paint;
 import android.widget.Scroller;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.io.WrapWordDocument;
 import com.yn.sodiumeditor.state.WrapWordMetrics;
 import com.yn.sodiumeditor.state.WrapWordState;
@@ -41,7 +41,7 @@ public final class WrapWordBuilder {
   // Public API
   //================================================================================
 
-  public void scheduleBuild(SodiumEditorView view) {
+  public void scheduleBuild(SodiumEditor view) {
     if (!state.isWordWrapEnabled) return;
     if (shouldSuppressForSelectAll(view)) return;
     if (view.getWidth() <= 0) return;
@@ -60,7 +60,7 @@ public final class WrapWordBuilder {
     view.ioHandler.post(() -> buildFromFile(view, token, widthPx, wrapPaint));
   }
 
-  public void scheduleWrapMetricsSnapshotIfNeeded(SodiumEditorView view, int widthPx) {
+  public void scheduleWrapMetricsSnapshotIfNeeded(SodiumEditor view, int widthPx) {
     // For now, delegate to scheduleBuild - can be enhanced later
     scheduleBuild(view);
   }
@@ -94,7 +94,7 @@ public final class WrapWordBuilder {
     }
   }
 
-  public void requestPrefixRebuild(SodiumEditorView view) {
+  public void requestPrefixRebuild(SodiumEditor view) {
     if (!state.isWordWrapEnabled) return;
     if (view.zoomGestureHandler.isScaling() || view.zoomGestureHandler.isScaleInProgress()) {
       state.wrapPrefixRebuildPending = true;
@@ -118,7 +118,7 @@ public final class WrapWordBuilder {
   // Build Strategies
   //================================================================================
 
-  private void buildInMemory(SodiumEditorView view) {
+  private void buildInMemory(SodiumEditor view) {
     int total = view.getLinesCount();
     if (total <= 0) total = WrapWordMapper.getWindowLineCount(view);
     if (total <= 0) {
@@ -161,7 +161,7 @@ public final class WrapWordBuilder {
     metrics.wrapMetricsReady = true;
   }
 
-  private void buildFromFile(SodiumEditorView view, int token, int widthPx, Paint wrapPaint) {
+  private void buildFromFile(SodiumEditor view, int token, int widthPx, Paint wrapPaint) {
     final int total = view.getLinesCount();
     if (total <= 0) {
       view.post(() -> {
@@ -237,11 +237,11 @@ public final class WrapWordBuilder {
     }
   }
 
-  public void buildWrapMetricsForWindowSnapshot(SodiumEditorView view) {
+  public void buildWrapMetricsForWindowSnapshot(SodiumEditor view) {
     buildWindowSnapshot(view);
   }
 
-  private void buildWindowSnapshot(SodiumEditorView view) {
+  private void buildWindowSnapshot(SodiumEditor view) {
     int total = view.getLinesCount();
     if (total <= 0) total = WrapWordMapper.getWindowLineCount(view);
     if (total <= 0) {
@@ -294,7 +294,7 @@ public final class WrapWordBuilder {
   // Prefix Building
   //================================================================================
 
-  public void schedulePrefixRebuildUpToWindow(SodiumEditorView view) {
+  public void schedulePrefixRebuildUpToWindow(SodiumEditor view) {
     if (!state.isWordWrapEnabled) return;
     if (shouldSuppressForSelectAll(view)) return;
 
@@ -323,7 +323,7 @@ public final class WrapWordBuilder {
             ? metrics.wrapLineCounts.clone() : null;
 
     int anchorVisualIndex = Math.max(0, (int) (WrapWordUtils.getScrollY(view) / view.lineHeight));
-    SodiumEditorView.VisualLinePosition anchorPos = mapper.getVisualPositionForIndex(view, anchorVisualIndex, widthPx);
+    SodiumEditor.VisualLinePosition anchorPos = mapper.getVisualPositionForIndex(view, anchorVisualIndex, widthPx);
     final int anchorLine = anchorPos.line;
     final int oldAnchorPrefix =
         (metrics.wrapLinePrefix != null && anchorLine >= 0 && anchorLine < metrics.wrapLinePrefix.length)
@@ -440,7 +440,7 @@ public final class WrapWordBuilder {
     });
   }
 
-  public void applyPendingPrefixUpdate(SodiumEditorView view) {
+  public void applyPendingPrefixUpdate(SodiumEditor view) {
     if (!metrics.pendingApplyWrapPrefixUpdate) return;
     if (!state.isWordWrapEnabled) {
       metrics.pendingApplyWrapPrefixUpdate = false;
@@ -464,7 +464,7 @@ public final class WrapWordBuilder {
 
     int anchorFirstVisual = Math.max(0, (int) (WrapWordUtils.getScrollY(view) / view.lineHeight));
     int widthPx = Math.max(1, Math.round(getWrapWidth(view)));
-    SodiumEditorView.VisualLinePosition anchorPos = mapper.getVisualPositionForIndex(view, anchorFirstVisual, widthPx);
+    SodiumEditor.VisualLinePosition anchorPos = mapper.getVisualPositionForIndex(view, anchorFirstVisual, widthPx);
     int anchorLine = anchorPos.line;
     int anchorSeg = anchorPos.segment;
 
@@ -480,7 +480,7 @@ public final class WrapWordBuilder {
     }
   }
 
-  public void applyPendingPrefixUpdateForZoom(SodiumEditorView view) {
+  public void applyPendingPrefixUpdateForZoom(SodiumEditor view) {
     applyPendingPrefixUpdate(view);
   }
 
@@ -488,7 +488,7 @@ public final class WrapWordBuilder {
   // Line Changes
   //================================================================================
 
-  public void onLineContentChanged(SodiumEditorView view, int globalLine, String newText) {
+  public void onLineContentChanged(SodiumEditor view, int globalLine, String newText) {
     if (!state.isWordWrapEnabled) return;
     engine.invalidateCache(globalLine);
 
@@ -515,7 +515,7 @@ public final class WrapWordBuilder {
     view.invalidate();
   }
 
-  public void onLineCountChanged(SodiumEditorView view) {
+  public void onLineCountChanged(SodiumEditor view) {
     if (state.isWordWrapEnabled) {
       invalidate(true, true);
     }
@@ -526,7 +526,7 @@ public final class WrapWordBuilder {
   // Validation
   //================================================================================
 
-  public boolean isMetricsUsableForWindow(SodiumEditorView view, int widthPx) {
+  public boolean isMetricsUsableForWindow(SodiumEditor view, int widthPx) {
     if (!state.isWordWrapEnabled) return false;
     if (!metrics.wrapMetricsReady || metrics.wrapLinePrefix == null || metrics.wrapLineCounts == null) return false;
     if (metrics.wrapMetricsWidth != widthPx) return false;
@@ -538,12 +538,12 @@ public final class WrapWordBuilder {
     return metrics.wrapPrefixValidUpToLine >= windowEnd;
   }
 
-  public boolean isMetricsUsableForLine(SodiumEditorView view, int line, int widthPx) {
+  public boolean isMetricsUsableForLine(SodiumEditor view, int line, int widthPx) {
     if (!isMetricsUsableForWindow(view, widthPx)) return false;
     return metrics.wrapPrefixValidUpToLine >= line;
   }
 
-  public boolean shouldSuppressForSelectAll(SodiumEditorView view) {
+  public boolean shouldSuppressForSelectAll(SodiumEditor view) {
     if (!state.isWordWrapEnabled ||
         (!view.selectionState.isSelectAllActive() && !view.selectionState.isEntireFileSelected())) {
       return false;
@@ -557,7 +557,7 @@ public final class WrapWordBuilder {
   //================================================================================
 
   public boolean patchWrapMetricsForVisualRange(
-      SodiumEditorView view,
+      SodiumEditor view,
       int firstVisualIndex,
       int lastVisualIndex,
       Map<Integer, String> directLines,
@@ -568,7 +568,7 @@ public final class WrapWordBuilder {
     if (metrics.wrapLineCounts.length + 1 != metrics.wrapLinePrefix.length) return false;
 
     final int anchorFirstVisual = firstVisualIndex;
-    final SodiumEditorView.VisualLinePosition anchorPos = mapper.getVisualPositionForIndex(view, anchorFirstVisual, widthPx);
+    final SodiumEditor.VisualLinePosition anchorPos = mapper.getVisualPositionForIndex(view, anchorFirstVisual, widthPx);
     final int anchorLine = anchorPos.line;
     final int anchorSeg = anchorPos.segment;
 
@@ -577,7 +577,7 @@ public final class WrapWordBuilder {
     int vEnd = Math.max(v, lastVisualIndex);
 
     for (; v <= vEnd; v++) {
-      SodiumEditorView.VisualLinePosition pos = mapper.getVisualPositionForIndex(view, v, widthPx);
+      SodiumEditor.VisualLinePosition pos = mapper.getVisualPositionForIndex(view, v, widthPx);
       int line = pos.line;
       if (line < 0 || line >= metrics.wrapLineCounts.length) break;
 
@@ -613,7 +613,7 @@ public final class WrapWordBuilder {
   // Helpers
   //================================================================================
 
-  private float getWrapWidth(SodiumEditorView view) {
+  private float getWrapWidth(SodiumEditor view) {
     return Math.max(1f, view.getWidth() - view.getTextStartX());
   }
 

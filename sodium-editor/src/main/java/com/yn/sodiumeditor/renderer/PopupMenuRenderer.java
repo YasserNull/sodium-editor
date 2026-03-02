@@ -11,7 +11,7 @@ import android.text.TextPaint;
 import android.text.TextUtils;
 import android.view.animation.DecelerateInterpolator;
 import androidx.annotation.Nullable;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.config.PopupConfig;
 import com.yn.sodiumeditor.state.PopupMenuState;
 
@@ -21,7 +21,7 @@ import com.yn.sodiumeditor.state.PopupMenuState;
  */
 public class PopupMenuRenderer {
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final PopupConfig config;
     private final PopupMenuState state;
 
@@ -37,7 +37,7 @@ public class PopupMenuRenderer {
     private float btnWidth = 0f;
     private float popupLabelPadding = 0f;
 
-    public PopupMenuRenderer(SodiumEditorView view, PopupConfig config, PopupMenuState state) {
+    public PopupMenuRenderer(SodiumEditor view, PopupConfig config, PopupMenuState state) {
         this.view = view;
         this.config = config;
         this.state = state;
@@ -90,19 +90,19 @@ public class PopupMenuRenderer {
         final java.util.List<Integer> actions = new java.util.ArrayList<>();
         if (state.isMinimalPopup) {
             actions.add(PopupConfig.POPUP_ACTION_SELECT_ALL);
-            if (!view.isReadOnly) {
+            if (!view.editorConfig.behaviorConfig.isReadOnly) {
                 actions.add(PopupConfig.POPUP_ACTION_PASTE);
             }
         } else {
             final boolean hideCopyCut = shouldHideCopyCutForSelection();
             actions.add(PopupConfig.POPUP_ACTION_SELECT_ALL);
             if (!hideCopyCut) {
-                if (!view.isReadOnly) {
+                if (!view.editorConfig.behaviorConfig.isReadOnly) {
                     actions.add(PopupConfig.POPUP_ACTION_CUT);
                 }
                 actions.add(PopupConfig.POPUP_ACTION_COPY);
             }
-            if (!view.isReadOnly) {
+            if (!view.editorConfig.behaviorConfig.isReadOnly) {
                 actions.add(PopupConfig.POPUP_ACTION_PASTE);
                 actions.add(PopupConfig.POPUP_ACTION_DELETE);
             }

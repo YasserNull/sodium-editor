@@ -7,11 +7,11 @@ import android.view.animation.DecelerateInterpolator;
 import androidx.annotation.Nullable;
 
 public final class Stretch {
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final ScrollConfig config;
     @Nullable public ValueAnimator stretchReleaseAnimator;
 
-    public Stretch(SodiumEditorView view, ScrollConfig config) {
+    public Stretch(SodiumEditor view, ScrollConfig config) {
         this.view = view;
         this.config = config;
     }

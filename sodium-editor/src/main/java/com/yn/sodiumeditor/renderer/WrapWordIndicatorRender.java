@@ -1,7 +1,7 @@
 package com.yn.sodiumeditor.renderer;
 
 import android.graphics.Paint;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.state.WhitespaceGuideState;
 
 public final class WrapWordIndicatorRender {
@@ -79,7 +79,7 @@ public final class WrapWordIndicatorRender {
     indicatorPaint.setColor(color);
   }
 
-  public void setTextSize(SodiumEditorView view, float sizeSp) {
+  public void setTextSize(SodiumEditor view, float sizeSp) {
     if (sizeSp <= 0f) return;
     float px = sizeSp * view.getResources().getDisplayMetrics().density;
     float base = view.paint.getTextSize();
@@ -91,7 +91,7 @@ public final class WrapWordIndicatorRender {
   //================================================================================
 
   public int clampSegmentEndForIndicator(
-      SodiumEditorView view,
+      SodiumEditor view,
       String line,
       int segStart,
       int segEnd,

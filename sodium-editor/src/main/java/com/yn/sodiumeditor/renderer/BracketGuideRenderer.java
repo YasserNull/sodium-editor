@@ -2,7 +2,7 @@ package com.yn.sodiumeditor.renderer;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.state.BracketGuideState;
 import com.yn.sodiumeditor.state.BracketGuideToken;
 
@@ -14,7 +14,7 @@ import java.util.List;
  */
 public class BracketGuideRenderer {
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final BracketGuideState state;
 
     public final Paint bracketGuidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -23,7 +23,7 @@ public class BracketGuideRenderer {
     private float baseBracketGuideStrokeWidth = bracketGuideStrokeWidth;
     private float baseBracketGuideTextSizePx = 0f;
 
-    public BracketGuideRenderer(SodiumEditorView view, BracketGuideState state) {
+    public BracketGuideRenderer(SodiumEditor view, BracketGuideState state) {
         this.view = view;
         this.state = state;
         bracketGuidePaint.setColor(0xFF888888);

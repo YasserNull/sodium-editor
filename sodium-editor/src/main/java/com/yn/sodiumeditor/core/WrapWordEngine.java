@@ -1,7 +1,7 @@
 package com.yn.sodiumeditor.core;
 
 import android.graphics.Paint;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.state.WhitespaceGuideState;
 import com.yn.sodiumeditor.state.WrapWordMetrics;
 import com.yn.sodiumeditor.utils.WrapWordUtils;
@@ -173,7 +173,7 @@ public final class WrapWordEngine {
   //================================================================================
 
   public int[] getWrapStartsForLine(
-      SodiumEditorView view,
+      SodiumEditor view,
       int globalLine,
       String line,
       int widthPx,
@@ -197,7 +197,7 @@ public final class WrapWordEngine {
     return starts;
   }
 
-  public boolean isWrapCacheableForLine(SodiumEditorView view, int globalLine) {
+  public boolean isWrapCacheableForLine(SodiumEditor view, int globalLine) {
     int windowStart = view.windowStartLine;
     int windowSize = getWindowSize(view);
     if (globalLine >= windowStart && globalLine < windowStart + windowSize) {
@@ -243,7 +243,7 @@ public final class WrapWordEngine {
   // Window Helpers
   //================================================================================
 
-  private static int getWindowSize(SodiumEditorView view) {
+  private static int getWindowSize(SodiumEditor view) {
     synchronized (view.linesWindow) {
       return view.linesWindow.size();
     }

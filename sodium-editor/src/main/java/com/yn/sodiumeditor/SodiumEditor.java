@@ -66,77 +66,23 @@ import com.yn.sodiumeditor.renderer.ViewRender;
 import com.yn.sodiumeditor.renderer.TextRender;
 import com.yn.sodiumeditor.state.History;
 
-public class SodiumEditorView extends View {
+public class SodiumEditor extends View {
 
-  public static final int STYLE_NORMAL = 0;
-  public static final int STYLE_BOLD = 1;
-  public static final int STYLE_ITALIC = 2;
-  public static final int STYLE_BOLD_ITALIC = 3;
+  // Editor Configuration
+  public final com.yn.sodiumeditor.config.EditorConfig editorConfig = new com.yn.sodiumeditor.config.EditorConfig();
 
-  // paint & metrics
-  public final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  private Typeface baseTypeface = Typeface.DEFAULT;
-  public float lineHeight;
-  public float paddingLeft = 10f; // Made non-final for line numbers
+  // Editor State Managers
+  public final com.yn.sodiumeditor.core.EditorStateManager editorState = new com.yn.sodiumeditor.core.EditorStateManager();
+  public final com.yn.sodiumeditor.state.EditorInputState editorInputState = new com.yn.sodiumeditor.state.EditorInputState();
+  public final com.yn.sodiumeditor.state.EditorIndexState editorIndexState = new com.yn.sodiumeditor.state.EditorIndexState();
+  public final com.yn.sodiumeditor.state.EditorLoadingState editorLoadingState = new com.yn.sodiumeditor.state.EditorLoadingState();
 
-  // --- Line Number State ---
-  public boolean isRtl = false;
-  final public Rect textBounds = new Rect();
-  private final int[] tmpLocationInWindow = new int[2];
-
-  // visual padding constants
-  static final float BOTTOM_SCROLL_OFFSET = 100f; // Visual padding below last line
-  private static final float MIN_BOTTOM_VISIBLE_SPACE =
-      50f; // Minimum space to show below last line
-
-  // sliding window
-  public final List<String> linesWindow = new ArrayList<>();
-  public int windowStartLine = 0;
-  public int windowSize = 30; // 2000 yyy
-  public int prefetchLines = 10; // 1000 yyy
-
-  // IO
-  private final HandlerThread ioThread;
-  public final Handler ioHandler;
-  public final Document document;
-  public final LineIndex lineIndex;
-  public final TextIO textIO;
-  // Legacy reference for backward compatibility
-  public final Document fileManager;
-  public volatile boolean isEof = false;
-  public final AtomicInteger ioTaskVersion = new AtomicInteger(0);
-  public File sourceFile = null;
-  public boolean isFileCleared = false;
-  public BufferedReader readerForFile = null;
-
-  // caches
-  public final LinkedHashMap<Integer, String> modifiedLines = new LinkedHashMap<>();
-  public final LinkedHashMap<Integer, Float> lineWidthCache;
-  public int lineWidthCacheSize = 200; // 2000 yyy
-  public float currentMaxWindowLineWidth = 0f;
-  public float globalMaxLineWidth = 0f;
-  
-  public int prefetchCols = 512;
-  public int colsWidthCacheSize = 256;
-  public final LinkedHashMap<Integer, Float> avgCharWidthCache =
-      new LinkedHashMap<Integer, Float>(colsWidthCacheSize, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<Integer, Float> eldest) {
-          return size() > colsWidthCacheSize;
-        }
-      };
-  public final Object streamedLinesLock = new Object();
-  public final SparseIntArray streamedLineLengths = new SparseIntArray();
-  public final SparseIntArray streamedLineSliceStarts = new SparseIntArray();
-  public boolean streamedSliceUpdatePending = false;
-  public int streamedSliceUpdateToken = 0;
-  public final int[] streamedSliceTmp = new int[2];
-  // Charset is now managed by Document
+  // IO Manager
+  public final com.yn.sodiumeditor.io.EditorIOManager editorIO;
 
   // --- Cursor Animation State ---
   private final InputManager inputManager;
   @Nullable ValueAnimator flingStopAnimator;
-  static final long FLING_STOP_ANIM_DURATION_MS = 90;
   public final InputMethodHandler imeManager;
   public final ScrollEngine scrollManager;
 
@@ -164,8 +110,13 @@ public class SodiumEditorView extends View {
   public final com.yn.sodiumeditor.state.PopupMenuState popupMenuState = new com.yn.sodiumeditor.state.PopupMenuState();
   public com.yn.sodiumeditor.renderer.PopupMenuRenderer popupMenuRenderer;
   public com.yn.sodiumeditor.input.PopupTouchHandler popupTouchHandler;
-  
-  public final AutoSuggestionManager autoSuggestionManager = new AutoSuggestionManager(this);
+
+  // Inline prediction components
+  public final com.yn.sodiumeditor.state.InlinePredictionState inlinePredictionState = new com.yn.sodiumeditor.state.InlinePredictionState();
+  public com.yn.sodiumeditor.renderer.InlinePredictionRenderer inlinePredictionRenderer;
+  public com.yn.sodiumeditor.core.InlinePredictionEngine inlinePredictionEngine;
+  public com.yn.sodiumeditor.core.WordTrie inlinePredictionTrie;
+  public com.yn.sodiumeditor.core.PathPredictionEngine inlinePredictionPathEngine;
 
   // --- Zoom State (moved to ZoomManager) ---
 
@@ -180,37 +131,14 @@ public class SodiumEditorView extends View {
 
 
 
-  // selection
-  public int lastDoubleTapLine = -1;
-  public int lastDoubleTapWordStart = -1;
-  public int lastDoubleTapWordEnd = -1;
-  public int lastDoubleTapStage = 0;
 
-  // touch helpers
-  public boolean pointerDown = false;
-  public boolean movedSinceDown = false;
-  public float downX = 0f, downY = 0f;
-  public final int touchSlop;
-  // Zoom multi-touch state moved to ZoomManager.
 
   // auto-scroll when dragging handles
   public final Handler mainHandler = new Handler(Looper.getMainLooper());
 
-  // keyboard awareness
-  private final Rect visibleDisplayFrame = new Rect();
-  public int keyboardHeight = 0;
 
-  // typed-character and deleted-character animations managed by CharAnimator.
-  public boolean suppressNextCommitText = false;
-  @Nullable public String lastImeCommitText;
-  public long lastImeCommitUptime = 0L;
 
-  // caret movement animation managed by CursorAnimator.
 
-  // popup menu moved to PopupMenuRenderer and PopupTouchHandler.
-
-  // selection handles
-  private float baseCursorTextSizePx = 0f;
 
   // Indent guide components
   public final com.yn.sodiumeditor.state.IndentGuideState indentGuideState = new com.yn.sodiumeditor.state.IndentGuideState();
@@ -277,60 +205,136 @@ public class SodiumEditorView extends View {
   public com.yn.sodiumeditor.input.FoldTouchHandler foldTouchHandler;
   public com.yn.sodiumeditor.core.FoldEngine foldEngine;
 
-  // editor background
-  public boolean hasEditorBackgroundColor = false;
-  public int editorBackgroundColor = 0x00000000;
-  @Nullable public Bitmap editorBackgroundBitmap = null;
-  public final Rect editorBackgroundDst = new Rect();
-
   // handle dragging edge flags moved to HandleDragHandler
-
-  // Drawing base to avoid float precision issues on very large line indices.
-  // During onDraw, we render everything relative to the first visible line.
-  public int drawBaseLine = 0;
 
   private final ViewRender viewRender = new ViewRender(this);
 
-  static final String WHITESPACE_GUIDE_SPACE = "\u00B7";
-  static final String WHITESPACE_GUIDE_TAB = "\u2192";
-  public static final String FOLD_PLACEHOLDER_TEXT = "<—>";
-  public static final String INDENT_BLOCK_UNIT = "  ";
-  static final int INDENT_FOLD_SCAN_LIMIT = 2000;
+  // Visible char range temp arrays
+  public final int[] visibleCharRangeTmp = new int[2];
+  public final int[] visibleCharRangeTmpForRender = new int[2];
 
+  // Double tap selection fields
+  public int lastDoubleTapLine = -1;
+  public int lastDoubleTapWordStart = -1;
+  public int lastDoubleTapWordEnd = -1;
+  public int lastDoubleTapStage = 0;
 
+  // Paint alias for convenience
+  public final Paint paint = editorConfig.paint;
 
-  // dragging handle state moved to HandleState
-  public volatile boolean isWindowLoading = false;
+  // Location in window temp array
+  private final int[] tmpLocationInWindow = new int[2];
 
-  public boolean isDisabled = false;
-  public boolean isReadOnly = false;
-  private final AtomicInteger goToLineVersion = new AtomicInteger(0);
+  // Fling stop animation duration
+  public static final long FLING_STOP_ANIM_DURATION_MS = 90;
 
-  // Loading circle variables
-  // loading circle state moved to LoadingCircleState
-  private boolean showLoadingOnFileOpen = true;
-  public boolean isInitialFileOpenLoading = false;
-  public int initialFileOpenToken = 0;
-  public Runnable initialFileOpenShowSpinner = null;
-  public final java.util.ArrayList<Runnable> initialLoadCallbacks = new java.util.ArrayList<>();
+  // Delegate fields for backward compatibility - these mirror the state objects
+  public float lineHeight;
+  public int prefetchLines;
+  public boolean isRtl;
+  public boolean isEof;
+  public float currentMaxWindowLineWidth;
+  public float globalMaxLineWidth;
+  public boolean isWindowLoading;
+  public int windowStartLine;
+  public java.util.List<String> linesWindow;
+  public int keyboardHeight;
+  public int drawBaseLine;
+  public java.util.LinkedHashMap<Integer, String> modifiedLines;
+  public boolean pointerDown = false;
+  public boolean movedSinceDown = false;
+  public String lastImeCommitText = "";
+  public long lastImeCommitUptime = 0;
+  public boolean suppressNextCommitText = false;
+  
+  // File manager delegate (for backward compatibility)
+  public com.yn.sodiumeditor.io.EditorIOManager fileManager;
+  public long[] lineOffsets;
+  public Object lineOffsetsLock;
+  public int windowSize;
+  
+  // TextIO delegate (for backward compatibility with Document.java)
+  public com.yn.sodiumeditor.io.TextIO textIO;
+  public com.yn.sodiumeditor.io.LineIndex lineIndex;
+  
+  // Index state fields (for backward compatibility with Document.java)
+  public boolean isIndexReady;
+  public boolean isIndexBuilding;
+  public boolean isIndexDisabled;
+  public String indexDisabledPath;
+  public long indexDisabledFileLength;
+  
+  // Performance cache fields
+  public int lineWidthCacheSize = 200;
+  public int colsWidthCacheSize = 256;
+  public int prefetchCols = 512;
+  public final java.util.LinkedHashMap<Integer, Float> lineWidthCache = new java.util.LinkedHashMap<>(200, 0.75f, true) {
+    @Override protected boolean removeEldestEntry(java.util.Map.Entry<Integer, Float> eldest) {
+      return size() > lineWidthCacheSize;
+    }
+  };
+  public final java.util.LinkedHashMap<Integer, Float> avgCharWidthCache = new java.util.LinkedHashMap<>(256, 0.75f, true) {
+    @Override protected boolean removeEldestEntry(java.util.Map.Entry<Integer, Float> eldest) {
+      return size() > colsWidthCacheSize;
+    }
+  };
+  
+  // Streamed lines fields
+  public final android.util.SparseIntArray streamedLineLengths = new android.util.SparseIntArray();
+  public final android.util.SparseIntArray streamedLineSliceStarts = new android.util.SparseIntArray();
+  public boolean streamedSliceUpdatePending = false;
+  public int streamedSliceUpdateToken = 0;
+  public final int[] streamedSliceTmp = new int[2];
+  public final Object streamedLinesLock = new Object();
+  
+  // IO handler and task version (initialized after editorIO is created)
+  public android.os.Handler ioHandler;
+  public java.util.concurrent.atomic.AtomicInteger ioTaskVersion;
+  
+  // Reader for file delegate
+  public java.io.BufferedReader readerForFile;
+
+  // Max width recalc token
   public int maxWidthRecalcToken = 0;
-
-  // index
-  public final Object lineOffsetsLock = new Object();
-  public long[] lineOffsets = new long[0];
-  public volatile boolean isIndexReady = false;
-  public volatile boolean isIndexBuilding = false;
-  public volatile boolean isIndexDisabled = false;
-  @Nullable public volatile String indexDisabledPath = null;
-  public volatile long indexDisabledFileLength = -1L;
-  private static final long MAX_INDEX_BYTES_HARD = 64L * 1024 * 1024;
-
-  // edit version + undo/redo state moved to History.
+  
+  // Behavior config fields
+  public boolean isIndentationBlocksEnabled;
+  public boolean isMultiLineStringsEnabled;
+  public boolean isBacktickStringsEnabled;
+  public boolean isTripleQuoteStringsEnabled;
+  public boolean isStableGlyphPositionsEnabled;
+  public boolean binarySafeRenderingEnabled;
+  public boolean isAutoPairingEnabled;
+  public boolean isAutoBracketNewlineEnabled;
+  public boolean isAutoBracketNewlineIndentEnabled;
+  public boolean isAutoIndentAfterClosingBracketEnabled;
+  
+  // File charset
+  public java.nio.charset.Charset fileCharset = java.nio.charset.StandardCharsets.UTF_8;
+  
+  // File cleared state
+  public boolean isFileCleared = false;
+  
+  // Initial load callbacks
+  public final java.util.ArrayList<Runnable> initialLoadCallbacks = new java.util.ArrayList<>();
+  
+  // Visual config fields (delegates)
+  public float paddingLeft = 10f;
+  
+  // Visual config fields
+  public final android.graphics.Rect textBounds = editorConfig.textBounds;
+  
+  // Source file delegate
+  public java.io.File sourceFile;
+  public java.io.File getSourceFile() {
+    return editorIO.sourceFile;
+  }
+  public void setSourceFile(java.io.File file) {
+    sourceFile = file;
+    editorIO.sourceFile = file;
+  }
 
   // Large edit UI (brief busy indicator)
-  private static final int LARGE_EDIT_LINES = 8000; // show spinner/disable for very large edits
-  private static final int HIDE_COPY_CUT_LINES = 20000;
-  private final AtomicInteger largeEditUiToken = new AtomicInteger(0);
   public final Runnable largeEditUiWatchdog =
       new Runnable() {
         @Override
@@ -340,40 +344,19 @@ public class SodiumEditorView extends View {
         }
       };
 
-  // Direct read cache for fast fling rendering when window hasn't loaded yet (index-based)
-  private final LinkedHashMap<Integer, String> directLineCache =
-      new LinkedHashMap<Integer, String>(600, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<Integer, String> eldest) {
-          return size() > 600;
-        }
-      };
-
-  final int[] visibleCharRangeTmp = new int[2];
-  public final int[] visibleCharRangeTmpForRender = new int[2];
-  public int visibleCharPadding = 2;
-  private boolean isPerformanceModeEnabled = false;
-  public boolean isStableGlyphPositionsEnabled = false;
-  private boolean isClickAfterEndToAddLineEnabled = false;
-  public boolean isAutoPairingEnabled = true;
-  public boolean isAutoBracketNewlineEnabled = true;
-  public boolean isAutoBracketNewlineIndentEnabled = true;
-  public boolean isAutoIndentAfterClosingBracketEnabled = true;
-  public boolean isIndentationBlocksEnabled = false;
+  // Bottom scroll offset constant
+  public static final float BOTTOM_SCROLL_OFFSET = 100f;
+  
+  // Fold placeholder text constant
+  public static final String FOLD_PLACEHOLDER_TEXT = "\u27F6";
+  
+  // Indent block unit constant
+  public static final String INDENT_BLOCK_UNIT = "  ";
 
   // Zoom scroll adjustment for word wrap
 
 
-  // --- Auto-suggestion State (moved to AutoSuggestionManager) ---
-
-
-  public boolean binarySafeRenderingEnabled = false;
-
-  // --- Color Code Highlighting ---
-  public boolean isMultiLineStringsEnabled = false;
-  public boolean isBacktickStringsEnabled = false;
-  boolean isBlockCommentsEnabled = false;
-  public boolean isTripleQuoteStringsEnabled = false;
+  // --- Inline Prediction State (moved to InlinePredictionState, InlinePredictionRenderer, InlinePredictionEngine) ---
 
   final Runnable delayedWindowCheck =
       new Runnable() {
@@ -383,17 +366,54 @@ public class SodiumEditorView extends View {
         }
       };
 
-  public SodiumEditorView(Context ctx, @Nullable AttributeSet attrs) {
+  public SodiumEditor(Context ctx, @Nullable AttributeSet attrs) {
     super(ctx, attrs);
-    paint.setTextSize(36);
-    paint.setColor(0xFF000000);
-    paint.setAntiAlias(true);
-    paint.setSubpixelText(true);
-    paint.setHinting(Paint.HINTING_ON);
-    paint.setUnderlineText(false); // Explicitly disable underlines to fix visual artifact
-    baseTypeface = (paint.getTypeface() != null) ? paint.getTypeface() : Typeface.DEFAULT;
-    lineHeight = paint.getFontSpacing();
-    baseCursorTextSizePx = paint.getTextSize();
+    editorConfig.initPaint(36, 0xFF000000);
+    editorConfig.visualConfig.paintTextSize = 36;
+    editorConfig.visualConfig.paintColor = 0xFF000000;
+    editorConfig.visualConfig.paddingLeft = 10f;
+    editorConfig.performanceConfig.lineWidthCacheSize = 200;
+    editorConfig.performanceConfig.colsWidthCacheSize = 256;
+    editorConfig.baseTypeface = (editorConfig.paint.getTypeface() != null) ? editorConfig.paint.getTypeface() : Typeface.DEFAULT;
+    editorConfig.lineHeight = editorConfig.paint.getFontSpacing();
+    editorConfig.visualConfig.baseCursorTextSizePx = editorConfig.paint.getTextSize();
+    editorConfig.updateLineHeight();
+    
+    // Initialize delegate fields
+    lineHeight = editorConfig.lineHeight;
+    prefetchLines = editorConfig.performanceConfig.prefetchLines;
+    isRtl = editorConfig.visualConfig.isRtl;
+    paddingLeft = editorConfig.paddingLeft;
+    isEof = editorState.isEof;
+    currentMaxWindowLineWidth = editorState.currentMaxWindowLineWidth;
+    globalMaxLineWidth = editorState.globalMaxLineWidth;
+    isWindowLoading = editorState.isWindowLoading;
+    windowStartLine = editorState.windowStartLine;
+    linesWindow = editorState.linesWindow;
+    keyboardHeight = editorState.keyboardHeight;
+    drawBaseLine = editorState.drawBaseLine;
+    modifiedLines = editorState.modifiedLines;
+    windowSize = editorState.windowSize;
+
+    // Initialize index state fields
+    isIndexReady = editorIndexState.isIndexReady;
+    isIndexBuilding = editorIndexState.isIndexBuilding;
+    isIndexDisabled = editorIndexState.isIndexDisabled;
+    indexDisabledPath = editorIndexState.indexDisabledPath;
+    indexDisabledFileLength = editorIndexState.indexDisabledFileLength;
+    
+    // Initialize behavior config fields
+    isIndentationBlocksEnabled = editorConfig.behaviorConfig.isIndentationBlocksEnabled;
+    isMultiLineStringsEnabled = editorConfig.behaviorConfig.isMultiLineStringsEnabled;
+    isBacktickStringsEnabled = editorConfig.behaviorConfig.isBacktickStringsEnabled;
+    isTripleQuoteStringsEnabled = editorConfig.behaviorConfig.isTripleQuoteStringsEnabled;
+    isStableGlyphPositionsEnabled = editorConfig.performanceConfig.isStableGlyphPositionsEnabled;
+    binarySafeRenderingEnabled = editorConfig.behaviorConfig.binarySafeRenderingEnabled;
+    isAutoPairingEnabled = editorConfig.behaviorConfig.isAutoPairingEnabled;
+    isAutoBracketNewlineEnabled = editorConfig.behaviorConfig.isAutoBracketNewlineEnabled;
+    isAutoBracketNewlineIndentEnabled = editorConfig.behaviorConfig.isAutoBracketNewlineIndentEnabled;
+    isAutoIndentAfterClosingBracketEnabled = editorConfig.behaviorConfig.isAutoIndentAfterClosingBracketEnabled;
+    
     indentGuideRenderer = new com.yn.sodiumeditor.renderer.IndentGuideRenderer(this, indentGuideState);
     indentGuideEngine = new com.yn.sodiumeditor.core.IndentGuideEngine(this, indentGuideState);
     
@@ -409,10 +429,10 @@ public class SodiumEditorView extends View {
     errorUnderlineRenderer = new com.yn.sodiumeditor.renderer.ErrorUnderlineRenderer(this, highlightState);
 
     bracketMatchRenderer = new com.yn.sodiumeditor.renderer.BracketMatchRenderer(this, bracketMatchState);
-    bracketMatchRenderer.setBaseTextSizePx(paint.getTextSize());
+    bracketMatchRenderer.setBaseTextSizePx(editorConfig.paint.getTextSize());
     bracketMatchEngine = new com.yn.sodiumeditor.core.BracketMatchEngine(this, bracketMatchState);
     bracketGuideRenderer = new com.yn.sodiumeditor.renderer.BracketGuideRenderer(this, bracketGuideState);
-    bracketGuideRenderer.setBaseTextSizePx(paint.getTextSize());
+    bracketGuideRenderer.setBaseTextSizePx(editorConfig.paint.getTextSize());
     bracketGuideParser = new com.yn.sodiumeditor.core.BracketGuideParser(this, bracketGuideState, bracketGuideRenderer);
     whitespaceGuideRenderer = new com.yn.sodiumeditor.renderer.WhitespaceGuideRenderer(whitespaceGuideState);
     whitespaceGuideRenderer.initPaints(0xFF555555);
@@ -446,13 +466,26 @@ public class SodiumEditorView extends View {
     loadingCircleAnimator = new com.yn.sodiumeditor.renderer.animation.LoadingCircleAnimator(this, loadingCircleState);
 
     // Initialize Word Wrap components
-    wrapWordDocument = new com.yn.sodiumeditor.io.WrapWordDocument(modifiedLines);
+    wrapWordDocument = new com.yn.sodiumeditor.io.WrapWordDocument(editorState.modifiedLines);
     wrapWordEngine = new com.yn.sodiumeditor.core.WrapWordEngine(wrapWordMetrics, whitespaceGuideState);
     wrapWordMapper = new com.yn.sodiumeditor.core.WrapWordMapper(wrapWordMetrics, wrapWordEngine);
     wrapWordBuilder = new com.yn.sodiumeditor.core.WrapWordBuilder(wrapWordMetrics, wrapWordState, wrapWordEngine, wrapWordMapper, wrapWordDocument);
     wrapWordIndicatorRender.init(paint, density);
 
-    touchSlop = ViewConfiguration.get(ctx).getScaledTouchSlop();
+    editorInputState.touchSlop = ViewConfiguration.get(ctx).getScaledTouchSlop();
+
+    // Initialize IO Manager
+    editorIO = new com.yn.sodiumeditor.io.EditorIOManager(this);
+    ioHandler = editorIO.ioHandler;
+    ioTaskVersion = editorIO.ioTaskVersion;
+    
+    // Initialize file manager delegate
+    fileManager = editorIO;
+    lineOffsets = editorIndexState.lineOffsets;
+    lineOffsetsLock = editorIndexState.lineOffsetsLock;
+    textIO = editorIO.textIO;
+    lineIndex = editorIO.lineIndex;
+    
     imeManager = new InputMethodHandler(this);
     scrollManager = new ScrollEngine(this);
 
@@ -474,22 +507,6 @@ public class SodiumEditorView extends View {
     charAnimator = new com.yn.sodiumeditor.renderer.animation.CharAnimator(this, charAnimationConfig);
     inputManager = new InputManager(this, ctx);
 
-    lineWidthCache =
-        new LinkedHashMap<Integer, Float>(lineWidthCacheSize, 0.75f, true) {
-          @Override
-          protected boolean removeEldestEntry(Map.Entry<Integer, Float> eldest) {
-            return size() > lineWidthCacheSize;
-          }
-        };
-
-    ioThread = new HandlerThread("PopEditIO");
-    ioThread.start();
-    ioHandler = new Handler(ioThread.getLooper());
-    document = new Document(this);
-    lineIndex = new LineIndex(this);
-    textIO = new TextIO(this);
-    fileManager = document; // Legacy reference for backward compatibility
-
     setFocusable(true);
     setFocusableInTouchMode(true);
 
@@ -507,20 +524,24 @@ public class SodiumEditorView extends View {
                 int overlap = Math.max(0, viewBottom - imeTop);
                 newKeyboardHeight = Math.min(overlap, getHeight());
               } else {
-                getWindowVisibleDisplayFrame(visibleDisplayFrame);
+                getWindowVisibleDisplayFrame(editorInputState.visibleDisplayFrame);
                 getLocationInWindow(tmpLocationInWindow);
                 int viewBottom = tmpLocationInWindow[1] + getHeight();
-                int overlap = Math.max(0, viewBottom - visibleDisplayFrame.bottom);
+                int overlap = Math.max(0, viewBottom - editorInputState.visibleDisplayFrame.bottom);
                 newKeyboardHeight = overlap;
               }
 
-              if (newKeyboardHeight != keyboardHeight) {
-                keyboardHeight = newKeyboardHeight;
+              if (newKeyboardHeight != editorState.keyboardHeight) {
+                editorState.keyboardHeight = newKeyboardHeight;
                 post(scrollManager::keepCursorVisibleHorizontally);
               }
             });
 
-    autoSuggestionManager.initPaints(paint);
+    inlinePredictionTrie = new com.yn.sodiumeditor.core.WordTrie();
+    inlinePredictionPathEngine = new com.yn.sodiumeditor.core.PathPredictionEngine();
+    inlinePredictionEngine = new com.yn.sodiumeditor.core.InlinePredictionEngine(this, inlinePredictionState, inlinePredictionTrie, inlinePredictionPathEngine);
+    inlinePredictionRenderer = new com.yn.sodiumeditor.renderer.InlinePredictionRenderer(this, inlinePredictionState);
+    inlinePredictionRenderer.initPaints(paint);
 
     pathUnderlineRenderer.setPathUnderliningEnabled(true); // Enable path underlining by default
   }
@@ -532,13 +553,13 @@ public class SodiumEditorView extends View {
 
 
   public void setBinarySafeRenderingEnabled(boolean enabled) {
-    if (binarySafeRenderingEnabled == enabled) return;
-    binarySafeRenderingEnabled = enabled;
-    synchronized (lineWidthCache) {
-      lineWidthCache.clear();
+    if (editorConfig.behaviorConfig.binarySafeRenderingEnabled == enabled) return;
+    editorConfig.behaviorConfig.binarySafeRenderingEnabled = enabled;
+    synchronized (editorState.lineWidthCache) {
+      editorState.lineWidthCache.clear();
     }
-    currentMaxWindowLineWidth = 0f;
-    globalMaxLineWidth = 0f;
+    editorState.currentMaxWindowLineWidth = 0f;
+    editorState.globalMaxLineWidth = 0f;
     scrollManager.maxLineWidthForScroll = 0f;
     scrollManager.maxTextStartXForScroll = 0f;
     scrollManager.maxScrollXForScroll = 0f;
@@ -552,20 +573,20 @@ public class SodiumEditorView extends View {
 
   public void setVisibleCharPadding(int paddingChars) {
     int safe = Math.max(0, paddingChars);
-    if (visibleCharPadding == safe) return;
-    visibleCharPadding = safe;
+    if (editorConfig.visualConfig.visibleCharPadding == safe) return;
+    editorConfig.visualConfig.visibleCharPadding = safe;
     invalidate();
   }
 
   public void setStableGlyphPositionsEnabled(boolean enabled) {
-    if (this.isStableGlyphPositionsEnabled == enabled) return;
-    this.isStableGlyphPositionsEnabled = enabled;
+    if (this.editorConfig.performanceConfig.isStableGlyphPositionsEnabled == enabled) return;
+    this.editorConfig.performanceConfig.isStableGlyphPositionsEnabled = enabled;
     invalidate();
   }
 
   public void setPerformanceModeEnabled(boolean enabled) {
-    if (this.isPerformanceModeEnabled == enabled) return;
-    this.isPerformanceModeEnabled = enabled;
+    if (this.editorConfig.performanceConfig.isPerformanceModeEnabled == enabled) return;
+    this.editorConfig.performanceConfig.isPerformanceModeEnabled = enabled;
     if (enabled) {
       urlUnderlineRenderer.setUrlUnderliningEnabled(false);
       pathUnderlineRenderer.setPathUnderliningEnabled(false);
@@ -575,8 +596,8 @@ public class SodiumEditorView extends View {
       indentGuideRenderer.setIndentGuidesEnabled(false);
       whitespaceGuideState.setWhitespaceGuidesEnabled(false);
       wrapWordIndicatorRender.setEnabled(false);
-      autoSuggestionManager.setAutoCompletionEnabled(false);
-      autoSuggestionManager.setAutoPathCompletionEnabled(false);
+      inlinePredictionState.setAutoCompletionEnabled(false);
+      inlinePredictionState.setAutoPathCompletionEnabled(false);
       charAnimationConfig.setEnabled(false);
       highlightState.setHighlightCurrentLine(false);
       setIndentationBlocksEnabled(false);
@@ -602,14 +623,14 @@ public class SodiumEditorView extends View {
   // --- Public APIs for Line Numbers ---
 
   public void setEditorBackgroundColor(int color) {
-    hasEditorBackgroundColor = true;
-    editorBackgroundColor = color;
+    editorConfig.visualConfig.hasEditorBackgroundColor = true;
+    editorConfig.visualConfig.editorBackgroundColor = color;
     invalidate();
   }
 
   public void clearEditorBackgroundColor() {
-    if (!hasEditorBackgroundColor) return;
-    hasEditorBackgroundColor = false;
+    if (!editorConfig.visualConfig.hasEditorBackgroundColor) return;
+    editorConfig.visualConfig.hasEditorBackgroundColor = false;
     invalidate();
   }
 
@@ -621,7 +642,7 @@ public class SodiumEditorView extends View {
         setEditorBackgroundBitmap(bmp);
       }
     } catch (Exception e) {
-      Log.e("SodiumEditorView", "setEditorBackgroundImageFromAssets failed: " + assetPath, e);
+      Log.e("SodiumEditor", "setEditorBackgroundImageFromAssets failed: " + assetPath, e);
     }
   }
 
@@ -633,23 +654,23 @@ public class SodiumEditorView extends View {
         setEditorBackgroundBitmap(bmp);
       }
     } catch (Exception e) {
-      Log.e("SodiumEditorView", "setEditorBackgroundImageFromFile failed: " + filePath, e);
+      Log.e("SodiumEditor", "setEditorBackgroundImageFromFile failed: " + filePath, e);
     }
   }
 
   public void clearEditorBackgroundImage() {
-    if (editorBackgroundBitmap != null && !editorBackgroundBitmap.isRecycled()) {
-      editorBackgroundBitmap.recycle();
+    if (editorConfig.visualConfig.editorBackgroundBitmap != null && !editorConfig.visualConfig.editorBackgroundBitmap.isRecycled()) {
+      editorConfig.visualConfig.editorBackgroundBitmap.recycle();
     }
-    editorBackgroundBitmap = null;
+    editorConfig.visualConfig.editorBackgroundBitmap = null;
     invalidate();
   }
 
   private void setEditorBackgroundBitmap(Bitmap bitmap) {
-    if (editorBackgroundBitmap != null && !editorBackgroundBitmap.isRecycled()) {
-      editorBackgroundBitmap.recycle();
+    if (editorConfig.visualConfig.editorBackgroundBitmap != null && !editorConfig.visualConfig.editorBackgroundBitmap.isRecycled()) {
+      editorConfig.visualConfig.editorBackgroundBitmap.recycle();
     }
-    editorBackgroundBitmap = bitmap;
+    editorConfig.visualConfig.editorBackgroundBitmap = bitmap;
     invalidate();
   }
 
@@ -717,11 +738,11 @@ public class SodiumEditorView extends View {
 
 
   public void setFileCharset(@Nullable Charset charset) {
-    document.setFileCharset(charset);
+    editorIO.document.setFileCharset(charset);
   }
 
   public void setFileEncoding(@Nullable String charsetName) {
-    document.setFileEncoding(charsetName);
+    editorIO.document.setFileEncoding(charsetName);
   }
 
   public void setMaxSyntaxLineLength(int maxChars) {
@@ -754,7 +775,7 @@ public class SodiumEditorView extends View {
   }
 
   public int computeMinWindowSize() {
-    return viewRender.computeMinWindowSizeForPrefetch(prefetchLines);
+    return viewRender.computeMinWindowSizeForPrefetch(editorState.prefetchLines);
   }
 
   public int computeMinWindowSizeForPrefetch(int prefetch) {
@@ -766,9 +787,9 @@ public class SodiumEditorView extends View {
   }
 
   public void setCursorWidth(float width) {
-    if (handleRenderer.getBaseCursorWidthPx() == width && baseCursorTextSizePx == paint.getTextSize()) return;
+    if (handleRenderer.getBaseCursorWidthPx() == width && editorConfig.visualConfig.baseCursorTextSizePx == editorConfig.paint.getTextSize()) return;
     handleRenderer.setBaseCursorWidthPx(width);
-    this.baseCursorTextSizePx = paint.getTextSize();
+    editorConfig.visualConfig.baseCursorTextSizePx = editorConfig.paint.getTextSize();
     updateTextSizeDependentMetrics();
     invalidate();
   }
@@ -776,28 +797,28 @@ public class SodiumEditorView extends View {
 
 
   public void setClickAfterEndToAddLineEnabled(boolean enabled) {
-    this.isClickAfterEndToAddLineEnabled = enabled;
+    this.editorConfig.performanceConfig.isClickAfterEndToAddLineEnabled = enabled;
   }
 
   public void setAutoPairingEnabled(boolean enabled) {
-    this.isAutoPairingEnabled = enabled;
+    this.editorConfig.behaviorConfig.isAutoPairingEnabled = enabled;
   }
 
   public void setAutoBracketNewlineEnabled(boolean enabled) {
-    this.isAutoBracketNewlineEnabled = enabled;
+    this.editorConfig.behaviorConfig.isAutoBracketNewlineEnabled = enabled;
   }
 
   public void setAutoBracketNewlineIndentEnabled(boolean enabled) {
-    this.isAutoBracketNewlineIndentEnabled = enabled;
+    this.editorConfig.behaviorConfig.isAutoBracketNewlineIndentEnabled = enabled;
   }
 
   public void setAutoIndentAfterClosingBracketEnabled(boolean enabled) {
-    this.isAutoIndentAfterClosingBracketEnabled = enabled;
+    this.editorConfig.behaviorConfig.isAutoIndentAfterClosingBracketEnabled = enabled;
   }
 
   public void setIndentationBlocksEnabled(boolean enabled) {
-    if (this.isIndentationBlocksEnabled == enabled) return;
-    this.isIndentationBlocksEnabled = enabled;
+    if (this.editorConfig.behaviorConfig.isIndentationBlocksEnabled == enabled) return;
+    this.editorConfig.behaviorConfig.isIndentationBlocksEnabled = enabled;
     if (!enabled) {
       foldTouchHandler.removeIndentFolds();
     }
@@ -860,10 +881,10 @@ public class SodiumEditorView extends View {
 
 
   public void setLayoutDirection(boolean isRtl) {
-    if (this.isRtl == isRtl) return;
-    this.isRtl = isRtl;
-    lineNumberRenderer.setTextAlign(isRtl);
-    foldRenderer.foldMarkerPaint.setTextAlign(isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
+    if (this.editorConfig.isRtl() == isRtl) return;
+    this.editorConfig.setRtl(isRtl);
+    lineNumberRenderer.setTextAlign(editorConfig.isRtl());
+    foldRenderer.foldMarkerPaint.setTextAlign(editorConfig.isRtl() ? Paint.Align.LEFT : Paint.Align.RIGHT);
     lineNumberRenderer.invalidateCache();
     requestLayout();
     if (wrapWordState.isWordWrapEnabled) wrapWordBuilder.invalidate(true, true);
@@ -885,7 +906,7 @@ public class SodiumEditorView extends View {
       Typeface tf = Typeface.createFromAsset(getContext().getAssets(), assetPath);
       applyTypeface(tf, style);
     } catch (Exception e) {
-      Log.e("SodiumEditorView", "setFontFromAssets failed: " + assetPath, e);
+      Log.e("SodiumEditor", "setFontFromAssets failed: " + assetPath, e);
     }
   }
 
@@ -894,7 +915,7 @@ public class SodiumEditorView extends View {
       Typeface tf = Typeface.createFromFile(filePath);
       applyTypeface(tf, style);
     } catch (Exception e) {
-      Log.e("SodiumEditorView", "setFontFromFile failed: " + filePath, e);
+      Log.e("SodiumEditor", "setFontFromFile failed: " + filePath, e);
     }
   }
 
@@ -908,8 +929,8 @@ public class SodiumEditorView extends View {
 
   public float getTextSizeSp() {
     float scaled = getResources().getDisplayMetrics().scaledDensity;
-    if (scaled <= 0f) return paint.getTextSize();
-    return paint.getTextSize() / scaled;
+    if (scaled <= 0f) return editorConfig.paint.getTextSize();
+    return editorConfig.paint.getTextSize() / scaled;
   }
 
 
@@ -933,7 +954,7 @@ public class SodiumEditorView extends View {
   }
 
   public String getTextSnapshot() {
-    return textIO.getTextSnapshot();
+    return editorIO.textIO.getTextSnapshot();
   }
 
   float spToPx(float sp) {
@@ -950,16 +971,16 @@ public class SodiumEditorView extends View {
   }
 
   void updateTextSizeDependentMetrics() {
-    float sizePx = paint.getTextSize();
+    float sizePx = editorConfig.paint.getTextSize();
     handleRenderer.setHandleRadius(
         Math.max(
             4f,
             scaleByTextSize(
                 handleRenderer.getBaseHandleRadiusPx(),
-                baseCursorTextSizePx,
+                editorConfig.visualConfig.baseCursorTextSizePx,
                 sizePx)));
     handleRenderer.setCursorWidth(
-        Math.max(1f, scaleByTextSize(handleRenderer.getBaseCursorWidthPx(), baseCursorTextSizePx, sizePx)));
+        Math.max(1f, scaleByTextSize(handleRenderer.getBaseCursorWidthPx(), editorConfig.visualConfig.baseCursorTextSizePx, sizePx)));
 
     bracketMatchRenderer.applyScaledStrokeWidth(
         Math.max(1f, scaleByTextSize(bracketMatchRenderer.getBaseStrokeWidth(), bracketMatchRenderer.getBaseTextSizePx(), sizePx)));
@@ -974,15 +995,15 @@ public class SodiumEditorView extends View {
   }
 
   private void applyTextSizePx(float sizePx, boolean deferWrapRebuild) {
-    float oldSize = paint.getTextSize();
+    float oldSize = editorConfig.paint.getTextSize();
     if (Math.abs(sizePx - oldSize) < 0.1f) return;
 
-    paint.setTextSize(sizePx);
-    autoSuggestionManager.onTextSizeChanged(sizePx);
+    editorConfig.paint.setTextSize(sizePx);
+    inlinePredictionRenderer.onTextSizeChanged(sizePx);
     lineNumberRenderer.setTextSize(sizePx);
     foldRenderer.foldMarkerPaint.setTextSize(sizePx * foldRenderer.foldMarkerTextScale);
     wrapWordIndicatorRender.updatePaintForTextSize(sizePx, paint);
-    lineHeight = paint.getFontSpacing();
+    editorConfig.lineHeight = editorConfig.paint.getFontSpacing();
     updateTextSizeDependentMetrics();
     updateWhitespaceGuideMetrics();
     lineNumberRenderer.invalidateCache();
@@ -995,14 +1016,14 @@ public class SodiumEditorView extends View {
     highlightState.clearHighlightCaches();
 
     // Invalidate caches and approximate new max width
-    synchronized (lineWidthCache) {
-      lineWidthCache.clear();
+    synchronized (editorState.lineWidthCache) {
+      editorState.lineWidthCache.clear();
     }
     // Scale the max width instead of recalculating it synchronously.
     // This is an approximation but avoids massive lag.
     float scale = sizePx / oldSize;
-    currentMaxWindowLineWidth *= scale;
-    globalMaxLineWidth *= scale;
+    editorState.currentMaxWindowLineWidth *= scale;
+    editorState.globalMaxLineWidth *= scale;
     scrollManager.maxLineWidthForScroll *= scale;
     scrollManager.maxScrollXForScroll *= scale;
     scrollManager.maxTextStartXForScroll = 0f;
@@ -1026,11 +1047,11 @@ public class SodiumEditorView extends View {
   }
 
   public float getPaintTextSizePxForZoom() {
-    return paint.getTextSize();
+    return editorConfig.paint.getTextSize();
   }
 
   public float getPaintFontSpacingPxForZoom() {
-    return paint.getFontSpacing();
+    return editorConfig.paint.getFontSpacing();
   }
 
   int getEditVersionForSearch() {
@@ -1050,19 +1071,19 @@ public class SodiumEditorView extends View {
   }
 
   int getWindowStartLineForSearch() {
-    return windowStartLine;
+    return editorState.windowStartLine;
   }
 
   int getWindowSizeForSearch() {
-    return linesWindow.size();
+    return editorState.linesWindow.size();
   }
 
   boolean isIndexReadyForSearch() {
-    return isIndexReady;
+    return editorIndexState.isIndexReady;
   }
 
   boolean getSourceFileForSearchExists() {
-    return document.getSourceFile() != null && document.getSourceFile().exists();
+    return editorIO.document.getSourceFile() != null && editorIO.document.getSourceFile().exists();
   }
 
   void populateDirectLinesForRangeForSearch(
@@ -1076,12 +1097,12 @@ public class SodiumEditorView extends View {
   }
 
   public int getWindowStartLineForBracket() {
-    return windowStartLine;
+    return editorState.windowStartLine;
   }
 
   public int getWindowEndLineForBracket() {
-    synchronized (linesWindow) {
-      return windowStartLine + linesWindow.size() - 1;
+    synchronized (editorState.linesWindow) {
+      return editorState.windowStartLine + editorState.linesWindow.size() - 1;
     }
   }
 
@@ -1099,19 +1120,19 @@ public class SodiumEditorView extends View {
   }
 
   public boolean isBlockCommentsEnabledForMatch() {
-    return isBlockCommentsEnabled;
+    return editorConfig.behaviorConfig.isBlockCommentsEnabled;
   }
 
   public boolean isMultiLineStringsEnabledForMatch() {
-    return isMultiLineStringsEnabled;
+    return editorConfig.behaviorConfig.isMultiLineStringsEnabled;
   }
 
   public boolean isBacktickStringsEnabledForMatch() {
-    return isBacktickStringsEnabled;
+    return editorConfig.behaviorConfig.isBacktickStringsEnabled;
   }
 
   public boolean isTripleQuoteStringsEnabledForMatch() {
-    return isTripleQuoteStringsEnabled;
+    return editorConfig.behaviorConfig.isTripleQuoteStringsEnabled;
   }
 
   public int getStringStateTripleForMatch() {
@@ -1129,11 +1150,11 @@ public class SodiumEditorView extends View {
   }
 
   public float getLineHeightForMatch() {
-    return lineHeight;
+    return editorConfig.lineHeight;
   }
 
   public float getPaintTextSizeForMatch() {
-    return paint.getTextSize();
+    return editorConfig.paint.getTextSize();
   }
 
   public String getLineTextForRenderWithDirectForBracket(
@@ -1142,19 +1163,19 @@ public class SodiumEditorView extends View {
   }
 
   public boolean isBlockCommentsEnabledForBracket() {
-    return isBlockCommentsEnabled;
+    return editorConfig.behaviorConfig.isBlockCommentsEnabled;
   }
 
   public boolean isMultiLineStringsEnabledForBracket() {
-    return isMultiLineStringsEnabled;
+    return editorConfig.behaviorConfig.isMultiLineStringsEnabled;
   }
 
   public boolean isBacktickStringsEnabledForBracket() {
-    return isBacktickStringsEnabled;
+    return editorConfig.behaviorConfig.isBacktickStringsEnabled;
   }
 
   public boolean isTripleQuoteStringsEnabledForBracket() {
-    return isTripleQuoteStringsEnabled;
+    return editorConfig.behaviorConfig.isTripleQuoteStringsEnabled;
   }
 
   public int getStringStateTripleForBracket() {
@@ -1175,11 +1196,11 @@ public class SodiumEditorView extends View {
   }
 
   public float getPaintTextSizeForBracket() {
-    return paint.getTextSize();
+    return editorConfig.paint.getTextSize();
   }
 
   public boolean isRtlForBracket() {
-    return isRtl;
+    return editorConfig.isRtl();
   }
 
 
@@ -1192,7 +1213,7 @@ public class SodiumEditorView extends View {
   }
 
   public float getLineHeightForBracket() {
-    return lineHeight;
+    return editorConfig.lineHeight;
   }
 
 
@@ -1214,16 +1235,16 @@ public class SodiumEditorView extends View {
   }
 
   public void setDownForInput(float x, float y) {
-    downX = x;
-    downY = y;
+    editorInputState.downX = x;
+    editorInputState.downY = y;
   }
 
   public void setMovedSinceDown(boolean moved) {
-    movedSinceDown = moved;
+    editorInputState.movedSinceDown = moved;
   }
 
   public boolean isMovedSinceDown() {
-    return movedSinceDown;
+    return editorInputState.movedSinceDown;
   }
 
   public boolean isLineNumberSelectionEnabledForInput() {
@@ -1259,7 +1280,7 @@ public class SodiumEditorView extends View {
   }
 
   public int getWindowStartLineForInput() {
-    return windowStartLine;
+    return editorState.windowStartLine;
   }
 
   public boolean applySmartDoubleTapSelectionForInput(int line, int ch, String ln) {
@@ -1281,7 +1302,7 @@ public class SodiumEditorView extends View {
   }
 
   public float getLineHeightForInput() {
-    return lineHeight;
+    return editorConfig.lineHeight;
   }
 
   public int getTotalVisualLineCountForInput() {
@@ -1305,19 +1326,19 @@ public class SodiumEditorView extends View {
   }
 
   public boolean isEofForInput() {
-    return isEof;
+    return editorState.isEof;
   }
 
   public int getLinesWindowSizeForInput() {
-    return linesWindow.size();
+    return editorState.linesWindow.size();
   }
 
   public boolean isLinesWindowEmptyForInput() {
-    return linesWindow.isEmpty();
+    return editorState.linesWindow.isEmpty();
   }
 
   public boolean isClickAfterEndToAddLineEnabledForInput() {
-    return isClickAfterEndToAddLineEnabled;
+    return editorConfig.performanceConfig.isClickAfterEndToAddLineEnabled;
   }
 
   public void setCursorPositionForInput(int line, int ch) {
@@ -1329,7 +1350,7 @@ public class SodiumEditorView extends View {
     editorTextInserter.insertTextAtCursor(text);
   }
 
-  void insertStringAtCursorForSuggestion(String text) {
+  public void insertStringAtCursorForSuggestion(String text) {
     cursorState.setCursorPosition(cursorState.getCursorLine(), cursorState.getCursorChar());
     editorTextInserter.insertTextAtCursor(text);
   }
@@ -1339,7 +1360,7 @@ public class SodiumEditorView extends View {
   }
 
   public void updateSuggestionForInput() {
-    autoSuggestionManager.updateSuggestion();
+    inlinePredictionEngine.updateSuggestion();
   }
 
   void restartInputForInput() {
@@ -1366,16 +1387,16 @@ public class SodiumEditorView extends View {
       return;
     }
     Typeface safeBase = (typeface != null) ? typeface : Typeface.DEFAULT;
-    baseTypeface = safeBase;
+    editorConfig.baseTypeface = safeBase;
     int typefaceStyle;
     switch (style) {
-      case STYLE_BOLD:
+      case com.yn.sodiumeditor.config.EditorConfig.STYLE_BOLD:
         typefaceStyle = Typeface.BOLD;
         break;
-      case STYLE_ITALIC:
+      case com.yn.sodiumeditor.config.EditorConfig.STYLE_ITALIC:
         typefaceStyle = Typeface.ITALIC;
         break;
-      case STYLE_BOLD_ITALIC:
+      case com.yn.sodiumeditor.config.EditorConfig.STYLE_BOLD_ITALIC:
         typefaceStyle = Typeface.BOLD_ITALIC;
         break;
       default:
@@ -1383,8 +1404,8 @@ public class SodiumEditorView extends View {
         break;
     }
     Typeface finalTypeface = Typeface.create(safeBase, typefaceStyle);
-    paint.setTypeface(finalTypeface);
-    autoSuggestionManager.onEditorTypefaceChanged(finalTypeface);
+    editorConfig.paint.setTypeface(finalTypeface);
+    inlinePredictionRenderer.onEditorTypefaceChanged(finalTypeface);
     lineNumberRenderer.setTypeface(finalTypeface);
     foldRenderer.foldMarkerPaint.setTypeface(finalTypeface);
     wrapWordIndicatorRender.updateTypeface(paint);
@@ -1397,14 +1418,14 @@ public class SodiumEditorView extends View {
     }
     highlightState.clearHighlightCaches();
 
-    lineHeight = paint.getFontSpacing();
+    editorConfig.lineHeight = editorConfig.paint.getFontSpacing();
     updateWhitespaceGuideMetrics();
     lineNumberRenderer.invalidateCache();
-    synchronized (lineWidthCache) {
-      lineWidthCache.clear();
+    synchronized (editorState.lineWidthCache) {
+      editorState.lineWidthCache.clear();
     }
-    currentMaxWindowLineWidth = 0f;
-    globalMaxLineWidth = 0f;
+    editorState.currentMaxWindowLineWidth = 0f;
+    editorState.globalMaxLineWidth = 0f;
     scrollManager.maxLineWidthForScroll = 0f;
     scrollManager.maxTextStartXForScroll = 0f;
     scrollManager.maxScrollXForScroll = 0f;
@@ -1417,7 +1438,7 @@ public class SodiumEditorView extends View {
   }
 
   private void updateWhitespaceGuideMetrics() {
-    whitespaceGuideRenderer.updateMetrics(paint, WHITESPACE_GUIDE_SPACE, WHITESPACE_GUIDE_TAB);
+    whitespaceGuideRenderer.updateMetrics(paint, editorConfig.visualConfig.WHITESPACE_GUIDE_SPACE, editorConfig.visualConfig.WHITESPACE_GUIDE_TAB);
 
   }
 
@@ -1445,10 +1466,10 @@ public class SodiumEditorView extends View {
     float oldGutterWidth = lineNumberState.getLineNumbersGutterWidth();
     if (lineNumberState.isShowLineNumbers()) {
       int maxLines;
-      if (isIndexReady) {
-        maxLines = lineOffsets.length;
-      } else if (isEof) {
-        maxLines = windowStartLine + linesWindow.size();
+      if (editorIndexState.isIndexReady) {
+        maxLines = editorIndexState.lineOffsets.length;
+      } else if (editorState.isEof) {
+        maxLines = editorState.windowStartLine + editorState.linesWindow.size();
       } else {
         maxLines = 999999; // Wider fallback for width calculation until index is ready
       }
@@ -1485,8 +1506,8 @@ public class SodiumEditorView extends View {
       scrollManager.maxTextStartXForScroll = 0f;
     }
     int minWindow = computeMinWindowSize();
-    if (windowSize < minWindow) {
-      windowSize = minWindow;
+    if (editorState.windowSize < minWindow) {
+      editorState.windowSize = minWindow;
       reloadWindowAroundVisible(false);
     }
     if (wrapWordState.isWordWrapEnabled && w != oldw) {
@@ -1496,7 +1517,7 @@ public class SodiumEditorView extends View {
   }
 
   public float getTextStartX() {
-    return lineNumberRenderer.getTextStartX(paddingLeft, isRtl);
+    return lineNumberRenderer.getTextStartX(editorConfig.paddingLeft, isRtl);
   }
 
   public float getEffectiveScrollX() {
@@ -1512,7 +1533,7 @@ public class SodiumEditorView extends View {
   }
 
   public float getTextAreaWidth() {
-    return lineNumberRenderer.getTextAvailableWidth(getWidth(), paddingLeft);
+    return lineNumberRenderer.getTextAvailableWidth(getWidth(), editorConfig.paddingLeft);
   }
 
   public float getRtlLineBaseX(@Nullable String line, int globalLine) {
@@ -1542,8 +1563,8 @@ public class SodiumEditorView extends View {
   }
 
   public int getWindowEndLine() {
-    synchronized (linesWindow) {
-      return Math.max(0, windowStartLine + linesWindow.size() - 1);
+    synchronized (editorState.linesWindow) {
+      return Math.max(0, editorState.windowStartLine + editorState.linesWindow.size() - 1);
     }
   }
 
@@ -1566,9 +1587,9 @@ public class SodiumEditorView extends View {
   }
 
   private void beginLineNumberSelection(int line) {
-    int clamped = com.yn.sodiumeditor.utils.SelectionUtils.clampLineForSelection(line, isEof, windowStartLine, linesWindow.size());
+    int clamped = com.yn.sodiumeditor.utils.SelectionUtils.clampLineForSelection(line, editorState.isEof, editorState.windowStartLine, editorState.linesWindow.size());
     if (!com.yn.sodiumeditor.utils.SelectionUtils.isLineSelectable(getLineTextForRender(clamped))) return;
-    autoSuggestionManager.clearActiveSuggestion();
+    inlinePredictionState.clearActiveSuggestion();
     selectionState.setLineNumberSelecting(true, clamped);
     selectionState.setSelectAllState(false, false);
     String lineText = getLineTextForRender(clamped);
@@ -1581,7 +1602,7 @@ public class SodiumEditorView extends View {
 
   private void updateLineNumberSelection(int line) {
     if (!selectionState.isLineNumberSelecting()) return;
-    int clamped = com.yn.sodiumeditor.utils.SelectionUtils.clampLineForSelection(line, isEof, windowStartLine, linesWindow.size());
+    int clamped = com.yn.sodiumeditor.utils.SelectionUtils.clampLineForSelection(line, editorState.isEof, editorState.windowStartLine, editorState.linesWindow.size());
     if (!com.yn.sodiumeditor.utils.SelectionUtils.isLineSelectable(getLineTextForRender(clamped))) return;
     int anchorLine = selectionState.getLineNumberSelectAnchorLine();
     int startLine = Math.min(anchorLine, clamped);
@@ -1609,19 +1630,19 @@ public class SodiumEditorView extends View {
       int safeIdx = Math.max(0, Math.min(range.openCharIndex, line.length()));
       String prefix = line.substring(0, safeIdx);
       placeholderStart = prefix.length() + 2;
-      placeholderEnd = placeholderStart + FOLD_PLACEHOLDER_TEXT.length();
-      display = prefix + "/*" + FOLD_PLACEHOLDER_TEXT + "*/";
+      placeholderEnd = placeholderStart + editorConfig.visualConfig.FOLD_PLACEHOLDER_TEXT.length();
+      display = prefix + "/*" + editorConfig.visualConfig.FOLD_PLACEHOLDER_TEXT + "*/";
     } else if (range.isIndentFold) {
       String prefix = line;
       placeholderStart = prefix.length();
-      placeholderEnd = placeholderStart + FOLD_PLACEHOLDER_TEXT.length();
-      display = prefix + FOLD_PLACEHOLDER_TEXT;
+      placeholderEnd = placeholderStart + editorConfig.visualConfig.FOLD_PLACEHOLDER_TEXT.length();
+      display = prefix + editorConfig.visualConfig.FOLD_PLACEHOLDER_TEXT;
     } else {
       int safeIdx = Math.max(0, Math.min(range.openCharIndex, Math.max(0, line.length() - 1)));
       String prefix = line.substring(0, safeIdx + 1);
       placeholderStart = prefix.length();
-      placeholderEnd = placeholderStart + FOLD_PLACEHOLDER_TEXT.length();
-      display = prefix + FOLD_PLACEHOLDER_TEXT + range.closeChar;
+      placeholderEnd = placeholderStart + editorConfig.visualConfig.FOLD_PLACEHOLDER_TEXT.length();
+      display = prefix + editorConfig.visualConfig.FOLD_PLACEHOLDER_TEXT + range.closeChar;
     }
 
     if (placeholderBoundsOut != null && placeholderBoundsOut.length >= 2) {
@@ -1708,12 +1729,12 @@ public class SodiumEditorView extends View {
       start = end;
       end = t;
     }
-    int pad = Math.max(0, visibleCharPadding);
+    int pad = Math.max(0, editorConfig.visualConfig.visibleCharPadding);
     start = Math.max(0, start - pad);
     end = Math.min(len, end + pad);
     int visibleLen = Math.max(0, end - start);
-    int maxExtra = Math.max(0, colsWidthCacheSize - visibleLen);
-    int extraPad = Math.min(Math.max(0, prefetchCols), maxExtra / 2);
+    int maxExtra = Math.max(0, editorState.colsWidthCacheSize - visibleLen);
+    int extraPad = Math.min(Math.max(0, editorState.prefetchCols), maxExtra / 2);
     start = Math.max(0, start - extraPad);
     end = Math.min(len, end + extraPad);
     out[0] = start;
@@ -1721,8 +1742,8 @@ public class SodiumEditorView extends View {
   }
 
   public int getInitialStreamedSliceSize() {
-    int base = Math.max(128, colsWidthCacheSize);
-    int pad = Math.max(0, prefetchCols) * 2;
+    int base = Math.max(128, editorState.colsWidthCacheSize);
+    int pad = Math.max(0, editorState.prefetchCols) * 2;
     return Math.max(base, pad);
   }
 
@@ -1754,45 +1775,7 @@ public class SodiumEditorView extends View {
 
 
   public boolean isMixedDirectionText(CharSequence text, int start, int end) {
-    if (text == null || start >= end) return false;
-    int safeStart = Math.max(0, start);
-    int safeEnd = Math.min(text.length(), end);
-    boolean hasRtl = false;
-    boolean hasLtr = false;
-    for (int i = safeStart; i < safeEnd; ) {
-      int codePoint = Character.codePointAt(text, i);
-      i += Character.charCount(codePoint);
-      Character.UnicodeBlock block = Character.UnicodeBlock.of(codePoint);
-      if (block == null) continue;
-      if (isRtlScriptBlock(block)) {
-        hasRtl = true;
-      } else if (isLatinScriptBlock(block)) {
-        hasLtr = true;
-      }
-      if (hasRtl && hasLtr) return true;
-    }
-    return false;
-  }
-
-  private boolean isRtlScriptBlock(Character.UnicodeBlock block) {
-    return block == Character.UnicodeBlock.ARABIC
-        || block == Character.UnicodeBlock.ARABIC_SUPPLEMENT
-        || block == Character.UnicodeBlock.ARABIC_EXTENDED_A
-        || block == Character.UnicodeBlock.ARABIC_PRESENTATION_FORMS_A
-        || block == Character.UnicodeBlock.ARABIC_PRESENTATION_FORMS_B
-        || block == Character.UnicodeBlock.ARABIC_MATHEMATICAL_ALPHABETIC_SYMBOLS
-        || block == Character.UnicodeBlock.HEBREW;
-  }
-
-  private boolean isLatinScriptBlock(Character.UnicodeBlock block) {
-    return block == Character.UnicodeBlock.BASIC_LATIN
-        || block == Character.UnicodeBlock.LATIN_1_SUPPLEMENT
-        || block == Character.UnicodeBlock.LATIN_EXTENDED_A
-        || block == Character.UnicodeBlock.LATIN_EXTENDED_B
-        || block == Character.UnicodeBlock.LATIN_EXTENDED_C
-        || block == Character.UnicodeBlock.LATIN_EXTENDED_D
-        || block == Character.UnicodeBlock.LATIN_EXTENDED_E
-        || block == Character.UnicodeBlock.LATIN_EXTENDED_ADDITIONAL;
+    return com.yn.sodiumeditor.utils.TextUtils.isMixedDirectionText(text, start, end);
   }
 
   public int getVisualSpaceScale() {
@@ -1804,7 +1787,7 @@ public class SodiumEditorView extends View {
   }
 
   public boolean isIndentationBlocksEnabledForIndentGuides() {
-    return isIndentationBlocksEnabled;
+    return editorConfig.behaviorConfig.isIndentationBlocksEnabled;
   }
 
   public boolean isHeavyDrawSuppressedForIndentGuides() {
@@ -1816,7 +1799,7 @@ public class SodiumEditorView extends View {
   }
 
   public float getIndentGuideLineHeight() {
-    return lineHeight;
+    return editorConfig.lineHeight;
   }
 
   public int getIndentGuideTabSize() {
@@ -1824,7 +1807,7 @@ public class SodiumEditorView extends View {
   }
 
   public String getIndentGuideUnit() {
-    return INDENT_BLOCK_UNIT;
+    return editorConfig.visualConfig.INDENT_BLOCK_UNIT;
   }
 
   public float measureTextWithVisualSpacesForIndentGuides(String line, int start, int end) {
@@ -1844,7 +1827,7 @@ public class SodiumEditorView extends View {
   }
 
   public float getIndentGuideTextSizePx() {
-    return paint.getTextSize();
+    return editorConfig.paint.getTextSize();
   }
 
 
@@ -1936,16 +1919,16 @@ public class SodiumEditorView extends View {
 
   public void maybeKickWindowLoad(int firstVisibleLine) {
     if (zoomGestureHandler.isZoomGestureActive()) return;
-    if (document.getSourceFile() == null || document.isFileCleared()) {
+    if (editorIO.document.getSourceFile() == null || editorIO.isFileCleared()) {
       return;
     }
-    if (isWindowLoading) return;
+    if (editorState.isWindowLoading) return;
 
     boolean inside =
-        firstVisibleLine >= windowStartLine
-            && firstVisibleLine < windowStartLine + linesWindow.size();
+        firstVisibleLine >= editorState.windowStartLine
+            && firstVisibleLine < editorState.windowStartLine + editorState.linesWindow.size();
     if (!inside) {
-      int targetStart = Math.max(0, firstVisibleLine - prefetchLines);
+      int targetStart = Math.max(0, firstVisibleLine - editorState.prefetchLines);
       loadWindowAround(targetStart, null, false);
     }
   }
@@ -2037,8 +2020,8 @@ public class SodiumEditorView extends View {
   }
 
   public void invalidatePendingIOForEdit() {
-    ioTaskVersion.incrementAndGet();
-    ioHandler.removeCallbacksAndMessages(null);
+    editorIO.ioTaskVersion.incrementAndGet();
+    editorIO.ioHandler.removeCallbacksAndMessages(null);
     highlightState.clearHighlightCaches();
     if (foldState.isCodeFoldingEnabled) {
       foldTouchHandler.clearAllFolds();
@@ -2047,15 +2030,15 @@ public class SodiumEditorView extends View {
   }
 
   public void clearContent() {
-    document.clearContent();
+    editorIO.document.clearContent();
   }
 
   public void loadFromFile(final File file) {
-    document.loadFromFile(file);
+    editorIO.document.loadFromFile(file);
   }
 
   public void updateSourceFile(File file) {
-    document.updateSourceFile(file);
+    editorIO.document.updateSourceFile(file);
   }
 
   public int getEditVersionValue() {
@@ -2069,15 +2052,15 @@ public class SodiumEditorView extends View {
   }
 
   public void setTextColor(int color) {
-    paint.setColor(color);
+    editorConfig.paint.setColor(color);
     invalidate();
   }
 
   public void setReadOnly(boolean readOnly) {
-    if (this.isReadOnly == readOnly) return;
-    this.isReadOnly = readOnly;
+    if (editorConfig.behaviorConfig.isReadOnly == readOnly) return;
+    editorConfig.behaviorConfig.isReadOnly = readOnly;
     if (readOnly) {
-      autoSuggestionManager.clearActiveSuggestion();
+      inlinePredictionState.clearActiveSuggestion();
       selectionState.clearSelectionKeepLineNumberState();
       popupTouchHandler.hidePopup();
       InputMethodManager imm =
@@ -2089,7 +2072,7 @@ public class SodiumEditorView extends View {
   }
 
   public void setDisable(boolean disable) {
-    this.isDisabled = disable;
+    editorConfig.behaviorConfig.isDisabled = disable;
     // The keyboard should not be hidden automatically when the view is disabled
     // for background operations, as this provides a poor user experience for
     // quick operations like 'select all' -> 'delete'. The modal loading
@@ -2106,19 +2089,19 @@ public class SodiumEditorView extends View {
   }
 
   public void setShowLoadingOnFileOpen(boolean enabled) {
-    document.setShowLoadingOnFileOpen(enabled);
+    editorIO.document.setShowLoadingOnFileOpen(enabled);
   }
 
   private boolean shouldShowLargeEditUi(int sL, int eL, boolean isSelectAllLike) {
     int span = Math.abs(eL - sL) + 1;
-    return isSelectAllLike || span >= LARGE_EDIT_LINES;
+    return isSelectAllLike || span >= editorLoadingState.LARGE_EDIT_LINES;
   }
 
   public void beginLargeEditUiIfNeeded(boolean enable, int sL, int eL, boolean isSelectAllLike) {
     if (!enable) return;
     if (!shouldShowLargeEditUi(sL, eL, isSelectAllLike)) return;
 
-    final int token = largeEditUiToken.incrementAndGet();
+    final int token = editorLoadingState.largeEditUiToken.incrementAndGet();
     setDisable(true);
     loadingCircleAnimator.show(true);
 
@@ -2129,12 +2112,12 @@ public class SodiumEditorView extends View {
     // Also ensure token validity for later hides.
     post(
         () -> {
-          if (token != largeEditUiToken.get()) return;
+          if (token != editorLoadingState.largeEditUiToken.get()) return;
         });
   }
 
   private void endLargeEditUi(boolean invalidate) {
-    largeEditUiToken.incrementAndGet();
+    editorLoadingState.largeEditUiToken.incrementAndGet();
     mainHandler.removeCallbacks(largeEditUiWatchdog);
     setDisable(false);
     loadingCircleAnimator.show(false);
@@ -2155,7 +2138,7 @@ public class SodiumEditorView extends View {
   }
 
   public void rewriteReplaceRangeAsyncPublic(int opToken, File inFile, int sL, int sC, int eL, int eC, String insertText, CursorTarget target, boolean finishLargeEditUi) {
-    textIO.rewriteReplaceRangeAsync(opToken, inFile, sL, sC, eL, eC, insertText, target, finishLargeEditUi);
+    editorIO.textIO.rewriteReplaceRangeAsync(opToken, inFile, sL, sC, eL, eC, insertText, target, finishLargeEditUi);
   }
 
   public void setSelectionInternal(int sL, int sC, int eL, int eC) {
@@ -2180,7 +2163,7 @@ public class SodiumEditorView extends View {
   }
 
   public void goToLine(int line, int col) {
-    final int currentGoToLineVersion = goToLineVersion.incrementAndGet();
+    final int currentGoToLineVersion = editorIndexState.incrementGoToLineVersion();
     setDisable(true);
     loadingCircleAnimator.show(true);
 
@@ -2195,18 +2178,18 @@ public class SodiumEditorView extends View {
 
     Integer knownTotal = null;
 
-    if (sourceFile == null || isFileCleared) {
-      // In-memory mode: the "document" is exactly what we have in memory.
-      synchronized (linesWindow) {
-        knownTotal = Math.max(1, windowStartLine + linesWindow.size());
+    if (editorIO.sourceFile == null || editorIO.isFileCleared) {
+      // In-memory mode: the "editorIO.document" is exactly what we have in memory.
+      synchronized (editorState.linesWindow) {
+        knownTotal = Math.max(1, editorState.windowStartLine + editorState.linesWindow.size());
       }
-    } else if (isIndexReady) {
-      synchronized (lineOffsetsLock) {
-        knownTotal = Math.max(1, lineOffsets.length);
+    } else if (editorIndexState.isIndexReady) {
+      synchronized (editorIndexState.lineOffsetsLock) {
+        knownTotal = Math.max(1, editorIndexState.lineOffsets.length);
       }
-    } else if (isEof) {
-      synchronized (linesWindow) {
-        knownTotal = Math.max(1, windowStartLine + linesWindow.size());
+    } else if (editorState.isEof) {
+      synchronized (editorState.linesWindow) {
+        knownTotal = Math.max(1, editorState.windowStartLine + editorState.linesWindow.size());
       }
     }
 
@@ -2216,7 +2199,7 @@ public class SodiumEditorView extends View {
     } else {
       countTotalLines(
           totalLines -> {
-            if (currentGoToLineVersion != goToLineVersion.get()) return;
+            if (currentGoToLineVersion != editorIndexState.getGoToLineVersion()) return;
             int total = (totalLines > 0) ? totalLines : (requestedLine + 1);
             int clampedLine = Math.min(requestedLine, Math.max(0, total - 1));
             cursorNavigation.proceedGoToLineClamped(currentGoToLineVersion, clampedLine, requestedCol);
@@ -2288,7 +2271,7 @@ public class SodiumEditorView extends View {
   private static final int COPY_CUT_MAX_CHARS = 8_000_000; // safety cap
   private long copyCutMaxLines = COPY_CUT_MAX_LINES;
   private int copyCutMaxChars = COPY_CUT_MAX_CHARS;
-  private int hideCopyCutMaxLines = HIDE_COPY_CUT_LINES;
+  private int hideCopyCutMaxLines = editorLoadingState.HIDE_COPY_CUT_LINES;
   private int replaceAllMaxCount = 100000;
   private boolean hideKeyboardOnFocusLoss = true;
 
@@ -2326,7 +2309,7 @@ public class SodiumEditorView extends View {
   public void pasteFromClipboard() {
     invalidatePendingIOForEdit();
     history.incrementEditVersion();
-    autoSuggestionManager.clearActiveSuggestion(); // Clear suggestion when pasting
+    inlinePredictionState.clearActiveSuggestion(); // Clear suggestion when pasting
 
     ClipboardManager cm =
         (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
@@ -2337,7 +2320,7 @@ public class SodiumEditorView extends View {
     if (txt == null) return;
     cursorState.setCursorPosition(cursorState.getCursorLine(), cursorState.getCursorChar());
     editorTextInserter.insertTextAtCursor(txt.toString());
-    autoSuggestionManager.updateSuggestion(); // Update suggestion after pasting
+    inlinePredictionEngine.updateSuggestion(); // Update suggestion after pasting
   }
 
   public void actionPaste() {
@@ -2349,28 +2332,28 @@ public class SodiumEditorView extends View {
   }
 
   private void countTotalLines(LineCountCallback callback) {
-    lineIndex.countTotalLines((total) -> callback.onResult(total));
+    editorIO.lineIndex.countTotalLines((total) -> callback.onResult(total));
   }
 
   public String readRangeText(int sL, int sC, int eL, int eC) {
-    return textIO.readRangeText(sL, sC, eL, eC);
+    return editorIO.textIO.readRangeText(sL, sC, eL, eC);
   }
 
   public long computeByteRangeFastOrScanPublic(File file, int sL, int sC, int eL, int eC) {
-    LineIndex.RangeBytes range = lineIndex.computeByteRangeFastOrScan(file, sL, sC, eL, eC);
+    LineIndex.RangeBytes range = editorIO.lineIndex.computeByteRangeFastOrScan(file, sL, sC, eL, eC);
     return (range != null) ? range.startByte : 0;
   }
 
   public LineIndex.RangeBytes computeByteRangeFastOrScanPublicFull(File file, int sL, int sC, int eL, int eC) {
-    return lineIndex.computeByteRangeFastOrScan(file, sL, sC, eL, eC);
+    return editorIO.lineIndex.computeByteRangeFastOrScan(file, sL, sC, eL, eC);
   }
 
   public boolean isIndexBuildingPublic() {
-    return isIndexBuilding;
+    return editorIndexState.isIndexBuilding;
   }
 
   public boolean isIndexDisabledPublic() {
-    return isIndexDisabled;
+    return editorIndexState.isIndexDisabled;
   }
 
   public void selectAll() {
@@ -2385,7 +2368,7 @@ public class SodiumEditorView extends View {
   // DELETE/REPLACE SELECTION (FIXED)
   // ==============================
   public void deleteSelection() {
-    autoSuggestionManager.clearActiveSuggestion(); // Clear suggestion when deleting selection
+    inlinePredictionState.clearActiveSuggestion(); // Clear suggestion when deleting selection
     replaceSelectionWithText("");
   }
 
@@ -2504,7 +2487,7 @@ public class SodiumEditorView extends View {
   }
 
   private LineIndex.RangeBytes computeByteRangeFastOrScan(File file, int sL, int sC, int eL, int eC) {
-    return lineIndex.computeByteRangeFastOrScan(file, sL, sC, eL, eC);
+    return editorIO.lineIndex.computeByteRangeFastOrScan(file, sL, sC, eL, eC);
   }
 
   LineIndex.RangeBytes computeByteRangeFastOrScanForUndo(File file, int sL, int sC, int eL, int eC) {
@@ -2512,30 +2495,30 @@ public class SodiumEditorView extends View {
   }
 
   public Handler getIoHandlerForUndo() {
-    return ioHandler;
+    return editorIO.ioHandler;
   }
 
   public void onUndoRedoRewriteSuccess(File inFile) {
-    textIO.onUndoRedoRewriteSuccess(inFile);
+    editorIO.textIO.onUndoRedoRewriteSuccess(inFile);
   }
 
   private long findLineStartByteByScanning(RandomAccessFile raf, int targetLine) throws Exception {
-    return lineIndex.findLineStartByteByScanning(raf, targetLine);
+    return editorIO.lineIndex.findLineStartByteByScanning(raf, targetLine);
   }
 
   public String readLineUtf8AtByte(RandomAccessFile raf, long byteOffset) throws Exception {
-    return textIO.readLineUtf8AtByte(raf, byteOffset);
+    return editorIO.textIO.readLineUtf8AtByte(raf, byteOffset);
   }
 
   public long getLineByteLengthFromIndex(RandomAccessFile raf, int line, long fileLen)
       throws Exception {
-    return lineIndex.getLineByteLengthFromIndex(raf, line, fileLen);
+    return editorIO.lineIndex.getLineByteLengthFromIndex(raf, line, fileLen);
   }
 
   public String readLineSliceAtByte(
       RandomAccessFile raf, long lineStart, long lineByteLen, int startChar, int endChar)
       throws Exception {
-    return textIO.readLineSliceAtByte(raf, lineStart, lineByteLen, startChar, endChar);
+    return editorIO.textIO.readLineSliceAtByte(raf, lineStart, lineByteLen, startChar, endChar);
   }
 
   public static final class StreamedCharSlice {
@@ -2551,11 +2534,11 @@ public class SodiumEditorView extends View {
   public StreamedCharSlice readLineSliceByChars(
       RandomAccessFile raf, long lineStart, int startChar, int endChar, boolean needTotalLength)
       throws Exception {
-    return textIO.readLineSliceByChars(raf, lineStart, startChar, endChar, needTotalLength);
+    return editorIO.textIO.readLineSliceByChars(raf, lineStart, startChar, endChar, needTotalLength);
   }
 
   private long computeByteOffsetInLineUtf8(String lineText, int charIndex) {
-    return textIO.computeByteOffsetInLineUtf8(lineText, charIndex);
+    return editorIO.textIO.computeByteOffsetInLineUtf8(lineText, charIndex);
   }
 
   private int getCharIndexForX(String text, float x, int globalLine) {
@@ -2579,7 +2562,7 @@ public class SodiumEditorView extends View {
   }
 
   public String bytesToControlVisible(byte[] buf, int len) {
-    return textIO.bytesToControlVisible(buf, len);
+    return editorIO.textIO.bytesToControlVisible(buf, len);
   }
 
   private boolean applySmartDoubleTapSelection(int line, int charIndex, String lineText) {
@@ -2632,7 +2615,7 @@ public class SodiumEditorView extends View {
   }
 
   BufferedReader reopenReaderAtStart() {
-    return document.reopenReaderAtStart();
+    return editorIO.document.reopenReaderAtStart();
   }
 
 
@@ -2649,35 +2632,35 @@ public class SodiumEditorView extends View {
   }
 
   private boolean shouldStreamLineLength(int length) {
-    return textIO.shouldStreamLineLength(length);
+    return editorIO.textIO.shouldStreamLineLength(length);
   }
 
   private int getStreamedLineLength(int globalLine) {
-    return textIO.getStreamedLineLength(globalLine);
+    return editorIO.textIO.getStreamedLineLength(globalLine);
   }
 
   public int getStreamedLineSliceStart(int globalLine) {
-    return textIO.getStreamedLineSliceStart(globalLine);
+    return editorIO.textIO.getStreamedLineSliceStart(globalLine);
   }
 
   private void setStreamedLineInfo(int globalLine, int length, int sliceStart) {
-    textIO.setStreamedLineInfo(globalLine, length, sliceStart);
+    editorIO.textIO.setStreamedLineInfo(globalLine, length, sliceStart);
   }
 
   public void clearStreamedLineInfo(int globalLine) {
-    textIO.clearStreamedLineInfo(globalLine);
+    editorIO.textIO.clearStreamedLineInfo(globalLine);
   }
 
   public void clearStreamedLineCaches() {
-    textIO.clearStreamedLineCaches();
+    editorIO.textIO.clearStreamedLineCaches();
   }
 
   private boolean isSingleByteCharset() {
-    return document.isSingleByteCharset();
+    return editorIO.document.isSingleByteCharset();
   }
 
   public int getLogicalLineLength(int globalLine, @Nullable String line) {
-    return textIO.getLogicalLineLength(globalLine, line);
+    return editorIO.textIO.getLogicalLineLength(globalLine, line);
   }
 
   private void computeWidthForLine(int globalIndex, String line) {
@@ -2725,7 +2708,7 @@ public class SodiumEditorView extends View {
   @Override
   protected void onFocusChanged(boolean focused, int direction, Rect previouslyFocusedRect) {
     super.onFocusChanged(focused, direction, previouslyFocusedRect);
-    autoSuggestionManager.clearActiveSuggestion(); // Clear suggestion on focus change
+    inlinePredictionState.clearActiveSuggestion(); // Clear suggestion on focus change
     InputMethodManager imm =
         (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
     if (focused) {
@@ -2756,7 +2739,7 @@ public class SodiumEditorView extends View {
   }
 
   public void buildFileIndex() {
-    document.buildFileIndex();
+    editorIO.document.buildFileIndex();
   }
 
   public void recalculateMaxLineWidth() {
@@ -2847,19 +2830,19 @@ public class SodiumEditorView extends View {
   }
 
   public float getDownXPublic() {
-    return downX;
+    return editorInputState.downX;
   }
 
   public void setDownXPublic(float value) {
-    downX = value;
+    editorInputState.downX = value;
   }
 
   public float getDownYPublic() {
-    return downY;
+    return editorInputState.downY;
   }
 
   public void setDownYPublic(float value) {
-    downY = value;
+    editorInputState.downY = value;
   }
 
   public float getMaxScrollYForClampPublic() {
@@ -2875,7 +2858,7 @@ public class SodiumEditorView extends View {
   }
 
   public int getTouchSlopPublic() {
-    return touchSlop;
+    return editorInputState.touchSlop;
   }
 
   public void updateLineNumberSelectionPublic(int line) {
@@ -2895,7 +2878,7 @@ public class SodiumEditorView extends View {
   }
 
   public int getGoToLineVersion() {
-    return goToLineVersion.get();
+    return editorIndexState.getGoToLineVersion();
   }
 
   public int getCopyCutMaxChars() {
@@ -2934,7 +2917,7 @@ public class SodiumEditorView extends View {
 
     @Override
     public boolean isIndexReadyForSearch() {
-      return isIndexReadyForSearch();
+      return editorIndexState.isIndexReady;
     }
 
     @Override
@@ -3002,7 +2985,7 @@ public class SodiumEditorView extends View {
 
     @Override
     public void invalidate() {
-      SodiumEditorView.this.invalidate();
+      SodiumEditor.this.invalidate();
     }
   }
 
@@ -3038,12 +3021,12 @@ public class SodiumEditorView extends View {
   private class SelectionHandlerCallback implements com.yn.sodiumeditor.input.SelectionHandler.SelectionInteractionCallback {
     @Override
     public int comparePos(int sL, int sC, int eL, int eC) {
-      return SodiumEditorView.this.comparePos(sL, sC, eL, eC);
+      return SodiumEditor.this.comparePos(sL, sC, eL, eC);
     }
 
     @Override
     public void invalidate() {
-      SodiumEditorView.this.invalidate();
+      SodiumEditor.this.invalidate();
     }
 
     @Override
@@ -3078,47 +3061,47 @@ public class SodiumEditorView extends View {
 
     @Override
     public void deleteSelection() {
-      SodiumEditorView.this.deleteSelection();
+      SodiumEditor.this.deleteSelection();
     }
 
     @Override
     public void post(Runnable r) {
-      SodiumEditorView.this.post(r);
+      SodiumEditor.this.post(r);
     }
 
     @Override
     public void postDelayed(Runnable r, long delayMillis) {
-      SodiumEditorView.this.postDelayed(r, delayMillis);
+      SodiumEditor.this.postDelayed(r, delayMillis);
     }
 
     @Override
     public Context getContext() {
-      return SodiumEditorView.this.getContext();
+      return SodiumEditor.this.getContext();
     }
 
     @Override
     public boolean isFileCleared() {
-      return isFileCleared;
+      return editorIO.isFileCleared;
     }
 
     @Override
     public @Nullable java.io.File getSourceFile() {
-      return sourceFile;
+      return editorIO.sourceFile;
     }
 
     @Override
     public boolean isIndexReady() {
-      return isIndexReady;
+      return editorIndexState.isIndexReady;
     }
 
     @Override
     public long[] getLineOffsets() {
-      return lineOffsets;
+      return editorIndexState.lineOffsets;
     }
 
     @Override
     public Object getLineOffsetsLock() {
-      return lineOffsetsLock;
+      return editorIndexState.lineOffsetsLock;
     }
 
     @Override
@@ -3128,17 +3111,17 @@ public class SodiumEditorView extends View {
 
     @Override
     public java.util.HashMap<Integer, String> getModifiedLines() {
-      return modifiedLines;
+      return editorState.modifiedLines;
     }
 
     @Override
     public int getWindowStartLine() {
-      return windowStartLine;
+      return editorState.windowStartLine;
     }
 
     @Override
     public java.util.List<String> getLinesWindow() {
-      return linesWindow;
+      return editorState.linesWindow;
     }
 
     @Override
@@ -3153,7 +3136,7 @@ public class SodiumEditorView extends View {
 
     @Override
     public java.nio.charset.Charset getFileCharset() {
-      return document.fileCharset;
+      return editorIO.document.fileCharset;
     }
 
     @Override
@@ -3188,7 +3171,7 @@ public class SodiumEditorView extends View {
 
     @Override
     public void requestFocus() {
-      SodiumEditorView.this.requestFocus();
+      SodiumEditor.this.requestFocus();
     }
 
     @Override
@@ -3203,42 +3186,42 @@ public class SodiumEditorView extends View {
 
     @Override
     public void clearActiveSuggestion() {
-      autoSuggestionManager.clearActiveSuggestion();
+      inlinePredictionState.clearActiveSuggestion();
     }
 
     @Override
     public int getPrefetchLines() {
-      return prefetchLines;
+      return editorState.prefetchLines;
     }
 
     @Override
     public boolean isEof() {
-      return isEof;
+      return editorState.isEof;
     }
 
     @Override
     public boolean isIndexBuilding() {
-      return isIndexBuildingPublic();
+      return editorIndexState.isIndexBuildingPublic();
     }
 
     @Override
     public boolean isIndexDisabled() {
-      return isIndexDisabledPublic();
+      return editorIndexState.isIndexDisabledPublic();
     }
 
     @Override
     public void buildFileIndex() {
-      SodiumEditorView.this.buildFileIndex();
+      SodiumEditor.this.buildFileIndex();
     }
 
     @Override
     public void loadWindowAround(int targetStart, Runnable onComplete) {
-      SodiumEditorView.this.loadWindowAround(targetStart, onComplete);
+      SodiumEditor.this.loadWindowAround(targetStart, onComplete);
     }
 
     @Override
     public void countTotalLines(com.yn.sodiumeditor.input.SelectionHandler.OnTotalLinesCounted callback) {
-      fileManager.countTotalLines(callback::onCounted);
+      editorIO.fileManager.countTotalLines(callback::onCounted);
     }
 
     @Override
@@ -3253,12 +3236,12 @@ public class SodiumEditorView extends View {
 
     @Override
     public int getWidth() {
-      return SodiumEditorView.this.getWidth();
+      return SodiumEditor.this.getWidth();
     }
 
     @Override
     public float getTextStartX() {
-      return SodiumEditorView.this.getTextStartX();
+      return SodiumEditor.this.getTextStartX();
     }
 
     @Override
@@ -3273,7 +3256,7 @@ public class SodiumEditorView extends View {
 
     @Override
     public boolean isWrapWordMetricsUsableForWindow(int widthPx) {
-      return wrapWordBuilder.isMetricsUsableForWindow(SodiumEditorView.this, widthPx);
+      return wrapWordBuilder.isMetricsUsableForWindow(SodiumEditor.this, widthPx);
     }
 
     @Override
@@ -3306,32 +3289,32 @@ public class SodiumEditorView extends View {
   private class SelectionTextBuilderCallback implements com.yn.sodiumeditor.core.SelectionTextBuilder.SelectionCallback {
     @Override
     public int comparePos(int sL, int sC, int eL, int eC) {
-      return SodiumEditorView.this.comparePos(sL, sC, eL, eC);
+      return SodiumEditor.this.comparePos(sL, sC, eL, eC);
     }
 
     @Override
     public boolean isFileCleared() {
-      return isFileCleared;
+      return editorIO.isFileCleared;
     }
 
     @Override
     public @Nullable java.io.File getSourceFile() {
-      return sourceFile;
+      return editorIO.sourceFile;
     }
 
     @Override
     public boolean isIndexReady() {
-      return isIndexReady;
+      return editorIndexState.isIndexReady;
     }
 
     @Override
     public long[] getLineOffsets() {
-      return lineOffsets;
+      return editorIndexState.lineOffsets;
     }
 
     @Override
     public Object getLineOffsetsLock() {
-      return lineOffsetsLock;
+      return editorIndexState.lineOffsetsLock;
     }
 
     @Override
@@ -3341,17 +3324,17 @@ public class SodiumEditorView extends View {
 
     @Override
     public java.util.HashMap<Integer, String> getModifiedLines() {
-      return modifiedLines;
+      return editorState.modifiedLines;
     }
 
     @Override
     public int getWindowStartLine() {
-      return windowStartLine;
+      return editorState.windowStartLine;
     }
 
     @Override
     public java.util.List<String> getLinesWindow() {
-      return linesWindow;
+      return editorState.linesWindow;
     }
 
     @Override
@@ -3366,7 +3349,7 @@ public class SodiumEditorView extends View {
 
     @Override
     public java.nio.charset.Charset getFileCharset() {
-      return document.fileCharset;
+      return editorIO.document.fileCharset;
     }
   }
 
@@ -3379,17 +3362,17 @@ public class SodiumEditorView extends View {
 
     @Override
     public boolean isEof() {
-      return isEof;
+      return editorState.isEof;
     }
 
     @Override
     public int getWindowStartLine() {
-      return windowStartLine;
+      return editorState.windowStartLine;
     }
 
     @Override
     public java.util.List<String> getLinesWindow() {
-      return linesWindow;
+      return editorState.linesWindow;
     }
 
     @Override
@@ -3414,7 +3397,7 @@ public class SodiumEditorView extends View {
 
     @Override
     public void invalidate() {
-      SodiumEditorView.this.invalidate();
+      SodiumEditor.this.invalidate();
     }
 
     @Override
@@ -3423,8 +3406,8 @@ public class SodiumEditorView extends View {
     }
 
     @Override
-    public void autoSuggestionUpdate() {
-      autoSuggestionManager.updateSuggestion();
+    public void inlinePredictionUpdate() {
+      inlinePredictionEngine.updateSuggestion();
     }
 
     @Override
@@ -3454,7 +3437,7 @@ public class SodiumEditorView extends View {
 
     @Override
     public int comparePos(int sL, int sC, int eL, int eC) {
-      return SodiumEditorView.this.comparePos(sL, sC, eL, eC);
+      return SodiumEditor.this.comparePos(sL, sC, eL, eC);
     }
   }
 
@@ -3487,7 +3470,7 @@ public class SodiumEditorView extends View {
 
     @Override
     public float getLineHeight() {
-      return lineHeight;
+      return editorConfig.lineHeight;
     }
   }
 
@@ -3495,7 +3478,7 @@ public class SodiumEditorView extends View {
   private class ImeCompositionCallback implements com.yn.sodiumeditor.input.ImeCompositionHandler.CompositionCallback {
     @Override
     public boolean isReadOnly() {
-      return isReadOnly;
+      return editorConfig.behaviorConfig.isReadOnly;
     }
 
     @Override
@@ -3515,17 +3498,17 @@ public class SodiumEditorView extends View {
 
     @Override
     public boolean isWindowLoading() {
-      return isWindowLoading;
+      return editorState.isWindowLoading;
     }
 
     @Override
     public int getWindowStartLine() {
-      return windowStartLine;
+      return editorState.windowStartLine;
     }
 
     @Override
     public java.util.List<String> getLinesWindow() {
-      return linesWindow;
+      return editorState.linesWindow;
     }
 
     @Override
@@ -3540,7 +3523,7 @@ public class SodiumEditorView extends View {
 
     @Override
     public java.util.HashMap<Integer, String> getModifiedLines() {
-      return modifiedLines;
+      return editorState.modifiedLines;
     }
 
     @Override
@@ -3555,12 +3538,12 @@ public class SodiumEditorView extends View {
 
     @Override
     public void invalidate() {
-      SodiumEditorView.this.invalidate();
+      SodiumEditor.this.invalidate();
     }
 
     @Override
-    public void autoSuggestionUpdate() {
-      autoSuggestionManager.updateSuggestion();
+    public void inlinePredictionUpdate() {
+      inlinePredictionEngine.updateSuggestion();
     }
 
     @Override
@@ -3603,7 +3586,7 @@ public class SodiumEditorView extends View {
   private class EditorTextInserterCallback implements com.yn.sodiumeditor.core.EditorTextInserter.InsertionCallback {
     @Override
     public boolean isReadOnly() {
-      return isReadOnly;
+      return editorConfig.behaviorConfig.isReadOnly;
     }
 
     @Override
@@ -3618,17 +3601,17 @@ public class SodiumEditorView extends View {
 
     @Override
     public boolean isFileCleared() {
-      return isFileCleared;
+      return editorIO.isFileCleared;
     }
 
     @Override
     public @Nullable java.io.File getSourceFile() {
-      return sourceFile;
+      return editorIO.sourceFile;
     }
 
     @Override
     public boolean isLargePasteText(String text) {
-      return SodiumEditorView.isLargePasteText(text);
+      return SodiumEditor.isLargePasteText(text);
     }
 
     @Override
@@ -3648,23 +3631,23 @@ public class SodiumEditorView extends View {
 
     @Override
     public void postDelayed(Runnable r, long delayMillis) {
-      SodiumEditorView.this.postDelayed(r, delayMillis);
+      SodiumEditor.this.postDelayed(r, delayMillis);
     }
 
     @Override
     public com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget computeCursorAfterInsert(int line, int ch, String text) {
-      SodiumEditorView.CursorTarget target = SodiumEditorView.this.computeCursorAfterInsertForUndo(line, ch, text);
+      SodiumEditor.CursorTarget target = SodiumEditor.this.computeCursorAfterInsertForUndo(line, ch, text);
       return new com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget(target.line, target.ch);
     }
 
     @Override
     public void rewriteReplaceRangeAsync(int opToken, java.io.File inFile, int sL, int sC, int eL, int eC, String text, com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget target, boolean finishLargeEdit) {
-      rewriteReplaceRangeAsyncPublic(opToken, inFile, sL, sC, eL, eC, text, new SodiumEditorView.CursorTarget(target.line, target.ch), finishLargeEdit);
+      rewriteReplaceRangeAsyncPublic(opToken, inFile, sL, sC, eL, eC, text, new SodiumEditor.CursorTarget(target.line, target.ch), finishLargeEdit);
     }
 
     @Override
-    public void autoSuggestionUpdate() {
-      autoSuggestionManager.updateSuggestion();
+    public void inlinePredictionUpdate() {
+      inlinePredictionEngine.updateSuggestion();
     }
 
     @Override
@@ -3689,17 +3672,17 @@ public class SodiumEditorView extends View {
 
     @Override
     public boolean isWindowLoading() {
-      return isWindowLoading;
+      return editorState.isWindowLoading;
     }
 
     @Override
     public int getWindowStartLine() {
-      return windowStartLine;
+      return editorState.windowStartLine;
     }
 
     @Override
     public java.util.List<String> getLinesWindow() {
-      return linesWindow;
+      return editorState.linesWindow;
     }
 
     @Override
@@ -3714,22 +3697,22 @@ public class SodiumEditorView extends View {
 
     @Override
     public java.util.HashMap<Integer, String> getModifiedLines() {
-      return modifiedLines;
+      return editorState.modifiedLines;
     }
 
     @Override
     public void removeLineWidthCache(int line) {
-      lineWidthCache.remove(line);
+      editorState.lineWidthCache.remove(line);
     }
 
     @Override
     public void clearLineWidthCache() {
-      lineWidthCache.clear();
+      editorState.lineWidthCache.clear();
     }
 
     @Override
     public void addLinesWindowAll(int index, java.util.List<String> lines) {
-      linesWindow.addAll(index, lines);
+      editorState.linesWindow.addAll(index, lines);
     }
 
     @Override
@@ -3774,7 +3757,7 @@ public class SodiumEditorView extends View {
 
     @Override
     public void onLineCountChanged(int delta) {
-      wrapWordBuilder.onLineCountChanged(SodiumEditorView.this);
+      wrapWordBuilder.onLineCountChanged(SodiumEditor.this);
     }
 
     @Override
@@ -3794,7 +3777,7 @@ public class SodiumEditorView extends View {
 
     @Override
     public void invalidate() {
-      SodiumEditorView.this.invalidate();
+      SodiumEditor.this.invalidate();
     }
 
     @Override
@@ -3807,17 +3790,17 @@ public class SodiumEditorView extends View {
   private class HighlightParserCallbackImpl implements com.yn.sodiumeditor.core.HighlightParser.HighlightParserCallback {
     @Override
     public boolean isTripleQuoteStringsEnabled() {
-      return highlightState.isTripleQuoteStringsEnabled;
+      return editorConfig.behaviorConfig.isTripleQuoteStringsEnabled;
     }
 
     @Override
     public boolean isBacktickStringsEnabled() {
-      return highlightState.isBacktickStringsEnabled;
+      return editorConfig.behaviorConfig.isBacktickStringsEnabled;
     }
 
     @Override
     public boolean isBlockCommentsEnabled() {
-      return highlightState.isBlockCommentsEnabled;
+      return editorConfig.behaviorConfig.isBlockCommentsEnabled;
     }
 
     @Override

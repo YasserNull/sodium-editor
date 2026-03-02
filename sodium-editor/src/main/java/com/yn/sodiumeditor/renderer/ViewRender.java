@@ -10,11 +10,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.TextRender;
 
 public final class ViewRender {
-  private final SodiumEditorView view;
+  private final SodiumEditor view;
   public final TextRender textRender;
 
   static final class StreamedSliceRequest {
@@ -29,7 +29,7 @@ public final class ViewRender {
     }
   }
 
-  public ViewRender(SodiumEditorView view) {
+  public ViewRender(SodiumEditor view) {
     this.view = view;
     this.textRender = new TextRender(view);
   }
@@ -62,7 +62,7 @@ public final class ViewRender {
       start = end;
       end = t;
     }
-    int pad = Math.max(0, view.visibleCharPadding);
+    int pad = Math.max(0, view.editorConfig.visualConfig.visibleCharPadding);
     start = Math.max(0, start - pad);
     end = Math.min(len, end + pad);
     out[0] = start;
@@ -71,7 +71,7 @@ public final class ViewRender {
 
   private int getInitialStreamedSliceSize() {
     int base = Math.max(128, view.colsWidthCacheSize);
-    int pad = Math.max(0, view.visibleCharPadding) * 2;
+    int pad = Math.max(0, view.editorConfig.visualConfig.visibleCharPadding) * 2;
     return Math.max(base, pad);
   }
 
@@ -299,7 +299,7 @@ public final class ViewRender {
                       newStreamedSliceStarts.put(lineIndex, sliceStart);
                     } else {
                       sliceEnd = Math.max(1, view.getInitialStreamedSliceSize());
-                      SodiumEditorView.StreamedCharSlice slice =
+                      SodiumEditor.StreamedCharSlice slice =
                           view.readLineSliceByChars(raf, lineStart, sliceStart, sliceEnd, true);
                       newWin.add(slice.text);
                       newStreamedLengths.put(lineIndex, slice.length);
@@ -328,7 +328,7 @@ public final class ViewRender {
                 raf.seek(0);
                 int skipped = 0;
                 while (skipped < actualStart) {
-                  SodiumEditorView.LineScanResult scan = view.scanLineLength(raf);
+                  SodiumEditor.LineScanResult scan = view.scanLineLength(raf);
                   if (scan.reachedEof) break;
                   skipped++;
                 }
@@ -342,7 +342,7 @@ public final class ViewRender {
                     reachedEof = true;
                     break;
                   }
-                  SodiumEditorView.LineScanResult scan = view.scanLineLength(raf);
+                  SodiumEditor.LineScanResult scan = view.scanLineLength(raf);
                   long afterPos = raf.getFilePointer();
                   long lineByteLen = scan.length;
                   int lineLen = (int) Math.min(Integer.MAX_VALUE, lineByteLen);
@@ -358,7 +358,7 @@ public final class ViewRender {
                       newStreamedSliceStarts.put(lineIndex, sliceStart);
                     } else {
                       sliceEnd = Math.max(1, view.getInitialStreamedSliceSize());
-                      SodiumEditorView.StreamedCharSlice slice =
+                      SodiumEditor.StreamedCharSlice slice =
                           view.fileManager.readLineSliceByChars(raf, lineStart, sliceStart, sliceEnd, true);
                       newWin.add(slice.text);
                       newStreamedLengths.put(lineIndex, slice.length);
@@ -372,7 +372,7 @@ public final class ViewRender {
                         (lineLen > 0)
                             ? (view.binarySafeRenderingEnabled
                                 ? view.bytesToControlVisible(buf, buf.length)
-                                : new String(buf, view.fileManager.fileCharset))
+                                : new String(buf, view.fileCharset))
                             : "";
                     newWin.add(ln);
                   }
@@ -542,7 +542,7 @@ public final class ViewRender {
                 results.put(req.line, slice);
                 starts.put(req.line, req.start);
               } else {
-                SodiumEditorView.StreamedCharSlice slice =
+                SodiumEditor.StreamedCharSlice slice =
                     view.readLineSliceByChars(raf, lineStart, req.start, req.end, false);
                 results.put(req.line, slice.text);
                 starts.put(req.line, req.start);
@@ -641,7 +641,7 @@ public final class ViewRender {
   }
 
   private void applyMultiLineReplaceInWindowNow(
-      int sL, int sC, int eL, int eC, String insertText, SodiumEditorView.CursorTarget target) {
+      int sL, int sC, int eL, int eC, String insertText, SodiumEditor.CursorTarget target) {
     synchronized (view.linesWindow) {
       int oldLineCount = textRender.getLinesCount();
       int sLocal = sL - view.windowStartLine;

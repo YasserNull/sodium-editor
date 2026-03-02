@@ -2,7 +2,7 @@ package com.yn.sodiumeditor.renderer;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.state.IndentGuideState;
 
 /**
@@ -13,14 +13,14 @@ public class IndentGuideRenderer {
 
     private static final float DEFAULT_STROKE_WIDTH = 2f;
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final IndentGuideState state;
 
     public final Paint indentGuidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private float indentGuideStrokeWidth = DEFAULT_STROKE_WIDTH;
 
-    public IndentGuideRenderer(SodiumEditorView view, IndentGuideState state) {
+    public IndentGuideRenderer(SodiumEditor view, IndentGuideState state) {
         this.view = view;
         this.state = state;
         initDefaults(view.paint);

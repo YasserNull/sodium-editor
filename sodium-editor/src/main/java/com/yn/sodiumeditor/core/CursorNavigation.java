@@ -23,7 +23,7 @@ public final class CursorNavigation {
         void resetCursorBlink();
         void invalidate();
         void keepCursorVisibleHorizontally();
-        void autoSuggestionUpdate();
+        void inlinePredictionUpdate();
         boolean hasSelection();
         int getSelectionStartLine();
         int getSelectionStartChar();
@@ -38,7 +38,7 @@ public final class CursorNavigation {
     }
 
     public void moveCursorLeft() {
-        callback.autoSuggestionUpdate();
+        callback.inlinePredictionUpdate();
         
         if (callback.hasSelection()) {
             int sL = callback.getSelectionStartLine();
@@ -62,7 +62,7 @@ public final class CursorNavigation {
     }
 
     public void moveCursorRight() {
-        callback.autoSuggestionUpdate();
+        callback.inlinePredictionUpdate();
         
         if (callback.hasSelection()) {
             int eL = callback.getSelectionEndLine();
@@ -91,7 +91,7 @@ public final class CursorNavigation {
     }
 
     public void moveCursorUp() {
-        callback.autoSuggestionUpdate();
+        callback.inlinePredictionUpdate();
         
         if (callback.hasSelection()) {
             int sL = callback.getSelectionStartLine();
@@ -116,7 +116,7 @@ public final class CursorNavigation {
     }
 
     public void moveCursorDown() {
-        callback.autoSuggestionUpdate();
+        callback.inlinePredictionUpdate();
         
         if (callback.hasSelection()) {
             int eL = callback.getSelectionEndLine();
@@ -146,7 +146,7 @@ public final class CursorNavigation {
         callback.resetCursorBlink();
         callback.invalidate();
         callback.keepCursorVisibleHorizontally();
-        callback.autoSuggestionUpdate();
+        callback.inlinePredictionUpdate();
     }
 
     public void clampCharToLineLength(int line) {

@@ -1,7 +1,7 @@
 package com.yn.sodiumeditor.core;
 
 import androidx.annotation.Nullable;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.state.FoldMatch;
 import com.yn.sodiumeditor.state.FoldRange;
 import com.yn.sodiumeditor.state.FoldToken;
@@ -16,9 +16,9 @@ import java.io.RandomAccessFile;
  */
 public class FoldEngine {
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
 
-    public FoldEngine(SodiumEditorView view) {
+    public FoldEngine(SodiumEditor view) {
         this.view = view;
     }
 

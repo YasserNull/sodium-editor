@@ -2,7 +2,7 @@ package com.yn.sodiumeditor.io;
 
 import android.util.Log;
 import androidx.annotation.Nullable;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import java.io.File;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -17,9 +17,9 @@ public final class FileBufferModifier {
 
     private static final int BUF_SIZE = 1024 * 1024;
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
 
-    public FileBufferModifier(SodiumEditorView view) {
+    public FileBufferModifier(SodiumEditor view) {
         this.view = view;
     }
 

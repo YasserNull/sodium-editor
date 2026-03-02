@@ -1,11 +1,11 @@
 package com.yn.sodiumeditor;
 
 public final class ScrollBounds {
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final ScrollConfig config;
     private final FlingHandler flingHandler;
 
-    public ScrollBounds(SodiumEditorView view, ScrollConfig config, FlingHandler flingHandler) {
+    public ScrollBounds(SodiumEditor view, ScrollConfig config, FlingHandler flingHandler) {
         this.view = view;
         this.config = config;
         this.flingHandler = flingHandler;
@@ -113,10 +113,10 @@ public final class ScrollBounds {
     }
 
     private float getKeyboardBarrierPaddingInternal() {
-        return Math.min(SodiumEditorView.BOTTOM_SCROLL_OFFSET, view.keyboardHeight * 0.4f);
+        return Math.min(SodiumEditor.BOTTOM_SCROLL_OFFSET, view.keyboardHeight * 0.4f);
     }
 
     private float getBottomBarrierPaddingInternal() {
-        return SodiumEditorView.BOTTOM_SCROLL_OFFSET;
+        return SodiumEditor.BOTTOM_SCROLL_OFFSET;
     }
 }

@@ -6,14 +6,14 @@ import com.yn.sodiumeditor.core.EditOp;
 import com.yn.sodiumeditor.utils.BracketFinder;
 
 public final class EditorOperations {
-  private final SodiumEditorView view;
+  private final SodiumEditor view;
 
-  public EditorOperations(SodiumEditorView view) {
+  public EditorOperations(SodiumEditor view) {
     this.view = view;
   }
 
   public void insertCharAtCursor(char c) {
-    if (view.isReadOnly) return;
+    if (view.editorConfig.behaviorConfig.isReadOnly) return;
     view.invalidatePendingIOForEdit();
     view.history.incrementEditVersion();
 
@@ -90,7 +90,7 @@ public final class EditorOperations {
       view.invalidate();
       view.scrollManager.keepCursorVisibleHorizontally();
     }
-    view.autoSuggestionManager.updateSuggestion();
+    view.inlinePredictionEngine.updateSuggestion();
 
     EditOp op = new EditOp();
     op.startLine = beforeLine;
@@ -99,7 +99,7 @@ public final class EditorOperations {
     op.endChar = beforeChar;
     op.removedText = "";
     op.insertedText = String.valueOf(c);
-    SodiumEditorView.CursorTarget insertedEnd = view.computeCursorAfterInsert(beforeLine, beforeChar, op.insertedText);
+    SodiumEditor.CursorTarget insertedEnd = view.computeCursorAfterInsert(beforeLine, beforeChar, op.insertedText);
     op.insertedEndLine = insertedEnd.line;
     op.insertedEndChar = insertedEnd.ch;
     op.cursorLineBefore = beforeLine;
@@ -111,7 +111,7 @@ public final class EditorOperations {
   }
 
   public void insertNewlineAtCursor() {
-    if (view.isReadOnly) return;
+    if (view.editorConfig.behaviorConfig.isReadOnly) return;
     if (view.selectionState.hasSelection()) {
       view.replaceSelectionWithText("\n");
       return;
@@ -137,7 +137,7 @@ public final class EditorOperations {
       view.cursorAnimator.resetCursorBlink();
       view.scrollManager.keepCursorVisibleHorizontally();
       view.invalidate();
-      view.autoSuggestionManager.updateSuggestion();
+      view.inlinePredictionEngine.updateSuggestion();
       return;
     }
 
@@ -152,7 +152,7 @@ public final class EditorOperations {
         if (c == '{' || c == '}') {
           String baseIndent = view.getLineLeadingWhitespace(view.cursorState.getCursorLine());
           int baseWidth = view.getIndentWidth(baseIndent);
-          int unit = SodiumEditorView.INDENT_BLOCK_UNIT.length();
+          int unit = SodiumEditor.INDENT_BLOCK_UNIT.length();
           int targetWidth = baseWidth;
           if (c == '{') {
             int firstNonSpace = getFirstNonSpaceIndex(before);
@@ -178,7 +178,7 @@ public final class EditorOperations {
       String before = ln.substring(0, safeChar);
       String trimmed = rstripWhitespace(before);
       String baseIndent = view.getLineLeadingWhitespace(view.cursorState.getCursorLine());
-      String extraIndent = trimmed.endsWith(":") ? SodiumEditorView.INDENT_BLOCK_UNIT : "";
+      String extraIndent = trimmed.endsWith(":") ? SodiumEditor.INDENT_BLOCK_UNIT : "";
       view.insertTextAtCursor("\n" + baseIndent + extraIndent);
       return;
     }
@@ -193,10 +193,10 @@ public final class EditorOperations {
   }
 
   public void deleteCharAtCursor() {
-    if (view.isReadOnly) return;
+    if (view.editorConfig.behaviorConfig.isReadOnly) return;
     view.invalidatePendingIOForEdit();
     view.history.incrementEditVersion();
-    view.autoSuggestionManager.clearActiveSuggestion();
+    view.inlinePredictionState.clearActiveSuggestion();
 
     if (view.cursorState.hasComposing()) {
       view.imeCompositionHandler.deleteComposing();
@@ -301,14 +301,14 @@ public final class EditorOperations {
         view.recordEdit(op);
       }
     }
-    view.autoSuggestionManager.updateSuggestion();
+    view.inlinePredictionEngine.updateSuggestion();
   }
 
   public void deleteForwardAtCursor() {
-    if (view.isReadOnly) return;
+    if (view.editorConfig.behaviorConfig.isReadOnly) return;
     view.invalidatePendingIOForEdit();
     view.history.incrementEditVersion();
-    view.autoSuggestionManager.clearActiveSuggestion();
+    view.inlinePredictionState.clearActiveSuggestion();
 
     if (view.cursorState.hasComposing()) {
       view.imeCompositionHandler.deleteComposing();
@@ -398,20 +398,20 @@ public final class EditorOperations {
         }
       }
     }
-    view.autoSuggestionManager.updateSuggestion();
+    view.inlinePredictionEngine.updateSuggestion();
   }
 
   public void replaceSelectionWithText(String insertText) {
-    if (view.isReadOnly) return;
+    if (view.editorConfig.behaviorConfig.isReadOnly) return;
     view.invalidatePendingIOForEdit();
     final int opToken = view.history.incrementEditVersion();
-    view.autoSuggestionManager.clearActiveSuggestion();
+    view.inlinePredictionState.clearActiveSuggestion();
 
     if (insertText == null) insertText = "";
 
     if (!view.selectionState.hasSelection()) {
       if (!insertText.isEmpty()) view.cursorState.setCursorPosition(view.cursorState.getCursorLine(), view.cursorState.getCursorChar());
-      view.autoSuggestionManager.updateSuggestion();
+      view.inlinePredictionEngine.updateSuggestion();
       return;
     }
 
@@ -486,19 +486,23 @@ public final class EditorOperations {
             view.linesWindow.add(i, newLines[i]);
           }
         }
-        SodiumEditorView.CursorTarget newPos = view.computeCursorAfterInsert(0, 0, insertText);
+        SodiumEditor.CursorTarget newPos = view.computeCursorAfterInsert(0, 0, insertText);
         view.cursorState.setCursorPosition(newPos.line, newPos.ch);
       }
 
       view.wrapWordBuilder.onLineCountChanged(view);
       view.recalculateMaxLineWidth();
     } else {
-      view.fileManager.rewriteReplaceRangeAsync(opToken, view.fileManager.getSourceFile(), sL, sC, eL, eC, insertText, view.computeCursorAfterInsert(sL, sC, insertText), false);
+      try {
+        view.fileManager.rewriteReplaceRangeAsync(opToken, view.fileManager.getSourceFile(), sL, sC, eL, eC, insertText, view.computeCursorAfterInsert(sL, sC, insertText), false);
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
     }
 
     view.history.addLineCountDelta((insertedNewlines - removedNewlines));
     view.recordReplaceSelectionEditPublic(sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
-    view.autoSuggestionManager.updateSuggestion();
+    view.inlinePredictionEngine.updateSuggestion();
   }
 
   public void handleAutoPairing(String text) {

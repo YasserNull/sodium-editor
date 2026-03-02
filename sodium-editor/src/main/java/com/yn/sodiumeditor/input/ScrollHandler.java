@@ -3,7 +3,7 @@ package com.yn.sodiumeditor;
 import android.view.MotionEvent;
 
 public final class ScrollHandler {
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final ScrollConfig config;
     private final Stretch stretch;
     private final ScrollBoundsProvider scrollBoundsProvider;
@@ -15,7 +15,7 @@ public final class ScrollHandler {
         void clampScrollY();
     }
 
-    public ScrollHandler(SodiumEditorView view, ScrollConfig config, Stretch stretch, ScrollBoundsProvider scrollBoundsProvider) {
+    public ScrollHandler(SodiumEditor view, ScrollConfig config, Stretch stretch, ScrollBoundsProvider scrollBoundsProvider) {
         this.view = view;
         this.config = config;
         this.stretch = stretch;
@@ -29,7 +29,7 @@ public final class ScrollHandler {
         if (view.wrapWordState.isWordWrapEnabled && view.wrapWordState.wrapPrefixBuilding) {
             view.wrapWordBuilder.cancelPrefixRebuildForInteraction();
         }
-        if (view.autoSuggestionManager.isSuggestionAcceptedThisTouch()) return false;
+        if (view.inlinePredictionState.suggestionAcceptedThisTouch) return false;
 
         view.movedSinceDown = true;
         float dx = distanceX * config.scrollSensitivity;

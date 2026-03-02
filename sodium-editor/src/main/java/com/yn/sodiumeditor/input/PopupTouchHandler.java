@@ -6,7 +6,7 @@ import android.animation.ValueAnimator;
 import android.graphics.RectF;
 import android.view.animation.DecelerateInterpolator;
 import androidx.annotation.Nullable;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.config.PopupConfig;
 import com.yn.sodiumeditor.state.PopupMenuState;
 
@@ -16,10 +16,10 @@ import com.yn.sodiumeditor.state.PopupMenuState;
  */
 public class PopupTouchHandler {
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final PopupMenuState state;
 
-    public PopupTouchHandler(SodiumEditorView view, PopupMenuState state) {
+    public PopupTouchHandler(SodiumEditor view, PopupMenuState state) {
         this.view = view;
         this.state = state;
     }

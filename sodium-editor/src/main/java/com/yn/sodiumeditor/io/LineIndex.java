@@ -3,15 +3,15 @@ package com.yn.sodiumeditor.io;
 import java.io.File;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 
 /**
  * فهرسة الأسطر والـ byte offsets
  */
 public class LineIndex {
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
 
-    public LineIndex(SodiumEditorView view) {
+    public LineIndex(SodiumEditor view) {
         this.view = view;
     }
 

@@ -12,13 +12,13 @@ import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CoderResult;
 import java.nio.charset.CodingErrorAction;
 import java.util.HashMap;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 
 /**
  * القراءة والكتابة والتعامل مع الأسطر الطويلة
  */
 public class TextIO {
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
 
     // Streamed lines cache
     private final SparseIntArray streamedLineLengths = new SparseIntArray();
@@ -36,8 +36,14 @@ public class TextIO {
                     "<CAN>", "<EM>", "<SUB>", "<ESC>", "<FS>", "<GS>", "<RS>", "<US>"
             };
 
-    public TextIO(SodiumEditorView view) {
+    public TextIO(SodiumEditor view) {
         this.view = view;
+    }
+
+    public boolean isSingleByteCharset() {
+        return view.fileCharset.name().startsWith("ISO-8859") || 
+               view.fileCharset.name().equals("US-ASCII") ||
+               view.fileCharset.name().equals("UTF-8");
     }
 
     // =========================================================================
@@ -83,7 +89,7 @@ public class TextIO {
             byte[] data = baos.toByteArray();
             return bytesToControlVisible(data, data.length);
         }
-        return baos.toString(view.fileManager.fileCharset.name());
+        return baos.toString(view.fileCharset.name());
     }
 
     public String readLineSliceAtByte(
@@ -100,15 +106,15 @@ public class TextIO {
         if (view.binarySafeRenderingEnabled) {
             return bytesToControlVisible(buf, buf.length);
         }
-        return new String(buf, view.fileManager.fileCharset);
+        return new String(buf, view.fileCharset);
     }
 
-    public SodiumEditorView.StreamedCharSlice readLineSliceByChars(
+    public SodiumEditor.StreamedCharSlice readLineSliceByChars(
             RandomAccessFile raf, long lineStart, int startChar, int endChar, boolean needTotalLength)
             throws Exception {
         int safeStart = Math.max(0, startChar);
         int safeEnd = Math.max(safeStart, endChar);
-        CharsetDecoder decoder = view.fileManager.fileCharset.newDecoder();
+        CharsetDecoder decoder = view.fileCharset.newDecoder();
         decoder.onMalformedInput(CodingErrorAction.REPLACE);
         decoder.onUnmappableCharacter(CodingErrorAction.REPLACE);
 
@@ -153,7 +159,7 @@ public class TextIO {
             if (hitNewline) {
                 done = true;
             } else if (!needTotalLength && charIndex >= safeEnd) {
-                return new SodiumEditorView.StreamedCharSlice(sb.toString(), -1);
+                return new SodiumEditor.StreamedCharSlice(sb.toString(), -1);
             }
         }
 
@@ -167,7 +173,7 @@ public class TextIO {
             charIndex++;
         }
 
-        return new SodiumEditorView.StreamedCharSlice(sb.toString(), charIndex);
+        return new SodiumEditor.StreamedCharSlice(sb.toString(), charIndex);
     }
 
     // =========================================================================
@@ -213,7 +219,7 @@ public class TextIO {
             byte[] buf = new byte[size];
             raf.seek(startByte);
             raf.readFully(buf);
-            return new String(buf, view.fileManager.fileCharset);
+            return new String(buf, view.fileCharset);
         } catch (Exception ignore) {
             return "";
         }
@@ -248,7 +254,7 @@ public class TextIO {
         int eL,
         int eC,
         String insertText,
-        SodiumEditorView.CursorTarget target,
+        SodiumEditor.CursorTarget target,
         boolean finishLargeEditUi) {
         view.ioHandler.post(
             () -> {
@@ -482,7 +488,7 @@ public class TextIO {
         if (lineText == null) return 0L;
         int safe = Math.max(0, Math.min(charIndex, lineText.length()));
         if (safe == 0) return 0L;
-        return lineText.substring(0, safe).getBytes(view.fileManager.fileCharset).length;
+        return lineText.substring(0, safe).getBytes(view.fileCharset).length;
     }
 
     public String bytesToControlVisible(byte[] buf, int len) {

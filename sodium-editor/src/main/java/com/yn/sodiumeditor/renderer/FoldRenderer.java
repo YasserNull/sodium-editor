@@ -4,7 +4,7 @@ import android.animation.ValueAnimator;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.state.FoldRange;
 import com.yn.sodiumeditor.state.FoldState;
 
@@ -14,7 +14,7 @@ import com.yn.sodiumeditor.state.FoldState;
  */
 public class FoldRenderer {
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final FoldState state;
 
     public final Paint foldPlaceholderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -30,7 +30,7 @@ public class FoldRenderer {
     public float foldPlaceholderPadX = 3f;
     public float foldPlaceholderPadY = 2f;
 
-    public FoldRenderer(SodiumEditorView view, FoldState state) {
+    public FoldRenderer(SodiumEditor view, FoldState state) {
         this.view = view;
         this.state = state;
     }
@@ -174,9 +174,9 @@ public class FoldRenderer {
                 Math.round(
                         view.scrollManager.getDrawLineTop(globalLine) + view.lineHeight - view.paint.descent());
         view.paint.getTextBounds(
-                SodiumEditorView.FOLD_PLACEHOLDER_TEXT,
+                SodiumEditor.FOLD_PLACEHOLDER_TEXT,
                 0,
-                SodiumEditorView.FOLD_PLACEHOLDER_TEXT.length(),
+                SodiumEditor.FOLD_PLACEHOLDER_TEXT.length(),
                 view.textBounds);
         float top = Math.round(y + view.textBounds.top - foldPlaceholderPadY);
         float bottom = Math.round(y + view.textBounds.bottom + foldPlaceholderPadY);
@@ -191,14 +191,14 @@ public class FoldRenderer {
         }
 
         float xStart = view.highlightRenderer.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
-        float placeholderWidth = Math.max(0f, view.paint.measureText(SodiumEditorView.FOLD_PLACEHOLDER_TEXT));
+        float placeholderWidth = Math.max(0f, view.paint.measureText(SodiumEditor.FOLD_PLACEHOLDER_TEXT));
         foldPlaceholderRect.set(xStart, top, xStart + placeholderWidth, bottom);
         canvas.drawRoundRect(foldPlaceholderRect, foldPlaceholderCorner, foldPlaceholderCorner, foldPlaceholderPaint);
 
         view.highlightRenderer.drawHighlightedSegment(canvas, line, globalLine, 0, prefixEnd, 0f, y);
 
         view.paint.setUnderlineText(false);
-        canvas.drawText(SodiumEditorView.FOLD_PLACEHOLDER_TEXT, xStart, y, view.paint);
+        canvas.drawText(SodiumEditor.FOLD_PLACEHOLDER_TEXT, xStart, y, view.paint);
 
         float xAfter = xStart + placeholderWidth;
         if (range.isBlockComment) {
@@ -228,7 +228,7 @@ public class FoldRenderer {
             prefixEnd = Math.min(range.openCharIndex + 1, line.length());
         }
         float xStart = view.highlightRenderer.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
-        float placeholderWidth = Math.max(0f, view.paint.measureText(SodiumEditorView.FOLD_PLACEHOLDER_TEXT));
+        float placeholderWidth = Math.max(0f, view.paint.measureText(SodiumEditor.FOLD_PLACEHOLDER_TEXT));
         float pad = Math.max(0f, foldPlaceholderPadX);
         float left = xStart - pad;
         float right = xStart + placeholderWidth + pad;

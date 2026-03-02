@@ -4,17 +4,17 @@ import android.view.KeyEvent;
 import com.yn.sodiumeditor.*;
 
 public final class KeyboardHandler {
-  private final SodiumEditorView view;
+  private final SodiumEditor view;
   private final EditorOperations editorOps;
 
-  public KeyboardHandler(SodiumEditorView view, EditorOperations editorOps) {
+  public KeyboardHandler(SodiumEditor view, EditorOperations editorOps) {
     this.view = view;
     this.editorOps = editorOps;
   }
 
   public boolean handleKeyDown(int keyCode, KeyEvent event) {
-    if (view.isDisabled) return true;
-    if (view.isReadOnly) {
+    if (view.editorConfig.behaviorConfig.isDisabled) return true;
+    if (view.editorConfig.behaviorConfig.isReadOnly) {
       switch (keyCode) {
         case KeyEvent.KEYCODE_DPAD_LEFT:
           view.cursorNavigation.moveCursorLeft();

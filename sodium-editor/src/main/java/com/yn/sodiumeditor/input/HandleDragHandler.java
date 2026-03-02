@@ -2,7 +2,7 @@ package com.yn.sodiumeditor.input;
 
 import android.graphics.RectF;
 import android.os.Handler;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.state.HandleState;
 
 /**
@@ -11,11 +11,11 @@ import com.yn.sodiumeditor.state.HandleState;
  */
 public final class HandleDragHandler {
 
-    private final SodiumEditorView view;
+    private final SodiumEditor view;
     private final HandleState handleState;
     private final Handler mainHandler;
 
-    public HandleDragHandler(SodiumEditorView view, HandleState handleState, Handler mainHandler) {
+    public HandleDragHandler(SodiumEditor view, HandleState handleState, Handler mainHandler) {
         this.view = view;
         this.handleState = handleState;
         this.mainHandler = mainHandler;
@@ -84,7 +84,7 @@ public final class HandleDragHandler {
             view.popupTouchHandler.showPopupAtSelection();
         }
 
-        SodiumEditorView.CursorTarget target = view.getCursorTargetForHandles(touchX, touchY);
+        SodiumEditor.CursorTarget target = view.getCursorTargetForHandles(touchX, touchY);
         int line = target.line;
 
         if (view.isEof) {

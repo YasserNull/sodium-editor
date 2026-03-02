@@ -9,10 +9,10 @@ import com.yn.sodiumeditor.*;
 import com.yn.sodiumeditor.config.PopupConfig;
 
 public final class TouchHandler {
-  private final SodiumEditorView view;
+  private final SodiumEditor view;
   private final GestureDetector gestureDetector;
 
-  public TouchHandler(SodiumEditorView view, Context context) {
+  public TouchHandler(SodiumEditor view, Context context) {
     this.view = view;
     this.gestureDetector =
         new GestureDetector(
@@ -20,8 +20,8 @@ public final class TouchHandler {
             new GestureDetector.SimpleOnGestureListener() {
               @Override
               public boolean onDown(MotionEvent e) {
-                if (view.autoSuggestionManager.isSuggestionAcceptedThisTouch()) {
-                  view.autoSuggestionManager.clearSuggestionAcceptedThisTouch();
+                if (view.inlinePredictionState.suggestionAcceptedThisTouch) {
+                  view.inlinePredictionState.clearSuggestionAcceptedThisTouch();
                 }
                 view.resetScrollLockAxisForInput();
                 view.setJustFinishedScaleForInput(false);
@@ -35,7 +35,7 @@ public final class TouchHandler {
 
               @Override
               public void onLongPress(MotionEvent e) {
-                if (view.autoSuggestionManager.isSuggestionAcceptedThisTouch()) return;
+                if (view.inlinePredictionState.suggestionAcceptedThisTouch) return;
                 if (view.zoomGestureHandler.isMultiTouchActive() || view.zoomGestureHandler.hadMultiTouch()) return;
 
                 if (view.popupMenuState.showPopup) {
@@ -57,7 +57,7 @@ public final class TouchHandler {
                   return;
                 }
 
-                SodiumEditorView.CursorTarget target =
+                SodiumEditor.CursorTarget target =
                     view.getCursorTargetForInput(e.getX(), e.getY());
                 int line = target.line;
                 view.ensureLineInWindowForInput(line, true);
@@ -80,7 +80,7 @@ public final class TouchHandler {
 
               @Override
               public boolean onSingleTapUp(MotionEvent e) {
-                if (view.autoSuggestionManager.isSuggestionAcceptedThisTouch()) return true;
+                if (view.inlinePredictionState.suggestionAcceptedThisTouch) return true;
                 if (view.zoomGestureHandler.isMultiTouchActive() || view.zoomGestureHandler.hadMultiTouch()) return true;
 
                 view.clearSelectionForInput();
@@ -103,7 +103,7 @@ public final class TouchHandler {
                         ? view.getTotalVisualLineCountForInput()
                         : view.getVisibleLineCountForInput();
 
-                SodiumEditorView.CursorTarget target =
+                SodiumEditor.CursorTarget target =
                     view.getCursorTargetForInput(e.getX(), e.getY());
                 int line = target.line;
 
@@ -180,8 +180,8 @@ public final class TouchHandler {
 
               @Override
               public boolean onDoubleTap(MotionEvent e) {
-                if (view.autoSuggestionManager.isSuggestionAcceptedThisTouch()) return true;
-                SodiumEditorView.CursorTarget target =
+                if (view.inlinePredictionState.suggestionAcceptedThisTouch) return true;
+                SodiumEditor.CursorTarget target =
                     view.getCursorTargetForInput(e.getX(), e.getY());
                 int line = target.line;
                 view.ensureLineInWindowForInput(line, true);
@@ -215,7 +215,7 @@ public final class TouchHandler {
   }
 
   public boolean handleTouchEvent(MotionEvent event) {
-    if (view.isDisabled) return true;
+    if (view.editorConfig.behaviorConfig.isDisabled) return true;
 
     int action = event.getActionMasked();
     int pointerCount = event.getPointerCount();
@@ -279,7 +279,7 @@ public final class TouchHandler {
         view.setDownXPublic(ex);
         view.setDownYPublic(ey);
         view.movedSinceDown = false;
-        view.autoSuggestionManager.clearSuggestionAcceptedThisTouch();
+        view.inlinePredictionState.clearSuggestionAcceptedThisTouch();
         view.scrollManager.dragMaxScrollX = view.wrapWordState.isWordWrapEnabled ? -1f : view.scrollManager.getMaxScrollXForClamp();
 
         view.scrollManager.showScrollBar();
@@ -380,7 +380,7 @@ public final class TouchHandler {
           view.popupMenuState.clearPressedAction();
           RectF r = view.popupMenuRenderer.getPopupRectForAction(actionForTap);
           if (view.popupMenuState.showPopup && r.contains(ex, ey)) {
-            if (view.isReadOnly
+            if (view.editorConfig.behaviorConfig.isReadOnly
                 && (actionForTap == PopupConfig.POPUP_ACTION_CUT
                     || actionForTap == PopupConfig.POPUP_ACTION_PASTE
                     || actionForTap == PopupConfig.POPUP_ACTION_DELETE)) {
@@ -416,7 +416,7 @@ public final class TouchHandler {
           return true;
         }
 
-        SodiumEditorView.CursorTarget target = view.getCursorTargetForPositionPublic(event.getX(), event.getY(), null);
+        SodiumEditor.CursorTarget target = view.getCursorTargetForPositionPublic(event.getX(), event.getY(), null);
         int line = target.line;
 
         String ln = view.getLineFromWindowLocal(line - view.windowStartLine);
@@ -432,9 +432,9 @@ public final class TouchHandler {
         }
 
         if (!view.movedSinceDown
-            && view.autoSuggestionManager.maybeAcceptSuggestionTap(ex, ey, line, isEmptyArea)) {
+            && view.inlinePredictionEngine.maybeAcceptSuggestionTap(ex, ey, line, isEmptyArea)) {
           view.pointerDown = false;
-          Log.d("SodiumEditorView", "onTouchEvent.ACTION_UP: Suggestion accepted, returning true.");
+          Log.d("SodiumEditor", "onTouchEvent.ACTION_UP: Suggestion accepted, returning true.");
           return true;
         }
 
@@ -454,14 +454,14 @@ public final class TouchHandler {
         if (view.movedSinceDown && view.scrollManager.scroller.isFinished()) {
           if (view.selectionState.hasSelection()) view.popupTouchHandler.showPopupAtSelection();
           view.restartInputPublic();
-          Log.d("SodiumEditorView", "onTouchEvent.ACTION_UP: Scroll/Zoom ended, restarted input.");
+          Log.d("SodiumEditor", "onTouchEvent.ACTION_UP: Scroll/Zoom ended, restarted input.");
           if (view.wrapWordState.isWordWrapEnabled && view.wrapWordState.wrapPrefixRebuildPending && !view.wrapWordState.wrapPrefixBuilding) {
             view.wrapWordState.wrapPrefixRebuildPending = false;
             view.wrapWordBuilder.schedulePrefixRebuildUpToWindow(view);
           }
         }
 
-        Log.d("SodiumEditorView", "onTouchEvent.ACTION_UP: Passing to GestureDetector.ACTION_UP.");
+        Log.d("SodiumEditor", "onTouchEvent.ACTION_UP: Passing to GestureDetector.ACTION_UP.");
         onGestureEvent(event);
         if (view.selectionState.hasSelection() && !view.popupMenuState.showPopup) {
           view.popupTouchHandler.showPopupAtSelection();
@@ -476,13 +476,13 @@ public final class TouchHandler {
         view.selectionState.setLineNumberSelecting(false, -1);
         view.popupMenuState.clearPressedAction();
         view.popupTouchHandler.cancelPopupRipple();
-        view.autoSuggestionManager.clearActiveSuggestion();
+        view.inlinePredictionState.clearActiveSuggestion();
         view.scrollManager.dragMaxScrollX = -1f;
         view.scrollManager.draggingScrollBar = false;
         if (view.scrollManager.scrollBarFadeEnabled) {
           view.mainHandler.removeCallbacks(view.scrollManager.scrollBarHideRunnable);
         }
-        Log.d("SodiumEditorView", "onTouchEvent.ACTION_CANCEL: Passing to GestureDetector.");
+        Log.d("SodiumEditor", "onTouchEvent.ACTION_CANCEL: Passing to GestureDetector.");
         onGestureEvent(event);
         return true;
     }

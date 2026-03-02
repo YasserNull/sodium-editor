@@ -6,23 +6,23 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.InputConnection;
 import androidx.annotation.Nullable;
-import com.yn.sodiumeditor.SodiumEditorView;
+import com.yn.sodiumeditor.SodiumEditor;
 
 public final class InputMethodHandler {
-  private final SodiumEditorView view;
+  private final SodiumEditor view;
   private final ImeTextHelper textHelper;
   private boolean imeExtractedTextMonitor = false;
   private int imeExtractedTextToken = 0;
   private int imeExtractedBeforeChars = ImeTextHelper.IME_CONTEXT_BEFORE_CHARS;
   private int imeExtractedAfterChars = ImeTextHelper.IME_CONTEXT_AFTER_CHARS;
 
-  public InputMethodHandler(SodiumEditorView view) {
+  public InputMethodHandler(SodiumEditor view) {
     this.view = view;
     this.textHelper = new ImeTextHelper(view);
   }
 
   public boolean onCheckIsTextEditor() {
-    return !view.isDisabled && !view.isReadOnly;
+    return !view.editorConfig.behaviorConfig.isDisabled && !view.editorConfig.behaviorConfig.isReadOnly;
   }
 
   public void restartInput() {
@@ -34,7 +34,7 @@ public final class InputMethodHandler {
   }
 
   public void showKeyboard() {
-    if (view.isReadOnly) return;
+    if (view.editorConfig.behaviorConfig.isReadOnly) return;
     view.requestFocus();
     android.view.inputmethod.InputMethodManager imm =
         (android.view.inputmethod.InputMethodManager) view.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -42,7 +42,7 @@ public final class InputMethodHandler {
   }
 
   public void updateImeSelection() {
-    if (view.isDisabled || view.isReadOnly) return;
+    if (view.editorConfig.behaviorConfig.isDisabled || view.editorConfig.behaviorConfig.isReadOnly) return;
     if (!view.isFocused()) return;
     android.view.inputmethod.InputMethodManager imm =
         (android.view.inputmethod.InputMethodManager) view.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -83,7 +83,7 @@ public final class InputMethodHandler {
   }
 
   public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
-    if (view.isDisabled || view.isReadOnly) return null;
+    if (view.editorConfig.behaviorConfig.isDisabled || view.editorConfig.behaviorConfig.isReadOnly) return null;
     outAttrs.inputType =
         EditorInfo.TYPE_CLASS_TEXT
             | EditorInfo.TYPE_TEXT_FLAG_MULTI_LINE
