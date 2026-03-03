@@ -79,7 +79,7 @@ public final class ZoomGestureHandler {
       previewRender.startPinchVisualZoom(
           detector.getFocusX(),
           detector.getFocusY(),
-          view.getPaintTextSizePxForZoom(),
+          view.editorConfig.paint.getTextSize(),
           view.getGlobalLineForY(view.scrollManager.scrollY + detector.getFocusY()));
     } else {
       previewRender.cancelPinchVisualZoom();

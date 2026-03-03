@@ -177,7 +177,7 @@ public final class History {
                     int sC = root.optInt("selStartChar", cChar);
                     int eL = root.optInt("selEndLine", cLine);
                     int eC = root.optInt("selEndChar", cChar);
-                    view.restoreSelection(sL, sC, eL, eC, cLine, cChar);
+                    view.selectionHandler.restoreSelection(sL, sC, eL, eC, cLine, cChar);
                 } else {
                     view.cursorNavigation.setPosition(cLine, cChar);
                 }

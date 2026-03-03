@@ -142,4 +142,41 @@ public final class ZoomUtils {
   public static boolean isSignificantSizeChange(float oldSize, float newSize, float threshold) {
     return Math.abs(newSize - oldSize) > threshold;
   }
+
+  //================================================================================
+  // Text Size Conversion Helpers
+  //================================================================================
+
+  /**
+   * Converts paint text size to SP (scale-independent pixels).
+   * @param paintTextSizePx Current paint text size in pixels
+   * @param scaledDensity Display scaled density
+   * @return Text size in SP
+   */
+  public static float getTextSizeSp(float paintTextSizePx, float scaledDensity) {
+    if (scaledDensity <= 0f) return paintTextSizePx;
+    return paintTextSizePx / scaledDensity;
+  }
+
+  /**
+   * Converts SP to pixels.
+   * @param sp Value in SP
+   * @param scaledDensity Display scaled density
+   * @return Value in pixels
+   */
+  public static float spToPx(float sp, float scaledDensity) {
+    return sp * scaledDensity;
+  }
+
+  /**
+   * Scales a value based on text size change.
+   * @param baseValue The base value to scale
+   * @param baseTextSizePx Original text size in pixels
+   * @param newTextSizePx New text size in pixels
+   * @return Scaled value
+   */
+  public static float scaleByTextSize(float baseValue, float baseTextSizePx, float newTextSizePx) {
+    if (baseTextSizePx <= 0f) return baseValue;
+    return baseValue * (newTextSizePx / baseTextSizePx);
+  }
 }

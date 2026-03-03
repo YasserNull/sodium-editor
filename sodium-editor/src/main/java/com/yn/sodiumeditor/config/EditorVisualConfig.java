@@ -227,7 +227,7 @@ public class EditorVisualConfig {
         editor.foldRenderer.foldMarkerPaint.setTextSize(sizePx * editor.foldRenderer.foldMarkerTextScale);
         editor.wrapWordIndicatorRender.updatePaintForTextSize(sizePx, editor.editorConfig.paint);
         editor.editorConfig.lineHeight = editor.editorConfig.paint.getFontSpacing();
-        editor.updateTextSizeDependentMetrics();
+        editor.zoomEngine.updateTextSizeDependentMetrics(editor);
         editor.updateWhitespaceGuideMetrics();
         editor.lineNumberRenderer.invalidateCache();
 

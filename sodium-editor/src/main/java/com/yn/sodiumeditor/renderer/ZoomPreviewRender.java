@@ -71,7 +71,7 @@ public final class ZoomPreviewRender {
     targetSize = ZoomUtils.clampZoomSizePx(targetSize, minTextSizePx, maxTextSizePx);
 
     if (zoomStepClampSp > 0f) {
-      float stepPx = view.spToPxForZoom(zoomStepClampSp);
+      float stepPx = ZoomUtils.spToPx(zoomStepClampSp, view.getResources().getDisplayMetrics().scaledDensity);
       targetSize = ZoomUtils.quantizeZoomSizePx(targetSize, stepPx);
     }
 

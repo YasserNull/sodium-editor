@@ -175,7 +175,7 @@ public class EditorPerformanceConfig {
             editor.inlinePredictionState.setAutoPathCompletionEnabled(false);
             editor.charAnimationConfig.setEnabled(false);
             editor.highlightState.setHighlightCurrentLine(false);
-            editor.setIndentationBlocksEnabled(false);
+            editor.editorConfig.behaviorConfig.setIndentationBlocksEnabled(false, editor);
             editor.foldState.setCodeFoldingEnabled(false);
         }
         editor.invalidate();

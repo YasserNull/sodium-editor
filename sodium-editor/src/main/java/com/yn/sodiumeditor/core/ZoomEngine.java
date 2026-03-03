@@ -33,21 +33,21 @@ public final class ZoomEngine {
       anchorGlobalLineAtFocus = view.getGlobalLineForY(view.scrollManager.scrollY + focusY);
     }
 
-    float oldLineHeight = view.getPaintFontSpacingPxForZoom();
-    float currentSize = view.getPaintTextSizePxForZoom();
+    float oldLineHeight = view.editorConfig.paint.getFontSpacing();
+    float currentSize = view.editorConfig.paint.getTextSize();
     float newSize = currentSize * scale;
 
     // Clamp and quantize
     newSize = ZoomUtils.clampZoomSizePx(newSize, minTextSizePx, maxTextSizePx);
     if (zoomStepClampSp > 0f) {
-      float stepPx = view.spToPxForZoom(zoomStepClampSp);
+      float stepPx = ZoomUtils.spToPx(zoomStepClampSp, view.getResources().getDisplayMetrics().scaledDensity);
       newSize = ZoomUtils.quantizeZoomSizePx(newSize, stepPx);
     }
 
     if (ZoomUtils.isSignificantSizeChange(newSize, currentSize, SIZE_CHANGE_THRESHOLD)) {
-      view.applyZoomTextSizePx(newSize);
+      view.editorConfig.visualConfig.setTextSizePx(newSize, view);
 
-      float newLineHeight = view.getPaintFontSpacingPxForZoom();
+      float newLineHeight = view.editorConfig.paint.getFontSpacing();
       float effectiveScaleY = ZoomUtils.calculateScaleFactor(oldLineHeight, newLineHeight);
 
       float effectiveScrollX = view.getEffectiveScrollX();
@@ -81,19 +81,19 @@ public final class ZoomEngine {
       int anchorLine,
       SodiumEditor view) {
 
-    float oldSize = view.getPaintTextSizePxForZoom();
-    float oldLineHeight = view.getPaintFontSpacingPxForZoom();
+    float oldSize = view.editorConfig.paint.getTextSize();
+    float oldLineHeight = view.editorConfig.paint.getFontSpacing();
 
-    float stepPx = view.spToPxForZoom(0.2f); // Default step
+    float stepPx = ZoomUtils.spToPx(0.2f, view.getResources().getDisplayMetrics().scaledDensity);
     float targetSize = ZoomUtils.quantizeZoomSizePx(targetSizePx, stepPx);
     targetSize = ZoomUtils.clampZoomSizePx(targetSize, view.zoomConfig.minZoomTextSizePx, view.zoomConfig.maxZoomTextSizePx);
 
     if (ZoomUtils.isSignificantSizeChange(targetSize, oldSize, SIZE_CHANGE_THRESHOLD)) {
       float scaleX = ZoomUtils.calculateScaleFactor(oldSize, targetSize);
 
-      view.applyZoomTextSizePx(targetSize);
+      view.editorConfig.visualConfig.setTextSizePx(targetSize, view);
 
-      float newLineHeight = view.getPaintFontSpacingPxForZoom();
+      float newLineHeight = view.editorConfig.paint.getFontSpacing();
       float effectiveScaleY = ZoomUtils.calculateScaleFactor(oldLineHeight, newLineHeight);
 
       float effectiveScrollX = view.getEffectiveScrollX();
@@ -160,8 +160,9 @@ public final class ZoomEngine {
       float maxSp,
       SodiumEditor view) {
 
-    float minPx = view.spToPxForZoom(minSp);
-    float maxPx = view.spToPxForZoom(maxSp);
+    float scaledDensity = view.getResources().getDisplayMetrics().scaledDensity;
+    float minPx = ZoomUtils.spToPx(minSp, scaledDensity);
+    float maxPx = ZoomUtils.spToPx(maxSp, scaledDensity);
 
     if (minPx > maxPx) {
       float tmp = minPx;

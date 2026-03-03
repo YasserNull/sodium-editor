@@ -164,7 +164,7 @@ public class Document {
         view.bracketGuideRenderer.invalidateCache();
         if (view.wrapWordState.isWordWrapEnabled) view.wrapWordBuilder.invalidate(true, true);
         view.wrapWordBuilder.requestPrefixRebuild(view);
-        view.reloadWindowAroundVisible(false);
+        view.viewRender.reloadWindowAroundVisible(false);
         view.invalidate();
     }
 

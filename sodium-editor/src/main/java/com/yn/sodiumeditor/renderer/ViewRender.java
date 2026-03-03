@@ -45,7 +45,7 @@ public final class ViewRender {
 
   public void setWindowSize(int size) {
     int safe = Math.max(10, size);
-    int minWindow = view.computeMinWindowSize();
+    int minWindow = view.viewRender.computeMinWindowSizeForPrefetch(view.editorState.prefetchLines);
     if (safe < minWindow) safe = minWindow;
     if (view.windowSize == safe) return;
     view.windowSize = safe;
@@ -53,13 +53,13 @@ public final class ViewRender {
     view.bracketGuideRenderer.invalidateCache();
     if (view.wrapWordState.isWordWrapEnabled) view.wrapWordBuilder.invalidate(true, true);
     view.wrapWordBuilder.requestPrefixRebuild(view);
-    view.reloadWindowAroundVisible(false);
+    view.viewRender.reloadWindowAroundVisible(false);
   }
 
   public void setRenderWindow(int windowSize, int prefetchLines) {
     int safeWindow = Math.max(10, windowSize);
     int safePrefetch = Math.max(0, prefetchLines);
-    int minWindow = view.computeMinWindowSizeForPrefetch(safePrefetch);
+    int minWindow = view.viewRender.computeMinWindowSizeForPrefetch(safePrefetch);
     if (safeWindow < minWindow) safeWindow = minWindow;
     if (view.windowSize == safeWindow && view.prefetchLines == safePrefetch) return;
     view.windowSize = safeWindow;
@@ -68,20 +68,20 @@ public final class ViewRender {
     view.bracketGuideRenderer.invalidateCache();
     if (view.wrapWordState.isWordWrapEnabled) view.wrapWordBuilder.invalidate(true, true);
     view.wrapWordBuilder.requestPrefixRebuild(view);
-    view.reloadWindowAroundVisible(false);
+    view.viewRender.reloadWindowAroundVisible(false);
   }
 
   public void setPrefetchLines(int lines) {
     int safe = Math.max(0, lines);
     if (view.prefetchLines == safe) return;
     view.prefetchLines = safe;
-    int minWindow = view.computeMinWindowSize();
+    int minWindow = view.viewRender.computeMinWindowSizeForPrefetch(view.editorState.prefetchLines);
     if (view.windowSize < minWindow) view.windowSize = minWindow;
     view.invalidateHighlightEnsureRange();
     view.bracketGuideRenderer.invalidateCache();
     if (view.wrapWordState.isWordWrapEnabled) view.wrapWordBuilder.invalidate(true, true);
     view.wrapWordBuilder.requestPrefixRebuild(view);
-    view.reloadWindowAroundVisible(false);
+    view.viewRender.reloadWindowAroundVisible(false);
   }
 
   public int computeMinWindowSizeForPrefetch(int prefetch) {
@@ -783,13 +783,13 @@ public final class ViewRender {
       view.scrollManager.maxScrollXForScroll = 0f;
       view.scrollManager.maxTextStartXForScroll = 0f;
     }
-    
+
     int minWindow = computeMinWindowSizeForPrefetch(view.editorState.prefetchLines);
     if (view.editorState.windowSize < minWindow) {
       view.editorState.windowSize = minWindow;
-      view.reloadWindowAroundVisible(false);
+      view.viewRender.reloadWindowAroundVisible(false);
     }
-    
+
     if (view.wrapWordState.isWordWrapEnabled && w != oldw) {
       view.wrapWordBuilder.invalidate(true, true);
       view.wrapWordBuilder.requestPrefixRebuild(view);
