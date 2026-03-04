@@ -34,7 +34,7 @@ public final class ViewRender {
     this.textRender = new TextRender(view);
   }
 
-  private void computeStreamedSliceBounds(
+  public void computeStreamedSliceBounds(
       @Nullable String lineText, int globalLine, int lineLength, int[] out) {
     view.highlightRenderer.computeStreamedSliceBounds(lineText, globalLine, lineLength, out);
   }
@@ -564,8 +564,8 @@ public final class ViewRender {
               });
         });
   }
-  
-  private int getBraceGuideColumnForLine(
+
+  public int getBraceGuideColumnForLine(
       String line, int globalLine, int braceIndex, int firstNonSpace) {
     int column = (firstNonSpace >= 0) ? firstNonSpace : braceIndex;
     if (firstNonSpace >= 0 && braceIndex > firstNonSpace) {

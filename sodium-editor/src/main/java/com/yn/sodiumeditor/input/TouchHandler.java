@@ -23,13 +23,14 @@ public final class TouchHandler {
                 if (view.inlinePredictionState.suggestionAcceptedThisTouch) {
                   view.inlinePredictionState.clearSuggestionAcceptedThisTouch();
                 }
-                view.resetScrollLockAxisForInput();
-                view.setJustFinishedScaleForInput(false);
+                view.scrollManager.scrollLockAxis = 0;
+                view.zoomGestureHandler.setJustFinishedScale(false);
                 view.cursorState.setCursorPosition(view.cursorState.getCursorLine(), view.cursorState.getCursorChar());
                 view.imeCompositionHandler.commitComposing(false);
-                view.abortScrollerForInput();
-                view.setDownForInput(e.getX(), e.getY());
-                view.setMovedSinceDown(false);
+                view.scrollManager.abortScroller();
+                view.editorInputState.downX = e.getX();
+                view.editorInputState.downY = e.getY();
+                view.editorInputState.movedSinceDown = false;
                 return true;
               }
 
@@ -47,26 +48,26 @@ public final class TouchHandler {
                   }
                 }
 
-                if (view.isMovedSinceDown()) return;
+                if (view.editorInputState.movedSinceDown) return;
 
-                if (view.isLineNumberSelectionEnabledForInput()
-                    && view.isInLineNumberGutterForInput(e.getX())) {
-                  float y = e.getY() + view.getScrollYForInput();
+                if (view.lineNumberState.isLineNumberSelectionEnabled()
+                    && view.lineNumberRenderer.isInLineNumberGutter(e.getX(), view.isRtl ? 0f : view.editorConfig.paddingLeft)) {
+                  float y = e.getY() + view.scrollManager.scrollY;
                   int line = view.getGlobalLineForY(y);
-                  view.beginLineNumberSelectionForInput(line);
+                  view.selectionHandler.beginLineNumberSelection(line);
                   return;
                 }
 
                 SodiumEditor.CursorTarget target =
-                    view.getCursorTargetForInput(e.getX(), e.getY());
+                    view.getCursorTargetForPosition(e.getX(), e.getY(), null);
                 int line = target.line;
-                view.ensureLineInWindowForInput(line, true);
+                view.scrollManager.ensureLineInWindow(line, true);
 
-                String ln = view.getLineFromWindowLocalForInput(line - view.getWindowStartLineForInput());
+                String ln = view.getLineFromWindowLocal(line - view.editorState.windowStartLine);
                 if (ln == null) ln = view.getLineTextForRender(line);
                 int charIndex = Math.max(0, Math.min(target.ch, ln.length()));
 
-                if (!view.applySmartDoubleTapSelectionForInput(line, charIndex, ln)) {
+                if (!view.viewRender.textRender.applySmartDoubleTapSelection(line, charIndex, ln)) {
                   onSingleTapUp(e);
                   return;
                 }
@@ -83,47 +84,49 @@ public final class TouchHandler {
                 if (view.inlinePredictionState.suggestionAcceptedThisTouch) return true;
                 if (view.zoomGestureHandler.isMultiTouchActive() || view.zoomGestureHandler.hadMultiTouch()) return true;
 
-                view.clearSelectionForInput();
+                if (view.selectionState.hasSelection()) {
+                  view.selectionState.clearSelectionKeepLineNumberState();
+                }
 
-                if (view.isCodeFoldingEnabledForInput() && view.isInLineNumberGutterForInput(e.getX())) {
-                  float gy = e.getY() + view.getScrollYForInput();
+                if (view.foldState.isCodeFoldingEnabled && view.lineNumberRenderer.isInLineNumberGutter(e.getX(), view.isRtl ? 0f : view.editorConfig.paddingLeft)) {
+                  float gy = e.getY() + view.scrollManager.scrollY;
                   int line = view.getGlobalLineForY(gy);
                   if (view.foldTouchHandler.toggleFoldAtLine(line)) {
-                    view.startFoldMarkerRippleForInput(line);
+                    view.foldTouchHandler.startFoldMarkerRipple(line);
                     view.popupTouchHandler.hidePopup();
                     view.invalidate();
                     return true;
                   }
                 }
 
-                float y = e.getY() + view.getScrollYForInput();
-                int visibleIndex = Math.max(0, (int) (y / view.getLineHeightForInput()));
+                float y = e.getY() + view.scrollManager.scrollY;
+                int visibleIndex = Math.max(0, (int) (y / view.editorConfig.lineHeight));
                 int totalVisible =
                     view.wrapWordState.isWordWrapEnabled
-                        ? view.getTotalVisualLineCountForInput()
-                        : view.getVisibleLineCountForInput();
+                        ? view.wrapWordMapper.getTotalVisualLineCount(view, view.getVisibleLineCount())
+                        : view.getVisibleLineCount();
 
                 SodiumEditor.CursorTarget target =
-                    view.getCursorTargetForInput(e.getX(), e.getY());
+                    view.getCursorTargetForPosition(e.getX(), e.getY(), null);
                 int line = target.line;
 
-                if (view.isCodeFoldingEnabledForInput()) {
+                if (view.foldState.isCodeFoldingEnabled) {
                   String ln = view.getLineTextForRender(line);
-                  float xLocal = view.viewToTextXForInput(e.getX());
+                  float xLocal = e.getX() + (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX) - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
                   float x;
                   if (view.wrapWordState.isWordWrapEnabled) {
-                    int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, line, ln, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.editorConfig.paint);
+                    int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, line, ln, Math.max(1, Math.round(view.getWidth() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl))), view.editorConfig.paint);
                     int seg =
                         view.wrapWordEngine.getWrapSegmentIndexForChar(
                             starts, Math.max(0, Math.min(target.ch, ln.length())));
                     int segStart = view.wrapWordEngine.getWrapSegmentStart(starts, seg);
-                    x = xLocal + view.measureTextWithVisualSpacesForInput(ln, 0, segStart);
+                    x = xLocal + view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, ln, 0, segStart, view.editorConfig.paint);
                   } else {
                     x = xLocal;
                   }
-                  if (view.isFoldPlaceholderHitForInput(line, ln, x)) {
+                  if (view.foldTouchHandler.isFoldPlaceholderHit(line, ln, x)) {
                     if (view.foldTouchHandler.toggleFoldAtLine(line)) {
-                      view.startFoldMarkerRippleForInput(line);
+                      view.foldTouchHandler.startFoldMarkerRipple(line);
                     }
                     view.popupTouchHandler.hidePopup();
                     view.invalidate();
@@ -132,65 +135,66 @@ public final class TouchHandler {
                 }
 
                 boolean afterEnd =
-                    view.isEofForInput()
-                        && line >= view.getWindowStartLineForInput() + view.getLinesWindowSizeForInput()
-                        && !view.isLinesWindowEmptyForInput();
-                if (view.isCodeFoldingEnabledForInput()) {
+                    view.editorState.isEof
+                        && line >= view.editorState.windowStartLine + view.editorState.linesWindow.size()
+                        && !view.editorState.linesWindow.isEmpty();
+                if (view.foldState.isCodeFoldingEnabled) {
                   afterEnd = visibleIndex >= totalVisible;
                 }
 
                 if (afterEnd) {
-                  if (view.isClickAfterEndToAddLineEnabledForInput()) {
-                    int lastLineIndex = view.getWindowStartLineForInput() + view.getLinesWindowSizeForInput() - 1;
+                  if (view.editorConfig.performanceConfig.isClickAfterEndToAddLineEnabled) {
+                    int lastLineIndex = view.editorState.windowStartLine + view.editorState.linesWindow.size() - 1;
                     if (visibleIndex == totalVisible) {
-                      view.setCursorPositionForInput(lastLineIndex, view.getLineTextForRender(lastLineIndex).length());
-                      view.insertTextAtCursorForInput("\n");
+                      view.cursorState.setCursorPosition(lastLineIndex, view.getLineTextForRender(lastLineIndex).length());
+                      view.cursorState.setCursorPosition(view.cursorState.getCursorLine(), view.cursorState.getCursorChar());
+                      view.editorTextInserter.insertTextAtCursor("\n");
                     } else {
-                      view.setCursorPositionForInput(lastLineIndex, view.getLineTextForRender(lastLineIndex).length());
+                      view.cursorState.setCursorPosition(lastLineIndex, view.getLineTextForRender(lastLineIndex).length());
                     }
                   } else {
-                    int lastLineIndex = view.getWindowStartLineForInput() + view.getLinesWindowSizeForInput() - 1;
-                    view.setCursorPositionForInput(lastLineIndex, view.getLineTextForRender(lastLineIndex).length());
+                    int lastLineIndex = view.editorState.windowStartLine + view.editorState.linesWindow.size() - 1;
+                    view.cursorState.setCursorPosition(lastLineIndex, view.getLineTextForRender(lastLineIndex).length());
                   }
                 } else {
-                  view.ensureLineInWindowForInput(line, true);
+                  view.scrollManager.ensureLineInWindow(line, true);
                   String ln = view.getLineTextForRender(line);
-                  view.setCursorPositionForInput(line, Math.max(0, Math.min(target.ch, ln.length())));
+                  view.cursorState.setCursorPosition(line, Math.max(0, Math.min(target.ch, ln.length())));
                 }
 
                 view.popupTouchHandler.hidePopup();
-                view.setSelectingForInput(false);
+                view.selectionState.setSelecting(false);
                 view.invalidate();
                 view.cursorAnimator.resetCursorBlink();
                 view.imeManager.showKeyboard();
                 view.restartInputPublic();
-                view.updateSuggestionForInput();
+                view.inlinePredictionEngine.updateSuggestion();
                 return true;
               }
 
               @Override
               public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-                return view.handleScrollFromInput(e2, distanceX, distanceY);
+                return view.scrollManager.onScroll(e2, distanceX, distanceY);
               }
 
               @Override
               public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-                return view.handleFlingFromInput(velocityX, velocityY);
+                return view.scrollManager.onFling(velocityX, velocityY);
               }
 
               @Override
               public boolean onDoubleTap(MotionEvent e) {
                 if (view.inlinePredictionState.suggestionAcceptedThisTouch) return true;
                 SodiumEditor.CursorTarget target =
-                    view.getCursorTargetForInput(e.getX(), e.getY());
+                    view.getCursorTargetForPosition(e.getX(), e.getY(), null);
                 int line = target.line;
-                view.ensureLineInWindowForInput(line, true);
+                view.scrollManager.ensureLineInWindow(line, true);
                 String ln = view.getLineTextForRender(line);
                 if (ln == null || ln.isEmpty()) {
                   return onSingleTapUp(e);
                 }
                 int charIndex = Math.max(0, Math.min(target.ch, ln.length()));
-                if (!view.applySmartDoubleTapSelectionForInput(line, charIndex, ln)) {
+                if (!view.viewRender.textRender.applySmartDoubleTapSelection(line, charIndex, ln)) {
                   return onSingleTapUp(e);
                 }
                 view.popupTouchHandler.showPopupAtSelection();
@@ -239,7 +243,7 @@ public final class TouchHandler {
         view.scrollManager.scrollY = view.scrollManager.scroller.getCurrY();
         view.scrollManager.scroller.abortAnimation();
       }
-      view.cancelFlingStopAnimationPublic();
+      view.cancelFlingStopAnimation();
     }
 
     if (action == MotionEvent.ACTION_POINTER_UP) {
@@ -278,13 +282,13 @@ public final class TouchHandler {
         view.pointerDown = true;
         view.setDownXPublic(ex);
         view.setDownYPublic(ey);
-        view.movedSinceDown = false;
+        view.editorInputState.movedSinceDown = false;
         view.inlinePredictionState.clearSuggestionAcceptedThisTouch();
         view.scrollManager.dragMaxScrollX = view.wrapWordState.isWordWrapEnabled ? -1f : view.scrollManager.getMaxScrollXForClamp();
 
         view.scrollManager.showScrollBar();
         if (view.scrollManager.scrollBarEnabled) {
-          float maxScroll = view.getMaxScrollYForClampPublic();
+          float maxScroll = view.scrollManager.getMaxScrollYForClamp();
           if (maxScroll > 0f && view.scrollManager.scrollBarThumbRect.contains(ex, ey)) {
             view.scrollManager.draggingScrollBar = true;
             view.scrollManager.scrollBarDragOffset = ey - view.scrollManager.scrollBarThumbRect.top;
@@ -307,12 +311,12 @@ public final class TouchHandler {
           float targetX = view.scrollManager.scroller.getCurrX();
           float targetY = view.scrollManager.scroller.getCurrY();
           view.scrollManager.scroller.abortAnimation();
-          view.startFlingStopAnimationPublic(targetX, targetY);
+          view.scrollManager.startFlingStopAnimation(targetX, targetY);
         } else {
-          view.cancelFlingStopAnimationPublic();
+          view.cancelFlingStopAnimation();
         }
 
-        float gx = ex + view.getEffectiveScrollX() - view.getTextStartX();
+        float gx = ex + (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX) - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
         float gy = ey + view.scrollManager.scrollY - view.scrollManager.getHitTestBaseY();
         int hitHandle =
             view.handleDragHandler.hitTestHandle(gx, gy, view.selectionState.hasSelection(), view.isFocused());
@@ -325,12 +329,12 @@ public final class TouchHandler {
         return true;
 
       case MotionEvent.ACTION_MOVE:
-        if (view.getFlingStopAnimatorPublic() != null) view.cancelFlingStopAnimationPublic();
-        if (Math.abs(ex - view.getDownXPublic()) > view.getTouchSlopPublic() || Math.abs(ey - view.getDownYPublic()) > view.getTouchSlopPublic())
-          view.movedSinceDown = true;
+        if (view.flingStopAnimator != null) view.cancelFlingStopAnimation();
+        if (Math.abs(ex - view.editorInputState.downX) > view.editorInputState.touchSlop || Math.abs(ey - view.editorInputState.downY) > view.editorInputState.touchSlop)
+          view.editorInputState.movedSinceDown = true;
 
         if (view.scrollManager.draggingScrollBar) {
-          float maxScroll = view.getMaxScrollYForClampPublic();
+          float maxScroll = view.scrollManager.getMaxScrollYForClamp();
           if (maxScroll > 0f && view.scrollManager.scrollBarThumbRect.contains(ex, ey)) {
             view.scrollManager.draggingScrollBar = true;
             view.scrollManager.scrollBarDragOffset = ey - view.scrollManager.scrollBarThumbRect.top;
@@ -352,7 +356,7 @@ public final class TouchHandler {
         if (view.selectionState.isLineNumberSelecting()) {
           float y = ey + view.scrollManager.scrollY;
           int line = view.getGlobalLineForY(y);
-          view.updateLineNumberSelectionPublic(line);
+          view.selectionHandler.updateLineNumberSelection(line);
           return true;
         }
 

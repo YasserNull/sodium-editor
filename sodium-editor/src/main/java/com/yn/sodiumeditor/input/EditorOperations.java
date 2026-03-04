@@ -14,7 +14,7 @@ public final class EditorOperations {
 
   public void insertCharAtCursor(char c) {
     if (view.editorConfig.behaviorConfig.isReadOnly) return;
-    view.invalidatePendingIOForEdit();
+    view.editorIO.invalidatePendingIOForEdit();
     view.history.incrementEditVersion();
 
     if (view.cursorState.hasComposing()) {
@@ -194,7 +194,7 @@ public final class EditorOperations {
 
   public void deleteCharAtCursor() {
     if (view.editorConfig.behaviorConfig.isReadOnly) return;
-    view.invalidatePendingIOForEdit();
+    view.editorIO.invalidatePendingIOForEdit();
     view.history.incrementEditVersion();
     view.inlinePredictionState.clearActiveSuggestion();
 
@@ -306,7 +306,7 @@ public final class EditorOperations {
 
   public void deleteForwardAtCursor() {
     if (view.editorConfig.behaviorConfig.isReadOnly) return;
-    view.invalidatePendingIOForEdit();
+    view.editorIO.invalidatePendingIOForEdit();
     view.history.incrementEditVersion();
     view.inlinePredictionState.clearActiveSuggestion();
 
@@ -403,7 +403,7 @@ public final class EditorOperations {
 
   public void replaceSelectionWithText(String insertText) {
     if (view.editorConfig.behaviorConfig.isReadOnly) return;
-    view.invalidatePendingIOForEdit();
+    view.editorIO.invalidatePendingIOForEdit();
     final int opToken = view.history.incrementEditVersion();
     view.inlinePredictionState.clearActiveSuggestion();
 
@@ -507,7 +507,7 @@ public final class EditorOperations {
 
   public void insertStringAtCursor(String text) {
     if (view.editorConfig.behaviorConfig.isReadOnly) return;
-    view.invalidatePendingIOForEdit();
+    view.editorIO.invalidatePendingIOForEdit();
     view.history.incrementEditVersion();
 
     if (view.cursorState.hasComposing()) {

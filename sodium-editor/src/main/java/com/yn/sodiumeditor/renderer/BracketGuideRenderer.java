@@ -46,7 +46,7 @@ public class BracketGuideRenderer {
     public void setStrokeWidth(float width) {
         if (baseBracketGuideStrokeWidth == width) return;
         baseBracketGuideStrokeWidth = width;
-        baseBracketGuideTextSizePx = view.getPaintTextSizeForBracket();
+        baseBracketGuideTextSizePx = view.editorConfig.paint.getTextSize();
         state.invalidateCache();
     }
 
@@ -77,13 +77,13 @@ public class BracketGuideRenderer {
 
     public void drawGuidesForLine(Canvas canvas, String line, int globalLine, List<BracketGuideToken> guideTokens) {
         if (!state.isBracketGuidesEnabled()
-                || view.isHeavyDrawSuppressedForBracket()
+                || view.isHeavyDrawSuppressed()
                 || guideTokens == null
                 || guideTokens.isEmpty()) return;
         if (line == null) line = "";
         state.resetGuideSeenX();
-        float top = view.getDrawLineTopForBracket(globalLine);
-        float bottom = top + view.getLineHeightForBracket();
+        float top = view.scrollManager.getDrawLineTop(globalLine);
+        float bottom = top + view.editorConfig.lineHeight;
         int firstNonSpace = getFirstNonSpaceIndex(line);
         boolean adjustTopGuideToClosingBrace = (firstNonSpace >= 0 && line.charAt(firstNonSpace) == '}');
         float closingBraceX =

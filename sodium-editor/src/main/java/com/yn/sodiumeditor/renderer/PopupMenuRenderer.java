@@ -277,7 +277,7 @@ public class PopupMenuRenderer {
     }
 
     private boolean shouldHideCopyCutForSelection() {
-        return view.shouldHideCopyCutForSelection();
+        return view.selectionHandler.shouldHideCopyCutForSelection();
     }
 
     private float getViewXForLineChar(String line, int globalLine, int ch) {

@@ -143,7 +143,7 @@ public class WhitespaceGuideRenderer {
 
         if (globalLine >= view.windowStartLine
                 && globalLine < view.windowStartLine + view.linesWindow.size()) {
-            if (view.isBlockCommentsEnabledForBracket()) {
+            if (view.editorConfig.behaviorConfig.isBlockCommentsEnabled) {
                 view.highlightState.blockCommentEndStateCache.put(globalLine, parseResult.endsInBlockComment);
             }
             view.highlightState.stringEndStateCache.put(globalLine, parseResult.endsInStringState);
@@ -193,8 +193,8 @@ public class WhitespaceGuideRenderer {
             int start,
             int end,
             float y) {
-        if (!view.isWhitespaceGuidesEnabledForBracket()
-                || view.isHeavyDrawSuppressedForBracket()
+        if (!view.whitespaceGuideState.isWhitespaceGuidesEnabled()
+                || view.isHeavyDrawSuppressed()
                 || line == null
                 || line.isEmpty())
             return;
@@ -330,8 +330,8 @@ public class WhitespaceGuideRenderer {
             int start,
             int end,
             float y) {
-        if (!view.isWhitespaceGuidesEnabledForBracket()
-                || view.isHeavyDrawSuppressedForBracket()
+        if (!view.whitespaceGuideState.isWhitespaceGuidesEnabled()
+                || view.isHeavyDrawSuppressed()
                 || line == null
                 || line.isEmpty())
             return;

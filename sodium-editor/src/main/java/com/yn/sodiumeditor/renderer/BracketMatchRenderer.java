@@ -30,7 +30,7 @@ public class BracketMatchRenderer {
 
     public void setStrokeWidth(float width) {
         state.setBaseStrokeWidth(width);
-        state.setBaseTextSizePx(view.getPaintTextSizeForMatch());
+        state.setBaseTextSizePx(view.editorConfig.paint.getTextSize());
     }
 
     public void setBaseTextSizePx(float sizePx) {
@@ -103,8 +103,8 @@ public class BracketMatchRenderer {
 
     private void drawBracketBoxRect(Canvas canvas, int globalLine, float left, float right) {
         final float padding = 1f;
-        final float top = view.getDrawLineTopForMatch(globalLine) + padding;
-        final float bottom = top + view.getLineHeightForMatch() - (padding * 2f);
+        final float top = view.scrollManager.getDrawLineTop(globalLine) + padding;
+        final float bottom = top + view.editorConfig.lineHeight - (padding * 2f);
 
         float l = left - padding;
         float r = right + padding;

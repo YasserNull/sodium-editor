@@ -175,8 +175,9 @@ public class InlinePredictionEngine {
         String textToInsert = state.activeSuggestion;
         state.clearActiveSuggestion();
         view.selectionState.clearSelectionKeepLineNumberState();
-        view.insertStringAtCursorForSuggestion(textToInsert);
-        view.restartInputForSuggestion();
+        view.cursorState.setCursorPosition(view.cursorState.getCursorLine(), view.cursorState.getCursorChar());
+        view.editorTextInserter.insertTextAtCursor(textToInsert);
+        view.imeManager.restartInput();
     }
 
     public boolean maybeAcceptSuggestionTap(float ex, float ey, int line, boolean isEmptyArea) {

@@ -274,7 +274,7 @@ public class Document {
     // =========================================================================
 
     public void clearContent() {
-        view.invalidatePendingIOForEdit();
+        view.editorIO.invalidatePendingIOForEdit();
         view.sourceFile = null;
         view.isFileCleared = true;
         view.selectionState.setSelectAllState(false, false);
@@ -351,7 +351,7 @@ public class Document {
     // =========================================================================
 
     public void loadFromFile(final File file) {
-        view.invalidatePendingIOForEdit();
+        view.editorIO.invalidatePendingIOForEdit();
         view.isFileCleared = false;
         view.selectionState.setSelectAllState(false, false);
         view.lineNumberRenderer.invalidateCache();

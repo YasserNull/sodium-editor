@@ -64,6 +64,7 @@ import com.yn.sodiumeditor.io.LineIndex;
 import com.yn.sodiumeditor.io.TextIO;
 import com.yn.sodiumeditor.renderer.ViewRender;
 import com.yn.sodiumeditor.renderer.TextRender;
+import com.yn.sodiumeditor.state.FoldRange;
 import com.yn.sodiumeditor.state.History;
 
 public class SodiumEditor extends View {
@@ -83,7 +84,7 @@ public class SodiumEditor extends View {
   // --- Cursor Animation State ---
   private final InputManager inputManager;
   public final com.yn.sodiumeditor.input.EditorOperations editorOperations;
-  @Nullable ValueAnimator flingStopAnimator;
+  @Nullable public ValueAnimator flingStopAnimator;
   public final InputMethodHandler imeManager;
   public final ScrollEngine scrollManager;
   public final com.yn.sodiumeditor.input.FocusChangeHandler focusChangeHandler;
@@ -350,7 +351,7 @@ public class SodiumEditor extends View {
       new Runnable() {
         @Override
         public void run() {
-          checkAndLoadWindow();
+          viewRender.checkAndLoadWindow();
         }
       };
 
@@ -540,374 +541,7 @@ public class SodiumEditor extends View {
   }
 
 
-  public int getWindowStartLineForBracket() {
-    return editorState.windowStartLine;
-  }
-
-  public int getWindowEndLineForBracket() {
-    synchronized (editorState.linesWindow) {
-      return editorState.windowStartLine + editorState.linesWindow.size() - 1;
-    }
-  }
-
-  public int getEditVersionForBracket() {
-    return history.getEditVersion();
-  }
-
-  public String getLineTextForRenderWithDirectForMatch(
-      int line, @Nullable java.util.Map<Integer, String> direct) {
-    return getLineTextForRenderWithDirect(line, direct);
-  }
-
-  public int getEditVersionForMatch() {
-    return history.getEditVersion();
-  }
-
-  public boolean isBlockCommentsEnabledForMatch() {
-    return editorConfig.behaviorConfig.isBlockCommentsEnabled;
-  }
-
-  public boolean isMultiLineStringsEnabledForMatch() {
-    return editorConfig.behaviorConfig.isMultiLineStringsEnabled;
-  }
-
-  public boolean isBacktickStringsEnabledForMatch() {
-    return editorConfig.behaviorConfig.isBacktickStringsEnabled;
-  }
-
-  public boolean isTripleQuoteStringsEnabledForMatch() {
-    return editorConfig.behaviorConfig.isTripleQuoteStringsEnabled;
-  }
-
-  public int getStringStateTripleForMatch() {
-    return com.yn.sodiumeditor.state.HighlightState.STRING_STATE_TRIPLE;
-  }
-
-  public int getStringStateBacktickForMatch() {
-    return com.yn.sodiumeditor.state.HighlightState.STRING_STATE_BACKTICK;
-  }
-
-
-
-  public float getDrawLineTopForMatch(int globalLine) {
-    return scrollManager.getDrawLineTop(globalLine);
-  }
-
-  public float getLineHeightForMatch() {
-    return editorConfig.lineHeight;
-  }
-
-  public float getPaintTextSizeForMatch() {
-    return editorConfig.paint.getTextSize();
-  }
-
-  public String getLineTextForRenderWithDirectForBracket(
-      int line, @Nullable java.util.Map<Integer, String> direct) {
-    return getLineTextForRenderWithDirect(line, direct);
-  }
-
-  public boolean isBlockCommentsEnabledForBracket() {
-    return editorConfig.behaviorConfig.isBlockCommentsEnabled;
-  }
-
-  public boolean isMultiLineStringsEnabledForBracket() {
-    return editorConfig.behaviorConfig.isMultiLineStringsEnabled;
-  }
-
-  public boolean isBacktickStringsEnabledForBracket() {
-    return editorConfig.behaviorConfig.isBacktickStringsEnabled;
-  }
-
-  public boolean isTripleQuoteStringsEnabledForBracket() {
-    return editorConfig.behaviorConfig.isTripleQuoteStringsEnabled;
-  }
-
-  public int getStringStateTripleForBracket() {
-    return com.yn.sodiumeditor.state.HighlightState.STRING_STATE_TRIPLE;
-  }
-
-  public int getStringStateBacktickForBracket() {
-    return com.yn.sodiumeditor.state.HighlightState.STRING_STATE_BACKTICK;
-  }
-
-
-  public boolean isWhitespaceGuidesEnabledForBracket() {
-    return whitespaceGuideState.isWhitespaceGuidesEnabled();
-  }
-
-  public int getWhitespaceGuideSpaceStepForBracket() {
-    return whitespaceGuideState.getSpaceStep();
-  }
-
-  public float getPaintTextSizeForBracket() {
-    return editorConfig.paint.getTextSize();
-  }
-
-  public boolean isRtlForBracket() {
-    return editorConfig.isRtl();
-  }
-
-
-  public boolean isHeavyDrawSuppressedForBracket() {
-    return isHeavyDrawSuppressed();
-  }
-
-  public float getDrawLineTopForBracket(int globalLine) {
-    return scrollManager.getDrawLineTop(globalLine);
-  }
-
-  public float getLineHeightForBracket() {
-    return editorConfig.lineHeight;
-  }
-
-  public void resetScrollLockAxisForInput() {
-    scrollManager.scrollLockAxis = 0;
-  }
-
-  public void setJustFinishedScaleForInput(boolean finished) {
-    zoomGestureHandler.setJustFinishedScale(finished);
-  }
-
-  public void abortScrollerForInput() {
-    scrollManager.abortScroller();
-  }
-
-  public void setDownForInput(float x, float y) {
-    editorInputState.downX = x;
-    editorInputState.downY = y;
-  }
-
-  public void setMovedSinceDown(boolean moved) {
-    editorInputState.movedSinceDown = moved;
-  }
-
-  public boolean isMovedSinceDown() {
-    return editorInputState.movedSinceDown;
-  }
-
-  public boolean isLineNumberSelectionEnabledForInput() {
-    return lineNumberState.isLineNumberSelectionEnabled();
-  }
-
-  public boolean isInLineNumberGutterForInput(float x) {
-    return isInLineNumberGutter(x);
-  }
-
-  public float getScrollYForInput() {
-    return scrollManager.scrollY;
-  }
-
-  public void beginLineNumberSelectionForInput(int line) {
-    beginLineNumberSelection(line);
-  }
-
-  public CursorTarget getCursorTargetForInput(float x, float y) {
-    return getCursorTargetForPosition(x, y, null);
-  }
-
-  public CursorTarget getCursorTargetForHandles(float x, float y) {
-    return getCursorTargetForPosition(x, y, null);
-  }
-
-  public void ensureLineInWindowForInput(int line, boolean reload) {
-    scrollManager.ensureLineInWindow(line, reload);
-  }
-
-  public String getLineFromWindowLocalForInput(int index) {
-    return getLineFromWindowLocal(index);
-  }
-
-  public int getWindowStartLineForInput() {
-    return editorState.windowStartLine;
-  }
-
-  public boolean applySmartDoubleTapSelectionForInput(int line, int ch, String ln) {
-    return applySmartDoubleTapSelection(line, ch, ln);
-  }
-
-  public void clearSelectionForInput() {
-    if (selectionState.hasSelection()) {
-      selectionState.clearSelectionKeepLineNumberState();
-    }
-  }
-
-  public boolean isCodeFoldingEnabledForInput() {
-    return foldState.isCodeFoldingEnabled;
-  }
-
-  public void startFoldMarkerRippleForInput(int line) {
-    startFoldMarkerRipple(line);
-  }
-
-  public float getLineHeightForInput() {
-    return editorConfig.lineHeight;
-  }
-
-  public int getTotalVisualLineCountForInput() {
-    return wrapWordMapper.getTotalVisualLineCount(this, getVisibleLineCount());
-  }
-
-  public int getVisibleLineCountForInput() {
-    return getVisibleLineCount();
-  }
-
-  public float viewToTextXForInput(float x) {
-    return viewToTextX(x);
-  }
-
-  public float measureTextWithVisualSpacesForInput(String s, int start, int end) {
-    return whitespaceGuideRenderer.measureTextWithVisualSpaces(this, s, start, end, editorConfig.paint);
-  }
-
-  public boolean isFoldPlaceholderHitForInput(int line, String ln, float x) {
-    return isFoldPlaceholderHit(line, ln, x);
-  }
-
-  public boolean isEofForInput() {
-    return editorState.isEof;
-  }
-
-  public int getLinesWindowSizeForInput() {
-    return editorState.linesWindow.size();
-  }
-
-  public boolean isLinesWindowEmptyForInput() {
-    return editorState.linesWindow.isEmpty();
-  }
-
-  public boolean isClickAfterEndToAddLineEnabledForInput() {
-    return editorConfig.performanceConfig.isClickAfterEndToAddLineEnabled;
-  }
-
-  public void setCursorPositionForInput(int line, int ch) {
-    cursorState.setCursorPosition(line, ch);
-  }
-
-  public void insertTextAtCursorForInput(String text) {
-    cursorState.setCursorPosition(cursorState.getCursorLine(), cursorState.getCursorChar());
-    editorTextInserter.insertTextAtCursor(text);
-  }
-
-  public void insertStringAtCursorForSuggestion(String text) {
-    cursorState.setCursorPosition(cursorState.getCursorLine(), cursorState.getCursorChar());
-    editorTextInserter.insertTextAtCursor(text);
-  }
-
-  public void setSelectingForInput(boolean selectingNow) {
-    selectionState.setSelecting(selectingNow);
-  }
-
-  public void updateSuggestionForInput() {
-    inlinePredictionEngine.updateSuggestion();
-  }
-
-  void restartInputForInput() {
-    restartInput();
-  }
-
-  public void restartInputForSuggestion() {
-    restartInput();
-  }
-
-  public boolean handleScrollFromInput(MotionEvent e2, float distanceX, float distanceY) {
-    return scrollManager.onScroll(e2, distanceX, distanceY);
-  }
-
-  public boolean handleFlingFromInput(float velocityX, float velocityY) {
-    return scrollManager.onFling(velocityX, velocityY);
-  }
-
-  public void applyTypeface(@Nullable Typeface typeface, int style) {
-    typefaceManager.applyTypeface(typeface, style);
-  }
-
-  public void updateWhitespaceGuideMetrics() {
-    whitespaceGuideRenderer.updateMetrics(editorConfig.paint, editorConfig.visualConfig.WHITESPACE_GUIDE_SPACE, editorConfig.visualConfig.WHITESPACE_GUIDE_TAB);
-
-  }
-
-  public void ensureHighlightCacheForVisibleRange(
-      int firstVisibleLine,
-      int lastVisibleLine,
-      @Nullable java.util.HashMap<Integer, String> directLines) {
-    highlightRenderer.ensureHighlightCacheForVisibleRange(firstVisibleLine, lastVisibleLine, directLines);
-  }
-
-  public void maybeEnsureHighlightCacheForRange(
-      int startLine, int endLine, @Nullable java.util.HashMap<Integer, String> directLines) {
-    highlightState.maybeEnsureHighlightCacheForRange(startLine, endLine, directLines);
-  }
-
-  public void invalidateHighlightEnsureRange() {
-    highlightState.resetEnsureRange();
-  }
-
-  // --- Layout and Measurement ---
-
-  @Override
-  protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-    super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-    viewRender.onMeasure();
-  }
-
-  @Override
-  protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-    super.onSizeChanged(w, h, oldw, oldh);
-    viewRender.onSizeChanged(w, h, oldw, oldh);
-  }
-
-  public float getTextStartX() {
-    return lineNumberRenderer.getTextStartX(editorConfig.paddingLeft, isRtl);
-  }
-
-  public float getEffectiveScrollX() {
-    return isRtl ? -scrollManager.scrollX : scrollManager.scrollX;
-  }
-
-  private float viewToTextX(float viewX) {
-    return viewX + getEffectiveScrollX() - getTextStartX();
-  }
-
-  public float viewToTextXPublic(float viewX) {
-    return viewToTextX(viewX);
-  }
-
-  public float getTextAreaWidth() {
-    return lineNumberRenderer.getTextAvailableWidth(getWidth(), editorConfig.paddingLeft);
-  }
-
-  public float getRtlLineBaseX(@Nullable String line, int globalLine) {
-    return viewRender.textRender.getRtlLineBaseX(line, globalLine);
-  }
-
-  public float getRtlSegmentBaseX(@Nullable String line, int globalLine, int segStart, int segEnd) {
-    return viewRender.textRender.getRtlSegmentBaseX(line, globalLine, segStart, segEnd);
-  }
-
-  public float getCaretXForLine(String line, int globalLine, int charIndex) {
-    return viewRender.textRender.getCaretXForLine(line, globalLine, charIndex);
-  }
-
-  public float getCaretXForSegment(
-      String line, int globalLine, int segStart, int segEnd, int charIndex) {
-    return viewRender.textRender.getCaretXForSegment(line, globalLine, segStart, segEnd, charIndex);
-  }
-
-  private int getCharIndexForXInRange(String text, int globalLine, int start, int end, float x) {
-    return viewRender.textRender.getCharIndexForXInRange(text, globalLine, start, end, x);
-  }
-
-  private CursorTarget getCursorTargetForPosition(
-      float viewX, float viewY, @Nullable java.util.Map<Integer, String> directLines) {
-    return viewRender.textRender.getCursorTargetForPosition(viewX, viewY, directLines);
-  }
-
-  public int getWindowEndLine() {
-    synchronized (editorState.linesWindow) {
-      return Math.max(0, editorState.windowStartLine + editorState.linesWindow.size() - 1);
-    }
-  }
-
+  
   public static final class VisualLinePosition {
     public final int line;
     public final int segment;
@@ -918,150 +552,7 @@ public class SodiumEditor extends View {
     }
   }
 
-  public float getGutterStartX() {
-    return lineNumberRenderer.getLineNumberViewLeft(getWidth(), isRtl);
-  }
-
-  private boolean isInLineNumberGutter(float x) {
-    return lineNumberRenderer.isInLineNumberGutter(x, getGutterStartX());
-  }
-
-  public void beginLineNumberSelection(int line) {
-    selectionHandler.beginLineNumberSelection(line);
-  }
-
-  public void updateLineNumberSelection(int line) {
-    selectionHandler.updateLineNumberSelection(line);
-  }
-
-  public String buildFoldDisplayLineInternal(String line, com.yn.sodiumeditor.state.FoldRange range, int[] placeholderBoundsOut) {
-    return foldRenderer.buildFoldDisplayLineInternal(line, range, placeholderBoundsOut);
-  }
-
-  public void drawFoldedLine(Canvas canvas, String line, int globalLine) {
-    foldRenderer.drawFoldedLine(canvas, line, globalLine);
-  }
-
-  private boolean isFoldPlaceholderHit(int globalLine, @Nullable String line, float localX) {
-    return foldTouchHandler.isFoldPlaceholderHit(globalLine, line, localX);
-  }
-
-  private String getFoldMarkerForLine(int line, @Nullable String lineText) {
-    return foldRenderer.getFoldMarkerForLine(line, lineText);
-  }
-
-  String getFoldMarkerForLineInternal(int line, @Nullable String lineText) {
-    return foldRenderer.getFoldMarkerForLine(line, lineText);
-  }
-
-  private boolean isIndentFoldCandidate(String line) {
-    return foldRenderer.isIndentFoldCandidate(line);
-  }
-
-  private void startFoldMarkerRipple(int line) {
-    foldTouchHandler.startFoldMarkerRipple(line);
-  }
-
-  private void clearFoldRipple() {
-    foldTouchHandler.clearFoldRipple();
-  }
-
-  private boolean shouldShowFoldMarkerFromLine(String line) {
-    return foldRenderer.shouldShowFoldMarkerFromLine(line);
-  }
-
-
-
-  public boolean superOnKeyDown(int keyCode, KeyEvent event) {
-    return super.onKeyDown(keyCode, event);
-  }
-
-  public void getVisibleCharRangeForLine(String line, int globalLine, int[] out) {
-    viewRender.textRender.getVisibleCharRangeForLine(line, globalLine, out);
-  }
-
-  private void getVisibleCharRangeForLineFast(
-      String line, int globalLine, int lineLength, int[] out) {
-    viewRender.textRender.getVisibleCharRangeForLineFast(line, globalLine, lineLength, out);
-  }
-
-  public void computeStreamedSliceBounds(
-      @Nullable String lineText, int globalLine, int lineLength, int[] out) {
-    highlightRenderer.computeStreamedSliceBounds(lineText, globalLine, lineLength, out);
-  }
-
-  public int getInitialStreamedSliceSize() {
-    return highlightRenderer.getInitialStreamedSliceSize();
-  }
-
-  public void drawDeleteAnimationForSegment(
-      Canvas canvas, String line, int globalLine, int segStart, int segEnd, float y) {
-    charAnimationRenderer.drawDeleteAnimationForSegment(canvas, line, globalLine, segStart, segEnd, y);
-  }
-
-
-
-  public boolean isMixedDirectionText(CharSequence text, int start, int end) {
-    return com.yn.sodiumeditor.utils.TextUtils.isMixedDirectionText(text, start, end);
-  }
-
-  public int getVisualSpaceScale() {
-    return 1;
-  }
-
-  private boolean isWhitespaceAtX(String line, int globalLine, float x) {
-    return viewRender.textRender.isWhitespaceAtX(line, globalLine, x);
-  }
-
-  public boolean isIndentationBlocksEnabledForIndentGuides() {
-    return editorConfig.behaviorConfig.isIndentationBlocksEnabled;
-  }
-
-  public boolean isHeavyDrawSuppressedForIndentGuides() {
-    return isHeavyDrawSuppressed();
-  }
-
-  public float getIndentGuideLineTop(int globalLine) {
-    return scrollManager.getDrawLineTop(globalLine);
-  }
-
-  public float getIndentGuideLineHeight() {
-    return editorConfig.lineHeight;
-  }
-
-  public int getIndentGuideTabSize() {
-    return com.yn.sodiumeditor.core.WrapWordEngine.DEFAULT_TAB_SIZE_SPACES;
-  }
-
-  public String getIndentGuideUnit() {
-    return editorConfig.visualConfig.INDENT_BLOCK_UNIT;
-  }
-
-  public float measureTextWithVisualSpacesForIndentGuides(String line, int start, int end) {
-    return whitespaceGuideRenderer.measureTextWithVisualSpaces(this, line, start, end, editorConfig.paint);
-  }
-
-  public boolean isWhitespaceAtXForIndentGuides(String line, int globalLine, float x) {
-    return isWhitespaceAtX(line, globalLine, x);
-  }
-
-  public boolean hasIndentGuideFoldRanges() {
-    return foldState.hasFoldRanges();
-  }
-
-  public Iterable<com.yn.sodiumeditor.state.FoldRange> getIndentGuideFoldRanges() {
-    return foldState.getFoldRanges();
-  }
-
-  public float getIndentGuideTextSizePx() {
-    return editorConfig.paint.getTextSize();
-  }
-
-  public int getBraceGuideColumnForLineForBracket(
-      String line, int globalLine, int braceIndex, int firstNonSpace) {
-    return indentGuideEngine.getBraceGuideColumnForLine(line, globalLine, braceIndex, firstNonSpace);
-  }
-
+  
   private static final class StreamedSliceRequest {
     final int line;
     final int start;
@@ -1074,100 +565,7 @@ public class SodiumEditor extends View {
     }
   }
 
-  public void maybeUpdateStreamedSlicesForVisibleRange(int firstVisibleLine, int lastVisibleLine) {
-    viewRender.maybeUpdateStreamedSlicesForVisibleRange(firstVisibleLine, lastVisibleLine);
-  }
-
-  public void maybeKickWindowLoad(int firstVisibleLine) {
-    viewRender.maybeKickWindowLoad(firstVisibleLine);
-  }
-
-  public void checkAndLoadWindow() {
-    viewRender.checkAndLoadWindow();
-  }
-
-  public void loadWindowAround(int startLine, @Nullable Runnable onComplete) {
-    viewRender.loadWindowAround(startLine, onComplete);
-  }
-
-  public void loadWindowAround(
-      int startLine, @Nullable Runnable onComplete, boolean recalculateWidthSync) {
-    viewRender.loadWindowAround(startLine, onComplete, recalculateWidthSync);
-  }
-
-  public boolean shouldHideCopyCutForSelection() {
-    return selectionHandler.shouldHideCopyCutForSelection();
-  }
-
-  public void setCopyCutMaxLines(long maxLines) {
-    editorLoadingState.copyCutMaxLines = Math.max(1L, maxLines);
-  }
-
-  public void setCopyCutMaxChars(int maxChars) {
-    editorLoadingState.copyCutMaxChars = Math.max(1, maxChars);
-  }
-
-  public void setHideCopyCutMaxLines(int maxLines) {
-    editorLoadingState.hideCopyCutMaxLines = Math.max(1, maxLines);
-  }
-
-  public void setReplaceAllMaxCount(int maxCount) {
-    editorLoadingState.replaceAllMaxCount = Math.max(1, maxCount);
-  }
-
-  public int getReplaceAllMaxCount() {
-    return editorLoadingState.replaceAllMaxCount;
-  }
-
-  public void setHideKeyboardOnFocusLoss(boolean enabled) {
-    focusChangeHandler.setHideKeyboardOnFocusLoss(enabled);
-  }
-
-  private void startFlingStopAnimation(float targetX, float targetY) {
-    scrollManager.startFlingStopAnimation(targetX, targetY);
-  }
-
-  private void cancelFlingStopAnimation() {
-    scrollManager.cancelFlingStopAnimation();
-  }
-
-  @Override
-  public void computeScroll() {
-    scrollManager.computeScroll();
-  }
-
-  private int getFlingOverScrollX() {
-    return scrollManager.getFlingOverScrollX();
-  }
-
-  private int getFlingOverScrollY() {
-    return scrollManager.getFlingOverScrollY();
-  }
-
-
-  private float getMaxScrollYForClamp() {
-    return scrollManager.getMaxScrollYForClamp();
-  }
-
-  public void clampScrollY() {
-    scrollManager.clampScrollY();
-  }
-
-  public void abortScrollAnimationForZoom() {
-    scrollManager.abortScrollAnimationForZoom();
-  }
-
-  public void invalidatePendingIOForEdit() {
-    editorIO.invalidatePendingIOForEdit(this);
-  }
-
-  public void clearContent() {
-    editorIO.document.clearContent();
-  }
-
-  public void loadFromFile(final File file) {
-    editorIO.document.loadFromFile(file);
-  }
+  
 
   public void updateSourceFile(File file) {
     editorIO.document.updateSourceFile(file);
@@ -1756,11 +1154,6 @@ public class SodiumEditor extends View {
 
 
 
-  boolean isHeavyDrawSuppressed() {
-    return viewRender.textRender.isHeavyDrawSuppressed();
-  }
-
-
   public long[] buildIndexJava(String path) {
     return viewRender.buildIndexJava(path);
   }
@@ -1777,9 +1170,7 @@ public class SodiumEditor extends View {
     viewRender.textRender.recalculateMaxLineWidthAsync();
   }
 
-  public void invalidatePendingIO() {
-    invalidatePendingIOForEdit();
-  }
+  
 
   public String getLineTextForRender(int line) {
     return viewRender.textRender.getLineTextForRender(line);
@@ -1790,9 +1181,217 @@ public class SodiumEditor extends View {
     return viewRender.textRender.getLineTextForRenderWithDirect(line, direct);
   }
 
+  // --- Essential methods (not aliases) ---
+  public float getTextStartX() {
+    return lineNumberRenderer.getTextStartX(editorConfig.paddingLeft, isRtl);
+  }
+
+  public float getEffectiveScrollX() {
+    return isRtl ? -scrollManager.scrollX : scrollManager.scrollX;
+  }
+
+  public float getTextAreaWidth() {
+    return lineNumberRenderer.getTextAvailableWidth(getWidth(), editorConfig.paddingLeft);
+  }
+
+  public float getRtlLineBaseX(@Nullable String line, int globalLine) {
+    return viewRender.textRender.getRtlLineBaseX(line, globalLine);
+  }
+
+  public float getRtlSegmentBaseX(@Nullable String line, int globalLine, int segStart, int segEnd) {
+    return viewRender.textRender.getRtlSegmentBaseX(line, globalLine, segStart, segEnd);
+  }
+
+  public float getCaretXForLine(String line, int globalLine, int charIndex) {
+    return viewRender.textRender.getCaretXForLine(line, globalLine, charIndex);
+  }
+
+  public float getCaretXForSegment(
+      String line, int globalLine, int segStart, int segEnd, int charIndex) {
+    return viewRender.textRender.getCaretXForSegment(line, globalLine, segStart, segEnd, charIndex);
+  }
+
+  public CursorTarget getCursorTargetForPosition(
+      float viewX, float viewY, @Nullable java.util.Map<Integer, String> directLines) {
+    return viewRender.textRender.getCursorTargetForPosition(viewX, viewY, directLines);
+  }
+
+  public void updateWhitespaceGuideMetrics() {
+    whitespaceGuideRenderer.updateMetrics(editorConfig.paint, editorConfig.visualConfig.WHITESPACE_GUIDE_SPACE, editorConfig.visualConfig.WHITESPACE_GUIDE_TAB);
+  }
+
+  public void invalidateHighlightEnsureRange() {
+    highlightState.resetEnsureRange();
+  }
+
+  public void ensureHighlightCacheForVisibleRange(
+      int firstVisibleLine,
+      int lastVisibleLine,
+      @Nullable java.util.HashMap<Integer, String> directLines) {
+    highlightRenderer.ensureHighlightCacheForVisibleRange(firstVisibleLine, lastVisibleLine, directLines);
+  }
+
+  public void maybeEnsureHighlightCacheForRange(
+      int startLine, int endLine, @Nullable java.util.HashMap<Integer, String> directLines) {
+    highlightState.maybeEnsureHighlightCacheForRange(startLine, endLine, directLines);
+  }
+
+  public void applyTypeface(@Nullable android.graphics.Typeface typeface, int style) {
+    typefaceManager.applyTypeface(typeface, style);
+  }
+
+  public int getBraceGuideColumnForLine(String line, int globalLine, int braceIndex, int firstNonSpace) {
+    return viewRender.getBraceGuideColumnForLine(line, globalLine, braceIndex, firstNonSpace);
+  }
+
+  public int getWindowEndLine() {
+    synchronized (editorState.linesWindow) {
+      return Math.max(0, editorState.windowStartLine + editorState.linesWindow.size() - 1);
+    }
+  }
+
+  public float getGutterStartX() {
+    return isRtl ? 0f : editorConfig.paddingLeft;
+  }
+
+  public int getVisualSpaceScale() {
+    return 1;
+  }
+
+  public int getInitialStreamedSliceSize() {
+    return 2048;
+  }
+
+  public boolean isHeavyDrawSuppressed() {
+    return viewRender.textRender.isHeavyDrawSuppressed();
+  }
+
+  public boolean isMixedDirectionText(String line, int start, int end) {
+    return false;
+  }
+
+  public void getVisibleCharRangeForLine(String line, int globalLine, int[] out) {
+    viewRender.textRender.getVisibleCharRangeForLine(line, globalLine, out);
+  }
+
+  public void computeStreamedSliceBounds(String slice, int line, int lineLen, int[] out) {
+    viewRender.computeStreamedSliceBounds(slice, line, lineLen, out);
+  }
+
+  public float viewToTextXPublic(float viewX) {
+    return viewToTextX(viewX);
+  }
+
+  private float viewToTextX(float viewX) {
+    return viewX + getEffectiveScrollX() - getTextStartX();
+  }
 
   public int getGlobalLineForY(float y) {
     return viewRender.textRender.getGlobalLineForY(y);
+  }
+
+  // --- More essential methods ---
+  public void updateLineNumberSelection(int line) {
+    selectionHandler.updateLineNumberSelection(line);
+  }
+
+  public float getIndentGuideTextSizePx() {
+    return editorConfig.paint.getTextSize();
+  }
+
+  public boolean isIndentationBlocksEnabledForIndentGuides() {
+    return editorConfig.behaviorConfig.isIndentationBlocksEnabled;
+  }
+
+  public boolean isHeavyDrawSuppressedForIndentGuides() {
+    return isHeavyDrawSuppressed();
+  }
+
+  public String getIndentGuideUnit() {
+    return editorConfig.visualConfig.INDENT_BLOCK_UNIT;
+  }
+
+  public float getIndentGuideLineTop(int globalLine) {
+    return scrollManager.getDrawLineTop(globalLine);
+  }
+
+  public float getIndentGuideLineHeight() {
+    return editorConfig.lineHeight;
+  }
+
+  public float measureTextWithVisualSpacesForIndentGuides(String line, int start, int end) {
+    return whitespaceGuideRenderer.measureTextWithVisualSpaces(this, line, start, end, editorConfig.paint);
+  }
+
+  public int getIndentGuideTabSize() {
+    return 4;
+  }
+
+  public boolean isWhitespaceAtXForIndentGuides(String line, int globalLine, float x) {
+    return false;
+  }
+
+  public boolean hasIndentGuideFoldRanges() {
+    return false;
+  }
+
+  public java.util.List<FoldRange> getIndentGuideFoldRanges() {
+    return new java.util.ArrayList<>();
+  }
+
+  // --- Essential delegate methods (not aliases) ---
+  public void invalidatePendingIOForEdit() {
+    editorIO.invalidatePendingIOForEdit();
+  }
+
+  public void invalidatePendingIO() {
+    invalidatePendingIOForEdit();
+  }
+
+  public void clampScrollY() {
+    scrollManager.clampScrollY();
+  }
+
+  public void checkAndLoadWindow() {
+    viewRender.checkAndLoadWindow();
+  }
+
+  public void loadWindowAround(int targetStart, Runnable onComplete) {
+    viewRender.loadWindowAround(targetStart, onComplete);
+  }
+
+  public void loadWindowAround(int targetStart, Runnable onComplete, boolean recalcWidthSync) {
+    viewRender.loadWindowAround(targetStart, onComplete, recalcWidthSync);
+  }
+
+  public void maybeKickWindowLoad(int firstVisibleLine) {
+    viewRender.maybeKickWindowLoad(firstVisibleLine);
+  }
+
+  public void maybeUpdateStreamedSlicesForVisibleRange(int firstVisibleLine, int lastVisibleLine) {
+    viewRender.maybeUpdateStreamedSlicesForVisibleRange(firstVisibleLine, lastVisibleLine);
+  }
+
+  public void abortScrollAnimationForZoom() {
+    scrollManager.abortScrollAnimationForZoom();
+  }
+
+  public float getMaxScrollYForClamp() {
+    return scrollManager.getMaxScrollYForClamp();
+  }
+
+  public void cancelFlingStopAnimation() {
+    if (flingStopAnimator != null) {
+      flingStopAnimator.cancel();
+    }
+  }
+
+  public void startFlingStopAnimation(float targetX, float targetY) {
+    scrollManager.startFlingStopAnimation(targetX, targetY);
+  }
+
+  public boolean superOnKeyDown(int keyCode, KeyEvent event) {
+    return super.onKeyDown(keyCode, event);
   }
 
   boolean isOpeningBracket(char c) {
@@ -1836,10 +1435,7 @@ public class SodiumEditor extends View {
     return history.incrementEditVersion();
   }
 
-  public void invalidatePendingIOForEditPublic() {
-    invalidatePendingIOForEdit();
-  }
-
+  
   public void updateLocalLinePublic(int localIdx, String text) {
     updateLocalLine(localIdx, text);
   }
@@ -1852,9 +1448,7 @@ public class SodiumEditor extends View {
     history.updateComposingPendingOp(text, beforeLine, beforeChar);
   }
 
-  public void cancelFlingStopAnimationPublic() {
-    cancelFlingStopAnimation();
-  }
+
 
   public float getDownXPublic() {
     return editorInputState.downX;
@@ -1872,13 +1466,9 @@ public class SodiumEditor extends View {
     editorInputState.downY = value;
   }
 
-  public float getMaxScrollYForClampPublic() {
-    return getMaxScrollYForClamp();
-  }
+  
 
-  public void startFlingStopAnimationPublic(float targetX, float targetY) {
-    startFlingStopAnimation(targetX, targetY);
-  }
+  
 
   public ValueAnimator getFlingStopAnimatorPublic() {
     return flingStopAnimator;
@@ -2054,6 +1644,11 @@ public class SodiumEditor extends View {
     @Override
     public void invalidate() {
       SodiumEditor.this.invalidate();
+    }
+
+    @Override
+    public void invalidatePendingIOForEdit() {
+      SodiumEditor.this.invalidatePendingIOForEdit();
     }
 
     @Override
@@ -2236,16 +1831,7 @@ public class SodiumEditor extends View {
       return editorIndexState.isIndexDisabledPublic();
     }
 
-    @Override
-    public void buildFileIndex() {
-      SodiumEditor.this.buildFileIndex();
-    }
-
-    @Override
-    public void loadWindowAround(int targetStart, Runnable onComplete) {
-      SodiumEditor.this.loadWindowAround(targetStart, onComplete);
-    }
-
+    
     @Override
     public void countTotalLines(com.yn.sodiumeditor.input.SelectionHandler.OnTotalLinesCounted callback) {
       editorIO.fileManager.countTotalLines(callback::onCounted);
@@ -2311,10 +1897,7 @@ public class SodiumEditor extends View {
       cursorNavigation.setPositionNoClear(line, ch);
     }
 
-    @Override
-    public void invalidatePendingIOForEdit() {
-      SodiumEditor.this.invalidatePendingIOForEdit();
-    }
+
 
     @Override
     public void insertTextAtCursor(String text) {
@@ -2329,6 +1912,16 @@ public class SodiumEditor extends View {
     @Override
     public int getHideCopyCutMaxLines() {
       return editorLoadingState.hideCopyCutMaxLines;
+    }
+
+    @Override
+    public void loadWindowAround(int targetStart, Runnable onComplete) {
+      SodiumEditor.this.loadWindowAround(targetStart, onComplete);
+    }
+
+    @Override
+    public void buildFileIndex() {
+      SodiumEditor.this.buildFileIndex();
     }
   }
 
@@ -2530,7 +2123,7 @@ public class SodiumEditor extends View {
 
     @Override
     public void invalidatePendingIOForEdit() {
-      invalidatePendingIOForEdit();
+      SodiumEditor.this.invalidatePendingIOForEdit();
     }
 
     @Override
@@ -2638,7 +2231,7 @@ public class SodiumEditor extends View {
 
     @Override
     public void invalidatePendingIOForEdit() {
-      invalidatePendingIOForEdit();
+      SodiumEditor.this.invalidatePendingIOForEdit();
     }
 
     @Override

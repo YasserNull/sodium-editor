@@ -28,7 +28,7 @@ public class BracketMatchEngine {
     @Nullable
     public BracketMatch getMatch(int firstVisibleLine, int lastVisibleLine, HashMap<Integer, String> directLines) {
         if (!state.isEnabled()) return null;
-        int v = view.getEditVersionForMatch();
+        int v = view.history.getEditVersion();
         int line = view.cursorState.getCursorLine();
         int ch = view.cursorState.getCursorChar();
         if (state.isCacheValid(line, ch, v)) {
@@ -47,7 +47,7 @@ public class BracketMatchEngine {
         int cursorChar = view.cursorState.getCursorChar();
         if (cursorLine < firstVisibleLine || cursorLine > lastVisibleLine) return null;
 
-        String cursorLineText = view.getLineTextForRenderWithDirectForMatch(cursorLine, directLines);
+        String cursorLineText = view.getLineTextForRenderWithDirect(cursorLine, directLines);
         if (cursorLineText == null) return null;
 
         int targetIndex = -1;
@@ -70,20 +70,20 @@ public class BracketMatchEngine {
 
         HighlightLineState hlState = view.highlightState.getLineStateAtStart(firstVisibleLine);
         BracketMatchLineState startState = new BracketMatchLineState(hlState.inBlockComment, hlState.stringState);
-        boolean inBlockComment = startState.inBlockComment && view.isBlockCommentsEnabledForMatch();
+        boolean inBlockComment = startState.inBlockComment && view.editorConfig.behaviorConfig.isBlockCommentsEnabled;
         int stringState = startState.stringState;
-        if (!view.isBlockCommentsEnabledForMatch()) inBlockComment = false;
-        if (!view.isMultiLineStringsEnabledForMatch() && stringState != view.getStringStateTripleForMatch())
+        if (!view.editorConfig.behaviorConfig.isBlockCommentsEnabled) inBlockComment = false;
+        if (!view.editorConfig.behaviorConfig.isMultiLineStringsEnabled && stringState != com.yn.sodiumeditor.state.HighlightState.STRING_STATE_TRIPLE)
             stringState = 0;
-        if (!view.isBacktickStringsEnabledForMatch() && stringState == view.getStringStateBacktickForMatch())
+        if (!view.editorConfig.behaviorConfig.isBacktickStringsEnabled && stringState == com.yn.sodiumeditor.state.HighlightState.STRING_STATE_BACKTICK)
             stringState = 0;
-        if (!view.isTripleQuoteStringsEnabledForMatch() && stringState == view.getStringStateTripleForMatch())
+        if (!view.editorConfig.behaviorConfig.isTripleQuoteStringsEnabled && stringState == com.yn.sodiumeditor.state.HighlightState.STRING_STATE_TRIPLE)
             stringState = 0;
 
         ArrayDeque<BracketToken> stack = new ArrayDeque<>();
 
         for (int line = firstVisibleLine; line <= lastVisibleLine; line++) {
-            String text = view.getLineTextForRenderWithDirectForMatch(line, directLines);
+            String text = view.getLineTextForRenderWithDirect(line, directLines);
             if (text == null) text = "";
             int len = text.length();
             int i = 0;
@@ -119,7 +119,7 @@ public class BracketMatchEngine {
                     break;
                 }
 
-                if (view.isBlockCommentsEnabledForMatch()
+                if (view.editorConfig.behaviorConfig.isBlockCommentsEnabled
                         && i + 1 < len
                         && text.charAt(i) == '/'
                         && text.charAt(i + 1) == '*'
@@ -140,8 +140,8 @@ public class BracketMatchEngine {
                     int endPos = end >= 0 ? end + 3 : len;
                     if (line == cursorLine && targetIndex >= i && targetIndex < endPos) return null;
                     if (end < 0) {
-                        if (view.isTripleQuoteStringsEnabledForMatch()) {
-                            stringState = view.getStringStateTripleForMatch();
+                        if (view.editorConfig.behaviorConfig.isTripleQuoteStringsEnabled) {
+                            stringState = com.yn.sodiumeditor.state.HighlightState.STRING_STATE_TRIPLE;
                         }
                         break;
                     }
@@ -155,7 +155,7 @@ public class BracketMatchEngine {
                     int endPos = end >= 0 ? end + 1 : len;
                     if (line == cursorLine && targetIndex >= i && targetIndex < endPos) return null;
                     if (end < 0) {
-                        if (view.isMultiLineStringsEnabledForMatch()) {
+                        if (view.editorConfig.behaviorConfig.isMultiLineStringsEnabled) {
                             stringState = view.highlightState.getStringStateForDelimiter(c);
                         }
                         break;

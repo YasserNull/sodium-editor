@@ -37,9 +37,9 @@ public class FoldEngine {
 
             HighlightLineState startState = view.highlightState.getLineStateAtStart(line);
             boolean inBlockComment =
-                    startState.inBlockComment && view.isBlockCommentsEnabledForBracket();
+                    startState.inBlockComment && view.editorConfig.behaviorConfig.isBlockCommentsEnabled;
             int stringState = startState.stringState;
-            if (!view.isBlockCommentsEnabledForBracket()) inBlockComment = false;
+            if (!view.editorConfig.behaviorConfig.isBlockCommentsEnabled) inBlockComment = false;
             if (!view.isMultiLineStringsEnabled
                     && stringState != HighlightState.STRING_STATE_TRIPLE) stringState = 0;
             if (!view.isBacktickStringsEnabled
