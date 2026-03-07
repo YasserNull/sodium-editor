@@ -77,7 +77,7 @@ public class BracketGuideRenderer {
 
     public void drawGuidesForLine(Canvas canvas, String line, int globalLine, List<BracketGuideToken> guideTokens) {
         if (!state.isBracketGuidesEnabled()
-                || view.isHeavyDrawSuppressed()
+                || view.viewRender.textRender.isHeavyDrawSuppressed()
                 || guideTokens == null
                 || guideTokens.isEmpty()) return;
         if (line == null) line = "";

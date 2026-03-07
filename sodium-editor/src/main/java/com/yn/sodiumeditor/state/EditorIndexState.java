@@ -102,11 +102,11 @@ public class EditorIndexState {
         directLineCache.remove(line);
     }
 
-    public boolean isIndexBuildingPublic() {
+    public boolean isIndexBuilding() {
         return isIndexBuilding;
     }
 
-    public boolean isIndexDisabledPublic() {
+    public boolean isIndexDisabled() {
         return isIndexDisabled;
     }
 }

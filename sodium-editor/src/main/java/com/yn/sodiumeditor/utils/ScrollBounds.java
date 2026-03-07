@@ -21,10 +21,10 @@ public final class ScrollBounds {
         float effectiveHeight = (view.keyboardHeight > 0) ? view.getHeight() - view.keyboardHeight : view.getHeight();
         int lineCount =
                 view.wrapWordState.isWordWrapEnabled
-                        ? view.wrapWordMapper.getTotalVisualLineCount(view, view.getVisibleLineCount())
+                        ? view.wrapWordMapper.getTotalVisualLineCount(view, view.editorState.linesWindow.size())
                         : (view.foldState.isCodeFoldingEnabled()
-                        ? view.getVisibleLineCount()
-                        : Math.max(1, view.getLinesCount()));
+                        ? view.editorState.linesWindow.size()
+                        : Math.max(1, view.viewRender.textRender.getLinesCount()));
         if (view.wrapWordState.isWordWrapEnabled && (view.selectionState.isSelectAllActive() || view.selectionState.isEntireFileSelected())) {
             lineCount = Math.max(lineCount, view.selectionState.selEndLine + 1);
         }
@@ -74,7 +74,7 @@ public final class ScrollBounds {
             config.maxLineWidthForScroll = rawMaxWidth;
             view.scrollManager.maxLineWidthForScroll = rawMaxWidth;
         }
-        float textStartX = view.getTextStartX();
+        float textStartX = view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
         if (textStartX > config.maxTextStartXForScroll) {
             config.maxTextStartXForScroll = textStartX;
             view.scrollManager.maxTextStartXForScroll = textStartX;

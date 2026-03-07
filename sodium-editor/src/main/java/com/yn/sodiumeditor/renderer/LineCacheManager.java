@@ -93,7 +93,7 @@ public final class LineCacheManager {
         if (localIdx >= 0 && localIdx < view.linesWindow.size()) {
             view.linesWindow.set(localIdx, text);
             view.wrapWordBuilder.onLineContentChanged(view, view.windowStartLine + localIdx, text);
-            view.clearStreamedLineInfo(view.windowStartLine + localIdx);
+            view.editorIO.textIO.clearStreamedLineInfo(view.windowStartLine + localIdx);
         }
     }
 
@@ -105,7 +105,7 @@ public final class LineCacheManager {
             view.invalidate();
             return;
         }
-        int idx = view.foldState.isCodeFoldingEnabled() ? view.getVisibleIndexForGlobalLine(globalLine) : globalLine;
+        int idx = view.foldState.isCodeFoldingEnabled() ? view.foldState.getVisibleIndexForGlobalLine(globalLine) : globalLine;
         float top = (idx * view.lineHeight) - view.scrollManager.scrollY;
         view.invalidate(0, (int) Math.floor(top), view.getWidth(), (int) Math.ceil(top + view.lineHeight));
     }
@@ -156,7 +156,7 @@ public final class LineCacheManager {
         // Fallback: compute directly
         String safe = (line == null) ? "" : line;
         float w;
-        int logicalLen = view.getLogicalLineLength(globalIndex, safe);
+        int logicalLen = view.editorIO.textIO.getLogicalLineLength(globalIndex, safe);
         if (logicalLen > view.highlightState.maxSyntaxLineLength) {
             w = view.highlightRenderer.getAverageCharWidthForLine(safe, globalIndex) * logicalLen;
         } else {

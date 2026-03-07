@@ -41,31 +41,31 @@ public final class EditorOperations {
     }
 
     synchronized (view.linesWindow) {
-      String base = view.getLineFromWindowLocal(localIdx);
+      String base = view.viewRender.textRender.getLineFromWindowLocal(localIdx);
       if (base == null) base = "";
 
       if (c == '\n') {
-        int oldLineCount = view.getLinesCount();
+        int oldLineCount = view.viewRender.textRender.getLinesCount();
         String before = base.substring(0, Math.min(view.cursorState.getCursorChar(), base.length()));
         String after = base.substring(Math.min(view.cursorState.getCursorChar(), base.length()));
         Float oldWidth = view.lineWidthCache.get(view.cursorState.getCursorLine());
 
-        view.updateLocalLinePublic(localIdx, before);
+        view.viewRender.textRender.updateLocalLine(localIdx, before);
         view.linesWindow.add(localIdx + 1, after);
 
         view.modifiedLines.put(view.cursorState.getCursorLine(), before);
         view.modifiedLines.put(view.cursorState.getCursorLine() + 1, after);
 
-        view.computeWidthForLinePublic(view.cursorState.getCursorLine(), before);
-        view.computeWidthForLinePublic(view.cursorState.getCursorLine() + 1, after);
+        view.viewRender.textRender.computeWidthForLine(view.cursorState.getCursorLine(), before);
+        view.viewRender.textRender.computeWidthForLine(view.cursorState.getCursorLine() + 1, after);
 
         if (oldWidth != null && oldWidth >= view.currentMaxWindowLineWidth)
-          view.recalculateMaxLineWidthAsync();
+          view.viewRender.textRender.recalculateMaxLineWidthAsync();
         view.highlightState.clearHighlightCaches();
         view.cursorState.setCursorPosition(view.cursorState.getCursorLine() + 1, 0);
         view.history.addLineCountDelta(1);
 
-        int newLineCount = view.getLinesCount();
+        int newLineCount = view.viewRender.textRender.getLinesCount();
         if (view.lineNumberState.isShowLineNumbers()
             && String.valueOf(oldLineCount).length() != String.valueOf(newLineCount).length()) {
           view.requestLayout();
@@ -74,7 +74,7 @@ public final class EditorOperations {
       } else {
         int pos = Math.max(0, Math.min(view.cursorState.getCursorChar(), base.length()));
         String modified = base.substring(0, pos) + c + base.substring(pos);
-        view.updateLocalLinePublic(localIdx, modified);
+        view.viewRender.textRender.updateLocalLine(localIdx, modified);
         view.modifiedLines.put(view.cursorState.getCursorLine(), modified);
         view.highlightState.invalidateHighlightCacheForLine(view.cursorState.getCursorLine());
         view.cursorState.moveCharDelta(1);
@@ -99,7 +99,7 @@ public final class EditorOperations {
     op.endChar = beforeChar;
     op.removedText = "";
     op.insertedText = String.valueOf(c);
-    SodiumEditor.CursorTarget insertedEnd = view.computeCursorAfterInsert(beforeLine, beforeChar, op.insertedText);
+    com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget insertedEnd = view.editorTextInserter.computeCursorAfterInsert(beforeLine, beforeChar, op.insertedText);
     op.insertedEndLine = insertedEnd.line;
     op.insertedEndChar = insertedEnd.ch;
     op.cursorLineBefore = beforeLine;
@@ -107,22 +107,22 @@ public final class EditorOperations {
     op.cursorLineAfter = view.cursorState.getCursorLine();
     op.cursorCharAfter = view.cursorState.getCursorChar();
     op.timestamp = System.currentTimeMillis();
-    view.recordEdit(op);
+    view.history.recordEdit(op);
   }
 
   public void insertNewlineAtCursor() {
     if (view.editorConfig.behaviorConfig.isReadOnly) return;
     if (view.selectionState.hasSelection()) {
-      view.replaceSelectionWithText("\n");
+      view.editorTextInserter.insertTextAtCursor("\n");
       return;
     }
 
-    BracketFinder.BracketPairType pairType = BracketFinder.getBracketPairAt(view.getLineTextForRender(view.cursorState.getCursorLine()), view.cursorState.getCursorChar());
+    BracketFinder.BracketPairType pairType = BracketFinder.getBracketPairAt(view.viewRender.textRender.getLineTextForRender(view.cursorState.getCursorLine()), view.cursorState.getCursorChar());
     if (view.isAutoBracketNewlineEnabled && pairType != BracketFinder.BracketPairType.NONE) {
       String baseIndent = "";
       String innerIndent = "";
       if (view.isAutoBracketNewlineIndentEnabled) {
-        baseIndent = view.getLineLeadingWhitespace(view.cursorState.getCursorLine());
+        baseIndent = com.yn.sodiumeditor.core.IndentGuideEngine.getLineLeadingWhitespace(view.viewRender.textRender.getLineTextForRender(view.cursorState.getCursorLine()));
         innerIndent = baseIndent + "  ";
       }
 
@@ -131,7 +131,7 @@ public final class EditorOperations {
 
       int targetLine = view.cursorState.getCursorLine() + 1;
       int targetChar = innerIndent.length();
-      view.insertTextAtCursor(insertText);
+      view.editorTextInserter.insertTextAtCursor(insertText);
 
       view.cursorState.setCursorPosition(targetLine, targetChar);
       view.cursorAnimator.resetCursorBlink();
@@ -142,7 +142,7 @@ public final class EditorOperations {
     }
 
     if (view.isAutoIndentAfterClosingBracketEnabled) {
-      String ln = view.getLineTextForRender(view.cursorState.getCursorLine());
+      String ln = view.viewRender.textRender.getLineTextForRender(view.cursorState.getCursorLine());
       if (ln == null) ln = "";
       int safeChar = Math.max(0, Math.min(view.cursorState.getCursorChar(), ln.length()));
       String before = ln.substring(0, safeChar);
@@ -150,7 +150,7 @@ public final class EditorOperations {
       if (prevNonWs >= 0) {
         char c = before.charAt(prevNonWs);
         if (c == '{' || c == '}') {
-          String baseIndent = view.getLineLeadingWhitespace(view.cursorState.getCursorLine());
+          String baseIndent = com.yn.sodiumeditor.core.IndentGuideEngine.getLineLeadingWhitespace(view.viewRender.textRender.getLineTextForRender(view.cursorState.getCursorLine()));
           int baseWidth = view.getIndentWidth(baseIndent);
           int unit = SodiumEditor.INDENT_BLOCK_UNIT.length();
           int targetWidth = baseWidth;
@@ -165,21 +165,21 @@ public final class EditorOperations {
           } else {
             targetWidth = Math.max(0, baseWidth - unit);
           }
-          view.insertTextAtCursor("\n" + buildIndentFromWidth(targetWidth));
+          view.editorTextInserter.insertTextAtCursor("\n" + buildIndentFromWidth(targetWidth));
           return;
         }
       }
     }
 
     if (view.isIndentationBlocksEnabled) {
-      String ln = view.getLineTextForRender(view.cursorState.getCursorLine());
+      String ln = view.viewRender.textRender.getLineTextForRender(view.cursorState.getCursorLine());
       if (ln == null) ln = "";
       int safeChar = Math.max(0, Math.min(view.cursorState.getCursorChar(), ln.length()));
       String before = ln.substring(0, safeChar);
       String trimmed = rstripWhitespace(before);
-      String baseIndent = view.getLineLeadingWhitespace(view.cursorState.getCursorLine());
+      String baseIndent = com.yn.sodiumeditor.core.IndentGuideEngine.getLineLeadingWhitespace(view.viewRender.textRender.getLineTextForRender(view.cursorState.getCursorLine()));
       String extraIndent = trimmed.endsWith(":") ? SodiumEditor.INDENT_BLOCK_UNIT : "";
-      view.insertTextAtCursor("\n" + baseIndent + extraIndent);
+      view.editorTextInserter.insertTextAtCursor("\n" + baseIndent + extraIndent);
       return;
     }
 
@@ -217,7 +217,7 @@ public final class EditorOperations {
     if (localIdx < 0 || localIdx >= view.linesWindow.size()) return;
 
     synchronized (view.linesWindow) {
-      String base = view.getLineFromWindowLocal(localIdx);
+      String base = view.viewRender.textRender.getLineFromWindowLocal(localIdx);
       if (base == null) base = "";
 
       if (view.cursorState.getCursorChar() > 0) {
@@ -230,14 +230,14 @@ public final class EditorOperations {
           view.charAnimator.startDeleteAnimation(view.cursorState.getCursorLine(), safeStart, removed, p);
         }
         String modified = base.substring(0, safeStart) + base.substring(view.cursorState.getCursorChar());
-        view.updateLocalLinePublic(localIdx, modified);
+        view.viewRender.textRender.updateLocalLine(localIdx, modified);
         view.modifiedLines.put(view.cursorState.getCursorLine(), modified);
         view.highlightState.invalidateHighlightCacheForLine(view.cursorState.getCursorLine());
         view.cursorState.setCursorChar(safeStart);
-        view.computeWidthForLinePublic(view.cursorState.getCursorLine(), modified);
+        view.viewRender.textRender.computeWidthForLine(view.cursorState.getCursorLine(), modified);
         if (oldWidth != null && oldWidth >= view.currentMaxWindowLineWidth)
-          view.recalculateMaxLineWidthAsync();
-        view.invalidateLineGlobal(view.cursorState.getCursorLine());
+          view.viewRender.textRender.recalculateMaxLineWidthAsync();
+        view.viewRender.textRender.invalidateLineGlobal(view.cursorState.getCursorLine());
 
         EditOp op = new EditOp();
         op.startLine = beforeLine;
@@ -253,30 +253,30 @@ public final class EditorOperations {
         op.cursorLineAfter = view.cursorState.getCursorLine();
         op.cursorCharAfter = view.cursorState.getCursorChar();
         op.timestamp = System.currentTimeMillis();
-        view.recordEdit(op);
+        view.history.recordEdit(op);
       } else if (view.cursorState.getCursorLine() > 0) {
-        int oldLineCount = view.getLinesCount();
+        int oldLineCount = view.viewRender.textRender.getLinesCount();
         int prevGlobal = view.cursorState.getCursorLine() - 1;
         view.scrollManager.ensureLineInWindow(prevGlobal, true);
         int prevLocal = prevGlobal - view.windowStartLine;
         if (prevLocal < 0 || prevLocal >= view.linesWindow.size()) return;
 
-        String prev = view.getLineFromWindowLocal(prevLocal);
+        String prev = view.viewRender.textRender.getLineFromWindowLocal(prevLocal);
         if (prev == null) prev = "";
 
         String merged = prev + base;
-        view.updateLocalLinePublic(prevLocal, merged);
+        view.viewRender.textRender.updateLocalLine(prevLocal, merged);
         view.modifiedLines.put(prevGlobal, merged);
         view.highlightState.clearHighlightCaches();
 
         if (localIdx < view.linesWindow.size()) view.linesWindow.remove(localIdx);
 
-        view.recalculateMaxLineWidth();
+        view.viewRender.textRender.recalculateMaxLineWidth();
         view.cursorState.setCursorPosition(prevGlobal, prev.length());
-        view.computeWidthForLinePublic(prevGlobal, merged);
+        view.viewRender.textRender.computeWidthForLine(prevGlobal, merged);
         view.history.addLineCountDelta(-1);
 
-        int newLineCount = view.getLinesCount();
+        int newLineCount = view.viewRender.textRender.getLinesCount();
         if (view.lineNumberState.isShowLineNumbers()
             && String.valueOf(oldLineCount).length() != String.valueOf(newLineCount).length()) {
           view.requestLayout();
@@ -298,7 +298,7 @@ public final class EditorOperations {
         op.cursorLineAfter = view.cursorState.getCursorLine();
         op.cursorCharAfter = view.cursorState.getCursorChar();
         op.timestamp = System.currentTimeMillis();
-        view.recordEdit(op);
+        view.history.recordEdit(op);
       }
     }
     view.inlinePredictionEngine.updateSuggestion();
@@ -327,7 +327,7 @@ public final class EditorOperations {
 
     int localIdx = view.cursorState.getCursorLine() - view.windowStartLine;
     synchronized (view.linesWindow) {
-      String base = view.getLineFromWindowLocal(localIdx);
+      String base = view.viewRender.textRender.getLineFromWindowLocal(localIdx);
       if (base == null) base = "";
 
       if (view.cursorState.getCursorChar() < base.length()) {
@@ -339,12 +339,12 @@ public final class EditorOperations {
           view.charAnimator.startDeleteAnimation(view.cursorState.getCursorLine(), view.cursorState.getCursorChar(), removed, p);
         }
         String modified = base.substring(0, view.cursorState.getCursorChar()) + base.substring(view.cursorState.getCursorChar() + 1);
-        view.updateLocalLinePublic(localIdx, modified);
+        view.viewRender.textRender.updateLocalLine(localIdx, modified);
         view.modifiedLines.put(view.cursorState.getCursorLine(), modified);
-        view.computeWidthForLinePublic(view.cursorState.getCursorLine(), modified);
+        view.viewRender.textRender.computeWidthForLine(view.cursorState.getCursorLine(), modified);
         if (oldWidth != null && oldWidth >= view.currentMaxWindowLineWidth)
-          view.recalculateMaxLineWidthAsync();
-        view.invalidateLineGlobal(view.cursorState.getCursorLine());
+          view.viewRender.textRender.recalculateMaxLineWidthAsync();
+        view.viewRender.textRender.invalidateLineGlobal(view.cursorState.getCursorLine());
 
         EditOp op = new EditOp();
         op.startLine = beforeLine;
@@ -360,7 +360,7 @@ public final class EditorOperations {
         op.cursorLineAfter = view.cursorState.getCursorLine();
         op.cursorCharAfter = view.cursorState.getCursorChar();
         op.timestamp = System.currentTimeMillis();
-        view.recordEdit(op);
+        view.history.recordEdit(op);
       } else {
         int nextGlobal = view.cursorState.getCursorLine() + 1;
         if (view.isEof && nextGlobal >= view.windowStartLine + view.linesWindow.size()) return;
@@ -368,14 +368,14 @@ public final class EditorOperations {
         view.scrollManager.ensureLineInWindow(nextGlobal, true);
         int nextLocal = nextGlobal - view.windowStartLine;
         if (nextLocal >= 0 && nextLocal < view.linesWindow.size()) {
-          String next = view.getLineFromWindowLocal(nextLocal);
+          String next = view.viewRender.textRender.getLineFromWindowLocal(nextLocal);
           if (next == null) next = "";
           String merged = base + next;
-          view.updateLocalLinePublic(localIdx, merged);
+          view.viewRender.textRender.updateLocalLine(localIdx, merged);
           view.linesWindow.remove(nextLocal);
           view.modifiedLines.put(view.cursorState.getCursorLine(), merged);
-          view.recalculateMaxLineWidth();
-          view.computeWidthForLinePublic(view.cursorState.getCursorLine(), merged);
+          view.viewRender.textRender.recalculateMaxLineWidth();
+          view.viewRender.textRender.computeWidthForLine(view.cursorState.getCursorLine(), merged);
           view.wrapWordBuilder.onLineCountChanged(view);
           view.invalidate();
           view.history.addLineCountDelta(-1);
@@ -394,7 +394,7 @@ public final class EditorOperations {
           op.cursorLineAfter = view.cursorState.getCursorLine();
           op.cursorCharAfter = view.cursorState.getCursorChar();
           op.timestamp = System.currentTimeMillis();
-          view.recordEdit(op);
+          view.history.recordEdit(op);
         }
       }
     }
@@ -432,11 +432,11 @@ public final class EditorOperations {
         removedText = null;
       }
     }
-    int removedNewlines = view.countNewlines(removedText);
+    int removedNewlines = view.editorTextInserter.countNewlines(removedText);
     if (removedText == null && eL >= sL) {
       removedNewlines = Math.max(0, eL - sL);
     }
-    int insertedNewlines = view.countNewlines(insertText);
+    int insertedNewlines = view.editorTextInserter.countNewlines(insertText);
 
     final boolean selectAllLike =
         view.selectionState.isSelectAllActive() || view.selectionState.isEntireFileSelected();
@@ -476,7 +476,7 @@ public final class EditorOperations {
       view.selectionState.setSelection(0, 0, 0, 0, false);
       view.scrollManager.scrollY = 0;
       view.scrollManager.scrollX = 0;
-      view.clearSelectionStateAfterDeletePublic();
+      view.clearSelectionStateAfterDelete();
 
       if (!insertText.isEmpty()) {
         String[] newLines = insertText.split("\n", -1);
@@ -486,12 +486,12 @@ public final class EditorOperations {
             view.linesWindow.add(i, newLines[i]);
           }
         }
-        SodiumEditor.CursorTarget newPos = view.computeCursorAfterInsert(0, 0, insertText);
+        com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget newPos = view.computeCursorAfterInsert(0, 0, insertText);
         view.cursorState.setCursorPosition(newPos.line, newPos.ch);
       }
 
       view.wrapWordBuilder.onLineCountChanged(view);
-      view.recalculateMaxLineWidth();
+      view.viewRender.textRender.recalculateMaxLineWidth();
     } else {
       try {
         view.fileManager.rewriteReplaceRangeAsync(opToken, view.fileManager.getSourceFile(), sL, sC, eL, eC, insertText, view.computeCursorAfterInsert(sL, sC, insertText), false);
@@ -501,7 +501,7 @@ public final class EditorOperations {
     }
 
     view.history.addLineCountDelta((insertedNewlines - removedNewlines));
-    view.recordReplaceSelectionEditPublic(sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
+    view.recordReplaceSelectionEdit(sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
     view.inlinePredictionEngine.updateSuggestion();
   }
 
@@ -534,16 +534,16 @@ public final class EditorOperations {
     }
 
     synchronized (view.linesWindow) {
-      String base = view.getLineFromWindowLocal(localIdx);
+      String base = view.viewRender.textRender.getLineFromWindowLocal(localIdx);
       if (base == null) base = "";
 
       int pos = Math.max(0, Math.min(view.cursorState.getCursorChar(), base.length()));
       String modified = base.substring(0, pos) + text + base.substring(pos);
-      view.updateLocalLinePublic(localIdx, modified);
+      view.viewRender.textRender.updateLocalLine(localIdx, modified);
       view.modifiedLines.put(view.cursorState.getCursorLine(), modified);
       view.highlightState.invalidateHighlightCacheForLine(view.cursorState.getCursorLine());
       
-      SodiumEditor.CursorTarget insertedEnd = view.computeCursorAfterInsert(beforeLine, beforeChar, text);
+      com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget insertedEnd = view.computeCursorAfterInsert(beforeLine, beforeChar, text);
       view.cursorState.setCursorPosition(insertedEnd.line, insertedEnd.ch);
       
       float newWidth =
@@ -567,7 +567,7 @@ public final class EditorOperations {
     op.endChar = beforeChar;
     op.removedText = "";
     op.insertedText = text;
-    SodiumEditor.CursorTarget insertedEnd = view.computeCursorAfterInsert(beforeLine, beforeChar, text);
+    com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget insertedEnd = view.computeCursorAfterInsert(beforeLine, beforeChar, text);
     op.insertedEndLine = insertedEnd.line;
     op.insertedEndChar = insertedEnd.ch;
     op.cursorLineBefore = beforeLine;
@@ -575,7 +575,7 @@ public final class EditorOperations {
     op.cursorLineAfter = view.cursorState.getCursorLine();
     op.cursorCharAfter = view.cursorState.getCursorChar();
     op.timestamp = System.currentTimeMillis();
-    view.recordEdit(op);
+    view.history.recordEdit(op);
   }
 
   public static final int LARGE_PASTE_LINES = 1500;
@@ -604,7 +604,7 @@ public final class EditorOperations {
     else if (c == '`') closing = "`";
     else if (c == '*') {
       if (view.cursorState.getCursorChar() >= 2) {
-        String ln = view.getLineTextForRender(view.cursorState.getCursorLine());
+        String ln = view.viewRender.textRender.getLineTextForRender(view.cursorState.getCursorLine());
         if (ln != null && ln.length() >= view.cursorState.getCursorChar() && ln.charAt(view.cursorState.getCursorChar() - 2) == '/') {
           closing = "*/";
         }

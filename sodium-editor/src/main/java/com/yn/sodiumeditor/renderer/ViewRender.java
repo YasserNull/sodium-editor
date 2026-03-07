@@ -98,9 +98,9 @@ public final class ViewRender {
       view.invalidate();
       return;
     }
-    int firstVisibleLine = Math.max(0, view.getGlobalLineForY(view.scrollManager.scrollY));
+    int firstVisibleLine = Math.max(0, view.viewRender.textRender.getGlobalLineForY(view.scrollManager.scrollY));
     int targetStart = Math.max(0, firstVisibleLine - view.prefetchLines);
-    view.loadWindowAround(targetStart, null, recalcWidthSync);
+    view.viewRender.loadWindowAround(targetStart, null, recalcWidthSync);
   }
 
   public void setLineWidthCacheSize(int size) {
@@ -150,12 +150,12 @@ public final class ViewRender {
     int firstVisibleLine;
     int lastVisibleLine;
     if (view.wrapWordState.isWordWrapEnabled) {
-      int widthPx = Math.max(1, Math.round(view.getWidth() - view.getTextStartX()));
+      int widthPx = Math.max(1, Math.round(view.getWidth() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl)));
       firstVisibleLine = view.wrapWordMapper.getVisualPositionForIndex(view, firstVisibleIndex, widthPx).line;
       lastVisibleLine = view.wrapWordMapper.getVisualPositionForIndex(view, lastVisibleIndex, widthPx).line;
     } else {
-      firstVisibleLine = view.mapVisibleIndexToGlobal(firstVisibleIndex);
-      lastVisibleLine = view.mapVisibleIndexToGlobal(lastVisibleIndex);
+      firstVisibleLine = view.foldState.mapVisibleIndexToGlobal(firstVisibleIndex, view.viewRender.textRender.getLinesCount());
+      lastVisibleLine = view.foldState.mapVisibleIndexToGlobal(lastVisibleIndex, view.viewRender.textRender.getLinesCount());
     }
     firstVisibleLine = Math.max(0, firstVisibleLine);
     lastVisibleLine = Math.max(firstVisibleLine, lastVisibleLine);
@@ -267,7 +267,7 @@ public final class ViewRender {
                   synchronized (view.lineOffsetsLock) {
                     lineStart = view.lineOffsets[lineIndex];
                   }
-                  long lineByteLen = view.getLineByteLengthFromIndex(raf, lineIndex, fileLen);
+                  long lineByteLen = view.editorIO.lineIndex.getLineByteLengthFromIndex(raf, lineIndex, fileLen);
                   int lineLen = (int) Math.min(Integer.MAX_VALUE, lineByteLen);
                   if (view.fileManager.shouldStreamLineLength(lineLen)) {
                     int sliceStart = 0;
@@ -275,20 +275,20 @@ public final class ViewRender {
                         Math.max(1, Math.min(lineLen, view.getInitialStreamedSliceSize()));
                     if (view.fileManager.isSingleByteCharset()) {
                       String slice =
-                          view.readLineSliceAtByte(raf, lineStart, lineByteLen, sliceStart, sliceEnd);
+                          view.editorIO.textIO.readLineSliceAtByte(raf, lineStart, lineByteLen, sliceStart, sliceEnd);
                       newWin.add(slice);
                       newStreamedLengths.put(lineIndex, lineLen);
                       newStreamedSliceStarts.put(lineIndex, sliceStart);
                     } else {
                       sliceEnd = Math.max(1, view.getInitialStreamedSliceSize());
-                      SodiumEditor.StreamedCharSlice slice =
-                          view.readLineSliceByChars(raf, lineStart, sliceStart, sliceEnd, true);
+                      com.yn.sodiumeditor.io.StreamedCharSlice slice =
+                          view.editorIO.textIO.readLineSliceByChars(raf, lineStart, sliceStart, sliceEnd, true);
                       newWin.add(slice.text);
                       newStreamedLengths.put(lineIndex, slice.length);
                       newStreamedSliceStarts.put(lineIndex, sliceStart);
                     }
                   } else {
-                    String ln = view.readLineUtf8AtByte(raf, lineStart);
+                    String ln = view.editorIO.textIO.readLineUtf8AtByte(raf, lineStart);
                     newWin.add(ln);
                   }
                   lineIndex++;
@@ -340,7 +340,7 @@ public final class ViewRender {
                       newStreamedSliceStarts.put(lineIndex, sliceStart);
                     } else {
                       sliceEnd = Math.max(1, view.getInitialStreamedSliceSize());
-                      SodiumEditor.StreamedCharSlice slice =
+                      com.yn.sodiumeditor.io.StreamedCharSlice slice =
                           view.fileManager.readLineSliceByChars(raf, lineStart, sliceStart, sliceEnd, true);
                       newWin.add(slice.text);
                       newStreamedLengths.put(lineIndex, slice.length);
@@ -353,7 +353,7 @@ public final class ViewRender {
                     String ln =
                         (lineLen > 0)
                             ? (view.binarySafeRenderingEnabled
-                                ? view.bytesToControlVisible(buf, buf.length)
+                                ? view.editorIO.textIO.bytesToControlVisible(buf, buf.length)
                                 : new String(buf, view.fileCharset))
                             : "";
                     newWin.add(ln);
@@ -430,14 +430,14 @@ public final class ViewRender {
                   view.invalidateHighlightEnsureRange();
                   view.bracketGuideRenderer.invalidateCache();
                   if (recalculateWidthSync) {
-                    view.recalculateMaxLineWidth();
+                    view.viewRender.textRender.recalculateMaxLineWidth();
                   } else {
                     synchronized (view.lineWidthCache) {
                       view.lineWidthCache.clear();
                     }
                     view.currentMaxWindowLineWidth = 0f;
                     view.globalMaxLineWidth = 0f;
-                    view.recalculateMaxLineWidthAsync();
+                    view.viewRender.textRender.recalculateMaxLineWidthAsync();
                   }
                   if (view.wrapWordState.isWordWrapEnabled) {
                     if (view.wrapWordBuilder.shouldSuppressForSelectAll(view)) {
@@ -448,7 +448,7 @@ public final class ViewRender {
                           view.wrapWordBuilder.buildWrapMetricsForWindowSnapshot(view);
                         }
                       }
-                      view.wrapWordBuilder.scheduleWrapMetricsSnapshotIfNeeded(view, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())));
+                      view.wrapWordBuilder.scheduleWrapMetricsSnapshotIfNeeded(view, Math.max(1, Math.round(view.getWidth() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl))));
                       view.wrapWordBuilder.requestPrefixRebuild(view);
                     }
                   }
@@ -485,7 +485,7 @@ public final class ViewRender {
         String slice = view.linesWindow.get(line - winStart);
         int sliceStart = view.fileManager.getStreamedLineSliceStart(line);
         int sliceEnd = sliceStart + ((slice == null) ? 0 : slice.length());
-        view.computeStreamedSliceBounds(slice, line, len, view.streamedSliceTmp);
+        view.viewRender.computeStreamedSliceBounds(slice, line, len, view.streamedSliceTmp);
         int desiredStart = view.streamedSliceTmp[0];
         int desiredEnd = view.streamedSliceTmp[1];
         if (sliceStart <= desiredStart && sliceEnd >= desiredEnd) continue;
@@ -518,14 +518,14 @@ public final class ViewRender {
                 lineStart = view.lineOffsets[req.line];
               }
               if (view.fileManager.isSingleByteCharset()) {
-                long lineByteLen = view.getLineByteLengthFromIndex(raf, req.line, fileLen);
+                long lineByteLen = view.editorIO.lineIndex.getLineByteLengthFromIndex(raf, req.line, fileLen);
                 String slice =
-                    view.readLineSliceAtByte(raf, lineStart, lineByteLen, req.start, req.end);
+                    view.editorIO.textIO.readLineSliceAtByte(raf, lineStart, lineByteLen, req.start, req.end);
                 results.put(req.line, slice);
                 starts.put(req.line, req.start);
               } else {
-                SodiumEditor.StreamedCharSlice slice =
-                    view.readLineSliceByChars(raf, lineStart, req.start, req.end, false);
+                com.yn.sodiumeditor.io.StreamedCharSlice slice =
+                    view.editorIO.textIO.readLineSliceByChars(raf, lineStart, req.start, req.end, false);
                 results.put(req.line, slice.text);
                 starts.put(req.line, req.start);
               }
@@ -623,7 +623,7 @@ public final class ViewRender {
   }
 
   private void applyMultiLineReplaceInWindowNow(
-      int sL, int sC, int eL, int eC, String insertText, SodiumEditor.CursorTarget target) {
+      int sL, int sC, int eL, int eC, String insertText, com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget target) {
     synchronized (view.linesWindow) {
       int oldLineCount = textRender.getLinesCount();
       int sLocal = sL - view.windowStartLine;
@@ -667,7 +667,7 @@ public final class ViewRender {
       if (oldLineCount != newLineCount) {
         view.wrapWordBuilder.onLineCountChanged(view);
       }
-      view.recalculateMaxLineWidth();
+      view.viewRender.textRender.recalculateMaxLineWidth();
     }
   }
 
@@ -703,7 +703,7 @@ public final class ViewRender {
 
       view.cursorState.setCursorPosition(sL, left.length());
 
-      view.recalculateMaxLineWidth();
+      view.viewRender.textRender.recalculateMaxLineWidth();
       int newLineCount = textRender.getLinesCount();
       if (oldLineCount != newLineCount) {
         view.wrapWordBuilder.onLineCountChanged(view);

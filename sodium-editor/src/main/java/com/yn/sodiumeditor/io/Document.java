@@ -197,7 +197,7 @@ public class Document {
         return view.textIO.readLineSliceAtByte(raf, lineStart, lineByteLen, startChar, endChar);
     }
 
-    public SodiumEditor.StreamedCharSlice readLineSliceByChars(
+    public com.yn.sodiumeditor.io.StreamedCharSlice readLineSliceByChars(
             java.io.RandomAccessFile raf, long lineStart, int startChar, int endChar, boolean needTotalLength)
             throws Exception {
         return view.textIO.readLineSliceByChars(raf, lineStart, startChar, endChar, needTotalLength);
@@ -223,7 +223,7 @@ public class Document {
         int eL,
         int eC,
         String insertText,
-        SodiumEditor.CursorTarget target,
+        com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget target,
         boolean finishLargeEditUi) {
         view.textIO.rewriteReplaceRangeAsync(opToken, inFile, sL, sC, eL, eC, insertText, target, finishLargeEditUi);
     }
@@ -296,7 +296,7 @@ public class Document {
         synchronized (view.lineWidthCache) {
             view.lineWidthCache.clear();
         }
-        view.clearStreamedLineCaches();
+        view.editorIO.textIO.clearStreamedLineCaches();
         view.highlightState.clearHighlightCaches();
         view.currentMaxWindowLineWidth = 0f;
         view.globalMaxLineWidth = 0f;
@@ -309,7 +309,7 @@ public class Document {
         view.scrollManager.scrollY = 0;
         view.scrollManager.scrollX = 0;
 
-        view.recalculateMaxLineWidth();
+        view.viewRender.textRender.recalculateMaxLineWidth();
         view.requestLayout();
         view.invalidate();
     }
@@ -391,7 +391,7 @@ public class Document {
         synchronized (view.lineWidthCache) {
             view.lineWidthCache.clear();
         }
-        view.clearStreamedLineCaches();
+        view.editorIO.textIO.clearStreamedLineCaches();
         view.highlightState.clearHighlightCaches();
         view.currentMaxWindowLineWidth = 0f;
         view.globalMaxLineWidth = 0f;
@@ -415,7 +415,7 @@ public class Document {
         view.scrollManager.scrollX = 0;
         view.history.resetLineCountDelta();
 
-        view.loadWindowAround(0, () -> finishInitialFileOpenWarmup(token), false);
+        view.viewRender.loadWindowAround(0, () -> finishInitialFileOpenWarmup(token), false);
         view.ioHandler.post(this::buildFileIndex);
         view.requestLayout();
         view.invalidate();
@@ -433,7 +433,7 @@ public class Document {
             return;
         }
 
-        int firstVisibleLine = Math.max(0, view.getGlobalLineForY(view.scrollManager.scrollY));
+        int firstVisibleLine = Math.max(0, view.viewRender.textRender.getGlobalLineForY(view.scrollManager.scrollY));
         int viewHeight = view.getHeight() - view.keyboardHeight;
         if (viewHeight <= 0) viewHeight = view.getHeight();
         int visibleLines = Math.max(1, (int) Math.ceil(viewHeight / view.lineHeight) + 2);

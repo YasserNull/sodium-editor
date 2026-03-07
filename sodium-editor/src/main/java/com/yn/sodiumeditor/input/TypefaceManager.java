@@ -147,7 +147,7 @@ public final class TypefaceManager {
         view.scrollManager.maxScrollXForScroll = 0f;
 
         // Recalculate max line width
-        view.recalculateMaxLineWidth();
+        view.viewRender.textRender.recalculateMaxLineWidth();
     }
 
     private void rebuildWordWrapIfNeeded() {

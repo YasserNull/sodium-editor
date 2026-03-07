@@ -56,6 +56,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher; // Added for Matcher
 import com.yn.sodiumeditor.utils.BracketFinder.BracketPairType;
+import com.yn.sodiumeditor.core.CursorNavigation;
 import com.yn.sodiumeditor.core.EditOp;
 import com.yn.sodiumeditor.input.InputManager;
 import com.yn.sodiumeditor.input.InputMethodHandler;
@@ -411,7 +412,32 @@ public class SodiumEditor extends View {
     handleDragHandler = new com.yn.sodiumeditor.input.HandleDragHandler(this, handleState, mainHandler);
 
     // Initialize Highlight components
-    highlightParser = new com.yn.sodiumeditor.core.HighlightParser(new HighlightParserCallbackImpl());
+    highlightParser = new com.yn.sodiumeditor.core.HighlightParser(new com.yn.sodiumeditor.core.HighlightParser.HighlightParserCallback() {
+      @Override
+      public boolean isTripleQuoteStringsEnabled() {
+        return editorConfig.behaviorConfig.isTripleQuoteStringsEnabled;
+      }
+
+      @Override
+      public boolean isBacktickStringsEnabled() {
+        return editorConfig.behaviorConfig.isBacktickStringsEnabled;
+      }
+
+      @Override
+      public boolean isBlockCommentsEnabled() {
+        return editorConfig.behaviorConfig.isBlockCommentsEnabled;
+      }
+
+      @Override
+      public java.util.List<String> getLineCommentDelimiters() {
+        return highlightState.lineCommentDelimiters;
+      }
+
+      @Override
+      public boolean isLineCommentStart(String line, int index) {
+        return com.yn.sodiumeditor.core.HighlightParser.isLineCommentStart(line, index, highlightState.lineCommentDelimiters);
+      }
+    });
     highlightRenderer = new com.yn.sodiumeditor.renderer.HighlightRenderer(this, highlightState, highlightParser);
     urlUnderlineRenderer = new com.yn.sodiumeditor.renderer.UrlUnderlineRenderer(this, highlightState);
     pathUnderlineRenderer = new com.yn.sodiumeditor.renderer.PathUnderlineRenderer(this, highlightState);
@@ -428,15 +454,786 @@ public class SodiumEditor extends View {
     updateWhitespaceGuideMetrics();
 
     selectionConfig.initPaints();
-    selectionTextBuilder = new com.yn.sodiumeditor.core.SelectionTextBuilder(new SelectionTextBuilderCallback());
-    selectionHandler = new com.yn.sodiumeditor.input.SelectionHandler(selectionConfig, selectionState, selectionTextBuilder, new SelectionHandlerCallback());
+    selectionTextBuilder = new com.yn.sodiumeditor.core.SelectionTextBuilder(new com.yn.sodiumeditor.core.SelectionTextBuilder.SelectionCallback() {
+      @Override
+      public int comparePos(int sL, int sC, int eL, int eC) {
+        return SodiumEditor.this.comparePos(sL, sC, eL, eC);
+      }
+
+      @Override
+      public boolean isFileCleared() {
+        return editorIO.isFileCleared;
+      }
+
+      @Override
+      public @Nullable java.io.File getSourceFile() {
+        return editorIO.sourceFile;
+      }
+
+      @Override
+      public boolean isIndexReady() {
+        return editorIndexState.isIndexReady;
+      }
+
+      @Override
+      public long[] getLineOffsets() {
+        return editorIndexState.lineOffsets;
+      }
+
+      @Override
+      public Object getLineOffsetsLock() {
+        return editorIndexState.lineOffsetsLock;
+      }
+
+      @Override
+      public long findLineStartByteByScanning(java.io.RandomAccessFile raf, int line) throws Exception {
+        return findLineStartByteByScanning(raf, line);
+      }
+
+      @Override
+      public java.util.HashMap<Integer, String> getModifiedLines() {
+        return editorState.modifiedLines;
+      }
+
+      @Override
+      public int getWindowStartLine() {
+        return editorState.windowStartLine;
+      }
+
+      @Override
+      public java.util.List<String> getLinesWindow() {
+        return editorState.linesWindow;
+      }
+
+      @Override
+      public String getLineTextForRender(int line) {
+        return getLineTextForRender(line);
+      }
+
+      @Override
+      public int getCopyCutMaxChars() {
+        return editorLoadingState.copyCutMaxChars;
+      }
+
+      @Override
+      public java.nio.charset.Charset getFileCharset() {
+        return editorIO.document.fileCharset;
+      }
+    });
+    selectionHandler = new com.yn.sodiumeditor.input.SelectionHandler(selectionConfig, selectionState, selectionTextBuilder, new com.yn.sodiumeditor.input.SelectionHandler.SelectionInteractionCallback() {
+      @Override
+      public int comparePos(int sL, int sC, int eL, int eC) {
+        return SodiumEditor.this.comparePos(sL, sC, eL, eC);
+      }
+
+      @Override
+      public void invalidate() {
+        SodiumEditor.this.invalidate();
+      }
+
+      @Override
+      public void invalidatePendingIOForEdit() {
+        editorIO.invalidatePendingIOForEdit();
+      }
+
+      @Override
+      public void setSelection(int startLine, int startChar, int endLine, int endChar, boolean selecting) {
+        selectionState.setSelection(startLine, startChar, endLine, endChar, selecting);
+      }
+
+      @Override
+      public void setSelectAllState(boolean selectAll, boolean entireFile) {
+        selectionState.setSelectAllState(selectAll, entireFile);
+      }
+
+      @Override
+      public void setSelecting(boolean selecting) {
+        selectionState.setSelecting(selecting);
+      }
+
+      @Override
+      public void setLineNumberSelecting(boolean enabled, int anchorLine) {
+        selectionState.setLineNumberSelecting(enabled, anchorLine);
+      }
+
+      @Override
+      public void clearSelectionKeepLineNumberState() {
+        selectionState.clearSelectionKeepLineNumberState();
+      }
+
+      @Override
+      public boolean shouldHideCopyCutForSelection() {
+        return shouldHideCopyCutForSelection();
+      }
+
+      @Override
+      public void deleteSelection() {
+        SodiumEditor.this.deleteSelection();
+      }
+
+      @Override
+      public void post(Runnable r) {
+        SodiumEditor.this.post(r);
+      }
+
+      @Override
+      public void postDelayed(Runnable r, long delayMillis) {
+        SodiumEditor.this.postDelayed(r, delayMillis);
+      }
+
+      @Override
+      public Context getContext() {
+        return SodiumEditor.this.getContext();
+      }
+
+      @Override
+      public boolean isFileCleared() {
+        return editorIO.isFileCleared;
+      }
+
+      @Override
+      public @Nullable java.io.File getSourceFile() {
+        return editorIO.sourceFile;
+      }
+
+      @Override
+      public boolean isIndexReady() {
+        return editorIndexState.isIndexReady;
+      }
+
+      @Override
+      public long[] getLineOffsets() {
+        return editorIndexState.lineOffsets;
+      }
+
+      @Override
+      public Object getLineOffsetsLock() {
+        return editorIndexState.lineOffsetsLock;
+      }
+
+      @Override
+      public long findLineStartByteByScanning(java.io.RandomAccessFile raf, int line) throws Exception {
+        return findLineStartByteByScanning(raf, line);
+      }
+
+      @Override
+      public java.util.HashMap<Integer, String> getModifiedLines() {
+        return editorState.modifiedLines;
+      }
+
+      @Override
+      public int getWindowStartLine() {
+        return editorState.windowStartLine;
+      }
+
+      @Override
+      public java.util.List<String> getLinesWindow() {
+        return editorState.linesWindow;
+      }
+
+      @Override
+      public String getLineTextForRender(int line) {
+        return getLineTextForRender(line);
+      }
+
+      @Override
+      public int getCopyCutMaxChars() {
+        return editorLoadingState.copyCutMaxChars;
+      }
+
+      @Override
+      public java.nio.charset.Charset getFileCharset() {
+        return editorIO.document.fileCharset;
+      }
+
+      @Override
+      public void setDisable(boolean disabled) {
+        setDisable(disabled);
+      }
+
+      @Override
+      public void setCursorLineAndChar(int line, int ch) {
+        cursorState.setCursorPosition(line, ch);
+      }
+
+      @Override
+      public void scrollToLineFastForSelectAll(int line, int ch) {
+        scrollManager.scrollToLineFastForSelectAll(line, ch);
+      }
+
+      @Override
+      public void showLoadingCircle(boolean show) {
+        loadingCircleAnimator.show(show);
+      }
+
+      @Override
+      public void showPopupAtSelection() {
+        popupTouchHandler.showPopupAtSelection();
+      }
+
+      @Override
+      public void hidePopup() {
+        popupTouchHandler.hidePopup();
+      }
+
+      @Override
+      public void requestFocus() {
+        SodiumEditor.this.requestFocus();
+      }
+
+      @Override
+      public void showKeyboard() {
+        imeManager.showKeyboard();
+      }
+
+      @Override
+      public void restartInput() {
+        imeManager.restartInput();
+      }
+
+      @Override
+      public void clearActiveSuggestion() {
+        inlinePredictionState.clearActiveSuggestion();
+      }
+
+      @Override
+      public int getPrefetchLines() {
+        return editorState.prefetchLines;
+      }
+
+      @Override
+      public boolean isEof() {
+        return editorState.isEof;
+      }
+
+      @Override
+      public boolean isIndexBuilding() {
+        return editorIndexState.isIndexBuilding();
+      }
+
+      @Override
+      public boolean isIndexDisabled() {
+        return editorIndexState.isIndexDisabled();
+      }
+
+      @Override
+      public void countTotalLines(com.yn.sodiumeditor.input.SelectionHandler.OnTotalLinesCounted callback) {
+        editorIO.fileManager.countTotalLines(callback::onCounted);
+      }
+
+      @Override
+      public int incrementEditVersion() {
+        return history.incrementEditVersion();
+      }
+
+      @Override
+      public int getEditVersion() {
+        return history.getEditVersion();
+      }
+
+      @Override
+      public int getWidth() {
+        return SodiumEditor.this.getWidth();
+      }
+
+      @Override
+      public float getTextStartX() {
+        return SodiumEditor.this.getTextStartX();
+      }
+
+      @Override
+      public boolean isWordWrapEnabled() {
+        return wrapWordState.isWordWrapEnabled;
+      }
+
+      @Override
+      public void cancelWrapWordWorkForPriority() {
+        wrapWordBuilder.cancelWorkForPriority();
+      }
+
+      @Override
+      public boolean isWrapWordMetricsUsableForWindow(int widthPx) {
+        return wrapWordBuilder.isMetricsUsableForWindow(SodiumEditor.this, widthPx);
+      }
+
+      @Override
+      public int getCursorLine() {
+        return cursorState.getCursorLine();
+      }
+
+      @Override
+      public int getCursorChar() {
+        return cursorState.getCursorChar();
+      }
+
+      @Override
+      public int getSelectionHandleColor() {
+        return handleRenderer.getSelectionHandleColor();
+      }
+
+      @Override
+      public void setSelectionHandleColor(int color) {
+        handleRenderer.setSelectionHandleColor(color);
+      }
+
+      @Override
+      public void setCursorPositionNoClear(int line, int ch) {
+        cursorNavigation.setPositionNoClear(line, ch);
+      }
+
+      @Override
+      public void insertTextAtCursor(String text) {
+        editorTextInserter.insertTextAtCursor(text);
+      }
+
+      @Override
+      public void inlinePredictionUpdate() {
+        inlinePredictionEngine.updateSuggestion();
+      }
+
+      @Override
+      public int getHideCopyCutMaxLines() {
+        return editorLoadingState.hideCopyCutMaxLines;
+      }
+
+      @Override
+      public void loadWindowAround(int targetStart, Runnable onComplete) {
+        viewRender.loadWindowAround(targetStart, onComplete);
+      }
+
+      @Override
+      public void buildFileIndex() {
+        editorIO.document.buildFileIndex();
+      }
+    });
     selectionRenderer = new com.yn.sodiumeditor.renderer.SelectionRenderer(selectionConfig);
 
     // Initialize Cursor components
-    cursorNavigation = new com.yn.sodiumeditor.core.CursorNavigation(cursorState, new CursorNavigationCallback());
-    cursorRenderer = new com.yn.sodiumeditor.renderer.CursorRenderer(cursorConfig, cursorState, new CursorRendererCallback());
-    imeCompositionHandler = new com.yn.sodiumeditor.input.ImeCompositionHandler(cursorState, new ImeCompositionCallback());
-    editorTextInserter = new com.yn.sodiumeditor.core.EditorTextInserter(cursorState, new EditorTextInserterCallback());
+    cursorNavigation = new com.yn.sodiumeditor.core.CursorNavigation(cursorState, new com.yn.sodiumeditor.core.CursorNavigation.NavigationCallback() {
+      @Override
+      public @Nullable String getLineTextForRender(int line) {
+        return getLineTextForRender(line);
+      }
+
+      @Override
+      public boolean isEof() {
+        return editorState.isEof;
+      }
+
+      @Override
+      public int getWindowStartLine() {
+        return editorState.windowStartLine;
+      }
+
+      @Override
+      public java.util.List<String> getLinesWindow() {
+        return editorState.linesWindow;
+      }
+
+      @Override
+      public void setCursorPosition(int line, int ch) {
+        cursorState.setCursorPosition(line, ch);
+      }
+
+      @Override
+      public void clearSelectionKeepLineNumberState() {
+        selectionState.clearSelectionKeepLineNumberState();
+      }
+
+      @Override
+      public void hidePopup() {
+        popupTouchHandler.hidePopup();
+      }
+
+      @Override
+      public void resetCursorBlink() {
+        cursorAnimator.resetCursorBlink();
+      }
+
+      @Override
+      public void invalidate() {
+        SodiumEditor.this.invalidate();
+      }
+
+      @Override
+      public void keepCursorVisibleHorizontally() {
+        scrollManager.keepCursorVisibleHorizontally();
+      }
+
+      @Override
+      public void inlinePredictionUpdate() {
+        inlinePredictionEngine.updateSuggestion();
+      }
+
+      @Override
+      public boolean hasSelection() {
+        return selectionState.hasSelection();
+      }
+
+      @Override
+      public int getSelectionStartLine() {
+        return selectionState.selStartLine;
+      }
+
+      @Override
+      public int getSelectionStartChar() {
+        return selectionState.selStartChar;
+      }
+
+      @Override
+      public int getSelectionEndLine() {
+        return selectionState.selEndLine;
+      }
+
+      @Override
+      public int getSelectionEndChar() {
+        return selectionState.selEndChar;
+      }
+
+      @Override
+      public int comparePos(int sL, int sC, int eL, int eC) {
+        return SodiumEditor.this.comparePos(sL, sC, eL, eC);
+      }
+    });
+    cursorRenderer = new com.yn.sodiumeditor.renderer.CursorRenderer(cursorConfig, cursorState, new com.yn.sodiumeditor.renderer.CursorRenderer.RenderCallback() {
+      @Override
+      public float getCursorDrawX() {
+        return cursorAnimator.getCursorDrawX();
+      }
+
+      @Override
+      public float getCursorDrawY() {
+        return cursorAnimator.getCursorDrawY();
+      }
+
+      @Override
+      public boolean isCursorVisible() {
+        return cursorAnimator.isCursorVisible();
+      }
+
+      @Override
+      public int getCaretColor() {
+        return handleRenderer.getCaretColor();
+      }
+
+      @Override
+      public float getCursorWidth() {
+        return handleRenderer.getCursorWidth();
+      }
+
+      @Override
+      public float getLineHeight() {
+        return editorConfig.lineHeight;
+      }
+    });
+    imeCompositionHandler = new com.yn.sodiumeditor.input.ImeCompositionHandler(cursorState, new com.yn.sodiumeditor.input.ImeCompositionHandler.CompositionCallback() {
+      @Override
+      public boolean isReadOnly() {
+        return editorConfig.behaviorConfig.isReadOnly;
+      }
+
+      @Override
+      public void invalidatePendingIOForEdit() {
+        editorIO.invalidatePendingIOForEdit();
+      }
+
+      @Override
+      public int incrementEditVersion() {
+        return history.incrementEditVersion();
+      }
+
+      @Override
+      public void ensureLineInWindow(int line, boolean center) {
+        scrollManager.ensureLineInWindow(line, center);
+      }
+
+      @Override
+      public boolean isWindowLoading() {
+        return editorState.isWindowLoading;
+      }
+
+      @Override
+      public int getWindowStartLine() {
+        return editorState.windowStartLine;
+      }
+
+      @Override
+      public java.util.List<String> getLinesWindow() {
+        return editorState.linesWindow;
+      }
+
+      @Override
+      public String getLineFromWindowLocal(int local) {
+        return viewRender.textRender.getLineFromWindowLocal(local);
+      }
+
+      @Override
+      public void updateLocalLine(int local, String newLine) {
+        viewRender.textRender.updateLocalLine(local, newLine);
+      }
+
+      @Override
+      public java.util.HashMap<Integer, String> getModifiedLines() {
+        return editorState.modifiedLines;
+      }
+
+      @Override
+      public void computeWidthForLine(int line, String lineText) {
+        viewRender.textRender.computeWidthForLine(line, lineText);
+      }
+
+      @Override
+      public void recalculateMaxLineWidth() {
+        viewRender.textRender.recalculateMaxLineWidth();
+      }
+
+      @Override
+      public void invalidate() {
+        SodiumEditor.this.invalidate();
+      }
+
+      @Override
+      public void inlinePredictionUpdate() {
+        inlinePredictionEngine.updateSuggestion();
+      }
+
+      @Override
+      public void clearComposingPendingOp() {
+        history.clearComposingPendingOp();
+      }
+
+      @Override
+      public void clearLastComposingTextForCharAnim() {
+        charAnimator.clearLastComposingTextForCharAnim();
+      }
+
+      @Override
+      public Paint getPaintForChar(int line, int at, String base) {
+        return highlightRenderer.getPaintForChar(line, at, base);
+      }
+
+      @Override
+      public void startDeleteAnimation(int line, int at, String removed, Paint paint) {
+        charAnimator.startDeleteAnimation(line, at, removed, paint);
+      }
+
+      @Override
+      public boolean isCharAnimationEnabled() {
+        return charAnimationConfig.isEnabled();
+      }
+
+      @Override
+      public com.yn.sodiumeditor.state.CursorState getCursorState() {
+        return cursorState;
+      }
+
+      @Override
+      public void setCursorPosition(int line, int ch) {
+        cursorState.setCursorPosition(line, ch);
+      }
+    });
+    editorTextInserter = new com.yn.sodiumeditor.core.EditorTextInserter(cursorState, new com.yn.sodiumeditor.core.EditorTextInserter.InsertionCallback() {
+      @Override
+      public boolean isReadOnly() {
+        return editorConfig.behaviorConfig.isReadOnly;
+      }
+
+      @Override
+      public void invalidatePendingIOForEdit() {
+        editorIO.invalidatePendingIOForEdit();
+      }
+
+      @Override
+      public int incrementEditVersion() {
+        return history.incrementEditVersion();
+      }
+
+      @Override
+      public boolean isFileCleared() {
+        return editorIO.isFileCleared;
+      }
+
+      @Override
+      public @Nullable java.io.File getSourceFile() {
+        return editorIO.sourceFile;
+      }
+
+      @Override
+      public boolean isLargePasteText(String text) {
+        return SodiumEditor.isLargePasteText(text);
+      }
+
+      @Override
+      public void beginLargeEditUiIfNeeded(boolean isSelectAll, int sL, int eL, boolean selectAllLike) {
+        beginLargeEditUiIfNeeded(isSelectAll, sL, eL, selectAllLike);
+      }
+
+      @Override
+      public Handler getMainHandler() {
+        return mainHandler;
+      }
+
+      @Override
+      public Runnable getLargeEditUiWatchdog() {
+        return largeEditUiWatchdog;
+      }
+
+      @Override
+      public void postDelayed(Runnable r, long delayMillis) {
+        SodiumEditor.this.postDelayed(r, delayMillis);
+      }
+
+      @Override
+      public com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget computeCursorAfterInsert(int line, int ch, String text) {
+        com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget target = SodiumEditor.this.computeCursorAfterInsert(line, ch, text);
+        return new com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget(target.line, target.ch);
+      }
+
+      @Override
+      public void rewriteReplaceRangeAsync(int opToken, java.io.File inFile, int sL, int sC, int eL, int eC, String text, com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget target, boolean finishLargeEdit) {
+        rewriteReplaceRangeAsync(opToken, inFile, sL, sC, eL, eC, text, new com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget(target.line, target.ch), finishLargeEdit);
+      }
+
+      @Override
+      public void inlinePredictionUpdate() {
+        inlinePredictionEngine.updateSuggestion();
+      }
+
+      @Override
+      public void addLineCountDelta(int delta) {
+        history.addLineCountDelta(delta);
+      }
+
+      @Override
+      public int getUndoTextLimit() {
+        return history.getUndoTextLimit();
+      }
+
+      @Override
+      public void recordEdit(com.yn.sodiumeditor.core.EditOp op) {
+        history.recordEdit(op);
+      }
+
+      @Override
+      public void ensureLineInWindow(int line, boolean center) {
+        scrollManager.ensureLineInWindow(line, center);
+      }
+
+      @Override
+      public boolean isWindowLoading() {
+        return editorState.isWindowLoading;
+      }
+
+      @Override
+      public int getWindowStartLine() {
+        return editorState.windowStartLine;
+      }
+
+      @Override
+      public java.util.List<String> getLinesWindow() {
+        return editorState.linesWindow;
+      }
+
+      @Override
+      public String getLineFromWindowLocal(int local) {
+        return viewRender.textRender.getLineFromWindowLocal(local);
+      }
+
+      @Override
+      public void updateLocalLine(int local, String newLine) {
+        viewRender.textRender.updateLocalLine(local, newLine);
+      }
+
+      @Override
+      public java.util.HashMap<Integer, String> getModifiedLines() {
+        return editorState.modifiedLines;
+      }
+
+      @Override
+      public void removeLineWidthCache(int line) {
+        editorState.lineWidthCache.remove(line);
+      }
+
+      @Override
+      public void clearLineWidthCache() {
+        editorState.lineWidthCache.clear();
+      }
+
+      @Override
+      public void addLinesWindowAll(int index, java.util.List<String> lines) {
+        editorState.linesWindow.addAll(index, lines);
+      }
+
+      @Override
+      public void setCursorPosition(int line, int ch) {
+        cursorState.setCursorPosition(line, ch);
+      }
+
+      @Override
+      public int getCursorLine() {
+        return cursorState.getCursorLine();
+      }
+
+      @Override
+      public int getCursorChar() {
+        return cursorState.getCursorChar();
+      }
+
+      @Override
+      public void moveCharDelta(int delta) {
+        cursorState.moveCharDelta(delta);
+      }
+
+      @Override
+      public void setLineAndChar(int line, int ch) {
+        cursorState.setCursorPosition(line, ch);
+      }
+
+      @Override
+      public int getLinesCount() {
+        return viewRender.textRender.getLinesCount();
+      }
+
+      @Override
+      public boolean isShowLineNumbers() {
+        return lineNumberState.isShowLineNumbers();
+      }
+
+      @Override
+      public void requestLayout() {
+        requestLayout();
+      }
+
+      @Override
+      public void onLineCountChanged(int delta) {
+        wrapWordBuilder.onLineCountChanged(SodiumEditor.this);
+      }
+
+      @Override
+      public void recalculateMaxLineWidth() {
+        viewRender.textRender.recalculateMaxLineWidth();
+      }
+
+      @Override
+      public void keepCursorVisibleHorizontally() {
+        scrollManager.keepCursorVisibleHorizontally();
+      }
+
+      @Override
+      public void resetCursorBlink() {
+        cursorAnimator.resetCursorBlink();
+      }
+
+      @Override
+      public void invalidate() {
+        SodiumEditor.this.invalidate();
+      }
+
+      @Override
+      public int getLineLength(int line) {
+        return viewRender.textRender.getLineLength(line);
+      }
+    });
 
     // Initialize Line number components
     float density = getContext().getResources().getDisplayMetrics().density;
@@ -484,11 +1281,126 @@ public class SodiumEditor extends View {
     zoomGestureHandler = new com.yn.sodiumeditor.input.ZoomGestureHandler(this, zoomConfig, zoomEngine, zoomPreviewRender, ctx);
 
     history = new History(this);
-    
+
     // Initialize Search components
-    searchEngine = new com.yn.sodiumeditor.core.SearchEngine(searchConfig, new SearchEngineCallback());
-    searchHandler = new com.yn.sodiumeditor.input.SearchHandler(searchConfig, searchEngine, new SearchHandlerCallback());
-    searchRenderer = new com.yn.sodiumeditor.renderer.SearchRenderer(searchConfig, searchEngine, new SearchRendererCallback());
+    searchEngine = new com.yn.sodiumeditor.core.SearchEngine(searchConfig, new com.yn.sodiumeditor.core.SearchEngine.SearchCallback() {
+      @Override
+      public int getEditVersionForSearch() {
+        return getEditVersionForSearch();
+      }
+
+      @Override
+      public int getLinesCount() {
+        return viewRender.textRender.getLinesCount();
+      }
+
+      @Override
+      public int getWindowStartLineForSearch() {
+        return getWindowStartLineForSearch();
+      }
+
+      @Override
+      public int getWindowSizeForSearch() {
+        return getWindowSizeForSearch();
+      }
+
+      @Override
+      public boolean isIndexReadyForSearch() {
+        return editorIndexState.isIndexReady;
+      }
+
+      @Override
+      public boolean getSourceFileForSearchExists() {
+        return getSourceFileForSearchExists();
+      }
+
+      @Override
+      public void populateDirectLinesForRangeForSearch(int start, int end, java.util.HashMap<Integer, String> direct) {
+        populateDirectLinesForRangeForSearch(start, end, direct);
+      }
+
+      @Override
+      public String getLineTextForRenderWithDirectForSearch(int line, java.util.HashMap<Integer, String> direct) {
+        return getLineTextForRenderWithDirectForSearch(line, direct);
+      }
+
+      @Override
+      public String getLineTextForRender(int line) {
+        return getLineTextForRender(line);
+      }
+    });
+    searchHandler = new com.yn.sodiumeditor.input.SearchHandler(searchConfig, searchEngine, new com.yn.sodiumeditor.input.SearchHandler.SearchInteractionCallback() {
+      @Override
+      public int getCursorLine() {
+        return cursorState.getCursorLine();
+      }
+
+      @Override
+      public int getCursorChar() {
+        return cursorState.getCursorChar();
+      }
+
+      @Override
+      public void ensureLineInWindowForSearch(int line, boolean center) {
+        ensureLineInWindowForSearch(line, center);
+      }
+
+      @Override
+      public void setCursorPosition(int line, int ch) {
+        cursorState.setCursorPosition(line, ch);
+      }
+
+      @Override
+      public void setSelectionInternal(int startLine, int startCh, int endLine, int endCh) {
+        setSelectionInternal(startLine, startCh, endLine, endCh);
+      }
+
+      @Override
+      public void setCursorPositionNoClear(int line, int ch) {
+        cursorNavigation.setPositionNoClear(line, ch);
+      }
+
+      @Override
+      public boolean hasSelection() {
+        return selectionState.hasSelection();
+      }
+
+      @Override
+      public int comparePos(int line1, int ch1, int line2, int ch2) {
+        return comparePos(line1, ch1, line2, ch2);
+      }
+
+      @Override
+      public void invalidate() {
+        SodiumEditor.this.invalidate();
+      }
+    });
+    searchRenderer = new com.yn.sodiumeditor.renderer.SearchRenderer(searchConfig, searchEngine, new com.yn.sodiumeditor.renderer.SearchRenderer.RenderCallback() {
+      @Override
+      public float measureTextForSearch(String line, int index, int globalLine) {
+        return measureTextForSearch(line, index, globalLine);
+      }
+
+      @Override
+      public float measureTextWithVisualSpacesForSearch(String line, int start, int end) {
+        return measureTextWithVisualSpacesForSearch(line, start, end);
+      }
+
+      @Override
+      public int getCursorLine() {
+        return cursorState.getCursorLine();
+      }
+
+      @Override
+      public int getCursorChar() {
+        return cursorState.getCursorChar();
+      }
+
+      @Override
+      public boolean hasSelection() {
+        return selectionState.hasSelection();
+      }
+    });
 
     cursorAnimationConfig = new com.yn.sodiumeditor.config.CursorAnimationConfig();
     charAnimationConfig = new com.yn.sodiumeditor.config.CharAnimationConfig();
@@ -541,31 +1453,6 @@ public class SodiumEditor extends View {
   }
 
 
-  
-  public static final class VisualLinePosition {
-    public final int line;
-    public final int segment;
-
-    public VisualLinePosition(int line, int segment) {
-      this.line = line;
-      this.segment = segment;
-    }
-  }
-
-  
-  private static final class StreamedSliceRequest {
-    final int line;
-    final int start;
-    final int end;
-
-    StreamedSliceRequest(int line, int start, int end) {
-      this.line = line;
-      this.start = start;
-      this.end = end;
-    }
-  }
-
-  
 
   public void updateSourceFile(File file) {
     editorIO.document.updateSourceFile(file);
@@ -603,7 +1490,7 @@ public class SodiumEditor extends View {
     // }
   }
 
-  private void restartInput() {
+  public void restartInput() {
     imeManager.restartInput();
   }
 
@@ -630,20 +1517,16 @@ public class SodiumEditor extends View {
         largeEditUiWatchdog);
   }
 
-  public void endLargeEditUiPublic(boolean invalidate) {
-    endLargeEditUi(invalidate);
-  }
-
-  public void clearSelectionStateAfterDeletePublic() {
+  public void clearSelectionStateAfterDelete() {
     selectionHandler.clearSelectionStateAfterDelete();
   }
 
-  public void recordReplaceSelectionEditPublic(int sL, int sC, int eL, int eC, String removedText, String insertText, int beforeLine, int beforeChar) {
+  public void recordReplaceSelectionEdit(int sL, int sC, int eL, int eC, String removedText, String insertText, int beforeLine, int beforeChar) {
     history.recordReplaceSelectionEdit(
         sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
   }
 
-  public void rewriteReplaceRangeAsyncPublic(int opToken, File inFile, int sL, int sC, int eL, int eC, String insertText, CursorTarget target, boolean finishLargeEditUi) {
+  public void rewriteReplaceRangeAsync(int opToken, File inFile, int sL, int sC, int eL, int eC, String insertText, com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget target, boolean finishLargeEditUi) {
     editorIO.textIO.rewriteReplaceRangeAsync(opToken, inFile, sL, sC, eL, eC, insertText, target, finishLargeEditUi);
   }
 
@@ -655,59 +1538,53 @@ public class SodiumEditor extends View {
     return com.yn.sodiumeditor.input.EditorOperations.isLargePasteText(text);
   }
 
-  public void goToLine(int line) {
-    goToLine(line, 1);
-  }
-
   public void goToLine(int line, int col) {
-    cursorNavigation.goToLine(line, col, new GoToLineWithUICallbackImpl());
-  }
+    cursorNavigation.goToLine(line, col, new CursorNavigation.GoToLineWithUICallback() {
+      @Override
+      public int incrementGoToLineVersion() {
+        return editorIndexState.incrementGoToLineVersion();
+      }
 
-  private class GoToLineWithUICallbackImpl implements com.yn.sodiumeditor.core.CursorNavigation.GoToLineWithUICallback {
-    @Override
-    public int incrementGoToLineVersion() {
-      return editorIndexState.incrementGoToLineVersion();
-    }
+      @Override
+      public void setDisable(boolean disable) {
+        SodiumEditor.this.setDisable(disable);
+      }
 
-    @Override
-    public void setDisable(boolean disable) {
-      SodiumEditor.this.setDisable(disable);
-    }
+      @Override
+      public void showLoadingCircle(boolean show) {
+        loadingCircleAnimator.show(show);
+      }
 
-    @Override
-    public void showLoadingCircle(boolean show) {
-      loadingCircleAnimator.show(show);
-    }
+      @Override
+      public boolean hasSelection() {
+        return selectionState.hasSelection();
+      }
 
-    @Override
-    public boolean hasSelection() {
-      return selectionState.hasSelection();
-    }
+      @Override
+      public void clearSelection() {
+        selectionState.clearSelectionKeepLineNumberState();
+      }
 
-    @Override
-    public void clearSelection() {
-      selectionState.clearSelectionKeepLineNumberState();
-    }
+      @Override
+      public void setSelecting(boolean selecting) {
+        selectionState.setSelecting(selecting);
+      }
 
-    @Override
-    public void setSelecting(boolean selecting) {
-      selectionState.setSelecting(selecting);
-    }
+      @Override
+      public void hidePopup() {
+        popupTouchHandler.hidePopup();
+      }
 
-    @Override
-    public void hidePopup() {
-      popupTouchHandler.hidePopup();
-    }
+      @Override
+      public Integer getKnownTotalLines() {
+        return editorIO.getKnownTotalLines(SodiumEditor.this);
+      }
 
-    @Override
-    public Integer getKnownTotalLines() {
-      return editorIO.getKnownTotalLines(SodiumEditor.this);
-    }
-
-    @Override
-    public void countTotalLines(com.yn.sodiumeditor.core.CursorNavigation.GoToLineCallback.LineCountCallback callback) {
-      editorIO.lineIndex.countTotalLines(total -> callback.onResult(total));
-    }
+      @Override
+      public void countTotalLines(com.yn.sodiumeditor.core.CursorNavigation.GoToLineCallback.LineCountCallback callback) {
+        editorIO.lineIndex.countTotalLines(total -> callback.onResult(total));
+      }
+    });
   }
 
   public void insertCharAtCursor(char c) {
@@ -759,24 +1636,12 @@ public class SodiumEditor extends View {
     selectionHandler.copyOrCutSelection(false);
   }
 
-  public void actionCopy() {
-    copySelectionToClipboard();
-  }
-
   public void cutSelectionToClipboard() {
     selectionHandler.copyOrCutSelection(true);
   }
 
-  public void actionCut() {
-    cutSelectionToClipboard();
-  }
-
   public void pasteFromClipboard() {
     selectionHandler.pasteFromClipboard();
-  }
-
-  public void actionPaste() {
-    pasteFromClipboard();
   }
 
   interface LineCountCallback {
@@ -800,11 +1665,11 @@ public class SodiumEditor extends View {
     return editorIO.lineIndex.computeByteRangeFastOrScan(file, sL, sC, eL, eC);
   }
 
-  public boolean isIndexBuildingPublic() {
+  public boolean isIndexBuilding() {
     return editorIndexState.isIndexBuilding;
   }
 
-  public boolean isIndexDisabledPublic() {
+  public boolean isIndexDisabled() {
     return editorIndexState.isIndexDisabled;
   }
 
@@ -812,115 +1677,33 @@ public class SodiumEditor extends View {
     selectionHandler.selectAll();
   }
 
-  public void actionSelectAll() {
-    selectAll();
-  }
-
   // ==============================
   // DELETE/REPLACE SELECTION (FIXED)
   // ==============================
   public void deleteSelection() {
     inlinePredictionState.clearActiveSuggestion(); // Clear suggestion when deleting selection
-    replaceSelectionWithText("");
-  }
-
-  public void actionDelete() {
-    deleteSelection();
-  }
-
-  public static final class CursorTarget {
-    public final int line;
-    public final int ch;
-
-    public CursorTarget(int line, int ch) {
-      this.line = line;
-      this.ch = ch;
-    }
+    inputManager.replaceSelectionWithText("");
   }
 
   // Undo/redo helpers moved to History.
 
-  public String exportEditCacheJson() {
-    return history.exportEditCacheJson();
-  }
-
-  public boolean importEditCacheJson(String json, boolean applyPendingEdits) {
-    return history.importEditCacheJson(json, applyPendingEdits);
-  }
-
-  public boolean hasPendingEdits() {
-    return history.hasPendingEdits();
-  }
-
-  public CursorTarget computeCursorAfterInsert(int baseLine, int baseChar, String insertText) {
+  public com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget computeCursorAfterInsert(int baseLine, int baseChar, String insertText) {
     com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget target = editorTextInserter.computeCursorAfterInsert(baseLine, baseChar, insertText);
-    return new CursorTarget(target.line, target.ch);
+    return new com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget(target.line, target.ch);
   }
 
-  public int countNewlines(@Nullable String text) {
-    return editorTextInserter.countNewlines(text);
-  }
-
-  public CursorTarget computeCursorAfterInsertForUndo(int baseLine, int baseChar, String insertText) {
+  public com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget computeCursorAfterInsertForUndo(int baseLine, int baseChar, String insertText) {
     return computeCursorAfterInsert(baseLine, baseChar, insertText);
   }
 
   public int countNewlinesForUndo(@Nullable String text) {
-    return countNewlines(text);
-  }
-
-  public boolean canUndo() {
-    return history.canUndo();
-  }
-
-  public boolean canRedo() {
-    return history.canRedo();
-  }
-
-  public int getUndoStackSize() {
-    return history.getUndoStackSize();
-  }
-
-  public int getPendingEditsCount() {
-    return history.getPendingEditsCount();
-  }
-
-  public void clearUndoRedoHistory() {
-    history.clearUndoRedoHistory();
-  }
-
-  public long getLastEditTimestamp() {
-    return history.getLastEditTimestamp();
-  }
-
-  public void applyPendingEditsToFileAsync(@Nullable Runnable onComplete) {
-    history.applyPendingEditsToFileAsync(onComplete);
+    return editorTextInserter.countNewlines(text);
   }
 
   // rewriteReplaceRangeBlocking moved to FileBufferModifier.
 
-  public void recordEdit(EditOp op) {
-    history.recordEdit(op);
-  }
-
   private void recordEditNoUndo(EditOp op) {
     history.recordEditNoUndo(op);
-  }
-
-  public void undo() {
-    history.undo();
-  }
-
-  public void redo() {
-    history.redo();
-  }
-
-  void updateComposingPendingOp(@Nullable String text, int beforeLine, int beforeChar) {
-    history.updateComposingPendingOp(text, beforeLine, beforeChar);
-  }
-
-  public void replaceSelectionWithText(String insertText) {
-    inputManager.replaceSelectionWithText(insertText);
   }
 
   private LineIndex.RangeBytes computeByteRangeFastOrScan(File file, int sL, int sC, int eL, int eC) {
@@ -931,63 +1714,12 @@ public class SodiumEditor extends View {
     return computeByteRangeFastOrScan(file, sL, sC, eL, eC);
   }
 
-  public Handler getIoHandlerForUndo() {
-    return editorIO.ioHandler;
-  }
-
-  public void onUndoRedoRewriteSuccess(File inFile) {
-    editorIO.textIO.onUndoRedoRewriteSuccess(inFile);
-  }
-
   private long findLineStartByteByScanning(RandomAccessFile raf, int targetLine) throws Exception {
     return editorIO.lineIndex.findLineStartByteByScanning(raf, targetLine);
   }
 
-  public String readLineUtf8AtByte(RandomAccessFile raf, long byteOffset) throws Exception {
-    return editorIO.textIO.readLineUtf8AtByte(raf, byteOffset);
-  }
-
-  public long getLineByteLengthFromIndex(RandomAccessFile raf, int line, long fileLen)
-      throws Exception {
-    return editorIO.lineIndex.getLineByteLengthFromIndex(raf, line, fileLen);
-  }
-
-  public String readLineSliceAtByte(
-      RandomAccessFile raf, long lineStart, long lineByteLen, int startChar, int endChar)
-      throws Exception {
-    return editorIO.textIO.readLineSliceAtByte(raf, lineStart, lineByteLen, startChar, endChar);
-  }
-
-  public static final class StreamedCharSlice {
-    public final String text;
-    public final int length;
-
-    public StreamedCharSlice(String text, int length) {
-      this.text = text;
-      this.length = length;
-    }
-  }
-
-  public StreamedCharSlice readLineSliceByChars(
-      RandomAccessFile raf, long lineStart, int startChar, int endChar, boolean needTotalLength)
-      throws Exception {
-    return editorIO.textIO.readLineSliceByChars(raf, lineStart, startChar, endChar, needTotalLength);
-  }
-
   private long computeByteOffsetInLineUtf8(String lineText, int charIndex) {
     return editorIO.textIO.computeByteOffsetInLineUtf8(lineText, charIndex);
-  }
-
-  private int getCharIndexForX(String text, float x, int globalLine) {
-    return viewRender.textRender.getCharIndexForX(text, x, globalLine);
-  }
-
-  public int getCharIndexForXPublic(String text, float x, int globalLine) {
-    return getCharIndexForX(text, x, globalLine);
-  }
-
-  public int[] computeWordBounds(String line, int pos) {
-    return viewRender.textRender.computeWordBounds(line, pos);
   }
 
   private boolean isWordChar(char c) {
@@ -998,10 +1730,6 @@ public class SodiumEditor extends View {
     return viewRender.textRender.computeWordBoundsSmart(line, pos);
   }
 
-  public String bytesToControlVisible(byte[] buf, int len) {
-    return editorIO.textIO.bytesToControlVisible(buf, len);
-  }
-
   private boolean applySmartDoubleTapSelection(int line, int charIndex, String lineText) {
     return viewRender.textRender.applySmartDoubleTapSelection(line, charIndex, lineText);
   }
@@ -1010,25 +1738,15 @@ public class SodiumEditor extends View {
     return selectionHandler.isPositionInsideSelection(line, ch);
   }
 
-  public static final class TextRange {
-    public final int start;
-    public final int end;
-
-    public TextRange(int start, int end) {
-      this.start = start;
-      this.end = end;
-    }
-  }
-
-  private void addSelectionCandidate(List<TextRange> out, int start, int end, int lineLen) {
+  private void addSelectionCandidate(java.util.List<com.yn.sodiumeditor.utils.TextRange> out, int start, int end, int lineLen) {
     viewRender.textRender.addSelectionCandidate(out, start, end, lineLen);
   }
 
-  private int findSelectionCandidateIndex(int line, List<TextRange> candidates) {
+  private int findSelectionCandidateIndex(int line, java.util.List<com.yn.sodiumeditor.utils.TextRange> candidates) {
     return viewRender.textRender.findSelectionCandidateIndex(line, candidates);
   }
 
-  private ArrayList<TextRange> buildDoubleTapCandidates(String line, int charIndex, int wStart, int wEnd) {
+  private java.util.ArrayList<com.yn.sodiumeditor.utils.TextRange> buildDoubleTapCandidates(String line, int charIndex, int wStart, int wEnd) {
     return viewRender.textRender.buildDoubleTapCandidates(line, charIndex, wStart, wEnd);
   }
 
@@ -1037,12 +1755,12 @@ public class SodiumEditor extends View {
   }
 
   @Nullable
-  private TextRange findEnclosingQuoteRange(String line, int index) {
+  private com.yn.sodiumeditor.utils.TextRange findEnclosingQuoteRange(String line, int index) {
     return viewRender.textRender.findEnclosingQuoteRange(line, index);
   }
 
   @Nullable
-  private TextRange findEnclosingBracketRange(String line, int index) {
+  private com.yn.sodiumeditor.utils.TextRange findEnclosingBracketRange(String line, int index) {
     return viewRender.textRender.findEnclosingBracketRange(line, index);
   }
 
@@ -1053,15 +1771,6 @@ public class SodiumEditor extends View {
 
   BufferedReader reopenReaderAtStart() {
     return editorIO.document.reopenReaderAtStart();
-  }
-
-
-  private void updateLocalLine(int localIdx, String text) {
-    viewRender.textRender.updateLocalLine(localIdx, text);
-  }
-
-  public String getLineFromWindowLocal(int localIdx) {
-    return viewRender.textRender.getLineFromWindowLocal(localIdx);
   }
 
   private int getStreamLineThreshold() {
@@ -1076,109 +1785,16 @@ public class SodiumEditor extends View {
     return editorIO.textIO.getStreamedLineLength(globalLine);
   }
 
-  public int getStreamedLineSliceStart(int globalLine) {
-    return editorIO.textIO.getStreamedLineSliceStart(globalLine);
-  }
-
   private void setStreamedLineInfo(int globalLine, int length, int sliceStart) {
     editorIO.textIO.setStreamedLineInfo(globalLine, length, sliceStart);
-  }
-
-  public void clearStreamedLineInfo(int globalLine) {
-    editorIO.textIO.clearStreamedLineInfo(globalLine);
-  }
-
-  public void clearStreamedLineCaches() {
-    editorIO.textIO.clearStreamedLineCaches();
   }
 
   private boolean isSingleByteCharset() {
     return editorIO.document.isSingleByteCharset();
   }
 
-  public int getLogicalLineLength(int globalLine, @Nullable String line) {
-    return editorIO.textIO.getLogicalLineLength(globalLine, line);
-  }
-
-  private void computeWidthForLine(int globalIndex, String line) {
-    viewRender.textRender.computeWidthForLine(globalIndex, line);
-  }
-
   private float getWidthForLine(int globalIndex, String line) {
     return viewRender.textRender.getWidthForLine(globalIndex, line);
-  }
-
-  public void handleAutoPairing(String text) {
-    inputManager.handleAutoPairing(text);
-  }
-
-  @Override
-  public boolean onCheckIsTextEditor() {
-    return imeManager.onCheckIsTextEditor();
-  }
-
-  @Override
-  public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
-    return imeManager.onCreateInputConnection(outAttrs);
-  }
-
-  @Override
-  public boolean onTouchEvent(MotionEvent event) {
-    return inputManager.handleTouchEvent(event);
-  }
-
-
-  @Override
-  public boolean onKeyDown(int keyCode, KeyEvent event) {
-    return inputManager.handleKeyDown(keyCode, event);
-  }
-
-
-
-
-
-  
-  public void superOnDraw(Canvas canvas) {
-    super.onDraw(canvas);
-  }
-
-  @Override
-  protected void onFocusChanged(boolean focused, int direction, Rect previouslyFocusedRect) {
-    super.onFocusChanged(focused, direction, previouslyFocusedRect);
-    focusChangeHandler.onFocusChanged(focused);
-  }
-
-  public void invalidateLineGlobal(int globalLine) {
-    viewRender.textRender.invalidateLineGlobal(globalLine);
-  }
-
-
-
-  public long[] buildIndexJava(String path) {
-    return viewRender.buildIndexJava(path);
-  }
-
-  public void buildFileIndex() {
-    editorIO.document.buildFileIndex();
-  }
-
-  public void recalculateMaxLineWidth() {
-    viewRender.textRender.recalculateMaxLineWidth();
-  }
-
-  public void recalculateMaxLineWidthAsync() {
-    viewRender.textRender.recalculateMaxLineWidthAsync();
-  }
-
-  
-
-  public String getLineTextForRender(int line) {
-    return viewRender.textRender.getLineTextForRender(line);
-  }
-
-  @Nullable
-  public String getLineTextForRenderWithDirect(int line, @Nullable java.util.Map<Integer, String> direct) {
-    return viewRender.textRender.getLineTextForRenderWithDirect(line, direct);
   }
 
   // --- Essential methods (not aliases) ---
@@ -1211,7 +1827,7 @@ public class SodiumEditor extends View {
     return viewRender.textRender.getCaretXForSegment(line, globalLine, segStart, segEnd, charIndex);
   }
 
-  public CursorTarget getCursorTargetForPosition(
+  public com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget getCursorTargetForPosition(
       float viewX, float viewY, @Nullable java.util.Map<Integer, String> directLines) {
     return viewRender.textRender.getCursorTargetForPosition(viewX, viewY, directLines);
   }
@@ -1240,20 +1856,6 @@ public class SodiumEditor extends View {
     typefaceManager.applyTypeface(typeface, style);
   }
 
-  public int getBraceGuideColumnForLine(String line, int globalLine, int braceIndex, int firstNonSpace) {
-    return viewRender.getBraceGuideColumnForLine(line, globalLine, braceIndex, firstNonSpace);
-  }
-
-  public int getWindowEndLine() {
-    synchronized (editorState.linesWindow) {
-      return Math.max(0, editorState.windowStartLine + editorState.linesWindow.size() - 1);
-    }
-  }
-
-  public float getGutterStartX() {
-    return isRtl ? 0f : editorConfig.paddingLeft;
-  }
-
   public int getVisualSpaceScale() {
     return 1;
   }
@@ -1262,39 +1864,15 @@ public class SodiumEditor extends View {
     return 2048;
   }
 
-  public boolean isHeavyDrawSuppressed() {
-    return viewRender.textRender.isHeavyDrawSuppressed();
-  }
-
   public boolean isMixedDirectionText(String line, int start, int end) {
     return false;
   }
 
-  public void getVisibleCharRangeForLine(String line, int globalLine, int[] out) {
-    viewRender.textRender.getVisibleCharRangeForLine(line, globalLine, out);
-  }
-
-  public void computeStreamedSliceBounds(String slice, int line, int lineLen, int[] out) {
-    viewRender.computeStreamedSliceBounds(slice, line, lineLen, out);
-  }
-
-  public float viewToTextXPublic(float viewX) {
-    return viewToTextX(viewX);
-  }
-
-  private float viewToTextX(float viewX) {
+  public float viewToTextX(float viewX) {
     return viewX + getEffectiveScrollX() - getTextStartX();
   }
 
-  public int getGlobalLineForY(float y) {
-    return viewRender.textRender.getGlobalLineForY(y);
-  }
-
   // --- More essential methods ---
-  public void updateLineNumberSelection(int line) {
-    selectionHandler.updateLineNumberSelection(line);
-  }
-
   public float getIndentGuideTextSizePx() {
     return editorConfig.paint.getTextSize();
   }
@@ -1304,23 +1882,15 @@ public class SodiumEditor extends View {
   }
 
   public boolean isHeavyDrawSuppressedForIndentGuides() {
-    return isHeavyDrawSuppressed();
+    return viewRender.textRender.isHeavyDrawSuppressed();
   }
 
   public String getIndentGuideUnit() {
     return editorConfig.visualConfig.INDENT_BLOCK_UNIT;
   }
 
-  public float getIndentGuideLineTop(int globalLine) {
-    return scrollManager.getDrawLineTop(globalLine);
-  }
-
   public float getIndentGuideLineHeight() {
     return editorConfig.lineHeight;
-  }
-
-  public float measureTextWithVisualSpacesForIndentGuides(String line, int start, int end) {
-    return whitespaceGuideRenderer.measureTextWithVisualSpaces(this, line, start, end, editorConfig.paint);
   }
 
   public int getIndentGuideTabSize() {
@@ -1335,1121 +1905,49 @@ public class SodiumEditor extends View {
     return false;
   }
 
-  public java.util.List<FoldRange> getIndentGuideFoldRanges() {
-    return new java.util.ArrayList<>();
+  // --- Essential delegate methods ---
+  public int getLinesCount() {
+    return viewRender.textRender.getLinesCount();
   }
 
-  // --- Essential delegate methods (not aliases) ---
-  public void invalidatePendingIOForEdit() {
-    editorIO.invalidatePendingIOForEdit();
+  public String getLineTextForRender(int line) {
+    return viewRender.textRender.getLineTextForRender(line);
   }
 
-  public void invalidatePendingIO() {
-    invalidatePendingIOForEdit();
+  @Nullable
+  public String getLineTextForRenderWithDirect(int line, @Nullable java.util.Map<Integer, String> direct) {
+    return viewRender.textRender.getLineTextForRenderWithDirect(line, direct);
   }
 
-  public void clampScrollY() {
-    scrollManager.clampScrollY();
-  }
-
-  public void checkAndLoadWindow() {
-    viewRender.checkAndLoadWindow();
-  }
-
-  public void loadWindowAround(int targetStart, Runnable onComplete) {
-    viewRender.loadWindowAround(targetStart, onComplete);
-  }
-
-  public void loadWindowAround(int targetStart, Runnable onComplete, boolean recalcWidthSync) {
-    viewRender.loadWindowAround(targetStart, onComplete, recalcWidthSync);
-  }
-
-  public void maybeKickWindowLoad(int firstVisibleLine) {
-    viewRender.maybeKickWindowLoad(firstVisibleLine);
-  }
-
-  public void maybeUpdateStreamedSlicesForVisibleRange(int firstVisibleLine, int lastVisibleLine) {
-    viewRender.maybeUpdateStreamedSlicesForVisibleRange(firstVisibleLine, lastVisibleLine);
-  }
-
-  public void abortScrollAnimationForZoom() {
-    scrollManager.abortScrollAnimationForZoom();
-  }
-
-  public float getMaxScrollYForClamp() {
-    return scrollManager.getMaxScrollYForClamp();
-  }
-
-  public void cancelFlingStopAnimation() {
-    if (flingStopAnimator != null) {
-      flingStopAnimator.cancel();
+  public int getWindowEndLine() {
+    synchronized (editorState.linesWindow) {
+      return Math.max(0, editorState.windowStartLine + editorState.linesWindow.size() - 1);
     }
-  }
-
-  public void startFlingStopAnimation(float targetX, float targetY) {
-    scrollManager.startFlingStopAnimation(targetX, targetY);
-  }
-
-  public boolean superOnKeyDown(int keyCode, KeyEvent event) {
-    return super.onKeyDown(keyCode, event);
-  }
-
-  boolean isOpeningBracket(char c) {
-    return com.yn.sodiumeditor.core.BracketMatchEngine.isOpeningBracket(c);
-  }
-
-  char matchingBracket(char c) {
-    return com.yn.sodiumeditor.core.BracketMatchEngine.matchingBracket(c);
-  }
-
-  public void populateDirectLinesForRange(int startLine, int endLine, java.util.Map<Integer, String> direct) {
-    viewRender.textRender.populateDirectLinesForRange(startLine, endLine, direct);
-  }
-
-
-  public int getVisibleLineCount() {
-    return viewRender.textRender.getVisibleLineCount();
   }
 
   public int mapVisibleIndexToGlobal(int visibleIndex) {
     return foldState.mapVisibleIndexToGlobal(visibleIndex, getLinesCount());
   }
 
-  public int getVisibleIndexForGlobalLine(int globalLine) {
-    return foldState.getVisibleIndexForGlobalLine(globalLine);
-  }
-
-  public int getVisualIndexForLineAndChar(int line, int ch) {
-    return viewRender.textRender.getVisualIndexForLineAndChar(line, ch);
-  }
-
-  public int getLinesCount() {
-    return viewRender.textRender.getLinesCount();
-  }
-
-  public void clearComposingPendingOpPublic() {
-    history.clearComposingPendingOp();
-  }
-
-  public int incrementEditVersionPublic() {
-    return history.incrementEditVersion();
-  }
-
-  
-  public void updateLocalLinePublic(int localIdx, String text) {
-    updateLocalLine(localIdx, text);
-  }
-
-  public void computeWidthForLinePublic(int globalIndex, String line) {
-    computeWidthForLine(globalIndex, line);
-  }
-
-  public void updateComposingPendingOpPublic(@Nullable String text, int beforeLine, int beforeChar) {
-    history.updateComposingPendingOp(text, beforeLine, beforeChar);
-  }
-
-
-
-  public float getDownXPublic() {
-    return editorInputState.downX;
-  }
-
-  public void setDownXPublic(float value) {
-    editorInputState.downX = value;
-  }
-
-  public float getDownYPublic() {
-    return editorInputState.downY;
-  }
-
-  public void setDownYPublic(float value) {
-    editorInputState.downY = value;
-  }
-
-  
-
-  
-
-  public ValueAnimator getFlingStopAnimatorPublic() {
-    return flingStopAnimator;
-  }
-
-  public int getTouchSlopPublic() {
-    return editorInputState.touchSlop;
-  }
-
-  public void updateLineNumberSelectionPublic(int line) {
-    updateLineNumberSelection(line);
-  }
-
-  public CursorTarget getCursorTargetForPositionPublic(float viewX, float viewY, @Nullable java.util.Map<Integer, String> directLines) {
-    return getCursorTargetForPosition(viewX, viewY, directLines);
-  }
-
-  public void restartInputPublic() {
-    restartInput();
-  }
-
-  public boolean superOnTouchEventPublic(MotionEvent event) {
-    return super.onTouchEvent(event);
-  }
-
   public int getGoToLineVersion() {
     return editorIndexState.getGoToLineVersion();
   }
 
-  public int getCopyCutMaxChars() {
-    return editorLoadingState.copyCutMaxChars;
+  public void superOnDraw(Canvas canvas) {
+    super.onDraw(canvas);
   }
 
-  public long getCopyCutMaxLines() {
-    return editorLoadingState.copyCutMaxLines;
+  public boolean superOnTouchEvent(MotionEvent event) {
+    return super.onTouchEvent(event);
   }
 
-  public long findLineStartByteByScanningPublic(RandomAccessFile raf, int targetLine) throws Exception {
-    return findLineStartByteByScanning(raf, targetLine);
+  public boolean superOnKeyDown(int keyCode, KeyEvent event) {
+    return super.onKeyDown(keyCode, event);
   }
 
-  // Search Engine Callback
-  private class SearchEngineCallback implements com.yn.sodiumeditor.core.SearchEngine.SearchCallback {
-    @Override
-    public int getEditVersionForSearch() {
-      return getEditVersionForSearch();
-    }
-
-    @Override
-    public int getLinesCount() {
-      return getLinesCount();
-    }
-
-    @Override
-    public int getWindowStartLineForSearch() {
-      return getWindowStartLineForSearch();
-    }
-
-    @Override
-    public int getWindowSizeForSearch() {
-      return getWindowSizeForSearch();
-    }
-
-    @Override
-    public boolean isIndexReadyForSearch() {
-      return editorIndexState.isIndexReady;
-    }
-
-    @Override
-    public boolean getSourceFileForSearchExists() {
-      return getSourceFileForSearchExists();
-    }
-
-    @Override
-    public void populateDirectLinesForRangeForSearch(int start, int end, java.util.HashMap<Integer, String> direct) {
-      populateDirectLinesForRangeForSearch(start, end, direct);
-    }
-
-    @Override
-    public String getLineTextForRenderWithDirectForSearch(int line, java.util.HashMap<Integer, String> direct) {
-      return getLineTextForRenderWithDirectForSearch(line, direct);
-    }
-
-    @Override
-    public String getLineTextForRender(int line) {
-      return getLineTextForRender(line);
-    }
+  public void handleAutoPairing(String text) {
+    inputManager.handleAutoPairing(text);
   }
 
-  // Search Handler Callback
-  private class SearchHandlerCallback implements com.yn.sodiumeditor.input.SearchHandler.SearchInteractionCallback {
-    @Override
-    public int getCursorLine() {
-      return cursorState.getCursorLine();
-    }
-
-    @Override
-    public int getCursorChar() {
-      return cursorState.getCursorChar();
-    }
-
-    @Override
-    public void ensureLineInWindowForSearch(int line, boolean center) {
-      ensureLineInWindowForSearch(line, center);
-    }
-
-    @Override
-    public void setCursorPosition(int line, int ch) {
-      cursorState.setCursorPosition(line, ch);
-    }
-
-    @Override
-    public void setSelectionInternal(int startLine, int startCh, int endLine, int endCh) {
-      setSelectionInternal(startLine, startCh, endLine, endCh);
-    }
-
-    @Override
-    public void setCursorPositionNoClear(int line, int ch) {
-      cursorNavigation.setPositionNoClear(line, ch);
-    }
-
-    @Override
-    public boolean hasSelection() {
-      return selectionState.hasSelection();
-    }
-
-    @Override
-    public int comparePos(int line1, int ch1, int line2, int ch2) {
-      return comparePos(line1, ch1, line2, ch2);
-    }
-
-    @Override
-    public void invalidate() {
-      SodiumEditor.this.invalidate();
-    }
-  }
-
-  // Search Renderer Callback
-  private class SearchRendererCallback implements com.yn.sodiumeditor.renderer.SearchRenderer.RenderCallback {
-    @Override
-    public float measureTextForSearch(String line, int index, int globalLine) {
-      return measureTextForSearch(line, index, globalLine);
-    }
-
-    @Override
-    public float measureTextWithVisualSpacesForSearch(String line, int start, int end) {
-      return measureTextWithVisualSpacesForSearch(line, start, end);
-    }
-
-    @Override
-    public int getCursorLine() {
-      return cursorState.getCursorLine();
-    }
-
-    @Override
-    public int getCursorChar() {
-      return cursorState.getCursorChar();
-    }
-
-    @Override
-    public boolean hasSelection() {
-      return selectionState.hasSelection();
-    }
-  }
-
-  // Selection Handler Callback
-  private class SelectionHandlerCallback implements com.yn.sodiumeditor.input.SelectionHandler.SelectionInteractionCallback {
-    @Override
-    public int comparePos(int sL, int sC, int eL, int eC) {
-      return SodiumEditor.this.comparePos(sL, sC, eL, eC);
-    }
-
-    @Override
-    public void invalidate() {
-      SodiumEditor.this.invalidate();
-    }
-
-    @Override
-    public void invalidatePendingIOForEdit() {
-      SodiumEditor.this.invalidatePendingIOForEdit();
-    }
-
-    @Override
-    public void setSelection(int startLine, int startChar, int endLine, int endChar, boolean selecting) {
-      selectionState.setSelection(startLine, startChar, endLine, endChar, selecting);
-    }
-
-    @Override
-    public void setSelectAllState(boolean selectAll, boolean entireFile) {
-      selectionState.setSelectAllState(selectAll, entireFile);
-    }
-
-    @Override
-    public void setSelecting(boolean selecting) {
-      selectionState.setSelecting(selecting);
-    }
-
-    @Override
-    public void setLineNumberSelecting(boolean enabled, int anchorLine) {
-      selectionState.setLineNumberSelecting(enabled, anchorLine);
-    }
-
-    @Override
-    public void clearSelectionKeepLineNumberState() {
-      selectionState.clearSelectionKeepLineNumberState();
-    }
-
-    @Override
-    public boolean shouldHideCopyCutForSelection() {
-      return shouldHideCopyCutForSelection();
-    }
-
-    @Override
-    public void deleteSelection() {
-      SodiumEditor.this.deleteSelection();
-    }
-
-    @Override
-    public void post(Runnable r) {
-      SodiumEditor.this.post(r);
-    }
-
-    @Override
-    public void postDelayed(Runnable r, long delayMillis) {
-      SodiumEditor.this.postDelayed(r, delayMillis);
-    }
-
-    @Override
-    public Context getContext() {
-      return SodiumEditor.this.getContext();
-    }
-
-    @Override
-    public boolean isFileCleared() {
-      return editorIO.isFileCleared;
-    }
-
-    @Override
-    public @Nullable java.io.File getSourceFile() {
-      return editorIO.sourceFile;
-    }
-
-    @Override
-    public boolean isIndexReady() {
-      return editorIndexState.isIndexReady;
-    }
-
-    @Override
-    public long[] getLineOffsets() {
-      return editorIndexState.lineOffsets;
-    }
-
-    @Override
-    public Object getLineOffsetsLock() {
-      return editorIndexState.lineOffsetsLock;
-    }
-
-    @Override
-    public long findLineStartByteByScanning(java.io.RandomAccessFile raf, int line) throws Exception {
-      return findLineStartByteByScanning(raf, line);
-    }
-
-    @Override
-    public java.util.HashMap<Integer, String> getModifiedLines() {
-      return editorState.modifiedLines;
-    }
-
-    @Override
-    public int getWindowStartLine() {
-      return editorState.windowStartLine;
-    }
-
-    @Override
-    public java.util.List<String> getLinesWindow() {
-      return editorState.linesWindow;
-    }
-
-    @Override
-    public String getLineTextForRender(int line) {
-      return getLineTextForRender(line);
-    }
-
-    @Override
-    public int getCopyCutMaxChars() {
-      return editorLoadingState.copyCutMaxChars;
-    }
-
-    @Override
-    public java.nio.charset.Charset getFileCharset() {
-      return editorIO.document.fileCharset;
-    }
-
-    @Override
-    public void setDisable(boolean disabled) {
-      setDisable(disabled);
-    }
-
-    @Override
-    public void setCursorLineAndChar(int line, int ch) {
-      cursorState.setCursorPosition(line, ch);
-    }
-
-    @Override
-    public void scrollToLineFastForSelectAll(int line, int ch) {
-      scrollManager.scrollToLineFastForSelectAll(line, ch);
-    }
-
-    @Override
-    public void showLoadingCircle(boolean show) {
-      loadingCircleAnimator.show(show);
-    }
-
-    @Override
-    public void showPopupAtSelection() {
-      popupTouchHandler.showPopupAtSelection();
-    }
-
-    @Override
-    public void hidePopup() {
-      popupTouchHandler.hidePopup();
-    }
-
-    @Override
-    public void requestFocus() {
-      SodiumEditor.this.requestFocus();
-    }
-
-    @Override
-    public void showKeyboard() {
-      imeManager.showKeyboard();
-    }
-
-    @Override
-    public void restartInput() {
-      imeManager.restartInput();
-    }
-
-    @Override
-    public void clearActiveSuggestion() {
-      inlinePredictionState.clearActiveSuggestion();
-    }
-
-    @Override
-    public int getPrefetchLines() {
-      return editorState.prefetchLines;
-    }
-
-    @Override
-    public boolean isEof() {
-      return editorState.isEof;
-    }
-
-    @Override
-    public boolean isIndexBuilding() {
-      return editorIndexState.isIndexBuildingPublic();
-    }
-
-    @Override
-    public boolean isIndexDisabled() {
-      return editorIndexState.isIndexDisabledPublic();
-    }
-
-    
-    @Override
-    public void countTotalLines(com.yn.sodiumeditor.input.SelectionHandler.OnTotalLinesCounted callback) {
-      editorIO.fileManager.countTotalLines(callback::onCounted);
-    }
-
-    @Override
-    public int incrementEditVersion() {
-      return history.incrementEditVersion();
-    }
-
-    @Override
-    public int getEditVersion() {
-      return history.getEditVersion();
-    }
-
-    @Override
-    public int getWidth() {
-      return SodiumEditor.this.getWidth();
-    }
-
-    @Override
-    public float getTextStartX() {
-      return SodiumEditor.this.getTextStartX();
-    }
-
-    @Override
-    public boolean isWordWrapEnabled() {
-      return wrapWordState.isWordWrapEnabled;
-    }
-
-    @Override
-    public void cancelWrapWordWorkForPriority() {
-      wrapWordBuilder.cancelWorkForPriority();
-    }
-
-    @Override
-    public boolean isWrapWordMetricsUsableForWindow(int widthPx) {
-      return wrapWordBuilder.isMetricsUsableForWindow(SodiumEditor.this, widthPx);
-    }
-
-    @Override
-    public int getCursorLine() {
-      return cursorState.getCursorLine();
-    }
-
-    @Override
-    public int getCursorChar() {
-      return cursorState.getCursorChar();
-    }
-
-    @Override
-    public int getSelectionHandleColor() {
-      return handleRenderer.getSelectionHandleColor();
-    }
-
-    @Override
-    public void setSelectionHandleColor(int color) {
-      handleRenderer.setSelectionHandleColor(color);
-    }
-
-    @Override
-    public void setCursorPositionNoClear(int line, int ch) {
-      cursorNavigation.setPositionNoClear(line, ch);
-    }
-
-
-
-    @Override
-    public void insertTextAtCursor(String text) {
-      editorTextInserter.insertTextAtCursor(text);
-    }
-
-    @Override
-    public void inlinePredictionUpdate() {
-      inlinePredictionEngine.updateSuggestion();
-    }
-
-    @Override
-    public int getHideCopyCutMaxLines() {
-      return editorLoadingState.hideCopyCutMaxLines;
-    }
-
-    @Override
-    public void loadWindowAround(int targetStart, Runnable onComplete) {
-      SodiumEditor.this.loadWindowAround(targetStart, onComplete);
-    }
-
-    @Override
-    public void buildFileIndex() {
-      SodiumEditor.this.buildFileIndex();
-    }
-  }
-
-  // Selection Text Builder Callback
-  private class SelectionTextBuilderCallback implements com.yn.sodiumeditor.core.SelectionTextBuilder.SelectionCallback {
-    @Override
-    public int comparePos(int sL, int sC, int eL, int eC) {
-      return SodiumEditor.this.comparePos(sL, sC, eL, eC);
-    }
-
-    @Override
-    public boolean isFileCleared() {
-      return editorIO.isFileCleared;
-    }
-
-    @Override
-    public @Nullable java.io.File getSourceFile() {
-      return editorIO.sourceFile;
-    }
-
-    @Override
-    public boolean isIndexReady() {
-      return editorIndexState.isIndexReady;
-    }
-
-    @Override
-    public long[] getLineOffsets() {
-      return editorIndexState.lineOffsets;
-    }
-
-    @Override
-    public Object getLineOffsetsLock() {
-      return editorIndexState.lineOffsetsLock;
-    }
-
-    @Override
-    public long findLineStartByteByScanning(java.io.RandomAccessFile raf, int line) throws Exception {
-      return findLineStartByteByScanning(raf, line);
-    }
-
-    @Override
-    public java.util.HashMap<Integer, String> getModifiedLines() {
-      return editorState.modifiedLines;
-    }
-
-    @Override
-    public int getWindowStartLine() {
-      return editorState.windowStartLine;
-    }
-
-    @Override
-    public java.util.List<String> getLinesWindow() {
-      return editorState.linesWindow;
-    }
-
-    @Override
-    public String getLineTextForRender(int line) {
-      return getLineTextForRender(line);
-    }
-
-    @Override
-    public int getCopyCutMaxChars() {
-      return editorLoadingState.copyCutMaxChars;
-    }
-
-    @Override
-    public java.nio.charset.Charset getFileCharset() {
-      return editorIO.document.fileCharset;
-    }
-  }
-
-  // Cursor Navigation Callback
-  private class CursorNavigationCallback implements com.yn.sodiumeditor.core.CursorNavigation.NavigationCallback {
-    @Override
-    public @Nullable String getLineTextForRender(int line) {
-      return getLineTextForRender(line);
-    }
-
-    @Override
-    public boolean isEof() {
-      return editorState.isEof;
-    }
-
-    @Override
-    public int getWindowStartLine() {
-      return editorState.windowStartLine;
-    }
-
-    @Override
-    public java.util.List<String> getLinesWindow() {
-      return editorState.linesWindow;
-    }
-
-    @Override
-    public void setCursorPosition(int line, int ch) {
-      cursorState.setCursorPosition(line, ch);
-    }
-
-    @Override
-    public void clearSelectionKeepLineNumberState() {
-      selectionState.clearSelectionKeepLineNumberState();
-    }
-
-    @Override
-    public void hidePopup() {
-      popupTouchHandler.hidePopup();
-    }
-
-    @Override
-    public void resetCursorBlink() {
-      cursorAnimator.resetCursorBlink();
-    }
-
-    @Override
-    public void invalidate() {
-      SodiumEditor.this.invalidate();
-    }
-
-    @Override
-    public void keepCursorVisibleHorizontally() {
-      scrollManager.keepCursorVisibleHorizontally();
-    }
-
-    @Override
-    public void inlinePredictionUpdate() {
-      inlinePredictionEngine.updateSuggestion();
-    }
-
-    @Override
-    public boolean hasSelection() {
-      return selectionState.hasSelection();
-    }
-
-    @Override
-    public int getSelectionStartLine() {
-      return selectionState.selStartLine;
-    }
-
-    @Override
-    public int getSelectionStartChar() {
-      return selectionState.selStartChar;
-    }
-
-    @Override
-    public int getSelectionEndLine() {
-      return selectionState.selEndLine;
-    }
-
-    @Override
-    public int getSelectionEndChar() {
-      return selectionState.selEndChar;
-    }
-
-    @Override
-    public int comparePos(int sL, int sC, int eL, int eC) {
-      return SodiumEditor.this.comparePos(sL, sC, eL, eC);
-    }
-  }
-
-  // Cursor Renderer Callback
-  private class CursorRendererCallback implements com.yn.sodiumeditor.renderer.CursorRenderer.RenderCallback {
-    @Override
-    public float getCursorDrawX() {
-      return cursorAnimator.getCursorDrawX();
-    }
-
-    @Override
-    public float getCursorDrawY() {
-      return cursorAnimator.getCursorDrawY();
-    }
-
-    @Override
-    public boolean isCursorVisible() {
-      return cursorAnimator.isCursorVisible();
-    }
-
-    @Override
-    public int getCaretColor() {
-      return handleRenderer.getCaretColor();
-    }
-
-    @Override
-    public float getCursorWidth() {
-      return handleRenderer.getCursorWidth();
-    }
-
-    @Override
-    public float getLineHeight() {
-      return editorConfig.lineHeight;
-    }
-  }
-
-  // IME Composition Callback
-  private class ImeCompositionCallback implements com.yn.sodiumeditor.input.ImeCompositionHandler.CompositionCallback {
-    @Override
-    public boolean isReadOnly() {
-      return editorConfig.behaviorConfig.isReadOnly;
-    }
-
-    @Override
-    public void invalidatePendingIOForEdit() {
-      SodiumEditor.this.invalidatePendingIOForEdit();
-    }
-
-    @Override
-    public int incrementEditVersion() {
-      return history.incrementEditVersion();
-    }
-
-    @Override
-    public void ensureLineInWindow(int line, boolean center) {
-      scrollManager.ensureLineInWindow(line, center);
-    }
-
-    @Override
-    public boolean isWindowLoading() {
-      return editorState.isWindowLoading;
-    }
-
-    @Override
-    public int getWindowStartLine() {
-      return editorState.windowStartLine;
-    }
-
-    @Override
-    public java.util.List<String> getLinesWindow() {
-      return editorState.linesWindow;
-    }
-
-    @Override
-    public String getLineFromWindowLocal(int local) {
-      return getLineFromWindowLocal(local);
-    }
-
-    @Override
-    public void updateLocalLine(int local, String newLine) {
-      updateLocalLinePublic(local, newLine);
-    }
-
-    @Override
-    public java.util.HashMap<Integer, String> getModifiedLines() {
-      return editorState.modifiedLines;
-    }
-
-    @Override
-    public void computeWidthForLine(int line, String lineText) {
-      computeWidthForLinePublic(line, lineText);
-    }
-
-    @Override
-    public void recalculateMaxLineWidth() {
-      recalculateMaxLineWidth();
-    }
-
-    @Override
-    public void invalidate() {
-      SodiumEditor.this.invalidate();
-    }
-
-    @Override
-    public void inlinePredictionUpdate() {
-      inlinePredictionEngine.updateSuggestion();
-    }
-
-    @Override
-    public void clearComposingPendingOp() {
-      clearComposingPendingOpPublic();
-    }
-
-    @Override
-    public void clearLastComposingTextForCharAnim() {
-      charAnimator.clearLastComposingTextForCharAnim();
-    }
-
-    @Override
-    public Paint getPaintForChar(int line, int at, String base) {
-      return highlightRenderer.getPaintForChar(line, at, base);
-    }
-
-    @Override
-    public void startDeleteAnimation(int line, int at, String removed, Paint paint) {
-      charAnimator.startDeleteAnimation(line, at, removed, paint);
-    }
-
-    @Override
-    public boolean isCharAnimationEnabled() {
-      return charAnimationConfig.isEnabled();
-    }
-
-    @Override
-    public com.yn.sodiumeditor.state.CursorState getCursorState() {
-      return cursorState;
-    }
-
-    @Override
-    public void setCursorPosition(int line, int ch) {
-      cursorState.setCursorPosition(line, ch);
-    }
-  }
-
-  // Editor Text Inserter Callback
-  private class EditorTextInserterCallback implements com.yn.sodiumeditor.core.EditorTextInserter.InsertionCallback {
-    @Override
-    public boolean isReadOnly() {
-      return editorConfig.behaviorConfig.isReadOnly;
-    }
-
-    @Override
-    public void invalidatePendingIOForEdit() {
-      SodiumEditor.this.invalidatePendingIOForEdit();
-    }
-
-    @Override
-    public int incrementEditVersion() {
-      return history.incrementEditVersion();
-    }
-
-    @Override
-    public boolean isFileCleared() {
-      return editorIO.isFileCleared;
-    }
-
-    @Override
-    public @Nullable java.io.File getSourceFile() {
-      return editorIO.sourceFile;
-    }
-
-    @Override
-    public boolean isLargePasteText(String text) {
-      return SodiumEditor.isLargePasteText(text);
-    }
-
-    @Override
-    public void beginLargeEditUiIfNeeded(boolean isSelectAll, int sL, int eL, boolean selectAllLike) {
-      beginLargeEditUiIfNeeded(isSelectAll, sL, eL, selectAllLike);
-    }
-
-    @Override
-    public Handler getMainHandler() {
-      return mainHandler;
-    }
-
-    @Override
-    public Runnable getLargeEditUiWatchdog() {
-      return largeEditUiWatchdog;
-    }
-
-    @Override
-    public void postDelayed(Runnable r, long delayMillis) {
-      SodiumEditor.this.postDelayed(r, delayMillis);
-    }
-
-    @Override
-    public com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget computeCursorAfterInsert(int line, int ch, String text) {
-      SodiumEditor.CursorTarget target = SodiumEditor.this.computeCursorAfterInsertForUndo(line, ch, text);
-      return new com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget(target.line, target.ch);
-    }
-
-    @Override
-    public void rewriteReplaceRangeAsync(int opToken, java.io.File inFile, int sL, int sC, int eL, int eC, String text, com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget target, boolean finishLargeEdit) {
-      rewriteReplaceRangeAsyncPublic(opToken, inFile, sL, sC, eL, eC, text, new SodiumEditor.CursorTarget(target.line, target.ch), finishLargeEdit);
-    }
-
-    @Override
-    public void inlinePredictionUpdate() {
-      inlinePredictionEngine.updateSuggestion();
-    }
-
-    @Override
-    public void addLineCountDelta(int delta) {
-      history.addLineCountDelta(delta);
-    }
-
-    @Override
-    public int getUndoTextLimit() {
-      return history.getUndoTextLimit();
-    }
-
-    @Override
-    public void recordEdit(com.yn.sodiumeditor.core.EditOp op) {
-      recordEdit(op);
-    }
-
-    @Override
-    public void ensureLineInWindow(int line, boolean center) {
-      scrollManager.ensureLineInWindow(line, center);
-    }
-
-    @Override
-    public boolean isWindowLoading() {
-      return editorState.isWindowLoading;
-    }
-
-    @Override
-    public int getWindowStartLine() {
-      return editorState.windowStartLine;
-    }
-
-    @Override
-    public java.util.List<String> getLinesWindow() {
-      return editorState.linesWindow;
-    }
-
-    @Override
-    public String getLineFromWindowLocal(int local) {
-      return getLineFromWindowLocal(local);
-    }
-
-    @Override
-    public void updateLocalLine(int local, String newLine) {
-      updateLocalLinePublic(local, newLine);
-    }
-
-    @Override
-    public java.util.HashMap<Integer, String> getModifiedLines() {
-      return editorState.modifiedLines;
-    }
-
-    @Override
-    public void removeLineWidthCache(int line) {
-      editorState.lineWidthCache.remove(line);
-    }
-
-    @Override
-    public void clearLineWidthCache() {
-      editorState.lineWidthCache.clear();
-    }
-
-    @Override
-    public void addLinesWindowAll(int index, java.util.List<String> lines) {
-      editorState.linesWindow.addAll(index, lines);
-    }
-
-    @Override
-    public void setCursorPosition(int line, int ch) {
-      cursorState.setCursorPosition(line, ch);
-    }
-
-    @Override
-    public int getCursorLine() {
-      return cursorState.getCursorLine();
-    }
-
-    @Override
-    public int getCursorChar() {
-      return cursorState.getCursorChar();
-    }
-
-    @Override
-    public void moveCharDelta(int delta) {
-      cursorState.moveCharDelta(delta);
-    }
-
-    @Override
-    public void setLineAndChar(int line, int ch) {
-      cursorState.setCursorPosition(line, ch);
-    }
-
-    @Override
-    public int getLinesCount() {
-      return getLinesCount();
-    }
-
-    @Override
-    public boolean isShowLineNumbers() {
-      return lineNumberState.isShowLineNumbers();
-    }
-
-    @Override
-    public void requestLayout() {
-      requestLayout();
-    }
-
-    @Override
-    public void onLineCountChanged(int delta) {
-      wrapWordBuilder.onLineCountChanged(SodiumEditor.this);
-    }
-
-    @Override
-    public void recalculateMaxLineWidth() {
-      recalculateMaxLineWidth();
-    }
-
-    @Override
-    public void keepCursorVisibleHorizontally() {
-      scrollManager.keepCursorVisibleHorizontally();
-    }
-
-    @Override
-    public void resetCursorBlink() {
-      cursorAnimator.resetCursorBlink();
-    }
-
-    @Override
-    public void invalidate() {
-      SodiumEditor.this.invalidate();
-    }
-
-    @Override
-    public int getLineLength(int line) {
-      return viewRender.textRender.getLineLength(line);
-    }
-  }
-
-  private class HighlightParserCallbackImpl implements com.yn.sodiumeditor.core.HighlightParser.HighlightParserCallback {
-    @Override
-    public boolean isTripleQuoteStringsEnabled() {
-      return editorConfig.behaviorConfig.isTripleQuoteStringsEnabled;
-    }
-
-    @Override
-    public boolean isBacktickStringsEnabled() {
-      return editorConfig.behaviorConfig.isBacktickStringsEnabled;
-    }
-
-    @Override
-    public boolean isBlockCommentsEnabled() {
-      return editorConfig.behaviorConfig.isBlockCommentsEnabled;
-    }
-
-    @Override
-    public java.util.List<String> getLineCommentDelimiters() {
-      return highlightState.lineCommentDelimiters;
-    }
-
-    @Override
-    public boolean isLineCommentStart(String line, int index) {
-      return com.yn.sodiumeditor.core.HighlightParser.isLineCommentStart(line, index, highlightState.lineCommentDelimiters);
-    }
-  }
+  public final com.yn.sodiumeditor.input.EditorOperations editorOps = new com.yn.sodiumeditor.input.EditorOperations(this);
 }

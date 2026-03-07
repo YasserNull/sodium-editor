@@ -216,7 +216,7 @@ public final class History {
             return;
         }
         Log.d("SodiumEditorSave", "Saving pending ops=" + ops.size());
-        view.getIoHandlerForUndo()
+        view.editorIO.ioHandler
                 .post(
                         () -> {
                             boolean ok = true;
@@ -309,7 +309,7 @@ public final class History {
                                 + op.insertedText.length());
                 String beforeText = lastPending.insertedText;
                 lastPending.insertedText = lastPending.insertedText + op.insertedText;
-                SodiumEditor.CursorTarget newEnd =
+                com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget newEnd =
                         view.computeCursorAfterInsertForUndo(
                                 lastPending.startLine, lastPending.startChar, lastPending.insertedText);
                 lastPending.insertedEndLine = newEnd.line;
@@ -416,7 +416,7 @@ public final class History {
             op.endChar = eC;
             op.removedText = null;
             op.insertedText = insert;
-            SodiumEditor.CursorTarget insertedEnd =
+            com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget insertedEnd =
                     view.computeCursorAfterInsertForUndo(sL, sC, insert);
             op.insertedEndLine = insertedEnd.line;
             op.insertedEndChar = insertedEnd.ch;
@@ -436,7 +436,7 @@ public final class History {
             op.endChar = eC;
             op.removedText = null;
             op.insertedText = insert;
-            SodiumEditor.CursorTarget insertedEnd =
+            com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget insertedEnd =
                     view.computeCursorAfterInsertForUndo(sL, sC, insert);
             op.insertedEndLine = insertedEnd.line;
             op.insertedEndChar = insertedEnd.ch;
@@ -455,7 +455,7 @@ public final class History {
         op.endChar = eC;
         op.removedText = removedText;
         op.insertedText = insert;
-        SodiumEditor.CursorTarget insertedEnd =
+        com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget insertedEnd =
                 view.computeCursorAfterInsertForUndo(sL, sC, insert);
         op.insertedEndLine = insertedEnd.line;
         op.insertedEndChar = insertedEnd.ch;
@@ -493,7 +493,7 @@ public final class History {
             op.endChar = startChar;
             op.removedText = "";
             op.insertedText = text;
-            SodiumEditor.CursorTarget insertedEnd =
+            com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget insertedEnd =
                     view.computeCursorAfterInsertForUndo(startLine, startChar, text);
             op.insertedEndLine = insertedEnd.line;
             op.insertedEndChar = insertedEnd.ch;
@@ -525,7 +525,7 @@ public final class History {
         lineCountDelta += (newNewlines - prevNewlines);
 
         composingPendingOp.insertedText = text;
-        SodiumEditor.CursorTarget insertedEnd =
+        com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget insertedEnd =
                 view.computeCursorAfterInsertForUndo(startLine, startChar, text);
         composingPendingOp.insertedEndLine = insertedEnd.line;
         composingPendingOp.insertedEndChar = insertedEnd.ch;
@@ -596,7 +596,7 @@ public final class History {
     void applyEditForUndoRedo(
             int sL, int sC, int eL, int eC, String text, int cursorLine, int cursorChar) {
         view.setSelectionInternal(sL, sC, eL, eC);
-        view.replaceSelectionWithText(text);
+        view.editorTextInserter.insertTextAtCursor(text);
         view.cursorNavigation.setPosition(cursorLine, cursorChar);
         if (view.wrapWordState.isWordWrapEnabled) {
             view.wrapWordBuilder.invalidate(true, true);

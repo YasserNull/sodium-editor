@@ -71,7 +71,7 @@ public class IndentGuideRenderer {
         int unitSpaces = view.getIndentGuideUnit().length();
         if (unitSpaces <= 0) return;
 
-        float top = view.getIndentGuideLineTop(globalLine);
+        float top = view.scrollManager.getDrawLineTop(globalLine);
         float bottom = top + view.getIndentGuideLineHeight();
         int columns = 0;
         int nextGuide = unitSpaces;
@@ -80,7 +80,7 @@ public class IndentGuideRenderer {
         for (int i = 0; i < line.length(); i++) {
             char c = line.charAt(i);
             if (c != ' ' && c != '\t') break;
-            float adv = view.measureTextWithVisualSpacesForIndentGuides(line, i, i + 1);
+            float adv = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, i, i + 1, view.editorConfig.paint);
             if (c == '\t') {
                 columns += view.getIndentGuideTabSize();
             } else {

@@ -26,7 +26,7 @@ public final class TextMeasurement {
     public void computeWidthForLine(int globalIndex, String line) {
         String safe = (line == null) ? "" : line;
         float w;
-        int logicalLen = view.getLogicalLineLength(globalIndex, safe);
+        int logicalLen = view.editorIO.textIO.getLogicalLineLength(globalIndex, safe);
         if (logicalLen > view.highlightState.maxSyntaxLineLength) {
             w = view.highlightRenderer.getAverageCharWidthForLine(safe, globalIndex) * logicalLen;
         } else {
@@ -47,7 +47,7 @@ public final class TextMeasurement {
         }
         String safe = (line == null) ? "" : line;
         float w;
-        int logicalLen = view.getLogicalLineLength(globalIndex, safe);
+        int logicalLen = view.editorIO.textIO.getLogicalLineLength(globalIndex, safe);
         if (logicalLen > view.highlightState.maxSyntaxLineLength) {
             w = view.highlightRenderer.getAverageCharWidthForLine(safe, globalIndex) * logicalLen;
         } else {
@@ -68,12 +68,12 @@ public final class TextMeasurement {
             float baseX = getRtlLineBaseX(text, globalLine);
             x -= baseX;
             float w = view.highlightRenderer.measureHighlightedSegmentWidth(
-                text, globalLine, 0, view.getLogicalLineLength(globalLine, text));
+                text, globalLine, 0, view.editorIO.textIO.getLogicalLineLength(globalLine, text));
             x = w - x;
         }
         if (x <= 0f) return 0;
 
-        int len = view.getLogicalLineLength(globalLine, text);
+        int len = view.editorIO.textIO.getLogicalLineLength(globalLine, text);
         if (len > view.highlightState.maxSyntaxLineLength) {
             float avg = view.highlightRenderer.getAverageCharWidthForLine(text, globalLine);
             if (avg <= 0f) return 0;
@@ -145,7 +145,7 @@ public final class TextMeasurement {
     public float getCaretXForLine(String line, int globalLine, int charIndex) {
         float x = view.highlightRenderer.measureText(line, charIndex, globalLine);
         if (!view.isRtl) return x;
-        int logicalLen = view.getLogicalLineLength(globalLine, line);
+        int logicalLen = view.editorIO.textIO.getLogicalLineLength(globalLine, line);
         float w = view.highlightRenderer.measureHighlightedSegmentWidth(line, globalLine, 0, logicalLen);
         float baseX = getRtlLineBaseX(line, globalLine);
         return baseX + (w - x);
@@ -167,9 +167,9 @@ public final class TextMeasurement {
      */
     public float getRtlLineBaseX(@Nullable String line, int globalLine) {
         if (!view.isRtl || line == null) return 0f;
-        int logicalLen = view.getLogicalLineLength(globalLine, line);
+        int logicalLen = view.editorIO.textIO.getLogicalLineLength(globalLine, line);
         float w = view.highlightRenderer.measureHighlightedSegmentWidth(line, globalLine, 0, logicalLen);
-        float area = view.getTextAreaWidth();
+        float area = view.lineNumberRenderer.getTextAvailableWidth(view.getWidth(), view.editorConfig.paddingLeft);
         return area - w;
     }
 
@@ -179,7 +179,7 @@ public final class TextMeasurement {
     public float getRtlSegmentBaseX(@Nullable String line, int globalLine, int segStart, int segEnd) {
         if (!view.isRtl || line == null) return 0f;
         float w = view.highlightRenderer.measureHighlightedSegmentWidth(line, globalLine, segStart, segEnd);
-        float area = view.getTextAreaWidth();
+        float area = view.lineNumberRenderer.getTextAvailableWidth(view.getWidth(), view.editorConfig.paddingLeft);
         return area - w;
     }
 
@@ -188,7 +188,7 @@ public final class TextMeasurement {
      */
     public void getVisibleCharRangeForLine(String line, int globalLine, int[] out) {
         if (line == null || out == null || out.length < 2) return;
-        int len = view.getLogicalLineLength(globalLine, line);
+        int len = view.editorIO.textIO.getLogicalLineLength(globalLine, line);
         if (len <= 0) {
             out[0] = 0;
             out[1] = 0;
@@ -205,8 +205,8 @@ public final class TextMeasurement {
         }
         float viewLeft = view.lineNumberRenderer.getContentViewLeft(view.isRtl);
         float viewRight = view.lineNumberRenderer.getContentViewRight(view.getWidth(), view.isRtl);
-        float leftX = viewLeft + view.getEffectiveScrollX() - view.getTextStartX();
-        float rightX = viewRight + view.getEffectiveScrollX() - view.getTextStartX();
+        float leftX = viewLeft + view.getEffectiveScrollX() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
+        float rightX = viewRight + view.getEffectiveScrollX() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
 
         int start = getCharIndexForX(line, leftX, globalLine);
         int end = getCharIndexForX(line, rightX, globalLine);
@@ -241,11 +241,11 @@ public final class TextMeasurement {
         }
         float viewLeft = view.lineNumberRenderer.getContentViewLeft(view.isRtl);
         float viewRight = view.lineNumberRenderer.getContentViewRight(view.getWidth(), view.isRtl);
-        float leftX = viewLeft + view.getEffectiveScrollX() - view.getTextStartX();
-        float rightX = viewRight + view.getEffectiveScrollX() - view.getTextStartX();
+        float leftX = viewLeft + view.getEffectiveScrollX() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
+        float rightX = viewRight + view.getEffectiveScrollX() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
         if (view.isRtl) {
             float w = avg * len;
-            float baseX = view.getTextAreaWidth() - w;
+            float baseX = view.lineNumberRenderer.getTextAvailableWidth(view.getWidth(), view.editorConfig.paddingLeft) - w;
             float l = leftX - baseX;
             float r = rightX - baseX;
             leftX = w - l;

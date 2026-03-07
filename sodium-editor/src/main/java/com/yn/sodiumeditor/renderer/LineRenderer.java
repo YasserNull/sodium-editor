@@ -82,12 +82,12 @@ public final class LineRenderer {
         int firstVisibleLine = firstVisibleIndex;
         int lastVisibleLine = lastVisibleIndex;
         if (view.foldState.isCodeFoldingEnabled()) {
-            int visibleCount = view.getVisibleLineCount();
+            int visibleCount = view.editorState.linesWindow.size();
             if (visibleCount <= 0) visibleCount = 1;
             firstVisibleIndex = Math.max(0, Math.min(firstVisibleIndex, visibleCount - 1));
             lastVisibleIndex = Math.max(firstVisibleIndex, Math.min(lastVisibleIndex, visibleCount - 1));
-            firstVisibleLine = view.mapVisibleIndexToGlobal(firstVisibleIndex);
-            lastVisibleLine = view.mapVisibleIndexToGlobal(lastVisibleIndex);
+            firstVisibleLine = view.foldState.mapVisibleIndexToGlobal(firstVisibleIndex, view.viewRender.textRender.getLinesCount());
+            lastVisibleLine = view.foldState.mapVisibleIndexToGlobal(lastVisibleIndex, view.viewRender.textRender.getLinesCount());
             view.drawBaseLine = firstVisibleIndex;
         } else {
             view.drawBaseLine = firstVisibleIndex;
@@ -103,14 +103,14 @@ public final class LineRenderer {
         }
         if (lastVisibleLine < firstVisibleLine) lastVisibleLine = firstVisibleLine;
 
-        view.maybeKickWindowLoad(firstVisibleLine);
-        view.maybeUpdateStreamedSlicesForVisibleRange(firstVisibleLine, lastVisibleLine);
+        view.viewRender.maybeKickWindowLoad(firstVisibleLine);
+        view.viewRender.maybeUpdateStreamedSlicesForVisibleRange(firstVisibleLine, lastVisibleLine);
 
         drawGutter(canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine, drawDecorations);
 
         canvas.save();
         clipContentArea(canvas);
-        canvas.translate(view.getTextStartX() - view.getEffectiveScrollX(), translateY);
+        canvas.translate(view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl) - view.getEffectiveScrollX(), translateY);
         applyZoomScale(canvas, translateY);
 
         drawVisibleLines(canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine, drawDecorations);
@@ -129,17 +129,17 @@ public final class LineRenderer {
                             int firstVisibleLine, int lastVisibleLine, boolean drawDecorations) {
         if (view.lineNumberState.isShowLineNumbers()) {
             canvas.drawRect(
-                    view.getGutterStartX(),
+                    view.isRtl ? 0f : view.editorConfig.paddingLeft,
                     0,
-                    view.lineNumberRenderer.getGutterRight(view.getGutterStartX()),
+                    view.lineNumberRenderer.getGutterRight(view.isRtl ? 0f : view.editorConfig.paddingLeft),
                     view.getHeight(),
                     view.lineNumberRenderer.getGutterPaint());
 
             float separatorLeft;
             if (view.isRtl) {
-                separatorLeft = view.getGutterStartX();
+                separatorLeft = view.isRtl ? 0f : view.editorConfig.paddingLeft;
             } else {
-                separatorLeft = view.lineNumberRenderer.getSeparatorLeft(view.getGutterStartX());
+                separatorLeft = view.lineNumberRenderer.getSeparatorLeft(view.isRtl ? 0f : view.editorConfig.paddingLeft);
             }
             canvas.drawRect(
                     separatorLeft,
@@ -153,7 +153,7 @@ public final class LineRenderer {
                 && view.cursorState.getCursorLine() >= firstVisibleLine
                 && view.cursorState.getCursorLine() <= lastVisibleLine
                 && (!view.foldState.isCodeFoldingEnabled() || !view.foldState.isLineHiddenByFold(view.cursorState.getCursorLine()))) {
-            int drawIndex = view.foldState.isCodeFoldingEnabled() ? view.getVisibleIndexForGlobalLine(view.cursorState.getCursorLine()) : view.cursorState.getCursorLine();
+            int drawIndex = view.foldState.isCodeFoldingEnabled() ? view.foldState.getVisibleIndexForGlobalLine(view.cursorState.getCursorLine()) : view.cursorState.getCursorLine();
             float top = Math.round(drawIndex * view.lineHeight - view.scrollManager.scrollY);
             float bottom = top + view.lineHeight;
             view.lineNumberRenderer.drawCurrentLineHighlightInGutter(canvas, top, bottom, view.highlightState.currentLinePaint);
@@ -189,7 +189,7 @@ public final class LineRenderer {
      */
     private void applyZoomScale(Canvas canvas, float translateY) {
         if (view.zoomGestureHandler.isPinchVisualZoomActive()) {
-            float pivotX = view.zoomGestureHandler.getPinchFocusX() - (view.getTextStartX() - view.getEffectiveScrollX());
+            float pivotX = view.zoomGestureHandler.getPinchFocusX() - (view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl) - view.getEffectiveScrollX());
             float pivotY = view.zoomGestureHandler.getPinchFocusY() - translateY;
             canvas.scale(view.zoomGestureHandler.getPinchVisualScale(), view.zoomGestureHandler.getPinchVisualScale(), pivotX, pivotY);
         }
@@ -279,7 +279,7 @@ public final class LineRenderer {
         view.indentGuideEngine.rebuildIntervalsIfNeeded();
 
         for (int v = firstVisibleIndex; v <= lastVisibleIndex; v++) {
-            int globalLine = view.mapVisibleIndexToGlobal(v);
+            int globalLine = view.foldState.mapVisibleIndexToGlobal(v, view.viewRender.textRender.getLinesCount());
             String line = lineCacheManager.getLineTextForRenderWithDirect(globalLine, directLines);
             FoldRange foldRange = view.foldState.getFoldRangeAtStart(globalLine);
             boolean isFoldStart = (foldRange != null);
@@ -287,7 +287,7 @@ public final class LineRenderer {
             float lineWidth =
                     view.isRtl
                             ? view.highlightRenderer.measureHighlightedSegmentWidth(
-                            line, globalLine, 0, view.getLogicalLineLength(globalLine, line))
+                            line, globalLine, 0, view.editorIO.textIO.getLogicalLineLength(globalLine, line))
                             : 0f;
 
             drawCurrentLineHighlight(canvas, globalLine, selPaint);
@@ -356,7 +356,7 @@ public final class LineRenderer {
             float lineWidth =
                     view.isRtl
                             ? view.highlightRenderer.measureHighlightedSegmentWidth(
-                            line, globalLine, 0, view.getLogicalLineLength(globalLine, line))
+                            line, globalLine, 0, view.editorIO.textIO.getLogicalLineLength(globalLine, line))
                             : 0f;
 
             drawCurrentLineHighlight(canvas, globalLine, selPaint);
@@ -402,8 +402,8 @@ public final class LineRenderer {
             float bottom = Math.round(view.scrollManager.getDrawLineBottom(globalLine));
             float viewLeft = view.lineNumberRenderer.getContentViewLeft(view.isRtl);
             float viewRight = view.lineNumberRenderer.getContentViewRight(view.getWidth(), view.isRtl);
-            float left = viewLeft + view.getEffectiveScrollX() - view.getTextStartX();
-            float right = viewRight + view.getEffectiveScrollX() - view.getTextStartX();
+            float left = viewLeft + view.getEffectiveScrollX() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
+            float right = viewRight + view.getEffectiveScrollX() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
             canvas.drawRect(left, top, right, bottom, view.highlightState.currentLinePaint);
         }
     }
@@ -418,7 +418,7 @@ public final class LineRenderer {
         float top = Math.round(view.scrollManager.getDrawLineTop(globalLine));
         float bottom = Math.round(view.scrollManager.getDrawLineBottom(globalLine));
         float fullRight =
-                Math.max(view.currentMaxWindowLineWidth, view.scrollManager.scrollX + (view.getWidth() - view.getTextStartX()));
+                Math.max(view.currentMaxWindowLineWidth, view.scrollManager.scrollX + (view.getWidth() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl)));
         if (view.isRtl) {
             fullRight = lineBaseX + lineWidth;
         }
@@ -538,7 +538,7 @@ public final class LineRenderer {
                 && view.cursorState.getCursorLine() <= lastVisibleLine
                 && (!view.foldState.isCodeFoldingEnabled() || !view.foldState.isLineHiddenByFold(view.cursorState.getCursorLine()))) {
             String cursorLineText = lineCacheManager.getLineTextForRender(view.cursorState.getCursorLine());
-            int safeChar = Math.min(view.cursorState.getCursorChar(), view.getLogicalLineLength(view.cursorState.getCursorLine(), cursorLineText));
+            int safeChar = Math.min(view.cursorState.getCursorChar(), view.editorIO.textIO.getLogicalLineLength(view.cursorState.getCursorLine(), cursorLineText));
             float cursorX = textMeasurement.getCaretXForLine(cursorLineText, view.cursorState.getCursorLine(), safeChar);
             float cursorY = view.scrollManager.getDrawLineTop(view.cursorState.getCursorLine());
             view.cursorRenderer.drawCaret(canvas, cursorX, cursorY);
@@ -564,7 +564,7 @@ public final class LineRenderer {
                     textMeasurement.getCaretXForLine(
                             startLineText,
                             view.selectionState.selStartLine,
-                            Math.min(view.selectionState.selStartChar, view.getLogicalLineLength(view.selectionState.selStartLine, startLineText)));
+                            Math.min(view.selectionState.selStartChar, view.editorIO.textIO.getLogicalLineLength(view.selectionState.selStartLine, startLineText)));
             float startY = view.scrollManager.getDrawLineTop(view.selectionState.selStartLine) + view.lineHeight;
             view.handleRenderer.drawSelectionStartHandle(canvas, startX, startY, view.isRtl, view.handleState.getLeftHandleRect(), view.handleState.getRightHandleRect());
         } else {
@@ -579,7 +579,7 @@ public final class LineRenderer {
                     textMeasurement.getCaretXForLine(
                             endLineText,
                             view.selectionState.selEndLine,
-                            Math.min(view.selectionState.selEndChar, view.getLogicalLineLength(view.selectionState.selEndLine, endLineText)));
+                            Math.min(view.selectionState.selEndChar, view.editorIO.textIO.getLogicalLineLength(view.selectionState.selEndLine, endLineText)));
             float endY = view.scrollManager.getDrawLineTop(view.selectionState.selEndLine) + view.lineHeight;
             view.handleRenderer.drawSelectionEndHandle(canvas, endX, endY, view.isRtl, view.handleState.getLeftHandleRect(), view.handleState.getRightHandleRect());
         } else {
@@ -600,7 +600,7 @@ public final class LineRenderer {
      * Main content drawing method for wrapped text.
      */
     public void drawContentWrapped(Canvas canvas) {
-        int wrapWidthPx = Math.max(1, Math.round(view.getWidth() - view.getTextStartX()));
+        int wrapWidthPx = Math.max(1, Math.round(view.getWidth() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl)));
         final boolean drawDecorations = view.zoomGestureHandler.shouldDrawDecorations();
         if (!view.zoomGestureHandler.isZoomGestureActive()) {
             view.wrapWordBuilder.applyPendingPrefixUpdate(view);
@@ -626,18 +626,18 @@ public final class LineRenderer {
         int firstLine;
         int lastLine;
         if (view.foldState.isCodeFoldingEnabled()) {
-            int visibleCount = view.getVisibleLineCount();
+            int visibleCount = view.editorState.linesWindow.size();
             if (visibleCount <= 0) visibleCount = 1;
             int firstVisibleIndex = Math.max(0, (int) (view.scrollManager.scrollY / view.lineHeight));
             int lastVisibleIndex = Math.min(visibleCount - 1, firstVisibleIndex + (int) Math.ceil(view.getHeight() / view.lineHeight) + 5);
-            firstLine = view.mapVisibleIndexToGlobal(firstVisibleIndex);
-            lastLine = view.mapVisibleIndexToGlobal(lastVisibleIndex);
+            firstLine = view.foldState.mapVisibleIndexToGlobal(firstVisibleIndex, view.viewRender.textRender.getLinesCount());
+            lastLine = view.foldState.mapVisibleIndexToGlobal(lastVisibleIndex, view.viewRender.textRender.getLinesCount());
         } else {
             firstLine = Math.max(0, (int) (view.scrollManager.scrollY / view.lineHeight));
             lastLine = firstLine + (int) Math.ceil(view.getHeight() / view.lineHeight) + 5;
         }
 
-        int totalLines = view.getLinesCount();
+        int totalLines = view.viewRender.textRender.getLinesCount();
         if (totalLines <= 0) totalLines = view.windowStartLine + view.linesWindow.size();
         if (totalLines <= 0) totalLines = 1;
         lastLine = Math.min(Math.max(0, totalLines - 1), lastLine);
@@ -669,7 +669,7 @@ public final class LineRenderer {
             canvas.clipRect(
                     view.lineNumberRenderer.getContentClipLeft(false), 0, view.getWidth(), view.getHeight());
         }
-        canvas.translate(view.getTextStartX() - view.getEffectiveScrollX(), 0);
+        canvas.translate(view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl) - view.getEffectiveScrollX(), 0);
 
         Paint selPaint = view.selectionState.hasSelection() ? view.selectionRenderer.getSelectionPaint() : null;
 
@@ -688,7 +688,7 @@ public final class LineRenderer {
         for (int line = firstLine; line <= lastLine; line++) {
             if (yOffset > view.getHeight() + view.lineHeight) break;
             String text = lineCacheManager.getLineTextForRenderWithDirect(line, directLines);
-            int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, line, text, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.editorConfig.paint);
+            int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, line, text, Math.max(1, Math.round(view.getWidth() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl))), view.editorConfig.paint);
 
             for (int seg = 0; seg < starts.length; seg++) {
                 int segStart = view.wrapWordEngine.getWrapSegmentStart(starts, seg);
@@ -700,7 +700,7 @@ public final class LineRenderer {
                 float y = Math.round(top + view.lineHeight - view.editorConfig.paint.descent());
 
                 if (view.highlightState.highlightCurrentLine && line == view.cursorState.getCursorLine() && !view.selectionState.hasSelection()) {
-                    canvas.drawRect(-view.paddingLeft, top, Math.max(view.getWidth() - view.getTextStartX(), view.getWidth()), bottom, view.highlightState.currentLinePaint);
+                    canvas.drawRect(-view.paddingLeft, top, Math.max(view.getWidth() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl), view.getWidth()), bottom, view.highlightState.currentLinePaint);
                 }
 
                 int segDrawEnd = segEnd;

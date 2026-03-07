@@ -99,7 +99,7 @@ public final class ScrollHandler {
 
         view.removeCallbacks(view.delayedWindowCheck);
         if (Math.abs(distanceY) > view.lineHeight * 6f) {
-            view.checkAndLoadWindow();
+            view.viewRender.checkAndLoadWindow();
         } else {
             view.postDelayed(view.delayedWindowCheck, 60);
         }

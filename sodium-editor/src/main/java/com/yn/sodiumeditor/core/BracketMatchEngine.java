@@ -47,7 +47,7 @@ public class BracketMatchEngine {
         int cursorChar = view.cursorState.getCursorChar();
         if (cursorLine < firstVisibleLine || cursorLine > lastVisibleLine) return null;
 
-        String cursorLineText = view.getLineTextForRenderWithDirect(cursorLine, directLines);
+        String cursorLineText = view.viewRender.textRender.getLineTextForRenderWithDirect(cursorLine, directLines);
         if (cursorLineText == null) return null;
 
         int targetIndex = -1;
@@ -83,7 +83,7 @@ public class BracketMatchEngine {
         ArrayDeque<BracketToken> stack = new ArrayDeque<>();
 
         for (int line = firstVisibleLine; line <= lastVisibleLine; line++) {
-            String text = view.getLineTextForRenderWithDirect(line, directLines);
+            String text = view.viewRender.textRender.getLineTextForRenderWithDirect(line, directLines);
             if (text == null) text = "";
             int len = text.length();
             int i = 0;

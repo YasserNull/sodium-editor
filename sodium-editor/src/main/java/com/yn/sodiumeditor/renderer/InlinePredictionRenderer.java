@@ -76,7 +76,7 @@ public class InlinePredictionRenderer {
         canvas.drawText(state.activeSuggestion, suggestionStartX, textBaselineY, suggestionPaint);
 
         float suggestionTextWidth = suggestionPaint.measureText(state.activeSuggestion);
-        float leftView = suggestionStartX + view.getTextStartX() - view.getEffectiveScrollX();
+        float leftView = suggestionStartX + view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl) - view.getEffectiveScrollX();
         float rightView = leftView + suggestionTextWidth;
         float topView = view.scrollManager.getDrawLineTop(globalLine);
         float bottomView = topView + view.lineHeight;
@@ -108,7 +108,7 @@ public class InlinePredictionRenderer {
 
         float suggestionTextWidth = suggestionPaint.measureText(state.activeSuggestion);
 
-        float left_view = suggestionStartX_canvas + view.getTextStartX() - view.getEffectiveScrollX();
+        float left_view = suggestionStartX_canvas + view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl) - view.getEffectiveScrollX();
         float right_view = left_view + suggestionTextWidth;
         if (view.isRtl) {
             float baseX = view.getRtlSegmentBaseX(lineContent, globalLine, segStart, segEnd);

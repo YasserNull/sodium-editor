@@ -131,12 +131,12 @@ public final class InputMethodHandler {
     }
     int[] bounds = textHelper.getWordBoundsAtCursor();
     if (bounds == null) return false;
-    String line = view.getLineTextForRender(view.cursorState.getCursorLine());
+    String line = view.viewRender.textRender.getLineTextForRender(view.cursorState.getCursorLine());
     if (line == null || bounds[0] >= bounds[1] || bounds[1] > line.length()) return false;
     String word = line.substring(bounds[0], bounds[1]);
     if (word.isEmpty() || word.equals(core)) return false;
     view.setSelectionInternal(view.cursorState.getCursorLine(), bounds[0], view.cursorState.getCursorLine(), bounds[1]);
-    view.replaceSelectionWithText(core);
+    view.editorTextInserter.insertTextAtCursor(core);
     if (!trailing.isEmpty()) view.insertTextAtCursor(trailing);
     markImeCommit(insert);
     view.charAnimator.startCharAnimationFromText(insert);

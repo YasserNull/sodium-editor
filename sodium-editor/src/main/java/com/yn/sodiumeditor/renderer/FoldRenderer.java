@@ -172,15 +172,15 @@ public class FoldRenderer {
 
         float markerX =
                 view.isRtl
-                        ? (view.getGutterStartX()
+                        ? ((view.isRtl ? 0f : view.editorConfig.paddingLeft)
                         + view.lineNumberConfig.getGutterSeparatorWidth()
                         + foldMarkerEdgePadding)
-                        : (view.lineNumberRenderer.getSeparatorLeft(view.getGutterStartX())
+                        : (view.lineNumberRenderer.getSeparatorLeft(view.isRtl ? 0f : view.editorConfig.paddingLeft)
                         - foldMarkerEdgePadding);
 
         for (int v = firstVisibleIndex; v <= lastVisibleIndex; v++) {
-            int line = view.mapVisibleIndexToGlobal(v);
-            String marker = getFoldMarkerForLine(line, view.getLineTextForRender(line));
+            int line = view.foldState.mapVisibleIndexToGlobal(v, view.viewRender.textRender.getLinesCount());
+            String marker = getFoldMarkerForLine(line, view.viewRender.textRender.getLineTextForRender(line));
             if (marker == null) continue;
             float y =
                     Math.round(

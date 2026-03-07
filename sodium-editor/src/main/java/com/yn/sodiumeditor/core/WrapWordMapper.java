@@ -26,7 +26,7 @@ public final class WrapWordMapper {
   // Mapping
   //================================================================================
 
-  public SodiumEditor.VisualLinePosition getVisualPositionForIndex(
+  public com.yn.sodiumeditor.utils.WrapWordUtils.VisualLinePosition getVisualPositionForIndex(
       SodiumEditor view,
       int visualIndex,
       int widthPx) {
@@ -34,18 +34,18 @@ public final class WrapWordMapper {
       if (view.wrapWordState.isWordWrapEnabled) {
         return getVisualPositionForIndexFallback(view, visualIndex, widthPx);
       }
-      int line = view.mapVisibleIndexToGlobal(visualIndex);
-      return new SodiumEditor.VisualLinePosition(line, 0);
+      int line = view.foldState.mapVisibleIndexToGlobal(visualIndex, view.viewRender.textRender.getLinesCount());
+      return new com.yn.sodiumeditor.utils.WrapWordUtils.VisualLinePosition(line, 0);
     }
 
     int maxVisual = Math.max(0, metrics.totalWrapVisualLines - 1);
     int v = Math.max(0, Math.min(visualIndex, maxVisual));
     int line = engine.findLineForVisualIndex(v);
     int seg = v - metrics.wrapLinePrefix[line];
-    return new SodiumEditor.VisualLinePosition(line, seg);
+    return new com.yn.sodiumeditor.utils.WrapWordUtils.VisualLinePosition(line, seg);
   }
 
-  public SodiumEditor.VisualLinePosition getVisualPositionForIndexFallback(
+  public com.yn.sodiumeditor.utils.WrapWordUtils.VisualLinePosition getVisualPositionForIndexFallback(
       SodiumEditor view,
       int visualIndex,
       int widthPx) {
@@ -61,27 +61,27 @@ public final class WrapWordMapper {
 
     int remaining = idx - baseVisual;
     if (remaining <= 0) {
-      return new SodiumEditor.VisualLinePosition(baseLine, 0);
+      return new com.yn.sodiumeditor.utils.WrapWordUtils.VisualLinePosition(baseLine, 0);
     }
 
     int line = baseLine;
-    int windowEnd = view.getWindowEndLine();
+    int windowEnd = Math.max(0, view.editorState.windowStartLine + view.editorState.linesWindow.size() - 1);
     if (windowEnd < baseLine) windowEnd = baseLine;
 
     while (line <= windowEnd) {
-      String text = view.getLineTextForRender(line);
+      String text = view.viewRender.textRender.getLineTextForRender(line);
       int[] starts = engine.getWrapStartsForLine(view, line, text, widthPx, view.editorConfig.paint);
       int segCount = Math.max(1, starts.length);
 
       if (remaining < segCount) {
-        return new SodiumEditor.VisualLinePosition(
+        return new com.yn.sodiumeditor.utils.WrapWordUtils.VisualLinePosition(
             line, Math.max(0, Math.min(remaining, segCount - 1)));
       }
       remaining -= segCount;
       line++;
     }
 
-    return new SodiumEditor.VisualLinePosition(windowEnd, 0);
+    return new com.yn.sodiumeditor.utils.WrapWordUtils.VisualLinePosition(windowEnd, 0);
   }
 
   //================================================================================
@@ -90,12 +90,12 @@ public final class WrapWordMapper {
 
   public int getTotalVisualLineCount(SodiumEditor view, int visibleLineCount) {
     if (!view.wrapWordState.isWordWrapEnabled) {
-      return view.getVisibleLineCount();
+      return view.editorState.linesWindow.size();
     }
 
     int widthPx = Math.max(1, Math.round(getWrapWidth(view)));
     if (!isWrapMetricsUsableForWindow(view, widthPx)) {
-      int total = view.getLinesCount();
+      int total = view.viewRender.textRender.getLinesCount();
       if (total <= 0) total = getWindowLineCount(view);
       return Math.max(1, total);
     }
@@ -155,11 +155,11 @@ public final class WrapWordMapper {
     if (!view.wrapWordState.isWordWrapEnabled) return false;
     if (!metrics.wrapMetricsReady || metrics.wrapLinePrefix == null || metrics.wrapLineCounts == null) return false;
     if (metrics.wrapMetricsWidth != widthPx) return false;
-    int total = view.getLinesCount();
+    int total = view.viewRender.textRender.getLinesCount();
     if (total <= 0) total = getWindowLineCount(view);
     if (total <= 0) return false;
     if (metrics.wrapLineCounts.length != total || metrics.wrapLinePrefix.length != total + 1) return false;
-    int windowEnd = view.getWindowEndLine();
+    int windowEnd = Math.max(0, view.editorState.windowStartLine + view.editorState.linesWindow.size() - 1);
     return metrics.wrapPrefixValidUpToLine >= windowEnd;
   }
 
@@ -173,6 +173,6 @@ public final class WrapWordMapper {
   //================================================================================
 
   private float getWrapWidth(SodiumEditor view) {
-    return Math.max(1f, view.getWidth() - view.getTextStartX());
+    return Math.max(1f, view.getWidth() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl));
   }
 }

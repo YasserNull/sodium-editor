@@ -152,7 +152,7 @@ public class PopupMenuRenderer {
 
         float anchorX, anchorYTop, anchorYBottom;
         if (state.isMinimalPopup || !view.selectionState.hasSelection()) {
-            String cursorLineText = view.getLineTextForRender(view.cursorState.getCursorLine());
+            String cursorLineText = view.viewRender.textRender.getLineTextForRender(view.cursorState.getCursorLine());
             anchorX = getViewXForLineChar(cursorLineText, view.cursorState.getCursorLine(), view.cursorState.getCursorChar());
             anchorYTop = getViewYTopForLineChar(view.cursorState.getCursorLine(), view.cursorState.getCursorChar());
             anchorYBottom = anchorYTop + view.lineHeight;
@@ -164,12 +164,12 @@ public class PopupMenuRenderer {
                 nStartLine = view.selectionState.selStartLine;
                 nEndLine = view.selectionState.selEndLine;
                 nEndChar = view.selectionState.selEndChar;
-                endLineText = view.getLineTextForRender(nEndLine);
+                endLineText = view.viewRender.textRender.getLineTextForRender(nEndLine);
             } else {
                 nStartLine = view.selectionState.selEndLine;
                 nEndLine = view.selectionState.selStartLine;
                 nEndChar = view.selectionState.selStartChar;
-                endLineText = view.getLineTextForRender(nEndLine);
+                endLineText = view.viewRender.textRender.getLineTextForRender(nEndLine);
             }
 
             anchorYTop = getViewYTopForLineChar(nStartLine, 0);
@@ -282,23 +282,23 @@ public class PopupMenuRenderer {
 
     private float getViewXForLineChar(String line, int globalLine, int ch) {
         if (line == null) line = "";
-        int safeChar = Math.max(0, Math.min(ch, view.getLogicalLineLength(globalLine, line)));
+        int safeChar = Math.max(0, Math.min(ch, view.editorIO.textIO.getLogicalLineLength(globalLine, line)));
         if (!view.wrapWordState.isWordWrapEnabled) {
-            return view.getTextStartX()
+            return view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl)
                     + view.highlightRenderer.measureText(line, safeChar, globalLine)
                     - view.getEffectiveScrollX();
         }
-        int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, globalLine, line, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.editorConfig.paint);
+        int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, globalLine, line, Math.max(1, Math.round(view.getWidth() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl))), view.editorConfig.paint);
         int seg = view.wrapWordEngine.getWrapSegmentIndexForChar(starts, safeChar);
         int segStart = view.wrapWordEngine.getWrapSegmentStart(starts, seg);
         float x =
                 view.whitespaceGuideRenderer.measureTextWithVisualSpaces(
                         view, line, segStart, safeChar, view.editorConfig.paint);
-        return view.getTextStartX() + x - view.getEffectiveScrollX();
+        return view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl) + x - view.getEffectiveScrollX();
     }
 
     private float getViewYTopForLineChar(int globalLine, int ch) {
-        int v = view.getVisualIndexForLineAndChar(globalLine, ch);
+        int v = view.viewRender.textRender.getVisualIndexForLineAndChar(globalLine, ch);
         return v * view.lineHeight - view.scrollManager.scrollY;
     }
 

@@ -60,7 +60,7 @@ public class BracketGuideParser {
         state.ensureTokensWindowCapacity(end - start + 1);
 
         for (int line = start; line <= end; line++) {
-            String text = view.getLineTextForRenderWithDirect(line, directLines);
+            String text = view.viewRender.textRender.getLineTextForRenderWithDirect(line, directLines);
             List<BracketGuideToken> tokens = updateBracketGuideStateForLine(text, line, bracketGuideState);
             state.addTokensToWindow(tokens);
         }
@@ -156,7 +156,7 @@ public class BracketGuideParser {
 
             if ((c == '{' || c == '}') && !HighlightParser.isEscaped(line, i)) {
                 if (c == '{') {
-                    int column = view.getBraceGuideColumnForLine(line, globalLine, i, firstNonSpace);
+                    int column = view.viewRender.getBraceGuideColumnForLine(line, globalLine, i, firstNonSpace);
                     float x = renderer.getGuideXForColumn(line, column, globalLine);
                     state.stack.push(new BracketGuideToken(column, x));
                 } else if (c == '}') {

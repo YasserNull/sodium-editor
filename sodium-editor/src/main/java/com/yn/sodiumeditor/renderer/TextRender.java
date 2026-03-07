@@ -285,21 +285,21 @@ public final class TextRender {
     /**
      * Builds candidate selection ranges for double-tap.
      */
-    public java.util.ArrayList<SodiumEditor.TextRange> buildDoubleTapCandidates(String line, int charIndex, int wStart, int wEnd) {
+    public java.util.ArrayList<com.yn.sodiumeditor.utils.TextRange> buildDoubleTapCandidates(String line, int charIndex, int wStart, int wEnd) {
         return textNavigation.buildDoubleTapCandidates(line, charIndex, wStart, wEnd);
     }
 
     /**
      * Adds a selection candidate range.
      */
-    public void addSelectionCandidate(java.util.List<SodiumEditor.TextRange> out, int start, int end, int lineLen) {
+    public void addSelectionCandidate(java.util.List<com.yn.sodiumeditor.utils.TextRange> out, int start, int end, int lineLen) {
         textNavigation.addSelectionCandidate(out, start, end, lineLen);
     }
 
     /**
      * Finds the current selection index in candidates.
      */
-    public int findSelectionCandidateIndex(int line, java.util.List<SodiumEditor.TextRange> candidates) {
+    public int findSelectionCandidateIndex(int line, java.util.List<com.yn.sodiumeditor.utils.TextRange> candidates) {
         return textNavigation.findSelectionCandidateIndex(line, candidates);
     }
 
@@ -313,14 +313,14 @@ public final class TextRender {
     /**
      * Finds the enclosing quoted range for an index.
      */
-    public SodiumEditor.TextRange findEnclosingQuoteRange(String line, int index) {
+    public com.yn.sodiumeditor.utils.TextRange findEnclosingQuoteRange(String line, int index) {
         return textNavigation.findEnclosingQuoteRange(line, index);
     }
 
     /**
      * Finds the enclosing bracket range for an index.
      */
-    public SodiumEditor.TextRange findEnclosingBracketRange(String line, int index) {
+    public com.yn.sodiumeditor.utils.TextRange findEnclosingBracketRange(String line, int index) {
         return textNavigation.findEnclosingBracketRange(line, index);
     }
 
@@ -362,7 +362,7 @@ public final class TextRender {
     /**
      * Gets the cursor target for a view position.
      */
-    public SodiumEditor.CursorTarget getCursorTargetForPosition(
+    public com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget getCursorTargetForPosition(
             float viewX, float viewY, java.util.Map<Integer, String> directLines) {
         return cursorTargeting.getCursorTargetForPosition(viewX, viewY, directLines);
     }

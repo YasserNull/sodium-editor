@@ -40,10 +40,10 @@ public final class KeyboardHandler {
       int uc = event.getUnicodeChar();
       if (uc != 0) {
         String s = String.valueOf((char) uc);
-        view.replaceSelectionWithText(s);
+        view.editorTextInserter.insertTextAtCursor(s);
         view.charAnimator.startCharAnimationFromText(s);
       } else {
-        view.replaceSelectionWithText("");
+        view.editorTextInserter.insertTextAtCursor("");
       }
       return true;
     }
@@ -63,18 +63,30 @@ public final class KeyboardHandler {
         return true;
 
       case KeyEvent.KEYCODE_DEL:
-        if (view.selectionState.hasSelection()) view.replaceSelectionWithText("");
-        else editorOps.deleteCharAtCursor();
+        if (view.selectionState.hasSelection()) {
+          
+          view.editorTextInserter.insertTextAtCursor("");
+        } else {
+          editorOps.deleteCharAtCursor();
+        }
         return true;
 
       case KeyEvent.KEYCODE_FORWARD_DEL:
-        if (view.selectionState.hasSelection()) view.replaceSelectionWithText("");
-        else editorOps.deleteForwardAtCursor();
+        if (view.selectionState.hasSelection()) {
+          
+          view.editorTextInserter.insertTextAtCursor("");
+        } else {
+          editorOps.deleteForwardAtCursor();
+        }
         return true;
 
       case KeyEvent.KEYCODE_ENTER:
-        if (view.selectionState.hasSelection()) view.replaceSelectionWithText("\n");
-        else editorOps.insertNewlineAtCursor();
+        if (view.selectionState.hasSelection()) {
+          
+          view.editorTextInserter.insertTextAtCursor("\n");
+        } else {
+          editorOps.insertNewlineAtCursor();
+        }
         return true;
     }
     return view.superOnKeyDown(keyCode, event);

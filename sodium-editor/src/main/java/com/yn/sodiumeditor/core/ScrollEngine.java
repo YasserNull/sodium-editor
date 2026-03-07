@@ -138,7 +138,7 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
             scrollBarAlpha = config.scrollBarAlpha;
             draggingScrollBar = config.draggingScrollBar;
             view.removeCallbacks(view.delayedWindowCheck);
-            view.maybeKickWindowLoad(view.getGlobalLineForY(scrollY));
+            view.viewRender.maybeKickWindowLoad(view.viewRender.textRender.getGlobalLineForY(scrollY));
             view.postDelayed(view.delayedWindowCheck, 40);
             scrollBar.showScrollBar();
             view.postInvalidateOnAnimation();
@@ -163,7 +163,7 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
                         }
                     }
                 }
-                view.checkAndLoadWindow();
+                view.viewRender.checkAndLoadWindow();
                 if (view.wrapWordState.isWordWrapEnabled
                         && view.wrapWordState.wrapPrefixRebuildPending
                         && !view.wrapWordState.wrapPrefixBuilding) {
@@ -203,7 +203,7 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
                     scrollBounds.clampScrollY();
                     scrollBounds.clampScrollX();
                     view.removeCallbacks(view.delayedWindowCheck);
-                    view.maybeKickWindowLoad(view.getGlobalLineForY(scrollY));
+                    view.viewRender.maybeKickWindowLoad(view.viewRender.textRender.getGlobalLineForY(scrollY));
                     view.postDelayed(view.delayedWindowCheck, 40);
                     view.postInvalidateOnAnimation();
                 });
@@ -235,7 +235,7 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
             scrollY = Math.max(0f, (line - 5) * view.lineHeight);
             config.scrollY = scrollY;
         } else {
-            int targetVisual = view.getVisualIndexForLineAndChar(line, ch);
+            int targetVisual = view.viewRender.textRender.getVisualIndexForLineAndChar(line, ch);
             scrollY = Math.max(0f, (targetVisual - 5) * view.lineHeight);
             config.scrollY = scrollY;
         }
@@ -245,7 +245,7 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
     public float getDrawLineTop(int globalLine) {
         int drawIndex = globalLine;
         if (view.foldState.isCodeFoldingEnabled()) {
-            drawIndex = view.getVisibleIndexForGlobalLine(globalLine);
+            drawIndex = view.foldState.getVisibleIndexForGlobalLine(globalLine);
         }
         return (drawIndex - view.drawBaseLine) * view.lineHeight;
     }
@@ -266,7 +266,7 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
                 && globalLine < view.windowStartLine + view.linesWindow.size()) return;
         if (view.sourceFile != null) {
             int targetStart = Math.max(0, globalLine - view.prefetchLines);
-            view.loadWindowAround(targetStart, null);
+            view.viewRender.loadWindowAround(targetStart, null);
         }
     }
 
@@ -413,7 +413,7 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
                 || view.zoomGestureHandler.isMultiTouchActive()) {
             return;
         }
-        int cursorVisualIndex = view.getVisualIndexForLineAndChar(view.cursorState.getCursorLine(), view.cursorState.getCursorChar());
+        int cursorVisualIndex = view.viewRender.textRender.getVisualIndexForLineAndChar(view.cursorState.getCursorLine(), view.cursorState.getCursorChar());
         float cursorYTop = cursorVisualIndex * view.lineHeight;
         float cursorYBottom = cursorYTop + view.lineHeight;
         int viewHeight = view.getHeight() - view.keyboardHeight;
@@ -443,22 +443,23 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
         config.scrollY = scrollY;
 
         if (!view.wrapWordState.isWordWrapEnabled) {
-            String line = view.getLineTextForRender(view.cursorState.getCursorLine());
+            String line = view.viewRender.textRender.getLineTextForRender(view.cursorState.getCursorLine());
             int safeChar =
-                    Math.min(view.cursorState.getCursorChar(), view.getLogicalLineLength(view.cursorState.getCursorLine(), line));
+                    Math.min(view.cursorState.getCursorChar(), view.editorIO.textIO.getLogicalLineLength(view.cursorState.getCursorLine(), line));
             float cursorX = view.getCaretXForLine(line, view.cursorState.getCursorLine(), safeChar);
 
             float viewLeft = view.lineNumberRenderer.getContentViewLeft(view.isRtl);
             float viewRight = view.lineNumberRenderer.getContentViewRight(view.getWidth(), view.isRtl);
             float scrollMargin = 50f;
             float effectiveScrollX = view.getEffectiveScrollX();
-            float cursorViewX = view.getTextStartX() + cursorX - effectiveScrollX;
+            float textStartX = view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
+            float cursorViewX = textStartX + cursorX - effectiveScrollX;
             float minView = viewLeft + scrollMargin;
             float maxView = viewRight - scrollMargin;
             if (cursorViewX < minView) {
-                effectiveScrollX = view.getTextStartX() + cursorX - minView;
+                effectiveScrollX = textStartX + cursorX - minView;
             } else if (cursorViewX > maxView) {
-                effectiveScrollX = view.getTextStartX() + cursorX - maxView;
+                effectiveScrollX = textStartX + cursorX - maxView;
             }
             float max = getMaxScrollXForClamp();
             float minEffective = view.isRtl ? -max : 0f;

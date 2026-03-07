@@ -31,7 +31,7 @@ public final class CursorAnimator {
                 public void run() {
                     if (view.isFocused() && !view.selectionState.hasSelection()) {
                         isCursorVisible = !isCursorVisible;
-                        view.invalidateLineGlobal(view.cursorState.getCursorLine());
+                        view.viewRender.textRender.invalidateLineGlobal(view.cursorState.getCursorLine());
                         mainHandler.postDelayed(this, 500);
                     }
                 }
@@ -59,7 +59,7 @@ public final class CursorAnimator {
                         cursorDrawX = cursorAnimX;
                         cursorDrawY = cursorAnimY;
                         cursorAnimRunning = false;
-                        view.invalidateLineGlobal(view.cursorState.getCursorLine());
+                        view.viewRender.textRender.invalidateLineGlobal(view.cursorState.getCursorLine());
                         return;
                     }
 
@@ -74,7 +74,7 @@ public final class CursorAnimator {
                     cursorAnimY += dy * alpha;
                     cursorDrawX = cursorAnimX;
                     cursorDrawY = cursorAnimY;
-                    view.invalidateLineGlobal(view.cursorState.getCursorLine());
+                    view.viewRender.textRender.invalidateLineGlobal(view.cursorState.getCursorLine());
                     view.postOnAnimation(cursorAnimStep);
                 }
             };

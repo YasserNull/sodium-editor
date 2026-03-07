@@ -69,7 +69,7 @@ public class LineNumberRenderer {
 
     public void drawCurrentLineHighlightInGutter(Canvas canvas, float top, float bottom, Paint paint) {
         if (!state.isShowLineNumbers() || !state.isHighlightCurrentLineInGutter() || state.getLineNumbersGutterWidth() <= 0f) return;
-        float left = view.getGutterStartX();
+        float left = view.isRtl ? 0f : view.editorConfig.paddingLeft;
         float right = left + state.getLineNumbersGutterWidth();
         float sep = config.getGutterSeparatorWidth();
         if (sep > 0f) {
@@ -167,12 +167,12 @@ public class LineNumberRenderer {
         int drawLastIndex = lastVisibleIndex;
         int drawLastLine = lastVisibleLine;
         if (view.foldState.isCodeFoldingEnabled()) {
-            int visibleCount = view.getVisibleLineCount();
+            int visibleCount = view.editorState.linesWindow.size();
             if (visibleCount > 0) {
                 drawLastIndex = Math.min(lastVisibleIndex + 1, visibleCount - 1);
             }
         } else {
-            int total = view.getLinesCount();
+            int total = view.viewRender.textRender.getLinesCount();
             if (total > 0) {
                 drawLastLine = Math.min(lastVisibleLine + 1, total - 1);
             }
@@ -195,20 +195,21 @@ public class LineNumberRenderer {
             ensureLineNumberCacheBitmap(gutterWidth, height);
             state.lineNumberCacheBitmap.eraseColor(0);
 
+            float gutterStart = view.isRtl ? 0f : view.editorConfig.paddingLeft;
             float lineNumX =
                     view.isRtl
-                            ? view.getGutterStartX()
+                            ? gutterStart
                             + LineNumberConfig.GUTTER_TEXT_PADDING
                             + (view.foldState.isCodeFoldingEnabled() ? view.foldRenderer.getFoldMarkerGutterWidth() : 0f)
-                            : view.getGutterStartX()
+                            : gutterStart
                             + state.getLineNumbersGutterWidth()
                             - (view.foldState.isCodeFoldingEnabled() ? view.foldRenderer.getFoldMarkerGutterWidth() : 0f)
                             - LineNumberConfig.GUTTER_TEXT_PADDING;
-            float lineNumXLocal = lineNumX - view.getGutterStartX();
+            float lineNumXLocal = lineNumX - gutterStart;
 
             if (view.foldState.isCodeFoldingEnabled()) {
                 for (int v = firstVisibleIndex; v <= drawLastIndex; v++) {
-                    int i = view.mapVisibleIndexToGlobal(v);
+                    int i = view.foldState.mapVisibleIndexToGlobal(v, view.viewRender.textRender.getLinesCount());
                     int start = writeIntToChars(i + 1, lineNumberChars);
                     int count = lineNumberChars.length - start;
                     float y =
@@ -238,7 +239,7 @@ public class LineNumberRenderer {
         }
 
         float offsetY = state.lineNumberCacheBaseScrollY - view.scrollManager.scrollY;
-        canvas.drawBitmap(state.lineNumberCacheBitmap, view.getGutterStartX(), offsetY, null);
+        canvas.drawBitmap(state.lineNumberCacheBitmap, view.isRtl ? 0f : view.editorConfig.paddingLeft, offsetY, null);
         drawCurrentLineNumberUnwrapped(canvas, firstVisibleIndex, lastVisibleIndex);
     }
 
@@ -249,7 +250,7 @@ public class LineNumberRenderer {
         }
 
         int drawLastIndex = lastVisualIndex;
-        int totalVisual = view.wrapWordMapper.getTotalVisualLineCount(view, view.getVisibleLineCount());
+        int totalVisual = view.wrapWordMapper.getTotalVisualLineCount(view, view.editorState.linesWindow.size());
         if (totalVisual > 0) {
             drawLastIndex = Math.min(lastVisualIndex + 1, totalVisual - 1);
         }
@@ -271,17 +272,18 @@ public class LineNumberRenderer {
             ensureLineNumberCacheBitmap(gutterWidth, height);
             state.lineNumberCacheBitmap.eraseColor(0);
 
+            float gutterStart = view.isRtl ? 0f : view.editorConfig.paddingLeft;
             float lineNumX =
                     view.isRtl
-                            ? view.getGutterStartX() + LineNumberConfig.GUTTER_TEXT_PADDING
-                            : view.getGutterStartX()
+                            ? gutterStart + LineNumberConfig.GUTTER_TEXT_PADDING
+                            : gutterStart
                             + state.getLineNumbersGutterWidth()
                             - LineNumberConfig.GUTTER_TEXT_PADDING;
-            float lineNumXLocal = lineNumX - view.getGutterStartX();
+            float lineNumXLocal = lineNumX - gutterStart;
 
             for (int v = firstVisualIndex; v <= drawLastIndex; v++) {
-                SodiumEditor.VisualLinePosition pos =
-                        view.wrapWordMapper.getVisualPositionForIndex(view, v, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())));
+                com.yn.sodiumeditor.utils.WrapWordUtils.VisualLinePosition pos =
+                        view.wrapWordMapper.getVisualPositionForIndex(view, v, Math.max(1, Math.round(view.getWidth() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl))));
                 if (pos.segment != 0) continue;
                 int start = writeIntToChars(pos.line + 1, lineNumberChars);
                 int count = lineNumberChars.length - start;
@@ -301,7 +303,7 @@ public class LineNumberRenderer {
         }
 
         float offsetY = state.lineNumberCacheBaseScrollY - view.scrollManager.scrollY;
-        canvas.drawBitmap(state.lineNumberCacheBitmap, view.getGutterStartX(), offsetY, null);
+        canvas.drawBitmap(state.lineNumberCacheBitmap, view.isRtl ? 0f : view.editorConfig.paddingLeft, offsetY, null);
         drawCurrentLineNumberWrapped(canvas, firstVisualIndex, lastVisualIndex);
     }
 
@@ -314,27 +316,28 @@ public class LineNumberRenderer {
         int drawLastIndex = lastVisibleIndex;
         int drawLastLine = lastVisibleLine;
         if (view.foldState.isCodeFoldingEnabled()) {
-            int visibleCount = view.getVisibleLineCount();
+            int visibleCount = view.editorState.linesWindow.size();
             if (visibleCount > 0) drawLastIndex = Math.min(lastVisibleIndex + 1, visibleCount - 1);
         } else {
-            int total = view.getLinesCount();
+            int total = view.viewRender.textRender.getLinesCount();
             if (total > 0) drawLastLine = Math.min(lastVisibleLine + 1, total - 1);
         }
 
         float lineHeight = view.lineHeight;
+        float gutterStart = view.isRtl ? 0f : view.editorConfig.paddingLeft;
         float lineNumX =
                 view.isRtl
-                        ? view.getGutterStartX()
+                        ? gutterStart
                         + LineNumberConfig.GUTTER_TEXT_PADDING
                         + (view.foldState.isCodeFoldingEnabled() ? view.foldRenderer.getFoldMarkerGutterWidth() : 0f)
-                        : view.getGutterStartX()
+                        : gutterStart
                         + state.getLineNumbersGutterWidth()
                         - (view.foldState.isCodeFoldingEnabled() ? view.foldRenderer.getFoldMarkerGutterWidth() : 0f)
                         - LineNumberConfig.GUTTER_TEXT_PADDING;
 
         if (view.foldState.isCodeFoldingEnabled()) {
             for (int v = firstVisibleIndex; v <= drawLastIndex; v++) {
-                int i = view.mapVisibleIndexToGlobal(v);
+                int i = view.foldState.mapVisibleIndexToGlobal(v, view.viewRender.textRender.getLinesCount());
                 int start = writeIntToChars(i + 1, lineNumberChars);
                 int count = lineNumberChars.length - start;
                 float y =
@@ -376,20 +379,21 @@ public class LineNumberRenderer {
 
     void drawLineNumbersDirectWrapped(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
         float lineHeight = view.lineHeight;
+        float gutterStart = view.isRtl ? 0f : view.editorConfig.paddingLeft;
         float lineNumX =
                 view.isRtl
-                        ? view.getGutterStartX() + LineNumberConfig.GUTTER_TEXT_PADDING
-                        : view.getGutterStartX()
+                        ? gutterStart + LineNumberConfig.GUTTER_TEXT_PADDING
+                        : gutterStart
                         + state.getLineNumbersGutterWidth()
                         - LineNumberConfig.GUTTER_TEXT_PADDING;
 
         int drawLastIndex = lastVisualIndex;
-        int totalVisual = view.wrapWordMapper.getTotalVisualLineCount(view, view.getVisibleLineCount());
+        int totalVisual = view.wrapWordMapper.getTotalVisualLineCount(view, view.editorState.linesWindow.size());
         if (totalVisual > 0) drawLastIndex = Math.min(lastVisualIndex + 1, totalVisual - 1);
 
         for (int v = firstVisualIndex; v <= drawLastIndex; v++) {
-            SodiumEditor.VisualLinePosition pos =
-                    view.wrapWordMapper.getVisualPositionForIndex(view, v, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())));
+            com.yn.sodiumeditor.utils.WrapWordUtils.VisualLinePosition pos =
+                    view.wrapWordMapper.getVisualPositionForIndex(view, v, Math.max(1, Math.round(view.getWidth() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl))));
             if (pos.segment != 0) continue;
             int start = writeIntToChars(pos.line + 1, lineNumberChars);
             int count = lineNumberChars.length - start;
@@ -418,17 +422,18 @@ public class LineNumberRenderer {
         int cursorLine = view.cursorState.getCursorLine();
         int visibleIndex =
                 view.foldState.isCodeFoldingEnabled()
-                        ? view.getVisibleIndexForGlobalLine(cursorLine)
+                        ? view.foldState.getVisibleIndexForGlobalLine(cursorLine)
                         : cursorLine;
         if (visibleIndex < firstVisibleIndex || visibleIndex > lastVisibleIndex) return;
 
         float lineHeight = view.lineHeight;
+        float gutterStart = view.isRtl ? 0f : view.editorConfig.paddingLeft;
         float lineNumX =
                 view.isRtl
-                        ? view.getGutterStartX()
+                        ? gutterStart
                         + LineNumberConfig.GUTTER_TEXT_PADDING
                         + (view.foldState.isCodeFoldingEnabled() ? view.foldRenderer.getFoldMarkerGutterWidth() : 0f)
-                        : view.getGutterStartX()
+                        : gutterStart
                         + state.getLineNumbersGutterWidth()
                         - (view.foldState.isCodeFoldingEnabled() ? view.foldRenderer.getFoldMarkerGutterWidth() : 0f)
                         - LineNumberConfig.GUTTER_TEXT_PADDING;
@@ -449,14 +454,15 @@ public class LineNumberRenderer {
     void drawCurrentLineNumberWrapped(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
         if (!state.isShowLineNumbers()) return;
         int visualIndex =
-                view.getVisualIndexForLineAndChar(view.cursorState.getCursorLine(), 0);
+                view.viewRender.textRender.getVisualIndexForLineAndChar(view.cursorState.getCursorLine(), 0);
         if (visualIndex < firstVisualIndex || visualIndex > lastVisualIndex) return;
 
         float lineHeight = view.lineHeight;
+        float gutterStart = view.isRtl ? 0f : view.editorConfig.paddingLeft;
         float lineNumX =
                 view.isRtl
-                        ? view.getGutterStartX() + LineNumberConfig.GUTTER_TEXT_PADDING
-                        : view.getGutterStartX()
+                        ? gutterStart + LineNumberConfig.GUTTER_TEXT_PADDING
+                        : gutterStart
                         + state.getLineNumbersGutterWidth()
                         - LineNumberConfig.GUTTER_TEXT_PADDING;
         int start = writeIntToChars(view.cursorState.getCursorLine() + 1, lineNumberChars);

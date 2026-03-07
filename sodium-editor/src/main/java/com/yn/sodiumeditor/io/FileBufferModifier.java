@@ -95,7 +95,7 @@ public final class FileBufferModifier {
                 ch.force(true);
             }
 
-            view.onUndoRedoRewriteSuccess(inFile);
+            view.editorIO.textIO.onUndoRedoRewriteSuccess(inFile);
             return true;
         } catch (Exception e) {
             return false;

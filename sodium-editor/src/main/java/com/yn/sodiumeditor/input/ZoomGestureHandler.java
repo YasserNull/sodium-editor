@@ -73,14 +73,14 @@ public final class ZoomGestureHandler {
     lastFocusX = detector.getFocusX();
     lastFocusY = detector.getFocusY();
 
-    view.abortScrollAnimationForZoom();
+    view.scrollManager.abortScrollAnimationForZoom();
 
     if (config.isZoomEnabled && config.deferWrapReflowDuringPinch) {
       previewRender.startPinchVisualZoom(
           detector.getFocusX(),
           detector.getFocusY(),
           view.editorConfig.paint.getTextSize(),
-          view.getGlobalLineForY(view.scrollManager.scrollY + detector.getFocusY()));
+          view.viewRender.textRender.getGlobalLineForY(view.scrollManager.scrollY + detector.getFocusY()));
     } else {
       previewRender.cancelPinchVisualZoom();
     }
@@ -102,7 +102,7 @@ public final class ZoomGestureHandler {
           scale,
           focusX,
           focusY,
-          view.getGlobalLineForY(view.scrollManager.scrollY + focusY),
+          view.viewRender.textRender.getGlobalLineForY(view.scrollManager.scrollY + focusY),
           config.minZoomTextSizePx,
           config.maxZoomTextSizePx,
           config.zoomStepClampSp,
@@ -132,7 +132,7 @@ public final class ZoomGestureHandler {
     lastFocusY = focusY;
 
     view.scrollManager.clampScrollX();
-    view.clampScrollY();
+    view.scrollManager.clampScrollY();
     view.invalidate();
     return true;
   }

@@ -121,7 +121,7 @@ public class EditorIOManager {
         return document.readLineSliceAtByte(raf, lineStart, lineByteLen, sliceStart, sliceEnd);
     }
 
-    public SodiumEditor.StreamedCharSlice readLineSliceByChars(
+    public com.yn.sodiumeditor.io.StreamedCharSlice readLineSliceByChars(
         RandomAccessFile raf, long lineStart, int sliceStart, int sliceEnd, boolean trim) throws Exception {
         return document.readLineSliceByChars(raf, lineStart, sliceStart, sliceEnd, trim);
     }
@@ -148,7 +148,7 @@ public class EditorIOManager {
 
     public void rewriteReplaceRangeAsync(
         int opToken, File inFile, int sL, int sC, int eL, int eC, String text, 
-        SodiumEditor.CursorTarget target, boolean finishLargeEdit) throws Exception {
+        com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget target, boolean finishLargeEdit) throws Exception {
         textIO.rewriteReplaceRangeAsync(opToken, inFile, sL, sC, eL, eC, text, target, finishLargeEdit);
     }
 

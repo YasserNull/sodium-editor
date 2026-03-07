@@ -84,7 +84,7 @@ public final class HandleDragHandler {
             view.popupTouchHandler.showPopupAtSelection();
         }
 
-        SodiumEditor.CursorTarget target = view.getCursorTargetForPosition(touchX, touchY, null);
+        com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget target = view.getCursorTargetForPosition(touchX, touchY, null);
         int line = target.line;
 
         if (view.isEof) {
@@ -93,7 +93,7 @@ public final class HandleDragHandler {
         }
 
         view.scrollManager.ensureLineInWindow(line, true);
-        String ln = view.getLineTextForRender(line);
+        String ln = view.viewRender.textRender.getLineTextForRender(line);
         int clamped = Math.max(0, Math.min(target.ch, ln.length()));
         handleState.setLastDragAtLineStart(clamped == 0);
         handleState.setLastDragAtLineEnd(clamped == ln.length());
@@ -139,13 +139,13 @@ public final class HandleDragHandler {
                 }
                 view.scrollManager.scrollY = nextY;
                 view.scrollManager.clampScrollX();
-                view.clampScrollY();
+                view.scrollManager.clampScrollY();
                 updateHandlePosition(handleState.getLastDragTouchX(), handleState.getLastDragTouchY());
                 int handle = handleState.getDraggingHandle();
                 if (handle == HandleState.HANDLE_LEFT || handle == HandleState.HANDLE_RIGHT) {
                     view.popupTouchHandler.showPopupAtSelection();
                 }
-                view.checkAndLoadWindow();
+                view.viewRender.checkAndLoadWindow();
                 view.invalidate();
                 mainHandler.postDelayed(this, 16);
             }

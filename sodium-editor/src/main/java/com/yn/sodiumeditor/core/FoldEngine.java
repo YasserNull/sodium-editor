@@ -94,7 +94,7 @@ public class FoldEngine {
         String mod = view.modifiedLines.get(line);
         if (mod != null) return mod;
         if (line >= view.windowStartLine && line < view.windowStartLine + view.linesWindow.size()) {
-            String text = view.getLineFromWindowLocal(line - view.windowStartLine);
+            String text = view.viewRender.textRender.getLineFromWindowLocal(line - view.windowStartLine);
             return (text != null) ? text : "";
         }
         if (raf != null && view.isIndexReady) {
@@ -104,7 +104,7 @@ public class FoldEngine {
                 offset = view.lineOffsets[line];
             }
             try {
-                return view.readLineUtf8AtByte(raf, offset);
+                return view.editorIO.textIO.readLineUtf8AtByte(raf, offset);
             } catch (Exception ignored) {
                 return null;
             }
@@ -120,12 +120,12 @@ public class FoldEngine {
         if (trimmed.isEmpty() || !trimmed.endsWith(":")) return null;
 
         int baseIndent = view.getIndentWidth(ln);
-        int totalLines = view.getLinesCount();
+        int totalLines = view.viewRender.textRender.getLinesCount();
         if (totalLines <= 0)
             totalLines =
                     view.wrapWordState.isWordWrapEnabled
-                            ? view.wrapWordMapper.getTotalVisualLineCount(view, view.getVisibleLineCount())
-                            : view.getVisibleLineCount();
+                            ? view.wrapWordMapper.getTotalVisualLineCount(view, view.editorState.linesWindow.size())
+                            : view.editorState.linesWindow.size();
         int endLine = line + 1;
         int maxScan = Math.min(line + 500, totalLines);
         while (endLine < maxScan) {

@@ -167,7 +167,7 @@ public class ErrorUnderlineRenderer {
     }
 
     private float measureText(String line, int length, int globalLine) {
-        int logicalLen = view.getLogicalLineLength(globalLine, line);
+        int logicalLen = view.editorIO.textIO.getLogicalLineLength(globalLine, line);
         int safeLen = Math.max(0, Math.min(length, logicalLen));
         if (logicalLen > state.maxSyntaxLineLength) {
             float avg = getAverageCharWidthForLine(line, globalLine);

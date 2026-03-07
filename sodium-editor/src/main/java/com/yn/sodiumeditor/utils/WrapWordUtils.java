@@ -55,7 +55,7 @@ public final class WrapWordUtils {
   //================================================================================
 
   public static float calculateWrapWidth(SodiumEditor view) {
-    return Math.max(1f, view.getWidth() - view.getTextStartX());
+    return Math.max(1f, view.getWidth() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl));
   }
 
   //================================================================================

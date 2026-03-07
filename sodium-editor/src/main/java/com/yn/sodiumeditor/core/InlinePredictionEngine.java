@@ -48,7 +48,7 @@ public class InlinePredictionEngine {
     }
 
     private void updateSuggestionInternal() {
-        String line = view.getLineTextForRender(view.cursorState.getCursorLine());
+        String line = view.viewRender.textRender.getLineTextForRender(view.cursorState.getCursorLine());
         if (line == null) {
             state.clearActiveSuggestion();
             return;

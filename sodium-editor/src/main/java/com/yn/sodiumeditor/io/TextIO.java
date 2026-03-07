@@ -109,7 +109,7 @@ public class TextIO {
         return new String(buf, view.fileCharset);
     }
 
-    public SodiumEditor.StreamedCharSlice readLineSliceByChars(
+    public com.yn.sodiumeditor.io.StreamedCharSlice readLineSliceByChars(
             RandomAccessFile raf, long lineStart, int startChar, int endChar, boolean needTotalLength)
             throws Exception {
         int safeStart = Math.max(0, startChar);
@@ -159,7 +159,7 @@ public class TextIO {
             if (hitNewline) {
                 done = true;
             } else if (!needTotalLength && charIndex >= safeEnd) {
-                return new SodiumEditor.StreamedCharSlice(sb.toString(), -1);
+                return new com.yn.sodiumeditor.io.StreamedCharSlice(sb.toString(), -1);
             }
         }
 
@@ -173,7 +173,7 @@ public class TextIO {
             charIndex++;
         }
 
-        return new SodiumEditor.StreamedCharSlice(sb.toString(), charIndex);
+        return new com.yn.sodiumeditor.io.StreamedCharSlice(sb.toString(), charIndex);
     }
 
     // =========================================================================
@@ -193,7 +193,7 @@ public class TextIO {
         if (startL >= view.windowStartLine && endL < view.windowStartLine + view.linesWindow.size()) {
             StringBuilder sb = new StringBuilder();
             for (int line = startL; line <= endL; line++) {
-                String ln = view.getLineFromWindowLocal(line - view.windowStartLine);
+                String ln = view.viewRender.textRender.getLineFromWindowLocal(line - view.windowStartLine);
                 if (ln == null) ln = "";
                 int from = (line == startL) ? Math.min(startC, ln.length()) : 0;
                 int to = (line == endL) ? Math.min(endC, ln.length()) : ln.length();
@@ -226,15 +226,15 @@ public class TextIO {
     }
 
     public String getTextSnapshot() {
-        int total = view.getLinesCount();
+        int total = view.viewRender.textRender.getLinesCount();
         if (total <= 0) return "";
         HashMap<Integer, String> direct = new HashMap<>();
         if (view.lineIndex.isIndexReady() && view.sourceFile != null && view.sourceFile.exists()) {
-            view.populateDirectLinesForRange(0, total - 1, direct);
+            view.viewRender.textRender.populateDirectLinesForRange(0, total - 1, direct);
         }
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < total; i++) {
-            String line = view.getLineTextForRenderWithDirect(i, direct);
+            String line = view.viewRender.textRender.getLineTextForRenderWithDirect(i, direct);
             if (line == null) line = "";
             sb.append(line);
             if (i < total - 1) sb.append('\n');
@@ -254,7 +254,7 @@ public class TextIO {
         int eL,
         int eC,
         String insertText,
-        SodiumEditor.CursorTarget target,
+        com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget target,
         boolean finishLargeEditUi) {
         view.ioHandler.post(
             () -> {
@@ -262,7 +262,7 @@ public class TextIO {
                     if (inFile == null || !inFile.exists()) {
                         view.post(
                             () -> {
-                                if (finishLargeEditUi) view.endLargeEditUiPublic(true);
+                                if (finishLargeEditUi) view.endLargeEditUi(true);
                             });
                         return;
                     }
@@ -271,7 +271,7 @@ public class TextIO {
                     if (range == null) {
                         view.post(
                             () -> {
-                                if (finishLargeEditUi) view.endLargeEditUiPublic(true);
+                                if (finishLargeEditUi) view.endLargeEditUi(true);
                             });
                         return;
                     }
@@ -308,7 +308,7 @@ public class TextIO {
                         () -> {
                             if (opToken != view.history.getEditVersion()) return;
 
-                            view.invalidatePendingIO();
+                            view.editorIO.invalidatePendingIOForEdit();
 
                             if (inFile != null) {
                                 try (java.io.FileInputStream fis = new java.io.FileInputStream(outFile);
@@ -364,20 +364,20 @@ public class TextIO {
                                 synchronized (view.linesWindow) {
                                     view.isEof = view.linesWindow.size() < view.windowSize + (view.prefetchLines * 2);
                                 }
-                                view.recalculateMaxLineWidth();
+                                view.viewRender.textRender.recalculateMaxLineWidth();
                                 view.requestFocus();
                                 android.view.inputmethod.InputMethodManager imm =
                                     (android.view.inputmethod.InputMethodManager)
                                         view.getContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
                                 if (imm != null) imm.restartInput(view);
-                                if (finishLargeEditUi) view.endLargeEditUiPublic(false);
+                                if (finishLargeEditUi) view.endLargeEditUi(false);
                                 view.invalidate();
                             } else {
                                 int targetStart = Math.max(0, view.cursorState.getCursorLine() - view.prefetchLines);
-                                view.loadWindowAround(
+                                view.viewRender.loadWindowAround(
                                     targetStart,
                                     () -> {
-                                        String ln = view.getLineTextForRender(view.cursorState.getCursorLine());
+                                        String ln = view.viewRender.textRender.getLineTextForRender(view.cursorState.getCursorLine());
                                         view.cursorNavigation.clampCharToLineLength(view.cursorState.getCursorLine());
                                         view.scrollManager.clampScrollY();
                                         view.scrollManager.keepCursorVisibleHorizontally();
@@ -386,14 +386,14 @@ public class TextIO {
                                             (android.view.inputmethod.InputMethodManager)
                                                 view.getContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
                                         if (imm != null) imm.restartInput(view);
-                                        if (finishLargeEditUi) view.endLargeEditUiPublic(false);
+                                        if (finishLargeEditUi) view.endLargeEditUi(false);
                                     });
                             }
                         });
                 } catch (Exception ignore) {
                     view.post(
                         () -> {
-                            if (finishLargeEditUi) view.endLargeEditUiPublic(true);
+                            if (finishLargeEditUi) view.endLargeEditUi(true);
                         });
                 }
             });

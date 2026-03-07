@@ -26,23 +26,23 @@ public final class TextNavigation {
     public int getGlobalLineForY(float y) {
         int idx = Math.max(0, (int) (y / view.lineHeight));
         if (view.wrapWordState.isWordWrapEnabled) {
-            return view.wrapWordMapper.getVisualPositionForIndex(view, idx, Math.max(1, Math.round(view.getWidth() - view.getTextStartX()))).line;
+            return view.wrapWordMapper.getVisualPositionForIndex(view, idx, Math.max(1, Math.round(view.getWidth() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl)))).line;
         }
-        return view.mapVisibleIndexToGlobal(idx);
+        return view.foldState.mapVisibleIndexToGlobal(idx, view.viewRender.textRender.getLinesCount());
     }
 
     /**
      * Gets the visual index for a specific line and character position.
      */
     public int getVisualIndexForLineAndChar(int line, int ch) {
-        if (!view.wrapWordBuilder.isMetricsUsableForLine(view, line, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())))) {
-            if (view.foldState.isCodeFoldingEnabled()) return view.getVisibleIndexForGlobalLine(line);
+        if (!view.wrapWordBuilder.isMetricsUsableForLine(view, line, Math.max(1, Math.round(view.getWidth() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl))))) {
+            if (view.foldState.isCodeFoldingEnabled()) return view.foldState.getVisibleIndexForGlobalLine(line);
             return Math.max(0, line);
         }
         int totalLines = view.wrapWordMetrics.wrapLinePrefix.length - 1;
         int safeLine = Math.max(0, Math.min(line, Math.max(0, totalLines - 1)));
         String text = lineCacheManager.getLineTextForRender(safeLine);
-        int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, safeLine, text, Math.max(1, Math.round(view.getWidth() - view.getTextStartX())), view.editorConfig.paint);
+        int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, safeLine, text, Math.max(1, Math.round(view.getWidth() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl))), view.editorConfig.paint);
         int seg = view.wrapWordEngine.getWrapSegmentIndexForChar(starts, Math.max(0, Math.min(ch, text.length())));
         return view.wrapWordMetrics.wrapLinePrefix[safeLine] + seg;
     }
@@ -158,7 +158,7 @@ public final class TextNavigation {
     public boolean applySmartDoubleTapSelection(int line, int charIndex, String lineText) {
         if (lineText == null) return false;
         int[] bounds = computeWordBoundsSmart(lineText, charIndex);
-        ArrayList<SodiumEditor.TextRange> candidates =
+        ArrayList<com.yn.sodiumeditor.utils.TextRange> candidates =
                 buildDoubleTapCandidates(lineText, charIndex, bounds[0], bounds[1]);
         if (candidates.isEmpty()) return false;
 
@@ -178,7 +178,7 @@ public final class TextNavigation {
             nextIdx = 0;
         }
 
-        SodiumEditor.TextRange pick = candidates.get(nextIdx);
+        com.yn.sodiumeditor.utils.TextRange pick = candidates.get(nextIdx);
         view.selectionState.setSelection(line, pick.start, line, pick.end, true);
         view.selectionState.setSelectAllState(false, false);
         view.cursorState.setCursorPosition(line, pick.end);
@@ -192,19 +192,19 @@ public final class TextNavigation {
     /**
      * Builds candidate selection ranges for double-tap (word, quotes, brackets).
      */
-    public ArrayList<SodiumEditor.TextRange> buildDoubleTapCandidates(String line, int charIndex, int wStart, int wEnd) {
-        ArrayList<SodiumEditor.TextRange> out = new ArrayList<>(6);
+    public ArrayList<com.yn.sodiumeditor.utils.TextRange> buildDoubleTapCandidates(String line, int charIndex, int wStart, int wEnd) {
+        ArrayList<com.yn.sodiumeditor.utils.TextRange> out = new ArrayList<>(6);
         if (line == null) return out;
         int len = line.length();
         addSelectionCandidate(out, wStart, wEnd, len);
 
-        SodiumEditor.TextRange quote = findEnclosingQuoteRange(line, charIndex);
+        com.yn.sodiumeditor.utils.TextRange quote = findEnclosingQuoteRange(line, charIndex);
         if (quote != null) {
             addSelectionCandidate(out, quote.start + 1, quote.end, len);
             addSelectionCandidate(out, quote.start, quote.end + 1, len);
         }
 
-        SodiumEditor.TextRange bracket = findEnclosingBracketRange(line, charIndex);
+        com.yn.sodiumeditor.utils.TextRange bracket = findEnclosingBracketRange(line, charIndex);
         if (bracket != null) {
             addSelectionCandidate(out, bracket.start + 1, bracket.end, len);
             addSelectionCandidate(out, bracket.start, bracket.end + 1, len);
@@ -215,21 +215,21 @@ public final class TextNavigation {
     /**
      * Adds a selection candidate range if not already present.
      */
-    public void addSelectionCandidate(List<SodiumEditor.TextRange> out, int start, int end, int lineLen) {
+    public void addSelectionCandidate(List<com.yn.sodiumeditor.utils.TextRange> out, int start, int end, int lineLen) {
         if (out == null) return;
         int s = Math.max(0, Math.min(start, lineLen));
         int e = Math.max(0, Math.min(end, lineLen));
         if (e <= s) return;
-        for (SodiumEditor.TextRange r : out) {
+        for (com.yn.sodiumeditor.utils.TextRange r : out) {
             if (r.start == s && r.end == e) return;
         }
-        out.add(new SodiumEditor.TextRange(s, e));
+        out.add(new com.yn.sodiumeditor.utils.TextRange(s, e));
     }
 
     /**
      * Finds the index of the current selection in the candidate list.
      */
-    public int findSelectionCandidateIndex(int line, List<SodiumEditor.TextRange> candidates) {
+    public int findSelectionCandidateIndex(int line, List<com.yn.sodiumeditor.utils.TextRange> candidates) {
         if (!view.selectionState.hasSelection() || candidates == null || candidates.isEmpty()) return -1;
         int sL = view.selectionState.selStartLine;
         int sC = view.selectionState.selStartChar;
@@ -243,7 +243,7 @@ public final class TextNavigation {
         }
         if (sL != line || eL != line) return -1;
         for (int i = 0; i < candidates.size(); i++) {
-            SodiumEditor.TextRange r = candidates.get(i);
+            com.yn.sodiumeditor.utils.TextRange r = candidates.get(i);
             if (r.start == sC && r.end == eC) return i;
         }
         return -1;
@@ -260,11 +260,11 @@ public final class TextNavigation {
      * Finds the enclosing quoted range for a given index.
      */
     @Nullable
-    public SodiumEditor.TextRange findEnclosingQuoteRange(String line, int index) {
+    public com.yn.sodiumeditor.utils.TextRange findEnclosingQuoteRange(String line, int index) {
         if (line == null || line.isEmpty()) return null;
         int len = line.length();
         if (index < 0 || index > len) return null;
-        ArrayList<SodiumEditor.TextRange> ranges = new ArrayList<>();
+        ArrayList<com.yn.sodiumeditor.utils.TextRange> ranges = new ArrayList<>();
         char current = 0;
         int start = -1;
         for (int i = 0; i < len; i++) {
@@ -276,15 +276,15 @@ public final class TextNavigation {
                 }
             } else {
                 if (c == current && !com.yn.sodiumeditor.core.HighlightParser.isEscaped(line, i)) {
-                    ranges.add(new SodiumEditor.TextRange(start, i));
+                    ranges.add(new com.yn.sodiumeditor.utils.TextRange(start, i));
                     current = 0;
                     start = -1;
                 }
             }
         }
-        SodiumEditor.TextRange best = null;
+        com.yn.sodiumeditor.utils.TextRange best = null;
         int bestLen = Integer.MAX_VALUE;
-        for (SodiumEditor.TextRange r : ranges) {
+        for (com.yn.sodiumeditor.utils.TextRange r : ranges) {
             if (index >= r.start && index <= r.end) {
                 int span = r.end - r.start;
                 if (span < bestLen) {
@@ -300,11 +300,11 @@ public final class TextNavigation {
      * Finds the enclosing bracket range for a given index.
      */
     @Nullable
-    public SodiumEditor.TextRange findEnclosingBracketRange(String line, int index) {
+    public com.yn.sodiumeditor.utils.TextRange findEnclosingBracketRange(String line, int index) {
         if (line == null || line.isEmpty()) return null;
         int len = line.length();
         if (index < 0 || index > len) return null;
-        ArrayList<SodiumEditor.TextRange> ranges = new ArrayList<>();
+        ArrayList<com.yn.sodiumeditor.utils.TextRange> ranges = new ArrayList<>();
         int[] stackIdx = new int[Math.max(8, len / 4)];
         char[] stackType = new char[stackIdx.length];
         int sp = 0;
@@ -341,13 +341,13 @@ public final class TextNavigation {
                 if (sp > 0 && stackType[sp - 1] == want) {
                     int start = stackIdx[sp - 1];
                     sp--;
-                    ranges.add(new SodiumEditor.TextRange(start, i));
+                    ranges.add(new com.yn.sodiumeditor.utils.TextRange(start, i));
                 }
             }
         }
-        SodiumEditor.TextRange best = null;
+        com.yn.sodiumeditor.utils.TextRange best = null;
         int bestLen = Integer.MAX_VALUE;
-        for (SodiumEditor.TextRange r : ranges) {
+        for (com.yn.sodiumeditor.utils.TextRange r : ranges) {
             if (index >= r.start && index <= r.end) {
                 int span = r.end - r.start;
                 if (span < bestLen) {

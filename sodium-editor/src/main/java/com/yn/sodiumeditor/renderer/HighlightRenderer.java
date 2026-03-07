@@ -39,10 +39,10 @@ public class HighlightRenderer {
         }
 
         int[] visibleCharRange = view.editorState.visibleCharRangeTmpForRender;
-        view.getVisibleCharRangeForLine(line, globalLine, visibleCharRange);
+        view.viewRender.textRender.getVisibleCharRangeForLine(line, globalLine, visibleCharRange);
         int visibleStart = visibleCharRange[0];
         int visibleEnd = visibleCharRange[1];
-        int len = view.getLogicalLineLength(globalLine, line);
+        int len = view.editorIO.textIO.getLogicalLineLength(globalLine, line);
 
         if (len > state.maxSyntaxLineLength) {
             drawTruncatedLine(canvas, line, globalLine, visibleStart, visibleEnd, y);
@@ -156,7 +156,7 @@ public class HighlightRenderer {
 
     private void drawTruncatedLine(Canvas canvas, String line, int globalLine, int visibleStart, int visibleEnd, float y) {
         if (visibleEnd > visibleStart) {
-            int sliceStart = view.getStreamedLineSliceStart(globalLine);
+            int sliceStart = view.editorIO.textIO.getStreamedLineSliceStart(globalLine);
             int sliceEnd = sliceStart + line.length();
             int drawStart = Math.max(visibleStart, sliceStart);
             int drawEnd = Math.min(visibleEnd, sliceEnd);
@@ -309,7 +309,7 @@ public class HighlightRenderer {
         boolean inBlock = false;
         int stringState = 0;
         for (int line = view.windowStartLine; line < globalLine; line++) {
-            String lineText = view.getLineTextForRender(line);
+            String lineText = view.viewRender.textRender.getLineTextForRender(line);
             if (lineText == null) lineText = "";
             HighlightParser.LineParseResult result = parser.parseLineForSyntax(
                     lineText, inBlock, stringState, null, null, false);
@@ -598,7 +598,7 @@ public class HighlightRenderer {
     }
 
     public float measureText(String line, int length, int globalLine) {
-        int logicalLen = view.getLogicalLineLength(globalLine, line);
+        int logicalLen = view.editorIO.textIO.getLogicalLineLength(globalLine, line);
         int safeLen = Math.max(0, Math.min(length, logicalLen));
         if (logicalLen > state.maxSyntaxLineLength) {
             float avg = getAverageCharWidthForLine(line, globalLine);
@@ -779,11 +779,11 @@ public class HighlightRenderer {
         if (avg <= 0f) avg = view.editorConfig.paint.measureText(" ");
         float viewLeft = view.lineNumberRenderer.getContentViewLeft(view.isRtl);
         float viewRight = view.lineNumberRenderer.getContentViewRight(view.getWidth(), view.isRtl);
-        float leftX = viewLeft + view.getEffectiveScrollX() - view.getTextStartX();
-        float rightX = viewRight + view.getEffectiveScrollX() - view.getTextStartX();
+        float leftX = viewLeft + view.getEffectiveScrollX() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
+        float rightX = viewRight + view.getEffectiveScrollX() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
         if (view.isRtl) {
             float w = avg * len;
-            float baseX = view.getTextAreaWidth() - w;
+            float baseX = view.lineNumberRenderer.getTextAvailableWidth(view.getWidth(), view.editorConfig.paddingLeft) - w;
             float l = leftX - baseX;
             float r = rightX - baseX;
             leftX = w - l;

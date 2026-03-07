@@ -29,7 +29,7 @@ public final class FlingHandler {
                         ? 0
                         : Math.max(
                         0,
-                        Math.round(getMaxLineWidthInWindowInternal() - (view.getTextStartX() - view.lineNumberRenderer.getContentViewLeft(view.isRtl))));
+                        Math.round(getMaxLineWidthInWindowInternal() - (view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl) - view.lineNumberRenderer.getContentViewLeft(view.isRtl))));
         int minY = 0;
 
         float maxScrollYFloat;
@@ -38,10 +38,10 @@ public final class FlingHandler {
 
         int lineCount =
                 view.wrapWordState.isWordWrapEnabled
-                        ? view.wrapWordMapper.getTotalVisualLineCount(view, view.getVisibleLineCount())
+                        ? view.wrapWordMapper.getTotalVisualLineCount(view, view.editorState.linesWindow.size())
                         : (view.foldState.isCodeFoldingEnabled()
-                        ? view.getVisibleLineCount()
-                        : Math.max(1, view.getLinesCount()));
+                        ? view.editorState.linesWindow.size()
+                        : Math.max(1, view.viewRender.textRender.getLinesCount()));
         if (view.isEof) {
             float paddingToUse =
                     (view.keyboardHeight > 0)

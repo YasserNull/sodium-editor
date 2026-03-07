@@ -27,7 +27,7 @@ public class IndentGuideEngine {
         state.setIndentGuideIntervalsDirty(false);
         state.clearIntervals();
         if (!view.isIndentationBlocksEnabledForIndentGuides() || !view.hasIndentGuideFoldRanges()) return;
-        for (FoldRange range : view.getIndentGuideFoldRanges()) {
+        for (FoldRange range : new java.util.ArrayList<FoldRange>()) {
             if (!range.isIndentFold) continue;
             int start = range.startLine + 1;
             int end = range.endLine;
@@ -134,7 +134,7 @@ public class IndentGuideEngine {
      */
     public int getPreviousNonEmptyIndentColumn(int line) {
         for (int l = line; l >= 0; l--) {
-            String prev = view.getLineTextForRender(l);
+            String prev = view.viewRender.textRender.getLineTextForRender(l);
             if (prev == null) continue;
             int idx = getFirstNonSpaceIndex(prev);
             if (idx >= 0) return idx;

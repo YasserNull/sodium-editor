@@ -30,7 +30,7 @@ public final class ZoomEngine {
 
     int anchorGlobalLineAtFocus = -1;
     if (view.wrapWordState.isWordWrapEnabled) {
-      anchorGlobalLineAtFocus = view.getGlobalLineForY(view.scrollManager.scrollY + focusY);
+      anchorGlobalLineAtFocus = view.viewRender.textRender.getGlobalLineForY(view.scrollManager.scrollY + focusY);
     }
 
     float oldLineHeight = view.editorConfig.paint.getFontSpacing();
@@ -54,7 +54,7 @@ public final class ZoomEngine {
       effectiveScrollX = ZoomUtils.calculateEffectiveScrollX(
           effectiveScrollX,
           focusX,
-          view.getTextStartX(),
+          view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl),
           scale,
           view.isRtl);
       view.scrollManager.scrollX = view.isRtl ? -effectiveScrollX : effectiveScrollX;
@@ -100,7 +100,7 @@ public final class ZoomEngine {
       effectiveScrollX = ZoomUtils.calculateEffectiveScrollX(
           effectiveScrollX,
           focusX,
-          view.getTextStartX(),
+          view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl),
           scaleX,
           view.isRtl);
       view.scrollManager.scrollX = view.isRtl ? -effectiveScrollX : effectiveScrollX;
@@ -116,7 +116,7 @@ public final class ZoomEngine {
       }
 
       view.scrollManager.clampScrollX();
-      view.clampScrollY();
+      view.scrollManager.clampScrollY();
       view.invalidate();
     }
   }
@@ -137,9 +137,9 @@ public final class ZoomEngine {
           @Override
           public void run() {
             if (view.wrapWordMetrics.wrapMetricsReady) {
-              int visualIndex = view.getVisualIndexForLineAndChar(targetLine, 0);
+              int visualIndex = view.viewRender.textRender.getVisualIndexForLineAndChar(targetLine, 0);
               view.scrollManager.scrollY = visualIndex * view.lineHeight - focusY;
-              view.clampScrollY();
+              view.scrollManager.clampScrollY();
               view.invalidate();
             } else {
               view.mainHandler.postDelayed(this, 50);
@@ -203,7 +203,7 @@ public final class ZoomEngine {
    */
   public int calculateVisualIndexForLine(int globalLine, SodiumEditor view) {
     if (view.wrapWordState.isWordWrapEnabled && view.wrapWordMetrics.wrapMetricsReady) {
-      return view.getVisualIndexForLineAndChar(globalLine, 0);
+      return view.viewRender.textRender.getVisualIndexForLineAndChar(globalLine, 0);
     }
     return globalLine;
   }

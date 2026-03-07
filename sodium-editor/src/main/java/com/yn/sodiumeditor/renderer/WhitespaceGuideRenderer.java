@@ -123,7 +123,7 @@ public class WhitespaceGuideRenderer {
 
     public List<HighlightSpan> calculateSyntaxSpansForLine(
             SodiumEditor view, String line, int globalLine) {
-        if (view.getLogicalLineLength(globalLine, line) > view.highlightState.maxSyntaxLineLength) {
+        if (view.editorIO.textIO.getLogicalLineLength(globalLine, line) > view.highlightState.maxSyntaxLineLength) {
             return Collections.emptyList();
         }
         if (line.isEmpty()) {
@@ -194,7 +194,7 @@ public class WhitespaceGuideRenderer {
             int end,
             float y) {
         if (!view.whitespaceGuideState.isWhitespaceGuidesEnabled()
-                || view.isHeavyDrawSuppressed()
+                || view.viewRender.textRender.isHeavyDrawSuppressed()
                 || line == null
                 || line.isEmpty())
             return;
@@ -331,7 +331,7 @@ public class WhitespaceGuideRenderer {
             int end,
             float y) {
         if (!view.whitespaceGuideState.isWhitespaceGuidesEnabled()
-                || view.isHeavyDrawSuppressed()
+                || view.viewRender.textRender.isHeavyDrawSuppressed()
                 || line == null
                 || line.isEmpty())
             return;
