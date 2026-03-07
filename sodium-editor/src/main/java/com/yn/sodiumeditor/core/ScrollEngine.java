@@ -446,12 +446,12 @@ public final class ScrollEngine implements ScrollBar.ScrollBoundsProvider, Scrol
             String line = view.viewRender.textRender.getLineTextForRender(view.cursorState.getCursorLine());
             int safeChar =
                     Math.min(view.cursorState.getCursorChar(), view.editorIO.textIO.getLogicalLineLength(view.cursorState.getCursorLine(), line));
-            float cursorX = view.getCaretXForLine(line, view.cursorState.getCursorLine(), safeChar);
+            float cursorX = view.viewRender.textRender.getCaretXForLine(line, view.cursorState.getCursorLine(), safeChar);
 
             float viewLeft = view.lineNumberRenderer.getContentViewLeft(view.isRtl);
             float viewRight = view.lineNumberRenderer.getContentViewRight(view.getWidth(), view.isRtl);
             float scrollMargin = 50f;
-            float effectiveScrollX = view.getEffectiveScrollX();
+            float effectiveScrollX = (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX);
             float textStartX = view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
             float cursorViewX = textStartX + cursorX - effectiveScrollX;
             float minView = viewLeft + scrollMargin;

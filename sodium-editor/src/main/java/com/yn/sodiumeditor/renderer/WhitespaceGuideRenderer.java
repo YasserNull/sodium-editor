@@ -210,7 +210,7 @@ public class WhitespaceGuideRenderer {
         List<HighlightSpan> syntaxSpans = getWhitespaceGuideSyntaxSpans(view, line, globalLine);
         boolean hasSyntaxSpans = !syntaxSpans.isEmpty();
         state.resetSyntaxIndex();
-        boolean mirrorRtl = view.isRtl && !view.isMixedDirectionText(line, start, end);
+        boolean mirrorRtl = view.isRtl && true;
         float rtlWidth = mirrorRtl ? view.highlightRenderer.measureHighlightedSegmentWidth(line, globalLine, start, end) : 0f;
 
         List<HighlightSpan> visualSpans = view.highlightState.highlightCache.get(globalLine);

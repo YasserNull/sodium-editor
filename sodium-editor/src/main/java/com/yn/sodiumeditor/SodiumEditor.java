@@ -451,7 +451,7 @@ public class SodiumEditor extends View {
     bracketGuideParser = new com.yn.sodiumeditor.core.BracketGuideParser(this, bracketGuideState, bracketGuideRenderer);
     whitespaceGuideRenderer = new com.yn.sodiumeditor.renderer.WhitespaceGuideRenderer(whitespaceGuideState);
     whitespaceGuideRenderer.initPaints(0xFF555555);
-    updateWhitespaceGuideMetrics();
+    whitespaceGuideRenderer.updateMetrics(editorConfig.paint, editorConfig.visualConfig.WHITESPACE_GUIDE_SPACE, editorConfig.visualConfig.WHITESPACE_GUIDE_TAB);
 
     selectionConfig.initPaints();
     selectionTextBuilder = new com.yn.sodiumeditor.core.SelectionTextBuilder(new com.yn.sodiumeditor.core.SelectionTextBuilder.SelectionCallback() {
@@ -1612,12 +1612,6 @@ public class SodiumEditor extends View {
     return com.yn.sodiumeditor.core.IndentGuideEngine.getIndentWidth(line);
   }
 
-
-
-
-
-
-
   public int comparePos(int lineA, int charA, int lineB, int charB) {
     if (lineA != lineB) return Integer.compare(lineA, lineB);
     return Integer.compare(charA, charB);
@@ -1802,66 +1796,12 @@ public class SodiumEditor extends View {
     return lineNumberRenderer.getTextStartX(editorConfig.paddingLeft, isRtl);
   }
 
-  public float getEffectiveScrollX() {
-    return isRtl ? -scrollManager.scrollX : scrollManager.scrollX;
-  }
-
   public float getTextAreaWidth() {
     return lineNumberRenderer.getTextAvailableWidth(getWidth(), editorConfig.paddingLeft);
   }
 
-  public float getRtlLineBaseX(@Nullable String line, int globalLine) {
-    return viewRender.textRender.getRtlLineBaseX(line, globalLine);
-  }
-
-  public float getRtlSegmentBaseX(@Nullable String line, int globalLine, int segStart, int segEnd) {
-    return viewRender.textRender.getRtlSegmentBaseX(line, globalLine, segStart, segEnd);
-  }
-
-  public float getCaretXForLine(String line, int globalLine, int charIndex) {
-    return viewRender.textRender.getCaretXForLine(line, globalLine, charIndex);
-  }
-
-  public float getCaretXForSegment(
-      String line, int globalLine, int segStart, int segEnd, int charIndex) {
-    return viewRender.textRender.getCaretXForSegment(line, globalLine, segStart, segEnd, charIndex);
-  }
-
-  public com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget getCursorTargetForPosition(
-      float viewX, float viewY, @Nullable java.util.Map<Integer, String> directLines) {
-    return viewRender.textRender.getCursorTargetForPosition(viewX, viewY, directLines);
-  }
-
-  public void updateWhitespaceGuideMetrics() {
-    whitespaceGuideRenderer.updateMetrics(editorConfig.paint, editorConfig.visualConfig.WHITESPACE_GUIDE_SPACE, editorConfig.visualConfig.WHITESPACE_GUIDE_TAB);
-  }
-
-  public void invalidateHighlightEnsureRange() {
-    highlightState.resetEnsureRange();
-  }
-
-  public void ensureHighlightCacheForVisibleRange(
-      int firstVisibleLine,
-      int lastVisibleLine,
-      @Nullable java.util.HashMap<Integer, String> directLines) {
-    highlightRenderer.ensureHighlightCacheForVisibleRange(firstVisibleLine, lastVisibleLine, directLines);
-  }
-
-  public void maybeEnsureHighlightCacheForRange(
-      int startLine, int endLine, @Nullable java.util.HashMap<Integer, String> directLines) {
-    highlightState.maybeEnsureHighlightCacheForRange(startLine, endLine, directLines);
-  }
-
   public void applyTypeface(@Nullable android.graphics.Typeface typeface, int style) {
     typefaceManager.applyTypeface(typeface, style);
-  }
-
-  public int getVisualSpaceScale() {
-    return 1;
-  }
-
-  public int getInitialStreamedSliceSize() {
-    return 2048;
   }
 
   public boolean isMixedDirectionText(String line, int start, int end) {
@@ -1869,40 +1809,11 @@ public class SodiumEditor extends View {
   }
 
   public float viewToTextX(float viewX) {
-    return viewX + getEffectiveScrollX() - getTextStartX();
-  }
-
-  // --- More essential methods ---
-  public float getIndentGuideTextSizePx() {
-    return editorConfig.paint.getTextSize();
-  }
-
-  public boolean isIndentationBlocksEnabledForIndentGuides() {
-    return editorConfig.behaviorConfig.isIndentationBlocksEnabled;
-  }
-
-  public boolean isHeavyDrawSuppressedForIndentGuides() {
-    return viewRender.textRender.isHeavyDrawSuppressed();
-  }
-
-  public String getIndentGuideUnit() {
-    return editorConfig.visualConfig.INDENT_BLOCK_UNIT;
-  }
-
-  public float getIndentGuideLineHeight() {
-    return editorConfig.lineHeight;
+    return viewX + (isRtl ? -scrollManager.scrollX : scrollManager.scrollX) - getTextStartX();
   }
 
   public int getIndentGuideTabSize() {
     return 4;
-  }
-
-  public boolean isWhitespaceAtXForIndentGuides(String line, int globalLine, float x) {
-    return false;
-  }
-
-  public boolean hasIndentGuideFoldRanges() {
-    return false;
   }
 
   // --- Essential delegate methods ---
@@ -1948,6 +1859,4 @@ public class SodiumEditor extends View {
   public void handleAutoPairing(String text) {
     inputManager.handleAutoPairing(text);
   }
-
-  public final com.yn.sodiumeditor.input.EditorOperations editorOps = new com.yn.sodiumeditor.input.EditorOperations(this);
 }

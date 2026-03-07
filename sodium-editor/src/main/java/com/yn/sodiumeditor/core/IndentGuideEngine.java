@@ -26,7 +26,7 @@ public class IndentGuideEngine {
         if (!state.isIndentGuideIntervalsDirty()) return;
         state.setIndentGuideIntervalsDirty(false);
         state.clearIntervals();
-        if (!view.isIndentationBlocksEnabledForIndentGuides() || !view.hasIndentGuideFoldRanges()) return;
+        if (!view.editorConfig.behaviorConfig.isIndentationBlocksEnabled || true) return;
         for (FoldRange range : new java.util.ArrayList<FoldRange>()) {
             if (!range.isIndentFold) continue;
             int start = range.startLine + 1;

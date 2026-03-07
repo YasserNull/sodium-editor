@@ -49,7 +49,7 @@ public final class ViewRender {
     if (safe < minWindow) safe = minWindow;
     if (view.windowSize == safe) return;
     view.windowSize = safe;
-    view.invalidateHighlightEnsureRange();
+    view.highlightState.resetEnsureRange();
     view.bracketGuideRenderer.invalidateCache();
     if (view.wrapWordState.isWordWrapEnabled) view.wrapWordBuilder.invalidate(true, true);
     view.wrapWordBuilder.requestPrefixRebuild(view);
@@ -64,7 +64,7 @@ public final class ViewRender {
     if (view.windowSize == safeWindow && view.prefetchLines == safePrefetch) return;
     view.windowSize = safeWindow;
     view.prefetchLines = safePrefetch;
-    view.invalidateHighlightEnsureRange();
+    view.highlightState.resetEnsureRange();
     view.bracketGuideRenderer.invalidateCache();
     if (view.wrapWordState.isWordWrapEnabled) view.wrapWordBuilder.invalidate(true, true);
     view.wrapWordBuilder.requestPrefixRebuild(view);
@@ -77,7 +77,7 @@ public final class ViewRender {
     view.prefetchLines = safe;
     int minWindow = view.viewRender.computeMinWindowSizeForPrefetch(view.editorState.prefetchLines);
     if (view.windowSize < minWindow) view.windowSize = minWindow;
-    view.invalidateHighlightEnsureRange();
+    view.highlightState.resetEnsureRange();
     view.bracketGuideRenderer.invalidateCache();
     if (view.wrapWordState.isWordWrapEnabled) view.wrapWordBuilder.invalidate(true, true);
     view.wrapWordBuilder.requestPrefixRebuild(view);
@@ -272,7 +272,7 @@ public final class ViewRender {
                   if (view.fileManager.shouldStreamLineLength(lineLen)) {
                     int sliceStart = 0;
                     int sliceEnd =
-                        Math.max(1, Math.min(lineLen, view.getInitialStreamedSliceSize()));
+                        Math.max(1, Math.min(lineLen, 2048));
                     if (view.fileManager.isSingleByteCharset()) {
                       String slice =
                           view.editorIO.textIO.readLineSliceAtByte(raf, lineStart, lineByteLen, sliceStart, sliceEnd);
@@ -280,7 +280,7 @@ public final class ViewRender {
                       newStreamedLengths.put(lineIndex, lineLen);
                       newStreamedSliceStarts.put(lineIndex, sliceStart);
                     } else {
-                      sliceEnd = Math.max(1, view.getInitialStreamedSliceSize());
+                      sliceEnd = Math.max(1, 2048);
                       com.yn.sodiumeditor.io.StreamedCharSlice slice =
                           view.editorIO.textIO.readLineSliceByChars(raf, lineStart, sliceStart, sliceEnd, true);
                       newWin.add(slice.text);
@@ -331,7 +331,7 @@ public final class ViewRender {
                   if (view.fileManager.shouldStreamLineLength(lineLen)) {
                     int sliceStart = 0;
                     int sliceEnd =
-                        Math.max(1, Math.min(lineLen, view.getInitialStreamedSliceSize()));
+                        Math.max(1, Math.min(lineLen, 2048));
                     if (view.fileManager.isSingleByteCharset()) {
                       String slice =
                           view.fileManager.readLineSliceAtByte(raf, lineStart, lineByteLen, sliceStart, sliceEnd);
@@ -339,7 +339,7 @@ public final class ViewRender {
                       newStreamedLengths.put(lineIndex, lineLen);
                       newStreamedSliceStarts.put(lineIndex, sliceStart);
                     } else {
-                      sliceEnd = Math.max(1, view.getInitialStreamedSliceSize());
+                      sliceEnd = Math.max(1, 2048);
                       com.yn.sodiumeditor.io.StreamedCharSlice slice =
                           view.fileManager.readLineSliceByChars(raf, lineStart, sliceStart, sliceEnd, true);
                       newWin.add(slice.text);
@@ -427,7 +427,7 @@ public final class ViewRender {
                     }
                   }
                   view.lineNumberRenderer.invalidateCache();
-                  view.invalidateHighlightEnsureRange();
+                  view.highlightState.resetEnsureRange();
                   view.bracketGuideRenderer.invalidateCache();
                   if (recalculateWidthSync) {
                     view.viewRender.textRender.recalculateMaxLineWidth();

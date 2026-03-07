@@ -50,7 +50,7 @@ public final class ZoomEngine {
       float newLineHeight = view.editorConfig.paint.getFontSpacing();
       float effectiveScaleY = ZoomUtils.calculateScaleFactor(oldLineHeight, newLineHeight);
 
-      float effectiveScrollX = view.getEffectiveScrollX();
+      float effectiveScrollX = (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX);
       effectiveScrollX = ZoomUtils.calculateEffectiveScrollX(
           effectiveScrollX,
           focusX,
@@ -96,7 +96,7 @@ public final class ZoomEngine {
       float newLineHeight = view.editorConfig.paint.getFontSpacing();
       float effectiveScaleY = ZoomUtils.calculateScaleFactor(oldLineHeight, newLineHeight);
 
-      float effectiveScrollX = view.getEffectiveScrollX();
+      float effectiveScrollX = (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX);
       effectiveScrollX = ZoomUtils.calculateEffectiveScrollX(
           effectiveScrollX,
           focusX,

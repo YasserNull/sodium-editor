@@ -59,7 +59,7 @@ public final class TouchHandler {
                 }
 
                 com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget target =
-                    view.getCursorTargetForPosition(e.getX(), e.getY(), null);
+                    view.viewRender.textRender.getCursorTargetForPosition(e.getX(), e.getY(), null);
                 int line = target.line;
                 view.scrollManager.ensureLineInWindow(line, true);
 
@@ -107,7 +107,7 @@ public final class TouchHandler {
                         : view.editorState.linesWindow.size();
 
                 com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget target =
-                    view.getCursorTargetForPosition(e.getX(), e.getY(), null);
+                    view.viewRender.textRender.getCursorTargetForPosition(e.getX(), e.getY(), null);
                 int line = target.line;
 
                 if (view.foldState.isCodeFoldingEnabled) {
@@ -186,7 +186,7 @@ public final class TouchHandler {
               public boolean onDoubleTap(MotionEvent e) {
                 if (view.inlinePredictionState.suggestionAcceptedThisTouch) return true;
                 com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget target =
-                    view.getCursorTargetForPosition(e.getX(), e.getY(), null);
+                    view.viewRender.textRender.getCursorTargetForPosition(e.getX(), e.getY(), null);
                 int line = target.line;
                 view.scrollManager.ensureLineInWindow(line, true);
                 String ln = view.viewRender.textRender.getLineTextForRender(line);
@@ -420,7 +420,7 @@ public final class TouchHandler {
           return true;
         }
 
-        com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget target = view.getCursorTargetForPosition(event.getX(), event.getY(), null);
+        com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget target = view.viewRender.textRender.getCursorTargetForPosition(event.getX(), event.getY(), null);
         int line = target.line;
 
         String ln = view.viewRender.textRender.getLineFromWindowLocal(line - view.windowStartLine);

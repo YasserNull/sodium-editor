@@ -33,7 +33,7 @@ public final class CursorTargeting {
                         : new com.yn.sodiumeditor.utils.WrapWordUtils.VisualLinePosition(view.foldState.mapVisibleIndexToGlobal(visualIndex, view.viewRender.textRender.getLinesCount()), 0);
         String line = lineCacheManager.getLineTextForRenderWithDirect(pos.line, directLines);
         if (!view.wrapWordState.isWordWrapEnabled) {
-            float x = view.viewToTextX(viewX);
+            float x = viewX + ((view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX)) - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
             int charIndex = textMeasurement.getCharIndexForX(line, x, pos.line);
             int clamped = Math.max(0, Math.min(charIndex, view.editorIO.textIO.getLogicalLineLength(pos.line, line)));
             return new com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget(pos.line, clamped);
@@ -42,7 +42,7 @@ public final class CursorTargeting {
         int seg = Math.min(Math.max(0, pos.segment), Math.max(0, starts.length - 1));
         int segStart = view.wrapWordEngine.getWrapSegmentStart(starts, seg);
         int segEnd = view.wrapWordEngine.getWrapSegmentEnd(starts, seg, line.length());
-        float x = view.viewToTextX(viewX);
+        float x = viewX + ((view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX)) - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
         int charIndex = textMeasurement.getCharIndexForXInRange(line, pos.line, segStart, segEnd, x);
         int clamped = Math.max(0, Math.min(charIndex, line.length()));
         return new com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget(pos.line, clamped);

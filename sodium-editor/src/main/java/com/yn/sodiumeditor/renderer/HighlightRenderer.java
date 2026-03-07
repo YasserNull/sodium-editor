@@ -397,14 +397,14 @@ public class HighlightRenderer {
         if (start >= end) return 0f;
         boolean hasFade = fadeStart >= 0 && fadeEnd > fadeStart && fadeAlpha < 1f;
         if (hasFade && containsArabicScript(line, start, end)) {
-            int spaceScale = view.getVisualSpaceScale();
+            int spaceScale = 1;
             if (spaceScale > 1 || line.indexOf('\t', start) >= 0) {
                 return drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, segmentPaint, 1f);
             }
             canvas.drawText(line, start, end, x, y, segmentPaint);
             return segmentPaint.measureText(line, start, end);
         }
-        final int spaceScale = view.getVisualSpaceScale();
+        final int spaceScale = 1;
         if (spaceScale > 1) {
             if (!hasFade || end <= fadeStart || start >= fadeEnd) {
                 return drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, segmentPaint, 1f);
@@ -779,8 +779,8 @@ public class HighlightRenderer {
         if (avg <= 0f) avg = view.editorConfig.paint.measureText(" ");
         float viewLeft = view.lineNumberRenderer.getContentViewLeft(view.isRtl);
         float viewRight = view.lineNumberRenderer.getContentViewRight(view.getWidth(), view.isRtl);
-        float leftX = viewLeft + view.getEffectiveScrollX() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
-        float rightX = viewRight + view.getEffectiveScrollX() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
+        float leftX = viewLeft + (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX) - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
+        float rightX = viewRight + (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX) - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
         if (view.isRtl) {
             float w = avg * len;
             float baseX = view.lineNumberRenderer.getTextAvailableWidth(view.getWidth(), view.editorConfig.paddingLeft) - w;

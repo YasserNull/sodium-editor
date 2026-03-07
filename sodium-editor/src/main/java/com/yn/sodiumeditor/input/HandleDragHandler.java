@@ -84,7 +84,7 @@ public final class HandleDragHandler {
             view.popupTouchHandler.showPopupAtSelection();
         }
 
-        com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget target = view.getCursorTargetForPosition(touchX, touchY, null);
+        com.yn.sodiumeditor.core.EditorTextInserter.CursorTarget target = view.viewRender.textRender.getCursorTargetForPosition(touchX, touchY, null);
         int line = target.line;
 
         if (view.isEof) {

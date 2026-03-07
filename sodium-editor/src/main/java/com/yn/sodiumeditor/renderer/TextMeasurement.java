@@ -81,7 +81,7 @@ public final class TextMeasurement {
             return Math.max(0, Math.min(idx, len));
         }
         int textLen = text.length();
-        if (view.getVisualSpaceScale() == 1) {
+        if (1 == 1) {
             int count = view.editorConfig.paint.breakText(text, true, x, null);
             if (count <= 0) return 0;
             if (count >= textLen) return textLen;
@@ -121,7 +121,7 @@ public final class TextMeasurement {
         if (x <= 0f) return start;
         int len = end - start;
         if (len <= 0) return start;
-        if (view.getVisualSpaceScale() == 1) {
+        if (1 == 1) {
             int count = view.editorConfig.paint.breakText(text, start, end, true, x, null);
             int idx = start + Math.max(0, count);
             return Math.min(idx, end);
@@ -205,8 +205,8 @@ public final class TextMeasurement {
         }
         float viewLeft = view.lineNumberRenderer.getContentViewLeft(view.isRtl);
         float viewRight = view.lineNumberRenderer.getContentViewRight(view.getWidth(), view.isRtl);
-        float leftX = viewLeft + view.getEffectiveScrollX() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
-        float rightX = viewRight + view.getEffectiveScrollX() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
+        float leftX = viewLeft + (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX) - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
+        float rightX = viewRight + (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX) - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
 
         int start = getCharIndexForX(line, leftX, globalLine);
         int end = getCharIndexForX(line, rightX, globalLine);
@@ -241,8 +241,8 @@ public final class TextMeasurement {
         }
         float viewLeft = view.lineNumberRenderer.getContentViewLeft(view.isRtl);
         float viewRight = view.lineNumberRenderer.getContentViewRight(view.getWidth(), view.isRtl);
-        float leftX = viewLeft + view.getEffectiveScrollX() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
-        float rightX = viewRight + view.getEffectiveScrollX() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
+        float leftX = viewLeft + (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX) - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
+        float rightX = viewRight + (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX) - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
         if (view.isRtl) {
             float w = avg * len;
             float baseX = view.lineNumberRenderer.getTextAvailableWidth(view.getWidth(), view.editorConfig.paddingLeft) - w;

@@ -228,7 +228,7 @@ public class EditorVisualConfig {
         editor.wrapWordIndicatorRender.updatePaintForTextSize(sizePx, editor.editorConfig.paint);
         editor.editorConfig.lineHeight = editor.editorConfig.paint.getFontSpacing();
         editor.zoomEngine.updateTextSizeDependentMetrics(editor);
-        editor.updateWhitespaceGuideMetrics();
+        editor.whitespaceGuideRenderer.updateMetrics(editor.editorConfig.paint, editor.editorConfig.visualConfig.WHITESPACE_GUIDE_SPACE, editor.editorConfig.visualConfig.WHITESPACE_GUIDE_TAB);
         editor.lineNumberRenderer.invalidateCache();
 
         for (com.yn.sodiumeditor.core.HighlightRule rule : editor.highlightState.highlightRules) {

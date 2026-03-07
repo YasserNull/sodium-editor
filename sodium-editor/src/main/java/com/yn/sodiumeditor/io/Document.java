@@ -160,7 +160,7 @@ public class Document {
         view.scrollManager.maxLineWidthForScroll = 0f;
         view.scrollManager.maxTextStartXForScroll = 0f;
         view.scrollManager.maxScrollXForScroll = 0f;
-        view.invalidateHighlightEnsureRange();
+        view.highlightState.resetEnsureRange();
         view.bracketGuideRenderer.invalidateCache();
         if (view.wrapWordState.isWordWrapEnabled) view.wrapWordBuilder.invalidate(true, true);
         view.wrapWordBuilder.requestPrefixRebuild(view);
@@ -439,7 +439,7 @@ public class Document {
         int visibleLines = Math.max(1, (int) Math.ceil(viewHeight / view.lineHeight) + 2);
         int lastVisibleLine = firstVisibleLine + visibleLines;
 
-        view.ensureHighlightCacheForVisibleRange(firstVisibleLine, lastVisibleLine, null);
+        view.highlightRenderer.ensureHighlightCacheForVisibleRange(firstVisibleLine, lastVisibleLine, null);
         isInitialFileOpenLoading = false;
         if (initialFileOpenShowSpinner != null) {
             view.mainHandler.removeCallbacks(initialFileOpenShowSpinner);

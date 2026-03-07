@@ -286,7 +286,7 @@ public class PopupMenuRenderer {
         if (!view.wrapWordState.isWordWrapEnabled) {
             return view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl)
                     + view.highlightRenderer.measureText(line, safeChar, globalLine)
-                    - view.getEffectiveScrollX();
+                    - (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX);
         }
         int[] starts = view.wrapWordEngine.getWrapStartsForLine(view, globalLine, line, Math.max(1, Math.round(view.getWidth() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl))), view.editorConfig.paint);
         int seg = view.wrapWordEngine.getWrapSegmentIndexForChar(starts, safeChar);
@@ -294,7 +294,7 @@ public class PopupMenuRenderer {
         float x =
                 view.whitespaceGuideRenderer.measureTextWithVisualSpaces(
                         view, line, segStart, safeChar, view.editorConfig.paint);
-        return view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl) + x - view.getEffectiveScrollX();
+        return view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl) + x - (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX);
     }
 
     private float getViewYTopForLineChar(int globalLine, int ch) {

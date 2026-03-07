@@ -76,7 +76,7 @@ public class InlinePredictionRenderer {
         canvas.drawText(state.activeSuggestion, suggestionStartX, textBaselineY, suggestionPaint);
 
         float suggestionTextWidth = suggestionPaint.measureText(state.activeSuggestion);
-        float leftView = suggestionStartX + view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl) - view.getEffectiveScrollX();
+        float leftView = suggestionStartX + view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl) - (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX);
         float rightView = leftView + suggestionTextWidth;
         float topView = view.scrollManager.getDrawLineTop(globalLine);
         float bottomView = topView + view.lineHeight;
@@ -108,10 +108,10 @@ public class InlinePredictionRenderer {
 
         float suggestionTextWidth = suggestionPaint.measureText(state.activeSuggestion);
 
-        float left_view = suggestionStartX_canvas + view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl) - view.getEffectiveScrollX();
+        float left_view = suggestionStartX_canvas + view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl) - (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX);
         float right_view = left_view + suggestionTextWidth;
         if (view.isRtl) {
-            float baseX = view.getRtlSegmentBaseX(lineContent, globalLine, segStart, segEnd);
+            float baseX = view.viewRender.textRender.getRtlSegmentBaseX(lineContent, globalLine, segStart, segEnd);
             left_view += baseX;
             right_view += baseX;
         }

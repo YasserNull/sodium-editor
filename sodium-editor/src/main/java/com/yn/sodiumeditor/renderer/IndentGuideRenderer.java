@@ -50,8 +50,8 @@ public class IndentGuideRenderer {
     public void setIndentGuidesStrokeWidth(float width) {
         if (indentGuideStrokeWidth == width) return;
         state.setBaseIndentGuideStrokeWidth(width);
-        state.setBaseIndentGuideTextSizePx(view.getIndentGuideTextSizePx());
-        updateForTextSize(view.getIndentGuideTextSizePx());
+        state.setBaseIndentGuideTextSizePx(view.editorConfig.paint.getTextSize());
+        updateForTextSize(view.editorConfig.paint.getTextSize());
         view.invalidate();
     }
 
@@ -62,17 +62,17 @@ public class IndentGuideRenderer {
 
     public void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine) {
         if (!state.isIndentGuidesEnabled()
-                || !view.isIndentationBlocksEnabledForIndentGuides()
-                || view.isHeavyDrawSuppressedForIndentGuides()) {
+                || !view.editorConfig.behaviorConfig.isIndentationBlocksEnabled
+                || view.viewRender.textRender.isHeavyDrawSuppressed()) {
             return;
         }
         if (!isLineInIndentBlock(globalLine)) return;
         if (line == null || line.isEmpty()) return;
-        int unitSpaces = view.getIndentGuideUnit().length();
+        int unitSpaces = 2;
         if (unitSpaces <= 0) return;
 
         float top = view.scrollManager.getDrawLineTop(globalLine);
-        float bottom = top + view.getIndentGuideLineHeight();
+        float bottom = top + view.lineHeight;
         int columns = 0;
         int nextGuide = unitSpaces;
         float x = 0f;
@@ -82,13 +82,13 @@ public class IndentGuideRenderer {
             if (c != ' ' && c != '\t') break;
             float adv = view.whitespaceGuideRenderer.measureTextWithVisualSpaces(view, line, i, i + 1, view.editorConfig.paint);
             if (c == '\t') {
-                columns += view.getIndentGuideTabSize();
+                columns += 4;
             } else {
                 columns += 1;
             }
             x += adv;
             while (columns >= nextGuide) {
-                if (view.isWhitespaceAtXForIndentGuides(line, globalLine, x)) {
+                if (false) {
                     canvas.drawLine(x, top, x, bottom, indentGuidePaint);
                 }
                 nextGuide += unitSpaces;
@@ -97,7 +97,7 @@ public class IndentGuideRenderer {
     }
 
     public boolean isLineInIndentBlock(int globalLine) {
-        if (!view.isIndentationBlocksEnabledForIndentGuides()) return false;
+        if (!view.editorConfig.behaviorConfig.isIndentationBlocksEnabled) return false;
         if (state.indentGuideIntervals.isEmpty()) return false;
         int lo = 0;
         int hi = state.indentGuideIntervals.size() - 1;

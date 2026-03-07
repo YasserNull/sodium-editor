@@ -281,7 +281,7 @@ final class EditorInputConnection extends BaseInputConnection {
                 view.cursorState.setComposingStartActive(false);
                 view.history.clearComposingPendingOp();
                 view.charAnimator.startCharAnimationFromText(suffix);
-                view.editorOps.handleAutoPairing(suffix);
+                view.handleAutoPairing(suffix);
                 view.inlinePredictionEngine.updateSuggestion();
               }
               return true;
@@ -299,7 +299,7 @@ final class EditorInputConnection extends BaseInputConnection {
       view.cursorState.setComposingStartActive(false);
       view.history.clearComposingPendingOp();
       view.charAnimator.startCharAnimationFromText(text);
-      view.editorOps.handleAutoPairing(str);
+      view.handleAutoPairing(str);
       view.inlinePredictionEngine.updateSuggestion();
       return true;
     }
@@ -315,7 +315,7 @@ final class EditorInputConnection extends BaseInputConnection {
       view.history.clearComposingPendingOp();
       manager.markImeCommit(str);
       view.charAnimator.startCharAnimationFromText(text);
-      view.editorOps.handleAutoPairing(str);
+      view.handleAutoPairing(str);
       view.inlinePredictionEngine.updateSuggestion();
       return true;
     }
@@ -326,7 +326,7 @@ final class EditorInputConnection extends BaseInputConnection {
     view.cursorState.setComposingStartActive(false);
     view.history.clearComposingPendingOp();
     view.charAnimator.startCharAnimationFromText(text);
-    view.editorOps.handleAutoPairing(str);
+    view.handleAutoPairing(str);
 
     view.inlinePredictionEngine.updateSuggestion();
     return true;

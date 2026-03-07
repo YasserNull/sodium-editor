@@ -128,7 +128,7 @@ public class EditorBehaviorConfig {
         editor.scrollManager.maxLineWidthForScroll = 0f;
         editor.scrollManager.maxTextStartXForScroll = 0f;
         editor.scrollManager.maxScrollXForScroll = 0f;
-        editor.invalidateHighlightEnsureRange();
+        editor.highlightState.resetEnsureRange();
         editor.bracketGuideRenderer.invalidateCache();
         if (editor.wrapWordState.isWordWrapEnabled) editor.wrapWordBuilder.invalidate(true, true);
         editor.wrapWordBuilder.requestPrefixRebuild(editor);

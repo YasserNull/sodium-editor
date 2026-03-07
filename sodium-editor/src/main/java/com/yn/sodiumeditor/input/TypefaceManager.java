@@ -129,7 +129,7 @@ public final class TypefaceManager {
         view.editorConfig.lineHeight = view.editorConfig.paint.getFontSpacing();
 
         // Update whitespace guide metrics
-        view.updateWhitespaceGuideMetrics();
+        view.whitespaceGuideRenderer.updateMetrics(view.editorConfig.paint, view.editorConfig.visualConfig.WHITESPACE_GUIDE_SPACE, view.editorConfig.visualConfig.WHITESPACE_GUIDE_TAB);
 
         // Invalidate line number cache
         view.lineNumberRenderer.invalidateCache();

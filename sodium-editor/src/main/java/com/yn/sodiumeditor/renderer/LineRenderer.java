@@ -110,7 +110,7 @@ public final class LineRenderer {
 
         canvas.save();
         clipContentArea(canvas);
-        canvas.translate(view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl) - view.getEffectiveScrollX(), translateY);
+        canvas.translate(view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl) - (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX), translateY);
         applyZoomScale(canvas, translateY);
 
         drawVisibleLines(canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine, drawDecorations);
@@ -189,7 +189,7 @@ public final class LineRenderer {
      */
     private void applyZoomScale(Canvas canvas, float translateY) {
         if (view.zoomGestureHandler.isPinchVisualZoomActive()) {
-            float pivotX = view.zoomGestureHandler.getPinchFocusX() - (view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl) - view.getEffectiveScrollX());
+            float pivotX = view.zoomGestureHandler.getPinchFocusX() - (view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl) - (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX));
             float pivotY = view.zoomGestureHandler.getPinchFocusY() - translateY;
             canvas.scale(view.zoomGestureHandler.getPinchVisualScale(), view.zoomGestureHandler.getPinchVisualScale(), pivotX, pivotY);
         }
@@ -264,7 +264,7 @@ public final class LineRenderer {
         int prefetchForDraw = view.zoomGestureHandler.isZoomGestureActive() ? 0 : view.prefetchLines;
         int hlStart = Math.max(view.windowStartLine, Math.max(0, firstVisibleLine - prefetchForDraw));
         int hlEnd = Math.min(winEnd, lastVisibleLine + prefetchForDraw);
-        view.maybeEnsureHighlightCacheForRange(hlStart, hlEnd, directLines);
+        view.highlightState.maybeEnsureHighlightCacheForRange(hlStart, hlEnd, directLines);
     }
 
     /**
@@ -283,7 +283,7 @@ public final class LineRenderer {
             String line = lineCacheManager.getLineTextForRenderWithDirect(globalLine, directLines);
             FoldRange foldRange = view.foldState.getFoldRangeAtStart(globalLine);
             boolean isFoldStart = (foldRange != null);
-            float lineBaseX = view.isRtl ? view.getRtlLineBaseX(line, globalLine) : 0f;
+            float lineBaseX = view.isRtl ? view.viewRender.textRender.getRtlLineBaseX(line, globalLine) : 0f;
             float lineWidth =
                     view.isRtl
                             ? view.highlightRenderer.measureHighlightedSegmentWidth(
@@ -352,7 +352,7 @@ public final class LineRenderer {
         for (int globalLine = firstVisibleLine; globalLine <= lastVisibleLine; globalLine++) {
             String line = lineCacheManager.getLineTextForRenderWithDirect(globalLine, directLines);
             if (line == null) line = "";
-            float lineBaseX = view.isRtl ? view.getRtlLineBaseX(line, globalLine) : 0f;
+            float lineBaseX = view.isRtl ? view.viewRender.textRender.getRtlLineBaseX(line, globalLine) : 0f;
             float lineWidth =
                     view.isRtl
                             ? view.highlightRenderer.measureHighlightedSegmentWidth(
@@ -402,8 +402,8 @@ public final class LineRenderer {
             float bottom = Math.round(view.scrollManager.getDrawLineBottom(globalLine));
             float viewLeft = view.lineNumberRenderer.getContentViewLeft(view.isRtl);
             float viewRight = view.lineNumberRenderer.getContentViewRight(view.getWidth(), view.isRtl);
-            float left = viewLeft + view.getEffectiveScrollX() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
-            float right = viewRight + view.getEffectiveScrollX() - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
+            float left = viewLeft + (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX) - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
+            float right = viewRight + (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX) - view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl);
             canvas.drawRect(left, top, right, bottom, view.highlightState.currentLinePaint);
         }
     }
@@ -669,7 +669,7 @@ public final class LineRenderer {
             canvas.clipRect(
                     view.lineNumberRenderer.getContentClipLeft(false), 0, view.getWidth(), view.getHeight());
         }
-        canvas.translate(view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl) - view.getEffectiveScrollX(), 0);
+        canvas.translate(view.lineNumberRenderer.getTextStartX(view.editorConfig.paddingLeft, view.isRtl) - (view.isRtl ? -view.scrollManager.scrollX : view.scrollManager.scrollX), 0);
 
         Paint selPaint = view.selectionState.hasSelection() ? view.selectionRenderer.getSelectionPaint() : null;
 
