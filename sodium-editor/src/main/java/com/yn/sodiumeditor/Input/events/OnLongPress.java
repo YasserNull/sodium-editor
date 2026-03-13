@@ -1,0 +1,70 @@
+package com.yn.sodiumeditor.Input.events;
+
+import android.view.MotionEvent;
+import com.yn.sodiumeditor.SodiumEditor;
+
+/**
+ * OnLongPress handles onLongPress() gesture event for SodiumEditor.
+ */
+public class OnLongPress {
+
+  private final SodiumEditor sodiumeditor;
+
+  public OnLongPress(SodiumEditor sodiumeditor) {
+    this.sodiumeditor = sodiumeditor;
+  }
+
+  /**
+   * Handle onLongPress event
+   */
+  public void onLongPress(MotionEvent e) {
+    if (sodiumeditor.suggestionAcceptedThisTouch) return;
+    if (sodiumeditor.multiTouchActive || sodiumeditor.hadMultiTouch) return;
+
+    if (sodiumeditor.showPopup) {
+      int hitAction = sodiumeditor.getPopupActionAt(e.getX(), e.getY());
+      if (hitAction != 0) {
+        sodiumeditor.popupPressedAction = hitAction;
+        sodiumeditor.startPopupRippleHold(hitAction, e.getX(), e.getY());
+        return;
+      }
+    }
+
+    if (sodiumeditor.movedSinceDown) return;
+
+    if (sodiumeditor.lineNumberSelectionEnabled && sodiumeditor.isInLineNumberGutter(e.getX())) {
+      float y = e.getY() + sodiumeditor.scroll.scrollY;
+      int line = sodiumeditor.getGlobalLineForY(y);
+      sodiumeditor.beginLineNumberSelection(line);
+      return;
+    }
+
+    // Position calculation
+    SodiumEditor.CursorTarget target = sodiumeditor.getCursorTargetForPosition(e.getX(), e.getY(), null);
+    int line = target.line;
+    sodiumeditor.ensureLineInWindow(line, true); // Make sure line data is available
+
+    String ln = sodiumeditor.getLineFromWindowLocal(line - sodiumeditor.windowStartLine);
+    if (ln == null) ln = sodiumeditor.getLineTextForRender(line);
+    int charIndex = Math.max(0, Math.min(target.ch, ln.length()));
+
+    if (!sodiumeditor.applySmartDoubleTapSelection(line, charIndex, ln)) {
+      // Note: onSingleTapUp will be called by OnScroll
+      return;
+    }
+
+    sodiumeditor.isMinimalPopup = false;
+    sodiumeditor.showPopupAtSelection();
+    sodiumeditor.caret.resetBlink();
+    sodiumeditor.invalidate();
+    sodiumeditor.showKeyboard();
+    sodiumeditor.restartInput();
+  }
+
+  /**
+   * Called when smart double tap selection fails - delegates to OnSingleTapUp
+   */
+  public void onSingleTapUpFallback(MotionEvent e, OnSingleTapUp onSingleTapUp) {
+    onSingleTapUp.onSingleTapUp(e);
+  }
+}
