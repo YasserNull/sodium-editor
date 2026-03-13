@@ -221,6 +221,15 @@ public boolean binarySafeRenderingEnabled = false;
   // OnScroll for handling scroll gestures
   public final OnScroll onScroll;
 
+  // Popup for handling popup menu logic
+  public final Popup popup;
+
+  // CursorAnimation for handling cursor movement animation
+  public final CursorAnimation cursorAnimation;
+
+  // CharAnimation for handling character fade animations
+  public final CharAnimation charAnimation;
+
   // --- Search State ---
 
   public boolean isSearchActive() {
@@ -617,138 +626,6 @@ public boolean binarySafeRenderingEnabled = false;
   public final Rect visibleDisplayFrame = new Rect();
   public int keyboardHeight = 0;
 
-  // typed-character fade animation (in-text, while drawing)
-  public boolean isCharAnimationEnabled = false;
-  public int charAnimationDurationMs = 200;
-  public int charAnimFastDurationMs = 60;
-  public long charAnimFastThresholdMs = 80;
-  public long lastCharAnimUptime = 0L;
-  public boolean suppressNextCommitText = false;
-  public int charAnimLine = -1;
-  public int charAnimStartChar = 0;
-  public int charAnimEndChar = 0;
-  public float charAnimAlpha = 0f;
-  @Nullable public ValueAnimator charAnimAnimator;
-  public final Paint charAnimTmpPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-
-  // deleted-character fade animation (ghost draw after removal)
-  public int delAnimLine = -1;
-  public int delAnimAtChar = 0;
-  @Nullable public String delAnimText;
-  @Nullable public Paint delAnimPaint;
-  public float delAnimAlpha = 0f;
-  @Nullable public ValueAnimator delAnimAnimator;
-
-  // caret movement animation
-  public boolean isCursorAnimationEnabled = false;
-  public float cursorAnimNormalTauMs = 80f;
-  public float cursorAnimFastTauMs = 35f;
-  public long cursorAnimFastThresholdMs = 85;
-  public int lastCursorAnimLine = -1;
-  public int lastCursorAnimChar = -1;
-  public long lastCursorMoveUptime = 0L;
-  public long cursorAnimLastFrameUptime = 0L;
-  public float cursorAnimX = 0f;
-  public float cursorAnimY = 0f;
-  public float cursorAnimTargetX = 0f;
-  public float cursorAnimTargetY = 0f;
-  public float cursorDrawX = 0f;
-  public float cursorDrawY = 0f;
-  public boolean cursorAnimValid = false;
-  public boolean cursorAnimRunning = false;
-  public final Runnable cursorAnimStep =
-      new Runnable() {
-        @Override
-        public void run() {
-          if (!isCursorAnimationEnabled) {
-            cursorAnimRunning = false;
-            return;
-          }
-          long now = SystemClock.uptimeMillis();
-          if (cursorAnimLastFrameUptime == 0L) cursorAnimLastFrameUptime = now;
-          long dtMs = Math.max(1, now - cursorAnimLastFrameUptime);
-          cursorAnimLastFrameUptime = now;
-
-          float dx = cursorAnimTargetX - cursorAnimX;
-          float dy = cursorAnimTargetY - cursorAnimY;
-          float dist = (float) Math.hypot(dx, dy);
-          if (dist <= 0.5f) {
-            cursorAnimX = cursorAnimTargetX;
-            cursorAnimY = cursorAnimTargetY;
-            cursorDrawX = cursorAnimX;
-            cursorDrawY = cursorAnimY;
-            cursorAnimRunning = false;
-            invalidateCursorArea();
-            return;
-          }
-
-          long moveDelta =
-              (lastCursorMoveUptime == 0L) ? Long.MAX_VALUE : (now - lastCursorMoveUptime);
-          float tau =
-              (moveDelta <= cursorAnimFastThresholdMs)
-                  ? cursorAnimFastTauMs
-                  : cursorAnimNormalTauMs;
-          float alpha = 1f - (float) Math.exp(-dtMs / Math.max(1f, tau));
-          cursorAnimX += dx * alpha;
-          cursorAnimY += dy * alpha;
-          cursorDrawX = cursorAnimX;
-          cursorDrawY = cursorAnimY;
-          invalidateCursorArea();
-          postOnAnimation(this);
-        }
-      };
-
-  // floating popup (custom)
-  public boolean showPopup = false;
-  public boolean isMinimalPopup = false;
-  public RectF popupRect = new RectF();
-  public RectF btnCopyRect = new RectF();
-  public RectF btnCutRect = new RectF();
-  public RectF btnPasteRect = new RectF();
-  public RectF btnDeleteRect = new RectF();
-  public RectF btnSelectAllRect = new RectF();
-  public float popupPaddingDp = 5f;
-  public float popupCornerDp = 60f;
-  public float btnSpacingDp = 5f;
-  public float btnHeightDp = 30f;
-  public float btnWidthDp = 55f;
-  public float popupLabelPaddingDp = 5f;
-  public float popupTextSizeSp = 12f;
-  public int popupTextColor = 0xFFFFFFFF;
-  public int popupBackgroundColor = 0xFF424242;
-  public boolean popupFitToLabel = true;
-  public float popupPadding = 0f;
-  public float popupCorner = 0f;
-  public float btnSpacing = 0f;
-  public float btnHeight = 0f;
-  public float btnWidth = 0f;
-  public float popupLabelPadding = 0f;
-  public static final int POPUP_ACTION_COPY = 1;
-  public static final int POPUP_ACTION_CUT = 2;
-  public static final int POPUP_ACTION_PASTE = 3;
-  public static final int POPUP_ACTION_DELETE = 4;
-  public static final int POPUP_ACTION_SELECT_ALL = 5;
-  public boolean popupTextFollowsEditorTypeface = true;
-  public String popupLabelCopy = "Copy";
-  public String popupLabelCut = "Cut";
-  public String popupLabelPaste = "Paste";
-  public String popupLabelDelete = "Delete";
-  public String popupLabelSelectAll = "Select All";
-  public float popupAlpha = 0f;
-  @Nullable public ValueAnimator popupFadeAnimator;
-  public static final long POPUP_FADE_IN_MS = 140;
-  public static final long POPUP_FADE_OUT_MS = 110;
-  public int popupPressedAction = 0;
-  public boolean popupRippleActive = false;
-  public RectF popupRippleRect = new RectF();
-  public float popupRippleX = 0f;
-  public float popupRippleY = 0f;
-  public float popupRippleRadius = 0f;
-  public float popupRippleMaxRadius = 0f;
-  public float popupRippleAlpha = 0f;
-  public boolean popupRippleHoldActive = false;
-  @Nullable public ValueAnimator popupRippleAnimator;
-
   // selection handles
   public RectF leftHandleRect = new RectF();
   public RectF rightHandleRect = new RectF();
@@ -812,10 +689,6 @@ public boolean binarySafeRenderingEnabled = false;
   public final char[] lineNumberChars = new char[16];
   public final java.util.HashMap<Integer, String> directLinesTmp = new java.util.HashMap<>();
   public final Path teardropPath = new Path();
-  public final Paint popupBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  public final Paint popupTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  public final Paint popupRipplePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  public final Path popupRippleClipPath = new Path();
   public final Paint foldPlaceholderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public final Paint foldMarkerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public final Paint foldRipplePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -939,10 +812,8 @@ public boolean binarySafeRenderingEnabled = false;
   public boolean isApplyingUndoRedo = false;
   public volatile long lastEditTimestamp = 0L;
   public int lineCountDelta = 0;
-public boolean pendingPopupAfterDoubleTap = false;
   // Large edit UI (brief busy indicator)
   public static final int LARGE_EDIT_LINES = 8000; // show spinner/disable for very large edits
-  public static final int HIDE_COPY_CUT_LINES = 20000;
   public final AtomicInteger largeEditUiToken = new AtomicInteger(0);
   public final Runnable largeEditUiWatchdog =
       new Runnable() {
@@ -1480,11 +1351,6 @@ public boolean pendingPopupAfterDoubleTap = false;
     foldMarkerSpacing = foldMarkerSpacing * density;
     foldMarkerEdgePadding = foldMarkerEdgePadding * density;
 
-    popupTextPaint.setTextAlign(Paint.Align.LEFT);
-    popupTextPaint.setTypeface(paint.getTypeface());
-    popupRipplePaint.setColor(0xFFFFFFFF);
-    applyPopupConfig();
-
     foldPlaceholderPaint.setColor(0xFFE0E0E0);
     foldPlaceholderPaint.setStyle(Paint.Style.FILL);
     foldMarkerPaint.setColor(0xFF888888);
@@ -1520,6 +1386,15 @@ public boolean pendingPopupAfterDoubleTap = false;
     // Initialize OnScroll
     onScroll = new OnScroll(this);
     scroll.gestureDetector = onScroll.getGestureDetector();
+
+    // Initialize Popup
+    popup = new Popup(this);
+
+    // Initialize CursorAnimation
+    cursorAnimation = new CursorAnimation(this);
+
+    // Initialize CharAnimation
+    charAnimation = new CharAnimation(this);
 
     // Initialize Cursor management
     cursor = new Cursor(this);
@@ -1689,7 +1564,7 @@ public boolean pendingPopupAfterDoubleTap = false;
       setWordWrapIndicatorEnabled(false);
       setAutoCompletionEnabled(false);
       setAutoPathCompletionEnabled(false);
-      setCharAnimation(false, charAnimationDurationMs);
+      charAnimation.setCharAnimation(false, charAnimation.charAnimationDurationMs);
       setHighlightCurrentLine(false);
       setIndentationBlocksEnabled(false);
       setCodeFoldingEnabled(false);
@@ -3107,68 +2982,6 @@ public boolean pendingPopupAfterDoubleTap = false;
     invalidate();
   }
 
-  public void setPopupBackgroundColor(int color) {
-    popupBackgroundColor = color;
-    popupBgPaint.setColor(color);
-    if (showPopup) invalidate();
-  }
-
-  public void setPopupTextColor(int color) {
-    popupTextColor = color;
-    popupTextPaint.setColor(color);
-    if (showPopup) invalidate();
-  }
-
-  public void setPopupTextSize(float sp) {
-    popupTextSizeSp = sp;
-    popupTextPaint.setTextSize(spToPx(sp));
-    if (showPopup) invalidate();
-  }
-
-  public void setPopupTextSizePx(float sizePx) {
-    float scaledDensity = getResources().getDisplayMetrics().scaledDensity;
-    popupTextSizeSp = (scaledDensity > 0f) ? (sizePx / scaledDensity) : popupTextSizeSp;
-    popupTextPaint.setTextSize(sizePx);
-    if (showPopup) invalidate();
-  }
-
-  public void applyPopupConfig() {
-    float density = getResources().getDisplayMetrics().density;
-    popupPadding = popupPaddingDp * density;
-    popupCorner = popupCornerDp * density;
-    btnSpacing = btnSpacingDp * density;
-    btnHeight = btnHeightDp * density;
-    btnWidth = btnWidthDp * density;
-    popupLabelPadding = popupLabelPaddingDp * density;
-    popupBgPaint.setColor(popupBackgroundColor);
-    popupTextPaint.setColor(popupTextColor);
-    popupTextPaint.setTextSize(spToPx(popupTextSizeSp));
-  }
-
-  public void setPopupTextFollowsEditorTypeface(boolean follow) {
-    popupTextFollowsEditorTypeface = follow;
-    if (follow) {
-      popupTextPaint.setTypeface(paint.getTypeface());
-    }
-    if (showPopup) invalidate();
-  }
-
-  public void setPopupTextTypeface(@Nullable Typeface typeface) {
-    popupTextFollowsEditorTypeface = false;
-    popupTextPaint.setTypeface((typeface != null) ? typeface : Typeface.DEFAULT);
-    if (showPopup) invalidate();
-  }
-
-  public void setPopupLabels(
-      String copy, String cut, String paste, String delete, String selectAll) {
-    popupLabelCopy = copy;
-    popupLabelCut = cut;
-    popupLabelPaste = paste;
-    popupLabelDelete = delete;
-    popupLabelSelectAll = selectAll;
-    if (showPopup) invalidate();
-  }
-
   public void setFontFromAssets(String assetPath, int style) {
     try {
       Typeface tf = Typeface.createFromAsset(getContext().getAssets(), assetPath);
@@ -3243,12 +3056,6 @@ public boolean pendingPopupAfterDoubleTap = false;
     }
     caret.resetBlink();
     invalidate();
-  }
-
-  public void showSelectionPopup() {
-    if (selection.hasSelection) {
-      showPopupAtSelection();
-    }
   }
 
   // --- Convenience cursor/line accessors ---
@@ -3408,9 +3215,6 @@ public boolean pendingPopupAfterDoubleTap = false;
     foldMarkerPaint.setTypeface(finalTypeface);
     wordWrapIndicatorPaint.setTypeface(finalTypeface);
     whitespaceGuidePaint.setTypeface(finalTypeface);
-    if (popupTextFollowsEditorTypeface) {
-      popupTextPaint.setTypeface(finalTypeface);
-    }
     if (whitespaceStringRule != null) whitespaceStringRule.updateTypeface(safeBase);
     if (whitespaceCommentRule != null) whitespaceCommentRule.updateTypeface(safeBase);
     if (lineCommentHighlightRule != null) lineCommentHighlightRule.updateTypeface(safeBase);
@@ -4683,7 +4487,6 @@ public boolean pendingPopupAfterDoubleTap = false;
     selection.selEndChar = lineText.length();
     cursor.cursorLine = clamped;
     cursor.cursorChar = selection.selEndChar;
-    hidePopup();
     caret.resetBlink();
     invalidate();
   }
@@ -4704,7 +4507,6 @@ public boolean pendingPopupAfterDoubleTap = false;
     cursor.cursorChar = selection.selEndChar;
     selection.hasSelection = true;
     selection.selecting = true;
-    hidePopup();
     invalidate();
   }
 
@@ -4729,9 +4531,6 @@ public boolean pendingPopupAfterDoubleTap = false;
             scroll.clampScrollX();
             scroll.clampScrollY();
             updateHandlePosition(lastTouchX, lastTouchY);
-            if (draggingHandle == 1 || draggingHandle == 2) {
-              showPopupAtSelection();
-            }
             checkAndLoadWindow();
             invalidate();
             mainHandler.postDelayed(this, 16);
@@ -5560,9 +5359,9 @@ public boolean pendingPopupAfterDoubleTap = false;
       int safeChar = Math.min(cursor.cursorChar, getLogicalLineLength(cursor.cursorLine, cursorLineText));
       float cursorX = getCaretXForLine(cursorLineText, cursor.cursorLine, safeChar);
       float cursorY = getDrawLineTop(cursor.cursorLine);
-      updateCursorDrawPosition(cursorX, cursorY);
-      float drawX = cursorDrawX;
-      float drawY = cursorDrawY;
+      cursorAnimation.updateCursorDrawPosition(cursorX, cursorY);
+      float drawX = cursorAnimation.cursorDrawX;
+      float drawY = cursorAnimation.cursorDrawY;
       if (isCursorVisible) {
         caretPaint.setColor(caretColor);
         caretPaint.setStrokeWidth(cursorWidth);
@@ -5628,8 +5427,9 @@ public boolean pendingPopupAfterDoubleTap = false;
     canvas.restore();
     // --- End of main text content drawing ---
 
-    // --- 4. Draw overlays (popups, loading circle, etc.) ---
-    if (showPopup) drawPopup(canvas);
+    // --- 4. Draw overlays ---
+
+    popup.drawPopup(canvas);
 
     if (showLoadingCircle) {
 
@@ -5910,9 +5710,9 @@ public boolean pendingPopupAfterDoubleTap = false;
         int safeChar = Math.min(cursor.cursorChar, cursorLineText.length());
         float cursorX = getCaretXForSegment(cursorLineText, cursor.cursorLine, segStart, segEnd, safeChar);
         float cursorY = (cursorVisualIndex - firstVisualIndex) * lineHeight;
-        updateCursorDrawPosition(cursorX, cursorY);
-        float drawX = cursorDrawX;
-        float drawY = cursorDrawY;
+        cursorAnimation.updateCursorDrawPosition(cursorX, cursorY);
+        float drawX = cursorAnimation.cursorDrawX;
+        float drawY = cursorAnimation.cursorDrawY;
         if (isCursorVisible) {
           caretPaint.setColor(caretColor);
           caretPaint.setStrokeWidth(cursorWidth);
@@ -5985,8 +5785,6 @@ public boolean pendingPopupAfterDoubleTap = false;
     }
 
     canvas.restore();
-
-    if (showPopup) drawPopup(canvas);
 
     if (showLoadingCircle) {
       loadingCirclePaint.setColor(loadingCircleColor);
@@ -6220,9 +6018,9 @@ public boolean pendingPopupAfterDoubleTap = false;
             int safeChar = Math.min(cursor.cursorChar, text.length());
             float cursorX = getCaretXForSegment(text, line, segStart, segEnd, safeChar);
             float cursorY = top;
-            updateCursorDrawPosition(cursorX, cursorY);
-            float drawX = cursorDrawX;
-            float drawY = cursorDrawY;
+            cursorAnimation.updateCursorDrawPosition(cursorX, cursorY);
+            float drawX = cursorAnimation.cursorDrawX;
+            float drawY = cursorAnimation.cursorDrawY;
             if (isCursorVisible) {
               caretPaint.setColor(caretColor);
               caretPaint.setStrokeWidth(cursorWidth);
@@ -6301,8 +6099,6 @@ public boolean pendingPopupAfterDoubleTap = false;
         rightHandleRect.setEmpty();
       }
     }
-
-    if (showPopup) drawPopup(canvas);
 
     if (showLoadingCircle) {
       loadingCirclePaint.setColor(loadingCircleColor);
@@ -6394,17 +6190,16 @@ public boolean pendingPopupAfterDoubleTap = false;
 
   public void drawHighlightedLine(Canvas canvas, String line, int globalLine, float y) {
     if (line.isEmpty()) {
-      if (isCharAnimationEnabled
-          && globalLine == delAnimLine
-          && delAnimText != null
-          && !delAnimText.isEmpty()
-          && delAnimAlpha > 0f) {
-        Paint ghostPaint = (delAnimPaint != null) ? delAnimPaint : paint;
-        charAnimTmpPaint.set(ghostPaint);
-        charAnimTmpPaint.setUnderlineText(false);
+      if (globalLine == charAnimation.delAnimLine
+          && charAnimation.delAnimText != null
+          && !charAnimation.delAnimText.isEmpty()
+          && charAnimation.delAnimAlpha > 0f) {
+        Paint ghostPaint = (charAnimation.delAnimPaint != null) ? charAnimation.delAnimPaint : paint;
+        charAnimation.charAnimTmpPaint.set(ghostPaint);
+        charAnimation.charAnimTmpPaint.setUnderlineText(false);
         int baseAlpha = ghostPaint.getAlpha();
-        charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, delAnimAlpha))));
-        canvas.drawText(delAnimText, 0f, y, charAnimTmpPaint);
+        charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, charAnimation.delAnimAlpha))));
+        canvas.drawText(charAnimation.delAnimText, 0f, y, charAnimation.charAnimTmpPaint);
       }
       return;
     }
@@ -6483,13 +6278,12 @@ public boolean pendingPopupAfterDoubleTap = false;
     int fadeStart = -1;
     int fadeEnd = -1;
     float fadeAlpha = 1f;
-    if (isCharAnimationEnabled
-        && globalLine == charAnimLine
-        && charAnimEndChar > charAnimStartChar
-        && charAnimAlpha < 1f) {
-      fadeStart = Math.max(0, Math.min(charAnimStartChar, line.length()));
-      fadeEnd = Math.max(0, Math.min(charAnimEndChar, line.length()));
-      fadeAlpha = Math.max(0f, Math.min(1f, charAnimAlpha));
+    if (globalLine == charAnimation.charAnimLine
+        && charAnimation.charAnimEndChar > charAnimation.charAnimStartChar
+        && charAnimation.charAnimAlpha < 1f) {
+      fadeStart = Math.max(0, Math.min(charAnimation.charAnimStartChar, line.length()));
+      fadeEnd = Math.max(0, Math.min(charAnimation.charAnimEndChar, line.length()));
+      fadeAlpha = Math.max(0f, Math.min(1f, charAnimation.charAnimAlpha));
       if (fadeEnd <= fadeStart) {
         fadeStart = -1;
         fadeEnd = -1;
@@ -6514,19 +6308,18 @@ public boolean pendingPopupAfterDoubleTap = false;
           combinedUnderlines,
           lineTop,
           lineBottom);
-      if (isCharAnimationEnabled
-          && globalLine == delAnimLine
-          && delAnimText != null
-          && !delAnimText.isEmpty()
-          && delAnimAlpha > 0f) {
-        int at = Math.max(0, Math.min(delAnimAtChar, line.length()));
+      if (globalLine == charAnimation.delAnimLine
+          && charAnimation.delAnimText != null
+          && !charAnimation.delAnimText.isEmpty()
+          && charAnimation.delAnimAlpha > 0f) {
+        int at = Math.max(0, Math.min(charAnimation.delAnimAtChar, line.length()));
         float x = measureText(line, at, globalLine);
-        Paint ghostPaint = (delAnimPaint != null) ? delAnimPaint : paint;
-        charAnimTmpPaint.set(ghostPaint);
-        charAnimTmpPaint.setUnderlineText(false);
+        Paint ghostPaint = (charAnimation.delAnimPaint != null) ? charAnimation.delAnimPaint : paint;
+        charAnimation.charAnimTmpPaint.set(ghostPaint);
+        charAnimation.charAnimTmpPaint.setUnderlineText(false);
         int baseAlpha = ghostPaint.getAlpha();
-        charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, delAnimAlpha))));
-        canvas.drawText(delAnimText, x, y, charAnimTmpPaint);
+        charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, charAnimation.delAnimAlpha))));
+        canvas.drawText(charAnimation.delAnimText, x, y, charAnimation.charAnimTmpPaint);
       }
       drawErrorUnderlinesForLine(canvas, line, globalLine, y, lineTop, lineBottom);
       return;
@@ -6553,19 +6346,18 @@ public boolean pendingPopupAfterDoubleTap = false;
           combinedUnderlines,
           lineTop,
           lineBottom);
-      if (isCharAnimationEnabled
-          && globalLine == delAnimLine
-          && delAnimText != null
-          && !delAnimText.isEmpty()
-          && delAnimAlpha > 0f) {
-        int at = Math.max(0, Math.min(delAnimAtChar, line.length()));
+      if (globalLine == charAnimation.delAnimLine
+          && charAnimation.delAnimText != null
+          && !charAnimation.delAnimText.isEmpty()
+          && charAnimation.delAnimAlpha > 0f) {
+        int at = Math.max(0, Math.min(charAnimation.delAnimAtChar, line.length()));
         float x = measureText(line, at, globalLine);
-        Paint ghostPaint = (delAnimPaint != null) ? delAnimPaint : paint;
-        charAnimTmpPaint.set(ghostPaint);
-        charAnimTmpPaint.setUnderlineText(false);
+        Paint ghostPaint = (charAnimation.delAnimPaint != null) ? charAnimation.delAnimPaint : paint;
+        charAnimation.charAnimTmpPaint.set(ghostPaint);
+        charAnimation.charAnimTmpPaint.setUnderlineText(false);
         int baseAlpha = ghostPaint.getAlpha();
-        charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, delAnimAlpha))));
-        canvas.drawText(delAnimText, x, y, charAnimTmpPaint);
+        charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, charAnimation.delAnimAlpha))));
+        canvas.drawText(charAnimation.delAnimText, x, y, charAnimation.charAnimTmpPaint);
       }
       drawErrorUnderlinesForLine(canvas, line, globalLine, y, lineTop, lineBottom);
       return;
@@ -6633,19 +6425,18 @@ public boolean pendingPopupAfterDoubleTap = false;
           lineBottom);
     }
 
-    if (isCharAnimationEnabled
-        && globalLine == delAnimLine
-        && delAnimText != null
-        && !delAnimText.isEmpty()
-        && delAnimAlpha > 0f) {
-      int at = Math.max(0, Math.min(delAnimAtChar, line.length()));
+    if (globalLine == charAnimation.delAnimLine
+        && charAnimation.delAnimText != null
+        && !charAnimation.delAnimText.isEmpty()
+        && charAnimation.delAnimAlpha > 0f) {
+      int at = Math.max(0, Math.min(charAnimation.delAnimAtChar, line.length()));
       float x = measureText(line, at, globalLine);
-      Paint ghostPaint = (delAnimPaint != null) ? delAnimPaint : paint;
-      charAnimTmpPaint.set(ghostPaint);
-      charAnimTmpPaint.setUnderlineText(false);
+      Paint ghostPaint = (charAnimation.delAnimPaint != null) ? charAnimation.delAnimPaint : paint;
+      charAnimation.charAnimTmpPaint.set(ghostPaint);
+      charAnimation.charAnimTmpPaint.setUnderlineText(false);
       int baseAlpha = ghostPaint.getAlpha();
-      charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, delAnimAlpha))));
-      canvas.drawText(delAnimText, x, y, charAnimTmpPaint);
+      charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, charAnimation.delAnimAlpha))));
+      canvas.drawText(charAnimation.delAnimText, x, y, charAnimation.charAnimTmpPaint);
     }
     drawErrorUnderlinesForLine(canvas, line, globalLine, y, lineTop, lineBottom);
   }
@@ -6702,13 +6493,13 @@ public boolean pendingPopupAfterDoubleTap = false;
     int fadeStart = -1;
     int fadeEnd = -1;
     float fadeAlpha = 1f;
-    if (isCharAnimationEnabled
-        && globalLine == charAnimLine
-        && charAnimEndChar > charAnimStartChar
-        && charAnimAlpha < 1f) {
-      fadeStart = Math.max(0, Math.min(charAnimStartChar, line.length()));
-      fadeEnd = Math.max(0, Math.min(charAnimEndChar, line.length()));
-      fadeAlpha = Math.max(0f, Math.min(1f, charAnimAlpha));
+    if (charAnimation.isCharAnimationEnabled
+        && globalLine == charAnimation.charAnimLine
+        && charAnimation.charAnimEndChar > charAnimation.charAnimStartChar
+        && charAnimation.charAnimAlpha < 1f) {
+      fadeStart = Math.max(0, Math.min(charAnimation.charAnimStartChar, line.length()));
+      fadeEnd = Math.max(0, Math.min(charAnimation.charAnimEndChar, line.length()));
+      fadeAlpha = Math.max(0f, Math.min(1f, charAnimation.charAnimAlpha));
       if (fadeEnd <= fadeStart) {
         fadeStart = -1;
         fadeEnd = -1;
@@ -6802,20 +6593,20 @@ public boolean pendingPopupAfterDoubleTap = false;
       }
     }
 
-    if (isCharAnimationEnabled
-        && globalLine == delAnimLine
-        && delAnimText != null
-        && !delAnimText.isEmpty()
-        && delAnimAlpha > 0f) {
-      int at = Math.max(0, Math.min(delAnimAtChar, line.length()));
+    if (charAnimation.isCharAnimationEnabled
+        && globalLine == charAnimation.delAnimLine
+        && charAnimation.delAnimText != null
+        && !charAnimation.delAnimText.isEmpty()
+        && charAnimation.delAnimAlpha > 0f) {
+      int at = Math.max(0, Math.min(charAnimation.delAnimAtChar, line.length()));
       if (at >= start && at <= end) {
         float x = measureText(line, at, globalLine);
-        Paint ghostPaint = (delAnimPaint != null) ? delAnimPaint : paint;
-        charAnimTmpPaint.set(ghostPaint);
-        charAnimTmpPaint.setUnderlineText(false);
+        Paint ghostPaint = (charAnimation.delAnimPaint != null) ? charAnimation.delAnimPaint : paint;
+        charAnimation.charAnimTmpPaint.set(ghostPaint);
+        charAnimation.charAnimTmpPaint.setUnderlineText(false);
         int baseAlpha = ghostPaint.getAlpha();
-        charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, delAnimAlpha))));
-        canvas.drawText(delAnimText, x, y, charAnimTmpPaint);
+        charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, charAnimation.delAnimAlpha))));
+        canvas.drawText(charAnimation.delAnimText, x, y, charAnimation.charAnimTmpPaint);
       }
     }
     drawErrorUnderlinesForLineRange(canvas, line, globalLine, start, end, y, lineTop, lineBottom);
@@ -7314,13 +7105,13 @@ public boolean pendingPopupAfterDoubleTap = false;
     int fadeStart = -1;
     int fadeEnd = -1;
     float fadeAlpha = 1f;
-    if (isCharAnimationEnabled
-        && globalLine == charAnimLine
-        && charAnimEndChar > charAnimStartChar
-        && charAnimAlpha < 1f) {
-      fadeStart = Math.max(0, Math.min(charAnimStartChar, line.length()));
-      fadeEnd = Math.max(0, Math.min(charAnimEndChar, line.length()));
-      fadeAlpha = Math.max(0f, Math.min(1f, charAnimAlpha));
+    if (charAnimation.isCharAnimationEnabled
+        && globalLine == charAnimation.charAnimLine
+        && charAnimation.charAnimEndChar > charAnimation.charAnimStartChar
+        && charAnimation.charAnimAlpha < 1f) {
+      fadeStart = Math.max(0, Math.min(charAnimation.charAnimStartChar, line.length()));
+      fadeEnd = Math.max(0, Math.min(charAnimation.charAnimEndChar, line.length()));
+      fadeAlpha = Math.max(0f, Math.min(1f, charAnimation.charAnimAlpha));
       if (fadeEnd <= fadeStart) {
         fadeStart = -1;
         fadeEnd = -1;
@@ -7422,21 +7213,21 @@ public boolean pendingPopupAfterDoubleTap = false;
 
   public void drawDeleteAnimationForSegment(
       Canvas canvas, String line, int globalLine, int segStart, int segEnd, float y) {
-    if (!isCharAnimationEnabled) return;
-    if (globalLine != delAnimLine
-        || delAnimText == null
-        || delAnimText.isEmpty()
-        || delAnimAlpha <= 0f) return;
+    if (!charAnimation.isCharAnimationEnabled) return;
+    if (globalLine != charAnimation.delAnimLine
+        || charAnimation.delAnimText == null
+        || charAnimation.delAnimText.isEmpty()
+        || charAnimation.delAnimAlpha <= 0f) return;
     if (line == null) line = "";
-    int at = Math.max(0, Math.min(delAnimAtChar, line.length()));
+    int at = Math.max(0, Math.min(charAnimation.delAnimAtChar, line.length()));
     if (at < segStart || at > segEnd) return;
     float x = measureTextWithVisualSpaces(line, segStart, at, paint);
-    Paint ghostPaint = (delAnimPaint != null) ? delAnimPaint : paint;
-    charAnimTmpPaint.set(ghostPaint);
-    charAnimTmpPaint.setUnderlineText(false);
+    Paint ghostPaint = (charAnimation.delAnimPaint != null) ? charAnimation.delAnimPaint : paint;
+    charAnimation.charAnimTmpPaint.set(ghostPaint);
+    charAnimation.charAnimTmpPaint.setUnderlineText(false);
     int baseAlpha = ghostPaint.getAlpha();
-    charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, delAnimAlpha))));
-    canvas.drawText(delAnimText, x, y, charAnimTmpPaint);
+    charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, charAnimation.delAnimAlpha))));
+    canvas.drawText(charAnimation.delAnimText, x, y, charAnimation.charAnimTmpPaint);
   }
 
   public void drawWhitespaceGuidesForSegment(
@@ -7813,10 +7604,10 @@ public boolean pendingPopupAfterDoubleTap = false;
     int fadeSegStart = Math.max(start, fadeStart);
     int fadeSegEnd = Math.min(end, fadeEnd);
     if (fadeSegStart < fadeSegEnd) {
-      charAnimTmpPaint.set(segmentPaint);
+      charAnimation.charAnimTmpPaint.set(segmentPaint);
       int baseAlpha = segmentPaint.getAlpha();
-      charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))));
-      canvas.drawText(line, fadeSegStart, fadeSegEnd, currentX, y, charAnimTmpPaint);
+      charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))));
+      canvas.drawText(line, fadeSegStart, fadeSegEnd, currentX, y, charAnimation.charAnimTmpPaint);
       currentX += segmentPaint.measureText(line, fadeSegStart, fadeSegEnd);
     }
 
@@ -8265,10 +8056,10 @@ public boolean pendingPopupAfterDoubleTap = false;
 
     Paint drawPaint = segmentPaint;
     if (alphaMultiplier < 1f) {
-      charAnimTmpPaint.set(segmentPaint);
+      charAnimation.charAnimTmpPaint.set(segmentPaint);
       int baseAlpha = segmentPaint.getAlpha();
-      charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, alphaMultiplier))));
-      drawPaint = charAnimTmpPaint;
+      charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, alphaMultiplier))));
+      drawPaint = charAnimation.charAnimTmpPaint;
     }
 
     int len = end - start;
@@ -9944,174 +9735,6 @@ public boolean pendingPopupAfterDoubleTap = false;
     paint.setStrokeCap(prevCap);
   }
 
-  public void drawPopup(Canvas canvas) {
-    if (popupAlpha <= 0f) return;
-    applyPopupConfig();
-    Paint bgPaint = popupBgPaint;
-
-    // reset rects (so .contains() is safe when buttons are hidden)
-    btnCopyRect.setEmpty();
-    btnCutRect.setEmpty();
-    btnPasteRect.setEmpty();
-    btnDeleteRect.setEmpty();
-    btnSelectAllRect.setEmpty();
-
-    // Buttons order
-    final List<Integer> actions = new ArrayList<>();
-    if (isMinimalPopup) {
-      actions.add(POPUP_ACTION_SELECT_ALL);
-      if (!isReadOnly) {
-        actions.add(POPUP_ACTION_PASTE);
-      }
-    } else {
-      final boolean hideCopyCut = shouldHideCopyCutForSelection();
-      actions.add(POPUP_ACTION_SELECT_ALL);
-      if (!hideCopyCut) {
-        if (!isReadOnly) {
-          actions.add(POPUP_ACTION_CUT);
-        }
-        actions.add(POPUP_ACTION_COPY);
-      }
-      if (!isReadOnly) {
-        actions.add(POPUP_ACTION_PASTE);
-        actions.add(POPUP_ACTION_DELETE);
-      }
-    }
-
-    if (actions.isEmpty()) {
-      hidePopup();
-      return;
-    }
-
-    final int btnCount = actions.size();
-    float density = getResources().getDisplayMetrics().density;
-    float labelPad = popupLabelPadding;
-    float[] btnWidths = new float[btnCount];
-    float totalBtnWidths = 0f;
-    for (int i = 0; i < btnCount; i++) {
-      int action = actions.get(i);
-      String label = getPopupLabelForAction(action);
-      float labelWidth = popupTextPaint.measureText(label);
-      float w = popupFitToLabel ? (labelWidth + labelPad) : btnWidth;
-      btnWidths[i] = Math.max(0f, w);
-      totalBtnWidths += btnWidths[i];
-    }
-    float localBtnHeight = btnHeight;
-    float localBtnSpacing = btnSpacing;
-    float localPopupPadding = popupPadding;
-
-    float totalWidth =
-        totalBtnWidths + (localBtnSpacing * (btnCount - 1)) + (localPopupPadding * 2);
-    float totalHeight = localBtnHeight + (localPopupPadding * 2);
-    float availableWidth = getWidth() - (localPopupPadding * 2);
-    if (availableWidth > 0f && totalWidth > availableWidth) {
-      float availableForButtons = availableWidth - (localBtnSpacing * (btnCount - 1));
-      if (availableForButtons < 0f) {
-        localBtnSpacing = 0f;
-        availableForButtons = availableWidth;
-      }
-      float scale = (totalBtnWidths > 0f) ? (availableForButtons / totalBtnWidths) : 1f;
-      if (scale < 1f) {
-        totalBtnWidths = 0f;
-        for (int i = 0; i < btnCount; i++) {
-          btnWidths[i] = Math.max(0f, btnWidths[i] * scale);
-          totalBtnWidths += btnWidths[i];
-        }
-      }
-      totalWidth = totalBtnWidths + (localBtnSpacing * (btnCount - 1)) + (localPopupPadding * 2);
-    }
-
-    // --- POPUP POSITIONING LOGIC ---
-
-    float anchorX, anchorY_top, anchorY_bottom;
-
-    if (isMinimalPopup || !selection.hasSelection) {
-      // Anchor to cursor
-      String cursorLineText = getLineTextForRender(cursor.cursorLine);
-      anchorX = getViewXForLineChar(cursorLineText, cursor.cursorLine, cursor.cursorChar);
-      anchorY_top = getViewYTopForLineChar(cursor.cursorLine, cursor.cursorChar);
-      anchorY_bottom = anchorY_top + lineHeight;
-    } else {
-      // Anchor to selection (existing logic)
-      int nStartLine, nEndLine, nEndChar;
-      String endLineText;
-      if (comparePos(selection.selStartLine, selection.selStartChar, selection.selEndLine, selection.selEndChar) <= 0) {
-        nStartLine = selection.selStartLine;
-        nEndLine = selection.selEndLine;
-        nEndChar = selection.selEndChar;
-        endLineText = getLineTextForRender(nEndLine);
-      } else {
-        nStartLine = selection.selEndLine;
-        nEndLine = selection.selStartLine;
-        nEndChar = selection.selStartChar;
-        endLineText = getLineTextForRender(nEndLine);
-      }
-
-      anchorY_top = getViewYTopForLineChar(nStartLine, 0);
-      anchorY_bottom = getViewYTopForLineChar(nEndLine, nEndChar) + lineHeight;
-      anchorX = getViewXForLineChar(endLineText, nEndLine, nEndChar);
-    }
-
-    float proposedLeft = anchorX - totalWidth / 2f;
-    if (proposedLeft < 0) proposedLeft = 0;
-    if (proposedLeft + totalWidth > getWidth()) proposedLeft = getWidth() - totalWidth;
-    if (proposedLeft < 0) proposedLeft = 0;
-
-    final float popupVerticalPadding = lineHeight * 0.75f;
-
-    float topAbove = anchorY_top - totalHeight - popupVerticalPadding;
-    float topBelow = anchorY_bottom + popupVerticalPadding;
-
-    float finalTop;
-    float visibleBottomBound = getHeight() - keyboardHeight;
-
-    if (topAbove >= 0) {
-      finalTop = topAbove;
-    } else if (topBelow + totalHeight <= visibleBottomBound) {
-      finalTop = topBelow;
-    } else {
-      finalTop = Math.max(0, visibleBottomBound - totalHeight - popupPadding);
-    }
-
-    popupRect.set(proposedLeft, finalTop, proposedLeft + totalWidth, finalTop + totalHeight);
-    int bgBaseAlpha = bgPaint.getAlpha();
-    int textBaseAlpha = popupTextPaint.getAlpha();
-    bgPaint.setAlpha((int) (bgBaseAlpha * popupAlpha));
-    popupTextPaint.setAlpha((int) (textBaseAlpha * popupAlpha));
-    canvas.drawRoundRect(popupRect, popupCorner, popupCorner, bgPaint);
-
-    float bx = popupRect.left + localPopupPadding;
-    float by = popupRect.top + localPopupPadding;
-
-    if (popupRippleActive && popupRippleAlpha > 0f && !popupRippleRect.isEmpty()) {
-      int rippleAlpha = (int) (255f * Math.max(0f, Math.min(1f, popupRippleAlpha * popupAlpha)));
-      int base = popupRipplePaint.getColor();
-      popupRipplePaint.setColor((base & 0x00FFFFFF) | (rippleAlpha << 24));
-      canvas.save();
-      float rippleCorner = Math.min(popupCorner, localBtnHeight * 0.5f);
-      popupRippleClipPath.reset();
-      popupRippleClipPath.addRoundRect(
-          popupRippleRect, rippleCorner, rippleCorner, Path.Direction.CW);
-      canvas.clipPath(popupRippleClipPath);
-      canvas.drawCircle(popupRippleX, popupRippleY, popupRippleRadius, popupRipplePaint);
-      canvas.restore();
-      popupRipplePaint.setColor(base);
-    }
-
-    for (int i = 0; i < btnCount; i++) {
-      int action = actions.get(i);
-      RectF r = getPopupRectForAction(action);
-      float localBtnWidth = btnWidths[i];
-      r.set(bx, by, bx + localBtnWidth, by + localBtnHeight);
-      String label = getPopupLabelForAction(action);
-      float maxTextWidth = Math.max(0f, localBtnWidth - labelPad);
-      drawButton(canvas, r, label, popupTextPaint, maxTextWidth);
-      bx += localBtnWidth + localBtnSpacing;
-    }
-    bgPaint.setAlpha(bgBaseAlpha);
-    popupTextPaint.setAlpha(textBaseAlpha);
-  }
-
   public boolean shouldHideCopyCutForSelection() {
     if (!selection.hasSelection) return true;
 
@@ -10137,10 +9760,6 @@ public boolean pendingPopupAfterDoubleTap = false;
     hideCopyCutMaxLines = Math.max(1, maxLines);
   }
 
-  public void setReplaceAllMaxCount(int maxCount) {
-    replaceAllMaxCount = Math.max(1, maxCount);
-  }
-
   public int getReplaceAllMaxCount() {
     return replaceAllMaxCount;
   }
@@ -10149,194 +9768,7 @@ public boolean pendingPopupAfterDoubleTap = false;
     hideKeyboardOnFocusLoss = enabled;
   }
 
-  public RectF getPopupRectForAction(int action) {
-    switch (action) {
-      case POPUP_ACTION_COPY:
-        return btnCopyRect;
-      case POPUP_ACTION_CUT:
-        return btnCutRect;
-      case POPUP_ACTION_PASTE:
-        return btnPasteRect;
-      case POPUP_ACTION_DELETE:
-        return btnDeleteRect;
-      default:
-        return btnSelectAllRect;
-    }
-  }
 
-  public String getPopupLabelForAction(int action) {
-    switch (action) {
-      case POPUP_ACTION_COPY:
-        return popupLabelCopy;
-      case POPUP_ACTION_CUT:
-        return popupLabelCut;
-      case POPUP_ACTION_PASTE:
-        return popupLabelPaste;
-      case POPUP_ACTION_DELETE:
-        return popupLabelDelete;
-      default:
-        return popupLabelSelectAll;
-    }
-  }
-
-  public int getPopupActionAt(float x, float y) {
-    if (btnCopyRect.contains(x, y)) return POPUP_ACTION_COPY;
-    if (btnCutRect.contains(x, y)) return POPUP_ACTION_CUT;
-    if (btnPasteRect.contains(x, y)) return POPUP_ACTION_PASTE;
-    if (btnDeleteRect.contains(x, y)) return POPUP_ACTION_DELETE;
-    if (btnSelectAllRect.contains(x, y)) return POPUP_ACTION_SELECT_ALL;
-    return 0;
-  }
-
-  public void drawButton(
-      Canvas canvas, RectF r, String label, Paint txtPaint, float maxTextWidth) {
-    String drawLabel = label;
-    if (maxTextWidth > 0f) {
-      TextPaint ellipsizePaint =
-          (txtPaint instanceof TextPaint) ? (TextPaint) txtPaint : new TextPaint(txtPaint);
-      drawLabel =
-          TextUtils.ellipsize(label, ellipsizePaint, maxTextWidth, TextUtils.TruncateAt.END)
-              .toString();
-    }
-    float textWidth = txtPaint.measureText(drawLabel);
-    float cx = r.centerX();
-    float cy = r.centerY() - ((txtPaint.descent() + txtPaint.ascent()) / 2f);
-    canvas.drawText(drawLabel, cx - textWidth / 2f, cy, txtPaint);
-  }
-
-  public void startPopupRipple(int action, float x, float y) {
-    RectF r = getPopupRectForAction(action);
-    if (r.isEmpty()) return;
-    popupRippleHoldActive = false;
-    popupRippleRect.set(r);
-    popupRippleX = Math.max(r.left, Math.min(x, r.right));
-    popupRippleY = Math.max(r.top, Math.min(y, r.bottom));
-    popupRippleRadius = 0f;
-    popupRippleMaxRadius = (float) Math.hypot(r.width(), r.height());
-    popupRippleAlpha = 0.22f;
-    popupRippleActive = true;
-    if (popupRippleAnimator != null) popupRippleAnimator.cancel();
-    popupRippleAnimator = ValueAnimator.ofFloat(0f, 1f);
-    popupRippleAnimator.setDuration(220);
-    popupRippleAnimator.setInterpolator(new DecelerateInterpolator());
-    popupRippleAnimator.addUpdateListener(
-        a -> {
-          float t = (a.getAnimatedValue() instanceof Float) ? (Float) a.getAnimatedValue() : 1f;
-          popupRippleRadius = popupRippleMaxRadius * t;
-          popupRippleAlpha = 0.22f * (1f - t);
-          invalidate();
-        });
-    popupRippleAnimator.addListener(
-        new AnimatorListenerAdapter() {
-          @Override
-          public void onAnimationEnd(Animator animation) {
-            popupRippleActive = false;
-            popupRippleAlpha = 0f;
-            popupRippleRect.setEmpty();
-            invalidate();
-          }
-
-          @Override
-          public void onAnimationCancel(Animator animation) {
-            popupRippleActive = false;
-            popupRippleAlpha = 0f;
-            popupRippleRect.setEmpty();
-            invalidate();
-          }
-        });
-    popupRippleAnimator.start();
-  }
-
-  public void startPopupRippleHold(int action, float x, float y) {
-    RectF r = getPopupRectForAction(action);
-    if (r.isEmpty()) return;
-    popupRippleHoldActive = true;
-    popupRippleRect.set(r);
-    popupRippleX = Math.max(r.left, Math.min(x, r.right));
-    popupRippleY = Math.max(r.top, Math.min(y, r.bottom));
-    popupRippleMaxRadius = (float) Math.hypot(r.width(), r.height());
-    popupRippleRadius = popupRippleMaxRadius;
-    popupRippleAlpha = 0.22f;
-    popupRippleActive = true;
-    if (popupRippleAnimator != null) popupRippleAnimator.cancel();
-    invalidate();
-  }
-
-  public void cancelPopupRipple() {
-    if (popupRippleAnimator != null) popupRippleAnimator.cancel();
-    popupRippleHoldActive = false;
-    popupRippleActive = false;
-    popupRippleAlpha = 0f;
-    popupRippleRect.setEmpty();
-    invalidate();
-  }
-
-  public void showMinimalPopupAtCursor() {
-    if (selection.hasSelection) return;
-    isMinimalPopup = true;
-    showPopupAnimated();
-  }
-
-  public void showPopupAtSelection() {
-    if (!selection.hasSelection) return;
-    isMinimalPopup = false;
-    showPopupAnimated();
-  }
-
-  public void hidePopup() {
-    hidePopupAnimated();
-  }
-
-  public void showPopupAnimated() {
-    if (!showPopup) {
-      showPopup = true;
-    }
-    startPopupFade(1f);
-  }
-
-  public void hidePopupAnimated() {
-    popupPressedAction = 0;
-    cancelPopupRipple();
-    startPopupFade(0f);
-  }
-
-  public void startPopupFade(float targetAlpha) {
-    if (popupFadeAnimator != null) popupFadeAnimator.cancel();
-    float startAlpha = popupAlpha;
-    long duration = (targetAlpha > startAlpha) ? POPUP_FADE_IN_MS : POPUP_FADE_OUT_MS;
-    popupFadeAnimator = ValueAnimator.ofFloat(startAlpha, targetAlpha);
-    popupFadeAnimator.setDuration(duration);
-    popupFadeAnimator.setInterpolator(new DecelerateInterpolator());
-    popupFadeAnimator.addUpdateListener(
-        a -> {
-          Object v = a.getAnimatedValue();
-          popupAlpha = (v instanceof Float) ? (Float) v : targetAlpha;
-          invalidate();
-        });
-    popupFadeAnimator.addListener(
-        new AnimatorListenerAdapter() {
-          @Override
-          public void onAnimationEnd(Animator animation) {
-            if (popupAlpha <= 0f) {
-              showPopup = false;
-              isMinimalPopup = false;
-            }
-            invalidate();
-          }
-
-          @Override
-          public void onAnimationCancel(Animator animation) {
-            if (popupAlpha <= 0f) {
-              showPopup = false;
-              isMinimalPopup = false;
-            }
-            invalidate();
-          }
-        });
-    popupFadeAnimator.start();
-  }
-
-  
   public void checkAndLoadWindow() {
     if (sourceFile == null || isFileCleared) return;
     if (getWidth() == 0 || getHeight() == 0) return;
@@ -10959,7 +10391,6 @@ public boolean pendingPopupAfterDoubleTap = false;
       selection.hasSelection = false;
       selection.isSelectAllActive = false;
       selection.isEntireFileSelected = false;
-      hidePopup();
       InputMethodManager imm =
           (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
       if (imm != null) imm.hideSoftInputFromWindow(getWindowToken(), 0);
@@ -11074,7 +10505,6 @@ public boolean pendingPopupAfterDoubleTap = false;
       selection.isSelectAllActive = false;
       selection.isEntireFileSelected = false;
       selection.selecting = false;
-      hidePopup();
     }
 
     final int requestedLine = Math.max(0, line - 1);
@@ -11467,9 +10897,9 @@ public boolean pendingPopupAfterDoubleTap = false;
         int safeStart = Math.max(0, cursor.cursorChar - 1);
         String removed = base.substring(safeStart, Math.min(cursor.cursorChar, base.length()));
         boolean atLineEnd = cursor.cursorChar >= base.length();
-        if (isCharAnimationEnabled && atLineEnd) {
+        if (atLineEnd) {
           Paint p = getPaintForChar(cursor.cursorLine, safeStart, base);
-          startDeleteAnimation(cursor.cursorLine, safeStart, removed, p);
+          charAnimation.startDeleteAnimation(cursor.cursorLine, safeStart, removed, p);
         }
         String modified = base.substring(0, safeStart) + base.substring(cursor.cursorChar);
         updateLocalLine(localIdx, modified);
@@ -11577,9 +11007,9 @@ public boolean pendingPopupAfterDoubleTap = false;
         Float oldWidth = lineWidthCache.get(cursor.cursorLine);
         String removed = base.substring(cursor.cursorChar, Math.min(cursor.cursorChar + 1, base.length()));
         boolean atLineEnd = cursor.cursorChar == base.length() - 1;
-        if (isCharAnimationEnabled && atLineEnd) {
+        if (atLineEnd) {
           Paint p = getPaintForChar(cursor.cursorLine, cursor.cursorChar, base);
-          startDeleteAnimation(cursor.cursorLine, cursor.cursorChar, removed, p);
+          charAnimation.startDeleteAnimation(cursor.cursorLine, cursor.cursorChar, removed, p);
         }
         String modified = base.substring(0, cursor.cursorChar) + base.substring(cursor.cursorChar + 1);
         updateLocalLine(localIdx, modified);
@@ -11670,7 +11100,7 @@ public boolean pendingPopupAfterDoubleTap = false;
   public static final int COPY_CUT_MAX_CHARS = 8_000_000; // safety cap
   public long copyCutMaxLines = COPY_CUT_MAX_LINES;
   public int copyCutMaxChars = COPY_CUT_MAX_CHARS;
-  public int hideCopyCutMaxLines = HIDE_COPY_CUT_LINES;
+  public int hideCopyCutMaxLines = 20000;
   public int replaceAllMaxCount = 100000;
   public boolean hideKeyboardOnFocusLoss = true;
 
@@ -12524,7 +11954,6 @@ public boolean pendingPopupAfterDoubleTap = false;
     selection.selecting = false;
     selection.isSelectAllActive = false;
     selection.isEntireFileSelected = false;
-    hidePopup();
   }
 
   public void updateComposingPendingOp(@Nullable String text, int beforeLine, int beforeChar) {
@@ -13070,7 +12499,6 @@ public boolean pendingPopupAfterDoubleTap = false;
     selection.selecting = false;
     selection.isSelectAllActive = false;
     selection.isEntireFileSelected = false;
-    hidePopup();
     caret.resetBlink();
   }
 
@@ -13986,163 +13414,6 @@ public boolean pendingPopupAfterDoubleTap = false;
     showKeyboard();
   }
 
-  public void setCharAnimation(boolean enabled, int durationMs) {
-    isCharAnimationEnabled = enabled;
-    if (durationMs > 0) charAnimationDurationMs = durationMs;
-    if (!enabled) {
-      if (charAnimAnimator != null) charAnimAnimator.cancel();
-      charAnimAnimator = null;
-      charAnimAlpha = 0f;
-      charAnimLine = -1;
-      charAnimStartChar = 0;
-      charAnimEndChar = 0;
-      ime.lastComposingTextForCharAnim = null;
-      if (delAnimAnimator != null) delAnimAnimator.cancel();
-      delAnimAnimator = null;
-      delAnimAlpha = 0f;
-      delAnimLine = -1;
-      delAnimAtChar = 0;
-      delAnimText = null;
-      invalidate();
-    }
-  }
-
-  public void startCharAnimationFromText(CharSequence committedText) {
-    if (!isCharAnimationEnabled) return;
-    if (committedText == null) return;
-
-    final int targetLine = cursor.cursorLine;
-    final int targetEndChar = cursor.cursorChar;
-
-    int extractedCodePoint = -1;
-    int extractedCharCount = 0;
-    int i = committedText.length();
-    while (i > 0) {
-      int codePoint = Character.codePointBefore(committedText, i);
-      i -= Character.charCount(codePoint);
-
-      if (codePoint == '\n' || codePoint == '\r') continue;
-      if (Character.isWhitespace(codePoint)) continue;
-
-      extractedCodePoint = codePoint;
-      extractedCharCount = Character.charCount(codePoint);
-      break;
-    }
-    if (extractedCodePoint == -1) return;
-
-    final int finalCharCount = extractedCharCount;
-    long now = SystemClock.uptimeMillis();
-    long delta = (lastCharAnimUptime == 0L) ? Long.MAX_VALUE : (now - lastCharAnimUptime);
-    lastCharAnimUptime = now;
-    final int animDuration =
-        (delta <= charAnimFastThresholdMs)
-            ? Math.max(1, Math.min(charAnimationDurationMs, charAnimFastDurationMs))
-            : Math.max(1, charAnimationDurationMs);
-    Runnable start =
-        () -> {
-          if (delAnimAnimator != null) delAnimAnimator.cancel();
-          if (charAnimAnimator != null) charAnimAnimator.cancel();
-          charAnimLine = targetLine;
-          charAnimEndChar = Math.max(0, targetEndChar);
-          charAnimStartChar = Math.max(0, charAnimEndChar - finalCharCount);
-          charAnimAlpha = 0.2f;
-          invalidateLineGlobal(charAnimLine); // draw immediately
-
-          charAnimAnimator = ValueAnimator.ofFloat(0.2f, 1f);
-          charAnimAnimator.setDuration(animDuration);
-          charAnimAnimator.addUpdateListener(
-              a -> {
-                Object v = a.getAnimatedValue();
-                charAnimAlpha = (v instanceof Float) ? (Float) v : 0f;
-                invalidateLineGlobal(charAnimLine);
-              });
-          charAnimAnimator.addListener(
-              new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                  charAnimAlpha = 0f;
-                  charAnimLine = -1;
-                  invalidate();
-                }
-
-                @Override
-                public void onAnimationCancel(Animator animation) {
-                  charAnimAlpha = 0f;
-                  charAnimLine = -1;
-                  invalidate();
-                }
-              });
-          charAnimAnimator.start();
-        };
-    if (Looper.myLooper() == Looper.getMainLooper()) start.run();
-    else post(start);
-  }
-
-  public void startDeleteAnimation(
-      int targetLine, int atChar, @Nullable String removedText, @Nullable Paint paintToUse) {
-    if (!isCharAnimationEnabled) return;
-    if (removedText == null || removedText.isEmpty()) return;
-
-    final int lineForAnim = targetLine;
-    final int atForAnim = Math.max(0, atChar);
-    final String textForAnim = removedText;
-    final Paint p = (paintToUse != null) ? paintToUse : paint;
-    long now = SystemClock.uptimeMillis();
-    long delta = (lastCharAnimUptime == 0L) ? Long.MAX_VALUE : (now - lastCharAnimUptime);
-    lastCharAnimUptime = now;
-    final int animDuration =
-        (delta <= charAnimFastThresholdMs)
-            ? Math.max(1, Math.min(charAnimationDurationMs, charAnimFastDurationMs))
-            : Math.max(1, charAnimationDurationMs);
-
-    Runnable start =
-        () -> {
-          if (charAnimAnimator != null) charAnimAnimator.cancel();
-          if (delAnimAnimator != null) delAnimAnimator.cancel();
-          delAnimLine = lineForAnim;
-          delAnimAtChar = atForAnim;
-          delAnimText = textForAnim;
-          delAnimPaint = p;
-          delAnimAlpha = 1f;
-          invalidateLineGlobal(lineForAnim);
-
-          delAnimAnimator = ValueAnimator.ofFloat(1f, 0f);
-          delAnimAnimator.setDuration(animDuration);
-          delAnimAnimator.addUpdateListener(
-              a -> {
-                Object v = a.getAnimatedValue();
-                delAnimAlpha = (v instanceof Float) ? (Float) v : 0f;
-                invalidateLineGlobal(lineForAnim);
-              });
-          delAnimAnimator.addListener(
-              new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                  delAnimAlpha = 0f;
-                  delAnimLine = -1;
-                  delAnimAtChar = 0;
-                  delAnimText = null;
-                  delAnimPaint = null;
-                  invalidate();
-                }
-
-                @Override
-                public void onAnimationCancel(Animator animation) {
-                  delAnimAlpha = 0f;
-                  delAnimLine = -1;
-                  delAnimAtChar = 0;
-                  delAnimText = null;
-                  delAnimPaint = null;
-                  invalidate();
-                }
-              });
-          delAnimAnimator.start();
-        };
-
-    if (Looper.myLooper() == Looper.getMainLooper()) start.run();
-    else post(start);
-  }
-
   public void handleAutoPairing(String text) {
     if (!isAutoPairingEnabled || text == null || text.length() == 0 || text.length() >= 100) return;
 
@@ -14259,7 +13530,7 @@ public boolean pendingPopupAfterDoubleTap = false;
       if (uc != 0) {
         String s = String.valueOf((char) uc);
         replaceSelectionWithText(s);
-        startCharAnimationFromText(s);
+        charAnimation.startCharAnimationFromText(s);
       } else {
         replaceSelectionWithText("");
       }
@@ -14317,7 +13588,6 @@ public boolean pendingPopupAfterDoubleTap = false;
     selection.hasSelection = false;
     selection.isSelectAllActive = false;
     selection.isEntireFileSelected = false;
-    hidePopup();
     caret.resetBlink();
     invalidate();
     keepCursorVisibleHorizontally();
@@ -14348,7 +13618,6 @@ public boolean pendingPopupAfterDoubleTap = false;
     selection.hasSelection = false;
     selection.isSelectAllActive = false;
     selection.isEntireFileSelected = false;
-    hidePopup();
     caret.resetBlink();
     invalidate();
     keepCursorVisibleHorizontally();
@@ -14374,7 +13643,6 @@ public boolean pendingPopupAfterDoubleTap = false;
     selection.hasSelection = false;
     selection.isSelectAllActive = false;
     selection.isEntireFileSelected = false;
-    hidePopup();
     caret.resetBlink();
     invalidate();
     keepCursorVisibleHorizontally();
@@ -14401,7 +13669,6 @@ public boolean pendingPopupAfterDoubleTap = false;
     selection.hasSelection = false;
     selection.isSelectAllActive = false;
     selection.isEntireFileSelected = false;
-    hidePopup();
     caret.resetBlink();
     invalidate();
     keepCursorVisibleHorizontally();
@@ -14423,7 +13690,6 @@ public boolean pendingPopupAfterDoubleTap = false;
       isCursorVisible = true; // Make sure it's visible when not focused
       ime.hasComposing = false;
       selection.hasSelection = false;
-      hidePopup();
     }
   }
 
@@ -15314,87 +14580,6 @@ public boolean pendingPopupAfterDoubleTap = false;
         });
   }
 
-  public void setCursorAnimationEnabled(boolean enabled) {
-    if (this.isCursorAnimationEnabled == enabled) return;
-    this.isCursorAnimationEnabled = enabled;
-    if (!enabled) {
-      removeCallbacks(cursorAnimStep);
-      cursorAnimRunning = false;
-      cursorAnimValid = false;
-    }
-    invalidate();
-  }
-
-  public void updateCursorDrawPosition(float targetX, float targetY) {
-    if (!isCursorAnimationEnabled) {
-      removeCallbacks(cursorAnimStep);
-      cursorAnimRunning = false;
-      cursorAnimValid = true;
-      cursorAnimX = targetX;
-      cursorAnimY = targetY;
-      cursorAnimTargetX = targetX;
-      cursorAnimTargetY = targetY;
-      cursorDrawX = targetX;
-      cursorDrawY = targetY;
-      return;
-    }
-
-    boolean cursorMoved = (cursor.cursorLine != lastCursorAnimLine || cursor.cursorChar != lastCursorAnimChar);
-    if (cursorMoved) {
-      lastCursorAnimLine = cursor.cursorLine;
-      lastCursorAnimChar = cursor.cursorChar;
-      lastCursorMoveUptime = SystemClock.uptimeMillis();
-    } else if (Math.abs(targetX - cursorAnimTargetX) > 0.5f
-        || Math.abs(targetY - cursorAnimTargetY) > 0.5f) {
-      // Layout/zoom changed while caret stayed; snap to the new target.
-      removeCallbacks(cursorAnimStep);
-      cursorAnimRunning = false;
-      cursorAnimX = targetX;
-      cursorAnimY = targetY;
-      cursorAnimTargetX = targetX;
-      cursorAnimTargetY = targetY;
-      cursorAnimValid = true;
-      cursorDrawX = targetX;
-      cursorDrawY = targetY;
-      return;
-    }
-
-    if (!cursorAnimValid) {
-      cursorAnimX = targetX;
-      cursorAnimY = targetY;
-      cursorAnimValid = true;
-    }
-
-    cursorAnimTargetX = targetX;
-    cursorAnimTargetY = targetY;
-
-    float dx = cursorAnimTargetX - cursorAnimX;
-    float dy = cursorAnimTargetY - cursorAnimY;
-    float distance = (float) Math.hypot(dx, dy);
-    if (distance > lineHeight * 6f) {
-      removeCallbacks(cursorAnimStep);
-      cursorAnimRunning = false;
-      cursorAnimX = targetX;
-      cursorAnimY = targetY;
-      cursorAnimTargetX = targetX;
-      cursorAnimTargetY = targetY;
-      cursorDrawX = targetX;
-      cursorDrawY = targetY;
-      return;
-    }
-
-    if (!cursorAnimRunning && distance > 0.5f) {
-      cursorAnimLastFrameUptime = 0L;
-      cursorAnimRunning = true;
-      postOnAnimation(cursorAnimStep);
-    }
-
-    cursorDrawX = cursorAnimX;
-    cursorDrawY = cursorAnimY;
-  }
-
-  
-
   public boolean hasSelection() {
     return selection.hasSelection;
   }
@@ -15413,9 +14598,9 @@ public boolean pendingPopupAfterDoubleTap = false;
 
   public void release() {
     cancelAndCloseReader();
-    if (charAnimAnimator != null) charAnimAnimator.cancel();
-    if (delAnimAnimator != null) delAnimAnimator.cancel();
-    removeCallbacks(cursorAnimStep);
+    if (charAnimation.charAnimAnimator != null) charAnimation.charAnimAnimator.cancel();
+    if (charAnimation.delAnimAnimator != null) charAnimation.delAnimAnimator.cancel();
+    removeCallbacks(cursorAnimation.cursorAnimStep);
     ioThread.quitSafely();
   }
 }

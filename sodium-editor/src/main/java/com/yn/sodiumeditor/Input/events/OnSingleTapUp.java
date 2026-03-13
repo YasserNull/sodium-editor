@@ -31,7 +31,7 @@ public class OnSingleTapUp {
       int line = sodiumeditor.getGlobalLineForY(gy);
       if (sodiumeditor.toggleFoldAtLine(line)) {
         sodiumeditor.startFoldMarkerRipple(line);
-        sodiumeditor.hidePopup();
+        sodiumeditor.popup.hidePopup();
         sodiumeditor.invalidate();
         return true;
       }
@@ -61,7 +61,7 @@ public class OnSingleTapUp {
         if (sodiumeditor.toggleFoldAtLine(line)) {
           sodiumeditor.startFoldMarkerRipple(line);
         }
-        sodiumeditor.hidePopup();
+        sodiumeditor.popup.hidePopup();
         sodiumeditor.invalidate();
         return true;
       }
@@ -102,7 +102,7 @@ public class OnSingleTapUp {
       sodiumeditor.cursor.cursorChar = Math.max(0, Math.min(target.ch, ln.length()));
     }
 
-    sodiumeditor.hidePopup();
+    sodiumeditor.popup.hidePopup();
     sodiumeditor.selection.selecting = false;
     sodiumeditor.invalidate();
     sodiumeditor.caret.resetBlink();

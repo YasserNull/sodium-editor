@@ -98,7 +98,7 @@ public boolean isLineNumberSelecting = false;
 
     selStartLine = 0;
     selStartChar = 0;
-    sodiumeditor.hidePopup();
+    sodiumeditor.popup.hidePopup();
 
     // =========================
     // In-memory mode (no file):
@@ -125,7 +125,7 @@ public boolean isLineNumberSelecting = false;
       sodiumeditor.showLoadingCircle(false);
       sodiumeditor.invalidate();
       sodiumeditor.requestFocus();
-      sodiumeditor.showPopupAtSelection();
+      sodiumeditor.popup.showPopupAtSelection();
 
       sodiumeditor.post(
           () -> {
@@ -155,7 +155,7 @@ public boolean isLineNumberSelecting = false;
       sodiumeditor.showLoadingCircle(false);
       sodiumeditor.invalidate();
       sodiumeditor.requestFocus();
-      sodiumeditor.showPopupAtSelection();
+      sodiumeditor.popup.showPopupAtSelection();
 
       sodiumeditor.post(
           () -> {
@@ -197,7 +197,7 @@ public boolean isLineNumberSelecting = false;
               sodiumeditor.showLoadingCircle(false);
               sodiumeditor.invalidate();
               sodiumeditor.requestFocus();
-              sodiumeditor.showPopupAtSelection();
+              sodiumeditor.popup.showPopupAtSelection();
 
               sodiumeditor.post(
                   () -> {
@@ -232,7 +232,7 @@ public boolean isLineNumberSelecting = false;
                         sodiumeditor.showLoadingCircle(false);
                         sodiumeditor.invalidate();
                         sodiumeditor.requestFocus();
-                        sodiumeditor.showPopupAtSelection();
+                        sodiumeditor.popup.showPopupAtSelection();
 
                         sodiumeditor.post(
                             () -> {
@@ -283,7 +283,7 @@ public boolean isLineNumberSelecting = false;
                               sodiumeditor.showLoadingCircle(false);
                               sodiumeditor.invalidate();
                               sodiumeditor.requestFocus();
-                              sodiumeditor.showPopupAtSelection();
+                              sodiumeditor.popup.showPopupAtSelection();
 
                               sodiumeditor.post(
                                   () -> {
@@ -317,7 +317,7 @@ public boolean isLineNumberSelecting = false;
                     sodiumeditor.setDisable(false);
                     sodiumeditor.showLoadingCircle(false);
                     sodiumeditor.invalidate();
-                    sodiumeditor.showPopupAtSelection();
+                    sodiumeditor.popup.showPopupAtSelection();
                     if (keyboardWasVisible) sodiumeditor.showKeyboard();
                     return;
                   }

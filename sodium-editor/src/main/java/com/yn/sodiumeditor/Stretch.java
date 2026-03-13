@@ -13,7 +13,7 @@ import androidx.annotation.Nullable;
 public class Stretch {
 
   // Stretch configuration
-  public boolean stretchOverscrollEnabled = false;
+  public boolean stretchOverscrollEnabled = true;
   public float stretchOverscrollStrength = 1f;
 
   // Stretch state

@@ -33,13 +33,13 @@ public class OnDoubleTap {
     if (!sodiumeditor.applySmartDoubleTapSelection(line, charIndex, ln)) {
       return onSingleTapUp.onSingleTapUp(e);
     }
-    sodiumeditor.showPopupAtSelection();
-    sodiumeditor.pendingPopupAfterDoubleTap = true;
+    sodiumeditor.popup.showPopupAtSelection();
+    sodiumeditor.popup.pendingPopupAfterDoubleTap = true;
     sodiumeditor.post(
         () -> {
-          if (!sodiumeditor.pendingPopupAfterDoubleTap) return;
-          sodiumeditor.pendingPopupAfterDoubleTap = false;
-          if (sodiumeditor.selection.hasSelection) sodiumeditor.showPopupAtSelection();
+          if (!sodiumeditor.popup.pendingPopupAfterDoubleTap) return;
+          sodiumeditor.popup.pendingPopupAfterDoubleTap = false;
+          if (sodiumeditor.selection.hasSelection) sodiumeditor.popup.showPopupAtSelection();
         });
     sodiumeditor.caret.resetBlink();
     sodiumeditor.invalidate();

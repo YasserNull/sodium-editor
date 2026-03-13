@@ -29,7 +29,7 @@ public class Cursor {
       sodiumeditor.selection.isSelectAllActive = false;
       sodiumeditor.selection.isEntireFileSelected = false;
       sodiumeditor.selection.selecting = false;
-      sodiumeditor.hidePopup();
+      sodiumeditor.popup.hidePopup();
     }
     cursorLine = targetLine;
     if (cursorLine >= sodiumeditor.windowStartLine && cursorLine < sodiumeditor.windowStartLine + sodiumeditor.linesWindow.size()) {

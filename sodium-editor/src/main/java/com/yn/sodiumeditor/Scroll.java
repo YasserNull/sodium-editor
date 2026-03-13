@@ -724,7 +724,7 @@ public boolean scrollerIsScrolling = false;
           sodiumeditor.wrapPrefixRebuildPending = false;
           sodiumeditor.scheduleWrapPrefixRebuildUpToWindow();
         }
-        if (sodiumeditor.selection.hasSelection) sodiumeditor.showPopupAtSelection();
+        if (sodiumeditor.selection.hasSelection) sodiumeditor.popup.showPopupAtSelection();
       }
     }
   }

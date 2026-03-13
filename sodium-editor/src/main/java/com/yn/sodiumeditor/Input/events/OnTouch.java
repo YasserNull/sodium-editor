@@ -11,7 +11,7 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.inputmethod.InputMethodManager;
 import com.yn.sodiumeditor.SodiumEditor;
-
+import com.yn.sodiumeditor.Popup;
 /**
  * OnTouch handles all touch event logic for SodiumEditor.
  * This includes:
@@ -126,11 +126,11 @@ public class OnTouch {
           }
         }
 
-        if (sodiumeditor.showPopup) {
-          int hitAction = sodiumeditor.getPopupActionAt(ex, ey);
+        if (sodiumeditor.popup.showPopup) {
+          int hitAction = sodiumeditor.popup.getPopupActionAt(ex, ey);
           if (hitAction != 0) {
-            sodiumeditor.popupPressedAction = hitAction;
-            sodiumeditor.startPopupRipple(hitAction, ex, ey);
+            sodiumeditor.popup.popupPressedAction = hitAction;
+            sodiumeditor.popup.startPopupRipple(hitAction, ex, ey);
             return true;
           }
         }
@@ -187,11 +187,11 @@ public class OnTouch {
           return true;
         }
 
-        if (sodiumeditor.popupPressedAction != 0) {
-          RectF r = sodiumeditor.getPopupRectForAction(sodiumeditor.popupPressedAction);
+        if (sodiumeditor.popup.popupPressedAction != 0) {
+          RectF r = sodiumeditor.popup.getPopupRectForAction(sodiumeditor.popup.popupPressedAction);
           if (!r.contains(ex, ey)) {
-            sodiumeditor.popupPressedAction = 0;
-            sodiumeditor.cancelPopupRipple();
+            sodiumeditor.popup.popupPressedAction = 0;
+            sodiumeditor.popup.cancelPopupRipple();
           }
           return true;
         }
@@ -205,7 +205,7 @@ public class OnTouch {
 
         if (sodiumeditor.draggingHandle != 0) {
           updateHandlePosition(ex, ey);
-          if (sodiumeditor.draggingHandle == 1 || sodiumeditor.draggingHandle == 2) sodiumeditor.showPopupAtSelection();
+          if (sodiumeditor.draggingHandle == 1 || sodiumeditor.draggingHandle == 2) sodiumeditor.popup.showPopupAtSelection();
 
           float scrollMargin = sodiumeditor.lineHeight * 2f;
           float scrollSpeed = Math.max(4f, sodiumeditor.lineHeight * 0.35f);
@@ -241,39 +241,39 @@ public class OnTouch {
           return true;
         }
 
-        if (sodiumeditor.popupPressedAction != 0) {
-          int actionForTap = sodiumeditor.popupPressedAction;
-          sodiumeditor.popupPressedAction = 0;
-          RectF r = sodiumeditor.getPopupRectForAction(actionForTap);
-          if (sodiumeditor.showPopup && r.contains(ex, ey)) {
+        if (sodiumeditor.popup.popupPressedAction != 0) {
+          int actionForTap = sodiumeditor.popup.popupPressedAction;
+          sodiumeditor.popup.popupPressedAction = 0;
+          RectF r = sodiumeditor.popup.getPopupRectForAction(actionForTap);
+          if (sodiumeditor.popup.showPopup && r.contains(ex, ey)) {
             if (sodiumeditor.isReadOnly
-                && (actionForTap == SodiumEditor.POPUP_ACTION_CUT
-                    || actionForTap == SodiumEditor.POPUP_ACTION_PASTE
-                    || actionForTap == SodiumEditor.POPUP_ACTION_DELETE)) {
-              sodiumeditor.hidePopup();
+                && (actionForTap == Popup.POPUP_ACTION_CUT
+                    || actionForTap == Popup.POPUP_ACTION_PASTE
+                    || actionForTap == Popup.POPUP_ACTION_DELETE)) {
+              sodiumeditor.popup.hidePopup();
               return true;
             }
-            if (actionForTap == SodiumEditor.POPUP_ACTION_COPY) {
+            if (actionForTap == Popup.POPUP_ACTION_COPY) {
               sodiumeditor.copySelectionToClipboard();
               sodiumeditor.selection.hasSelection = false;
               sodiumeditor.selection.isSelectAllActive = false;
-              sodiumeditor.hidePopup();
+              sodiumeditor.popup.hidePopup();
               sodiumeditor.invalidate();
-            } else if (actionForTap == SodiumEditor.POPUP_ACTION_CUT) {
+            } else if (actionForTap == Popup.POPUP_ACTION_CUT) {
               sodiumeditor.cutSelectionToClipboard();
-            } else if (actionForTap == SodiumEditor.POPUP_ACTION_PASTE) {
+            } else if (actionForTap == Popup.POPUP_ACTION_PASTE) {
               sodiumeditor.pasteFromClipboard();
-            } else if (actionForTap == SodiumEditor.POPUP_ACTION_DELETE) {
+            } else if (actionForTap == Popup.POPUP_ACTION_DELETE) {
               sodiumeditor.deleteSelection();
-            } else if (actionForTap == SodiumEditor.POPUP_ACTION_SELECT_ALL) {
+            } else if (actionForTap == Popup.POPUP_ACTION_SELECT_ALL) {
               if (!sodiumeditor.selection.isSelectAllActive) sodiumeditor.selection.selectAll();
-              else sodiumeditor.hidePopup();
+              else sodiumeditor.popup.hidePopup();
             }
           } else {
-            sodiumeditor.cancelPopupRipple();
+            sodiumeditor.popup.cancelPopupRipple();
           }
-          if (sodiumeditor.popupRippleHoldActive) {
-            sodiumeditor.cancelPopupRipple();
+          if (sodiumeditor.popup.popupRippleHoldActive) {
+            sodiumeditor.popup.cancelPopupRipple();
           }
           return true;
         }
@@ -283,7 +283,7 @@ public class OnTouch {
           sodiumeditor.selection.lineNumberSelectAnchorLine = -1;
           sodiumeditor.selection.selecting = false;
           sodiumeditor.pointerDown = false;
-          if (sodiumeditor.selection.hasSelection) sodiumeditor.showPopupAtSelection();
+          if (sodiumeditor.selection.hasSelection) sodiumeditor.popup.showPopupAtSelection();
           return true;
         }
 
@@ -336,14 +336,14 @@ public class OnTouch {
         // sodiumeditor.clearActiveSuggestion();
 
         if (sodiumeditor.draggingHandle != 0) {
-          if (sodiumeditor.draggingHandle == 1 || sodiumeditor.draggingHandle == 2) sodiumeditor.showPopupAtSelection();
+          if (sodiumeditor.draggingHandle == 1 || sodiumeditor.draggingHandle == 2) sodiumeditor.popup.showPopupAtSelection();
           sodiumeditor.draggingHandle = 0;
           sodiumeditor.invalidate();
           return true;
         }
 
         if (sodiumeditor.movedSinceDown && sodiumeditor.scroll.scroller.isFinished()) { // Just finished a scroll/drag
-          if (sodiumeditor.selection.hasSelection) sodiumeditor.showPopupAtSelection();
+          if (sodiumeditor.selection.hasSelection) sodiumeditor.popup.showPopupAtSelection();
           sodiumeditor.restartInput(); // Sync IME state
           Log.d("SodiumEditor", "onTouchEvent.ACTION_UP: Scroll/Zoom ended, restarted input.");
           if (sodiumeditor.isWordWrapEnabled && sodiumeditor.wrapPrefixRebuildPending && !sodiumeditor.wrapPrefixBuilding) {
@@ -354,8 +354,8 @@ public class OnTouch {
 
         Log.d("SodiumEditor", "onTouchEvent.ACTION_UP: Passing to GestureDetector.ACTION_UP.");
         sodiumeditor.scroll.gestureDetector.onTouchEvent(event);
-        if (sodiumeditor.selection.hasSelection && !sodiumeditor.showPopup) {
-          sodiumeditor.showPopupAtSelection();
+        if (sodiumeditor.selection.hasSelection && !sodiumeditor.popup.showPopup) {
+          sodiumeditor.popup.showPopupAtSelection();
         }
         return true;
 
@@ -366,8 +366,8 @@ public class OnTouch {
         sodiumeditor.selection.selecting = false;
         sodiumeditor.selection.isLineNumberSelecting = false;
         sodiumeditor.selection.lineNumberSelectAnchorLine = -1;
-        sodiumeditor.popupPressedAction = 0;
-        sodiumeditor.cancelPopupRipple();
+        sodiumeditor.popup.popupPressedAction = 0;
+        sodiumeditor.popup.cancelPopupRipple();
         sodiumeditor.clearActiveSuggestion(); // Clear suggestion on touch cancel
         sodiumeditor.scroll.dragMaxScrollX = -1f;
         sodiumeditor.scroll.draggingScrollBar = false;
@@ -392,7 +392,7 @@ public class OnTouch {
       sodiumeditor.selection.isSelectAllActive = false;
       sodiumeditor.selection.isEntireFileSelected = false;
       // The popup needs to be redrawn as "Copy" and "Cut" might become available again.
-      sodiumeditor.showPopupAtSelection();
+      sodiumeditor.popup.showPopupAtSelection();
     }
 
     // Correctly calculate X coordinate relative to the text area, accounting for the gutter.

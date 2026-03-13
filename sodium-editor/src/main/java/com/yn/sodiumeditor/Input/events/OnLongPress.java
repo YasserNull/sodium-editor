@@ -21,11 +21,11 @@ public class OnLongPress {
     if (sodiumeditor.suggestionAcceptedThisTouch) return;
     if (sodiumeditor.multiTouchActive || sodiumeditor.hadMultiTouch) return;
 
-    if (sodiumeditor.showPopup) {
-      int hitAction = sodiumeditor.getPopupActionAt(e.getX(), e.getY());
+    if (sodiumeditor.popup.showPopup) {
+      int hitAction = sodiumeditor.popup.getPopupActionAt(e.getX(), e.getY());
       if (hitAction != 0) {
-        sodiumeditor.popupPressedAction = hitAction;
-        sodiumeditor.startPopupRippleHold(hitAction, e.getX(), e.getY());
+        sodiumeditor.popup.popupPressedAction = hitAction;
+        sodiumeditor.popup.startPopupRippleHold(hitAction, e.getX(), e.getY());
         return;
       }
     }
@@ -48,13 +48,19 @@ public class OnLongPress {
     if (ln == null) ln = sodiumeditor.getLineTextForRender(line);
     int charIndex = Math.max(0, Math.min(target.ch, ln.length()));
 
-    if (!sodiumeditor.applySmartDoubleTapSelection(line, charIndex, ln)) {
-      // Note: onSingleTapUp will be called by OnScroll
-      return;
-    }
+    // Set cursor position
+    sodiumeditor.cursor.cursorLine = line;
+    sodiumeditor.cursor.cursorChar = charIndex;
 
-    sodiumeditor.isMinimalPopup = false;
-    sodiumeditor.showPopupAtSelection();
+    // Try smart selection, but show minimal popup even if it fails (e.g., empty line)
+    boolean hasSelection = sodiumeditor.applySmartDoubleTapSelection(line, charIndex, ln);
+    
+    if (hasSelection) {
+      sodiumeditor.popup.showPopupAtSelection();
+    } else {
+      // No selection (empty line or smart selection failed), show minimal popup with Select All and Paste
+      sodiumeditor.popup.showMinimalPopupAtCursor();
+    }
     sodiumeditor.caret.resetBlink();
     sodiumeditor.invalidate();
     sodiumeditor.showKeyboard();

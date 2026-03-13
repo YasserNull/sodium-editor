@@ -260,7 +260,7 @@ public class Ime {
         if ("\n".equals(str)) {
           sodiumeditor.insertNewlineAtCursor();
           commitComposing(true);
-          sodiumeditor.startCharAnimationFromText(text);
+          sodiumeditor.charAnimation.startCharAnimationFromText(text);
           sodiumeditor.updateSuggestion();
           return true;
         }
@@ -324,7 +324,7 @@ public class Ime {
                     }
                     sodiumeditor.insertTextAtCursor(suffix);
                     commitComposing(true);
-                    sodiumeditor.startCharAnimationFromText(suffix);
+                    sodiumeditor.charAnimation.startCharAnimationFromText(suffix);
                     sodiumeditor.handleAutoPairing(suffix);
                     sodiumeditor.updateSuggestion();
                   }
@@ -339,7 +339,7 @@ public class Ime {
         if (sodiumeditor.selection.hasSelection) {
           sodiumeditor.replaceSelectionWithText(str);
           commitComposing(true);
-          sodiumeditor.startCharAnimationFromText(text);
+          sodiumeditor.charAnimation.startCharAnimationFromText(text);
           sodiumeditor.handleAutoPairing(str);
           sodiumeditor.updateSuggestion();
           return true;
@@ -352,7 +352,7 @@ public class Ime {
           updateComposingPendingOp(str, startLine, startChar);
           commitComposing(true);
           markImeCommit(str);
-          sodiumeditor.startCharAnimationFromText(text);
+          sodiumeditor.charAnimation.startCharAnimationFromText(text);
           sodiumeditor.handleAutoPairing(str);
           sodiumeditor.updateSuggestion();
           return true;
@@ -360,7 +360,7 @@ public class Ime {
 
         sodiumeditor.insertTextAtCursor(str);
         commitComposing(true);
-        sodiumeditor.startCharAnimationFromText(text);
+        sodiumeditor.charAnimation.startCharAnimationFromText(text);
         sodiumeditor.handleAutoPairing(str);
 
         sodiumeditor.updateSuggestion();
@@ -375,7 +375,7 @@ public class Ime {
 
         if (sodiumeditor.selection.hasSelection) {
           sodiumeditor.replaceSelectionWithText(text.toString());
-          sodiumeditor.startCharAnimationFromText(text);
+          sodiumeditor.charAnimation.startCharAnimationFromText(text);
           sodiumeditor.updateSuggestion();
           return true;
         }
@@ -396,7 +396,7 @@ public class Ime {
         replaceComposingWith(newText);
         updateComposingPendingOp(newText, composingStartLine, composingStartChar);
         lastComposingTextForCharAnim = newText;
-        if (shouldAnim) sodiumeditor.startCharAnimationFromText(newText);
+        if (shouldAnim) sodiumeditor.charAnimation.startCharAnimationFromText(newText);
         sodiumeditor.updateSuggestion();
         return true;
       }
@@ -497,7 +497,7 @@ public class Ime {
       if (base == null) base = "";
       int start = Math.max(0, Math.min(composingOffset, base.length()));
       int end = Math.max(0, Math.min(composingOffset + composingLength, base.length()));
-      if (sodiumeditor.isCharAnimationEnabled) {
+      if (sodiumeditor.charAnimation.isCharAnimationEnabled) {
         String oldComposing = base.substring(start, end);
         String newComposing = (textSeq == null) ? "" : textSeq.toString();
         if (newComposing.length() < oldComposing.length()) {
@@ -513,7 +513,7 @@ public class Ime {
 
           if (removed != null && !removed.isEmpty()) {
             android.graphics.Paint p = sodiumeditor.getPaintForChar(composingLine, at, base);
-            sodiumeditor.startDeleteAnimation(composingLine, at, removed, p);
+            sodiumeditor.charAnimation.startDeleteAnimation(composingLine, at, removed, p);
           }
         }
       }
@@ -761,7 +761,7 @@ public class Ime {
     sodiumeditor.replaceSelectionWithText(core);
     if (!trailing.isEmpty()) sodiumeditor.insertTextAtCursor(trailing);
     markImeCommit(insert);
-    sodiumeditor.startCharAnimationFromText(insert);
+    sodiumeditor.charAnimation.startCharAnimationFromText(insert);
     return true;
   }
 
