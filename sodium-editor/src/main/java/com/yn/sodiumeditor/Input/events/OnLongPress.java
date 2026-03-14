@@ -32,10 +32,10 @@ public class OnLongPress {
 
     if (sodiumeditor.movedSinceDown) return;
 
-    if (sodiumeditor.lineNumberSelectionEnabled && sodiumeditor.isInLineNumberGutter(e.getX())) {
+    if (sodiumeditor.lineNumber.lineNumberSelectionEnabled && sodiumeditor.lineNumber.isInLineNumberGutter(e.getX())) {
       float y = e.getY() + sodiumeditor.scroll.scrollY;
       int line = sodiumeditor.getGlobalLineForY(y);
-      sodiumeditor.beginLineNumberSelection(line);
+      sodiumeditor.lineNumber.beginLineNumberSelection(line);
       return;
     }
 

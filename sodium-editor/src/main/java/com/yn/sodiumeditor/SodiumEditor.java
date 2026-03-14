@@ -88,37 +88,10 @@ public class SodiumEditor extends View {
   public final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public Typeface baseTypeface = Typeface.DEFAULT;
   public float lineHeight;
-  public float paddingLeft = 10f; // Made non-final for line numbers
-
-  // --- Line Number State ---
-  public boolean showLineNumbers = false;
-  public boolean highlightCurrentLineInGutter = true;
-  public boolean lineNumberSelectionEnabled = true;
-  public float lineNumbersGutterWidth = 0f;
-  public final Paint lineNumbersPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  public final Paint gutterPaint = new Paint();
-  public final Paint gutterSeparatorPaint = new Paint();
-  public Bitmap lineNumberCacheBitmap;
-  public Canvas lineNumberCacheCanvas;
-  public int lineNumberCacheWidth = 0;
-  public int lineNumberCacheHeight = 0;
-  public int lineNumberCacheFirstIndex = -1;
-  public int lineNumberCacheLastIndex = -1;
-  public float lineNumberCacheBaseScrollY = 0f;
-  public float lineNumberCacheTextSize = -1f;
-  @Nullable public Typeface lineNumberCacheTypeface;
-  public boolean lineNumberCacheRtl = false;
-  public boolean lineNumberCacheWrapped = false;
-  public boolean lineNumberCacheCodeFolding = false;
-  public float lineNumberCacheGutterWidth = 0f;
-  public float lineNumberCacheFoldMarkerWidth = 0f;
-  public float lineNumberCacheLineHeight = 0f;
-  public int lineNumberCacheColor = 0;
-  public float gutterSeparatorWidth;
+  public float paddingLeft = 10f;
   public boolean isRtl = false;
   public final Rect textBounds = new Rect();
   public final int[] tmpLocationInWindow = new int[2];
-  public static final float GUTTER_TEXT_PADDING = 20f;
 public boolean binarySafeRenderingEnabled = false;
   // visual padding constants
   public static final float BOTTOM_SCROLL_OFFSET = 100f; // Visual padding below last line
@@ -230,6 +203,8 @@ public boolean binarySafeRenderingEnabled = false;
   // CharAnimation for handling character fade animations
   public final CharAnimation charAnimation;
 
+public final LineNumber lineNumber;
+
   // --- Search State ---
 
   public boolean isSearchActive() {
@@ -250,22 +225,6 @@ public boolean binarySafeRenderingEnabled = false;
         + (searchUseRegex ? "r" : "t")
         + "|"
         + (searchCaseSensitive ? "c" : "i");
-  }
-
-  public void drawCurrentLineHighlightInGutter(Canvas canvas, float top, float bottom) {
-    if (!showLineNumbers || !highlightCurrentLineInGutter || lineNumbersGutterWidth <= 0f) return;
-    float left = getGutterStartX();
-    float right = left + lineNumbersGutterWidth;
-    float sep = gutterSeparatorWidth;
-    if (sep > 0f) {
-      if (isRtl) {
-        left = Math.min(right, left + sep);
-      } else {
-        right = Math.max(left, right - sep);
-      }
-    }
-    if (right <= left) return;
-    canvas.drawRect(left, top, right, bottom, currentLinePaint);
   }
 
   public int[] getSearchMatchSpansForLine(String line, int globalLine) {
@@ -686,7 +645,6 @@ public boolean binarySafeRenderingEnabled = false;
   public final Paint handlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public final Paint loadingCirclePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public final RectF loadingCircleRect = new RectF();
-  public final char[] lineNumberChars = new char[16];
   public final java.util.HashMap<Integer, String> directLinesTmp = new java.util.HashMap<>();
   public final Path teardropPath = new Path();
   public final Paint foldPlaceholderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -768,8 +726,6 @@ public boolean binarySafeRenderingEnabled = false;
   public boolean isIndentationBlocksEnabled = false;
   public boolean isCodeFoldingEnabled = false;
   public int currentLineHighlightColor = 0x202196F3; // Default: translucent gray (more visible)
-  public int currentLineNumberColor = 0xFF2196F3; // Default: same as cursor/handles color
-  public final Paint currentLinePaint = new Paint();
 
   public int draggingHandle = 0;
   public volatile boolean isWindowLoading = false;
@@ -1332,18 +1288,9 @@ public boolean binarySafeRenderingEnabled = false;
     handlePaint.setStyle(Paint.Style.FILL);
     loadingCirclePaint.setStyle(Paint.Style.STROKE);
     loadingCirclePaint.setStrokeCap(Paint.Cap.ROUND);
-
-    // Initialization for line numbers
-    lineNumbersPaint.setTextAlign(Paint.Align.RIGHT);
-    lineNumbersPaint.setColor(0xFF888888); // Default gray color
-    lineNumbersPaint.setTextSize(paint.getTextSize());
-    lineNumbersPaint.setTypeface(paint.getTypeface());
-    gutterPaint.setColor(0xFFFAFAFA); // Default light gray background
-
+lineNumber = new LineNumber(this);
     float density = getContext().getResources().getDisplayMetrics().density;
-    gutterSeparatorWidth = 4 * density;
-    gutterSeparatorPaint.setColor(0xFF555555);
-    currentLinePaint.setColor(currentLineHighlightColor);
+    lineNumber.currentLinePaint.setColor(currentLineHighlightColor);
     mCurrentSearchMatchPaint.setColor(mCurrentSearchMatchColor);
     foldPlaceholderCorner = 6f * density;
     foldPlaceholderPadX = 6f * density;
@@ -1389,6 +1336,7 @@ public boolean binarySafeRenderingEnabled = false;
 
     // Initialize Popup
     popup = new Popup(this);
+    
 
     // Initialize CursorAnimation
     cursorAnimation = new CursorAnimation(this);
@@ -1998,45 +1946,6 @@ public boolean binarySafeRenderingEnabled = false;
         });
   }
 
-  // --- Public APIs for Line Numbers ---
-
-  public void setShowLineNumbers(boolean show) {
-    if (this.showLineNumbers == show) return;
-    this.showLineNumbers = show;
-    scroll.maxTextStartXForScroll = 0f;
-    invalidateLineNumberCache();
-    requestLayout(); // Recalculate gutter width
-    if (isWordWrapEnabled) invalidateWrapMetrics(true);
-    invalidate(); // Redraw
-  }
-
-  public void setLineNumberColor(int color) {
-    lineNumbersPaint.setColor(color);
-    lineNumberCacheColor = color;
-    invalidateLineNumberCache();
-    if (showLineNumbers) invalidate();
-  }
-
-  public void setCurrentLineGutterHighlightEnabled(boolean enabled) {
-    if (highlightCurrentLineInGutter == enabled) return;
-    highlightCurrentLineInGutter = enabled;
-    invalidate();
-  }
-
-  public void setLineNumberSelectionEnabled(boolean enabled) {
-    if (lineNumberSelectionEnabled == enabled) return;
-    lineNumberSelectionEnabled = enabled;
-    if (!enabled && selection.isLineNumberSelecting) {
-      selection.isLineNumberSelecting = false;
-      selection.lineNumberSelectAnchorLine = -1;
-    }
-  }
-
-  public void setGutterBackgroundColor(int color) {
-    gutterPaint.setColor(color);
-    if (showLineNumbers) invalidate();
-  }
-
   public void setEditorBackgroundColor(int color) {
     hasEditorBackgroundColor = true;
     editorBackgroundColor = color;
@@ -2613,7 +2522,7 @@ public boolean binarySafeRenderingEnabled = false;
   public void setCodeFoldingEnabled(boolean enabled) {
     if (this.isCodeFoldingEnabled == enabled) return;
     this.isCodeFoldingEnabled = enabled;
-    invalidateLineNumberCache();
+    lineNumber.invalidateLineNumberCache();
     if (!enabled) {
       foldRanges.clear();
       clearFoldRipple();
@@ -2645,30 +2554,8 @@ public boolean binarySafeRenderingEnabled = false;
 
   public void setCurrentLineHighlightColor(int color) {
     this.currentLineHighlightColor = color;
-    this.currentLinePaint.setColor(color);
+    this.lineNumber.currentLinePaint.setColor(color);
     if (highlightCurrentLine) invalidate();
-  }
-
-  public void setGutterSeparatorColor(int color) {
-    gutterSeparatorPaint.setColor(color);
-    if (showLineNumbers) {
-      invalidate();
-    }
-  }
-
-  public void setGutterSeparatorWidth(float width) {
-    float safe = Math.max(0f, width);
-    if (gutterSeparatorWidth == safe) return;
-    gutterSeparatorWidth = safe;
-    requestLayout();
-    if (isWordWrapEnabled) invalidateWrapMetrics(true);
-    if (showLineNumbers) invalidate();
-  }
-
-  public void setCurrentLineNumberColor(int color) {
-    if (this.currentLineNumberColor == color) return;
-    this.currentLineNumberColor = color;
-    if (showLineNumbers) invalidate();
   }
 
   public void addHighlightRule(String regex, int style, int color) {
@@ -2970,9 +2857,9 @@ public boolean binarySafeRenderingEnabled = false;
   public void setLayoutDirection(boolean isRtl) {
     if (this.isRtl == isRtl) return;
     this.isRtl = isRtl;
-    lineNumbersPaint.setTextAlign(isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
+    lineNumber.lineNumbersPaint.setTextAlign(isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
     foldMarkerPaint.setTextAlign(isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
-    invalidateLineNumberCache();
+    lineNumber.invalidateLineNumberCache();
     requestLayout();
     if (isWordWrapEnabled) invalidateWrapMetrics(true);
     scroll.maxScrollXForScroll = 0f;
@@ -3059,7 +2946,7 @@ public boolean binarySafeRenderingEnabled = false;
   }
 
   // --- Convenience cursor/line accessors ---
-  public int getCurrentLineNumber() {
+  public int getCurrentlineNumber() {
     return cursor.cursorLine;
   }
 
@@ -3143,7 +3030,7 @@ public boolean binarySafeRenderingEnabled = false;
       suggestionTextSizeScale = 1f;
     }
     suggestionPaint.setTextSize(sizePx * suggestionTextSizeScale);
-    lineNumbersPaint.setTextSize(sizePx);
+    lineNumber.lineNumbersPaint.setTextSize(sizePx);
     foldMarkerPaint.setTextSize(sizePx * foldMarkerTextScale);
     wordWrapIndicatorPaint.setTextSize(sizePx * wordWrapIndicatorTextScale);
     wordWrapIndicatorPaint.setTypeface(paint.getTypeface());
@@ -3151,7 +3038,7 @@ public boolean binarySafeRenderingEnabled = false;
     lineHeight = paint.getFontSpacing();
     updateTextSizeDependentMetrics();
     updateWhitespaceGuideMetrics();
-    invalidateLineNumberCache();
+    lineNumber.invalidateLineNumberCache();
 
     for (HighlightRule rule : highlightRules) {
       rule.updateTextSize(sizePx);
@@ -3211,7 +3098,7 @@ public boolean binarySafeRenderingEnabled = false;
     Typeface finalTypeface = Typeface.create(safeBase, typefaceStyle);
     paint.setTypeface(finalTypeface);
     suggestionPaint.setTypeface(finalTypeface);
-    lineNumbersPaint.setTypeface(finalTypeface);
+    lineNumber.lineNumbersPaint.setTypeface(finalTypeface);
     foldMarkerPaint.setTypeface(finalTypeface);
     wordWrapIndicatorPaint.setTypeface(finalTypeface);
     whitespaceGuidePaint.setTypeface(finalTypeface);
@@ -3225,7 +3112,7 @@ public boolean binarySafeRenderingEnabled = false;
 
     lineHeight = paint.getFontSpacing();
     updateWhitespaceGuideMetrics();
-    invalidateLineNumberCache();
+    lineNumber.invalidateLineNumberCache();
     wordWrapIndicatorWidth = wordWrapIndicatorPaint.measureText(WORD_WRAP_INDICATOR_TEXT);
 
     synchronized (lineWidthCache) {
@@ -3402,8 +3289,8 @@ public boolean binarySafeRenderingEnabled = false;
   @Override
   protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
     super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-    float oldGutterWidth = lineNumbersGutterWidth;
-    if (showLineNumbers) {
+    float oldGutterWidth = lineNumber.lineNumbersGutterWidth;
+    if (lineNumber.showLineNumbers) {
       int maxLines = 0;
       if (isIndexReady) {
         maxLines = lineOffsets.length;
@@ -3413,24 +3300,24 @@ public boolean binarySafeRenderingEnabled = false;
         maxLines = 999999; // Wider fallback for width calculation until index is ready
       }
       String maxLineNum = String.valueOf(maxLines);
-      float baseWidth = lineNumbersPaint.measureText(maxLineNum) + (GUTTER_TEXT_PADDING * 2);
+      float baseWidth = lineNumber.lineNumbersPaint.measureText(maxLineNum) + (lineNumber.GUTTER_TEXT_PADDING * 2);
       if (isCodeFoldingEnabled) {
         foldMarkerGutterWidth =
             foldMarkerPaint.measureText("v") + foldMarkerSpacing + foldMarkerEdgePadding;
       } else {
         foldMarkerGutterWidth = 0f;
       }
-      lineNumbersGutterWidth = baseWidth + foldMarkerGutterWidth + gutterSeparatorWidth;
+      lineNumber.lineNumbersGutterWidth = baseWidth + foldMarkerGutterWidth + lineNumber.gutterSeparatorWidth;
     } else {
-      lineNumbersGutterWidth = 0f;
+      lineNumber.lineNumbersGutterWidth = 0f;
     }
 
-    if (isWordWrapEnabled && Math.abs(lineNumbersGutterWidth - oldGutterWidth) > 0.1f) {
+    if (isWordWrapEnabled && Math.abs(lineNumber.lineNumbersGutterWidth - oldGutterWidth) > 0.1f) {
       invalidateWrapMetrics(true);
       requestWrapPrefixRebuild();
     }
-    if (Math.abs(lineNumbersGutterWidth - oldGutterWidth) > 0.1f) {
-      invalidateLineNumberCache();
+    if (Math.abs(lineNumber.lineNumbersGutterWidth - oldGutterWidth) > 0.1f) {
+      lineNumber.invalidateLineNumberCache();
     }
   }
 
@@ -3438,7 +3325,7 @@ public boolean binarySafeRenderingEnabled = false;
   protected void onSizeChanged(int w, int h, int oldw, int oldh) {
     super.onSizeChanged(w, h, oldw, oldh);
     if (w != oldw || h != oldh) {
-      invalidateLineNumberCache();
+      lineNumber.invalidateLineNumberCache();
     }
     if (w != oldw) {
       scroll.maxScrollXForScroll = 0f;
@@ -3456,7 +3343,7 @@ public boolean binarySafeRenderingEnabled = false;
   }
 
   public float getTextStartX() {
-    return isRtl ? paddingLeft : paddingLeft + lineNumbersGutterWidth;
+    return isRtl ? paddingLeft : paddingLeft + lineNumber.lineNumbersGutterWidth;
   }
 
   public float getEffectiveScrollX() {
@@ -3468,7 +3355,7 @@ public boolean binarySafeRenderingEnabled = false;
   }
 
   public float getTextAreaWidth() {
-    return Math.max(0f, getWidth() - lineNumbersGutterWidth - paddingLeft);
+    return Math.max(0f, getWidth() - lineNumber.lineNumbersGutterWidth - paddingLeft);
   }
 
   public float getRtlLineBaseX(@Nullable String line, int globalLine) {
@@ -3789,7 +3676,7 @@ public boolean binarySafeRenderingEnabled = false;
 
   public void onLineCountChanged() {
     if (isWordWrapEnabled) invalidateWrapMetrics();
-    invalidateLineNumberCache();
+    lineNumber.invalidateLineNumberCache();
   }
 
   public void buildWrapMetricsForWindowSnapshot() {
@@ -4444,16 +4331,6 @@ public boolean binarySafeRenderingEnabled = false;
     return true;
   }
 
-  public float getGutterStartX() {
-    return isRtl ? getWidth() - lineNumbersGutterWidth : 0;
-  }
-
-  public boolean isInLineNumberGutter(float x) {
-    if (!showLineNumbers || lineNumbersGutterWidth <= 0f) return false;
-    float start = getGutterStartX();
-    return x >= start && x <= start + lineNumbersGutterWidth;
-  }
-
   public int clampLineForSelection(int line) {
     if (line < 0) return 0;
     if (isEof) {
@@ -4468,46 +4345,6 @@ public boolean binarySafeRenderingEnabled = false;
     ensureLineInWindow(line, true);
     String ln = getLineTextForRender(line);
     return ln != null && ln.length() > 0;
-  }
-
-  public void beginLineNumberSelection(int line) {
-    int clamped = clampLineForSelection(line);
-    if (!isLineSelectable(clamped)) return;
-    clearActiveSuggestion();
-    selection.isLineNumberSelecting = true;
-    selection.lineNumberSelectAnchorLine = clamped;
-    selection.hasSelection = true;
-    selection.selecting = true;
-    selection.isSelectAllActive = false;
-    selection.isEntireFileSelected = false;
-    String lineText = getLineTextForRender(clamped);
-    selection.selStartLine = clamped;
-    selection.selStartChar = 0;
-    selection.selEndLine = clamped;
-    selection.selEndChar = lineText.length();
-    cursor.cursorLine = clamped;
-    cursor.cursorChar = selection.selEndChar;
-    caret.resetBlink();
-    invalidate();
-  }
-
-  public void updateLineNumberSelection(int line) {
-    if (!selection.isLineNumberSelecting) return;
-    int clamped = clampLineForSelection(line);
-    if (!isLineSelectable(clamped)) return;
-    int startLine = Math.min(selection.lineNumberSelectAnchorLine, clamped);
-    int endLine = Math.max(selection.lineNumberSelectAnchorLine, clamped);
-    ensureLineInWindow(endLine, true);
-    String endLineText = getLineTextForRender(endLine);
-    selection.selStartLine = startLine;
-    selection.selStartChar = 0;
-    selection.selEndLine = endLine;
-    selection.selEndChar = endLineText.length();
-    cursor.cursorLine = endLine;
-    cursor.cursorChar = selection.selEndChar;
-    selection.hasSelection = true;
-    selection.selecting = true;
-    invalidate();
   }
 
   public final Runnable autoScrollRunnable =
@@ -4754,7 +4591,7 @@ public boolean binarySafeRenderingEnabled = false;
   }
 
   public void startFoldMarkerRipple(int line) {
-    if (!isCodeFoldingEnabled || !showLineNumbers) return;
+    if (!isCodeFoldingEnabled || !lineNumber.showLineNumbers) return;
     foldRippleLine = line;
     float gutterWidth = foldMarkerGutterWidth;
     if (gutterWidth <= 0f) {
@@ -4860,44 +4697,44 @@ public boolean binarySafeRenderingEnabled = false;
     maybeUpdateStreamedSlicesForVisibleRange(firstVisibleLine, lastVisibleLine);
 
     // --- 1. Draw fixed gutter background ---
-    if (showLineNumbers) {
+    if (lineNumber.showLineNumbers) {
       canvas.drawRect(
-          getGutterStartX(),
+          lineNumber.getGutterStartX(),
           0,
-          getGutterStartX() + lineNumbersGutterWidth,
+          lineNumber.getGutterStartX() + lineNumber.lineNumbersGutterWidth,
           getHeight(),
-          gutterPaint);
+          lineNumber.gutterPaint);
 
       // Draw separator line
       float separatorLeft;
       if (isRtl) {
         // Separator is on the left side of the gutter (inner edge)
-        separatorLeft = getGutterStartX();
+        separatorLeft = lineNumber.getGutterStartX();
       } else {
         // Separator is on the right side of the gutter (inner edge)
-        separatorLeft = getGutterStartX() + lineNumbersGutterWidth - gutterSeparatorWidth;
+        separatorLeft = lineNumber.getGutterStartX() + lineNumber.lineNumbersGutterWidth - lineNumber.gutterSeparatorWidth;
       }
       canvas.drawRect(
           separatorLeft,
           0,
-          separatorLeft + gutterSeparatorWidth,
+          separatorLeft + lineNumber.gutterSeparatorWidth,
           getHeight(),
-          gutterSeparatorPaint);
+          lineNumber.gutterSeparatorPaint);
     }
 
-    if (highlightCurrentLineInGutter
+    if (lineNumber.highlightCurrentLineInGutter
         && cursor.cursorLine >= firstVisibleLine
         && cursor.cursorLine <= lastVisibleLine
         && (!isCodeFoldingEnabled || !isLineHiddenByFold(cursor.cursorLine))) {
       int drawIndex = isCodeFoldingEnabled ? getVisibleIndexForGlobalLine(cursor.cursorLine) : cursor.cursorLine;
       float top = Math.round(drawIndex * lineHeight -  scroll.scrollY);
       float bottom = top + lineHeight;
-      drawCurrentLineHighlightInGutter(canvas, top, bottom);
+      lineNumber.drawCurrentLineHighlightInGutter(canvas, top, bottom);
     }
 
     // --- 2. Draw line numbers (vertically scrolled) ---
-    if (showLineNumbers) {
-      drawLineNumbersCachedUnwrapped(
+    if (lineNumber.showLineNumbers) {
+      drawlineNumbersCachedUnwrapped(
           canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine);
       if (isCodeFoldingEnabled && drawDecorations) {
         drawFoldMarkersForVisibleLines(canvas, firstVisibleIndex, lastVisibleIndex);
@@ -4908,9 +4745,9 @@ public boolean binarySafeRenderingEnabled = false;
     canvas.save();
     // Clip the text area so it doesn't draw over the gutter
     if (isRtl) {
-      canvas.clipRect(0, 0, getWidth() - lineNumbersGutterWidth, getHeight());
+      canvas.clipRect(0, 0, getWidth() - lineNumber.lineNumbersGutterWidth, getHeight());
     } else {
-      canvas.clipRect(lineNumbersGutterWidth, 0, getWidth(), getHeight());
+      canvas.clipRect(lineNumber.lineNumbersGutterWidth, 0, getWidth(), getHeight());
     }
     canvas.translate(getTextStartX() - getEffectiveScrollX(), translateY);
     if (zoom.pinchVisualZoomActive) {
@@ -5003,11 +4840,11 @@ public boolean binarySafeRenderingEnabled = false;
         if (highlightCurrentLine && globalLine == cursor.cursorLine && !selection.hasSelection) {
           float top = Math.round(getDrawLineTop(globalLine));
           float bottom = Math.round(getDrawLineBottom(globalLine));
-          float viewLeft = isRtl ? 0f : lineNumbersGutterWidth;
-          float viewRight = isRtl ? (getWidth() - lineNumbersGutterWidth) : getWidth();
+          float viewLeft = isRtl ? 0f : lineNumber.lineNumbersGutterWidth;
+          float viewRight = isRtl ? (getWidth() - lineNumber.lineNumbersGutterWidth) : getWidth();
           float left = viewLeft + getEffectiveScrollX() - getTextStartX();
           float right = viewRight + getEffectiveScrollX() - getTextStartX();
-          canvas.drawRect(left, top, right, bottom, currentLinePaint);
+          canvas.drawRect(left, top, right, bottom, lineNumber.currentLinePaint);
         }
 
         if (selection.hasSelection && selPaint != null) {
@@ -5190,11 +5027,11 @@ public boolean binarySafeRenderingEnabled = false;
         if (highlightCurrentLine && globalLine == cursor.cursorLine && !selection.hasSelection) {
           float top = Math.round(getDrawLineTop(globalLine));
           float bottom = Math.round(getDrawLineBottom(globalLine));
-          float viewLeft = isRtl ? 0f : lineNumbersGutterWidth;
-          float viewRight = isRtl ? (getWidth() - lineNumbersGutterWidth) : getWidth();
+          float viewLeft = isRtl ? 0f : lineNumber.lineNumbersGutterWidth;
+          float viewRight = isRtl ? (getWidth() - lineNumber.lineNumbersGutterWidth) : getWidth();
           float left = viewLeft + getEffectiveScrollX() - getTextStartX();
           float right = viewRight + getEffectiveScrollX() - getTextStartX();
-          canvas.drawRect(left, top, right, bottom, currentLinePaint);
+          canvas.drawRect(left, top, right, bottom, lineNumber.currentLinePaint);
         }
 
         if (selection.hasSelection && selPaint != null) {
@@ -5530,29 +5367,29 @@ public boolean binarySafeRenderingEnabled = false;
     float translateY = - scroll.scrollY + baseY;
 
     // --- 1. Draw fixed gutter background ---
-    if (showLineNumbers) {
+    if (lineNumber.showLineNumbers) {
       canvas.drawRect(
-          getGutterStartX(),
+          lineNumber.getGutterStartX(),
           0,
-          getGutterStartX() + lineNumbersGutterWidth,
+          lineNumber.getGutterStartX() + lineNumber.lineNumbersGutterWidth,
           getHeight(),
-          gutterPaint);
+          lineNumber.gutterPaint);
 
       float separatorLeft;
       if (isRtl) {
-        separatorLeft = getGutterStartX();
+        separatorLeft = lineNumber.getGutterStartX();
       } else {
-        separatorLeft = getGutterStartX() + lineNumbersGutterWidth - gutterSeparatorWidth;
+        separatorLeft = lineNumber.getGutterStartX() + lineNumber.lineNumbersGutterWidth - lineNumber.gutterSeparatorWidth;
       }
       canvas.drawRect(
           separatorLeft,
           0,
-          separatorLeft + gutterSeparatorWidth,
+          separatorLeft + lineNumber.gutterSeparatorWidth,
           getHeight(),
-          gutterSeparatorPaint);
+          lineNumber.gutterSeparatorPaint);
     }
 
-    if (highlightCurrentLineInGutter
+    if (lineNumber.highlightCurrentLineInGutter
         && (!isCodeFoldingEnabled || !isLineHiddenByFold(cursor.cursorLine))) {
       int currentVisualIndex = getVisualIndexForLineAndChar(cursor.cursorLine, 0);
       String cursorLineText = getLineTextForRender(cursor.cursorLine);
@@ -5564,21 +5401,21 @@ public boolean binarySafeRenderingEnabled = false;
       for (int v = drawFrom; v <= drawTo; v++) {
         float top = Math.round(v * lineHeight -  scroll.scrollY);
         float bottom = top + lineHeight;
-        drawCurrentLineHighlightInGutter(canvas, top, bottom);
+        lineNumber.drawCurrentLineHighlightInGutter(canvas, top, bottom);
       }
     }
 
     // --- 2. Draw line numbers (vertically scrolled) ---
-    if (showLineNumbers) {
-      drawLineNumbersCachedWrapped(canvas, firstVisualIndex, lastVisualIndex);
+    if (lineNumber.showLineNumbers) {
+      drawlineNumbersCachedWrapped(canvas, firstVisualIndex, lastVisualIndex);
     }
 
     // --- 3. Draw main text content (scrolled) ---
     canvas.save();
     if (isRtl) {
-      canvas.clipRect(0, 0, getWidth() - lineNumbersGutterWidth, getHeight());
+      canvas.clipRect(0, 0, getWidth() - lineNumber.lineNumbersGutterWidth, getHeight());
     } else {
-      canvas.clipRect(lineNumbersGutterWidth, 0, getWidth(), getHeight());
+      canvas.clipRect(lineNumber.lineNumbersGutterWidth, 0, getWidth(), getHeight());
     }
     canvas.translate(getTextStartX() - getEffectiveScrollX(), translateY);
     if (zoom.pinchVisualZoomActive) {
@@ -5622,7 +5459,7 @@ public boolean binarySafeRenderingEnabled = false;
 
       if (highlightCurrentLine && pos.line == cursor.cursorLine && !selection.hasSelection) {
         canvas.drawRect(
-            -paddingLeft, top, Math.max(getWrapWidth(), getWidth()), bottom, currentLinePaint);
+            -paddingLeft, top, Math.max(getWrapWidth(), getWidth()), bottom, lineNumber.currentLinePaint);
       }
 
       if (selection.hasSelection && selPaint != null) {
@@ -5832,39 +5669,39 @@ public boolean binarySafeRenderingEnabled = false;
     float translateY = - scroll.scrollY + baseY;
 
     // Draw gutter background
-    if (showLineNumbers) {
+    if (lineNumber.showLineNumbers) {
       canvas.drawRect(
-          getGutterStartX(),
+          lineNumber.getGutterStartX(),
           0,
-          getGutterStartX() + lineNumbersGutterWidth,
+          lineNumber.getGutterStartX() + lineNumber.lineNumbersGutterWidth,
           getHeight(),
-          gutterPaint);
+          lineNumber.gutterPaint);
       float separatorLeft =
           isRtl
-              ? getGutterStartX()
-              : getGutterStartX() + lineNumbersGutterWidth - gutterSeparatorWidth;
+              ? lineNumber.getGutterStartX()
+              : lineNumber.getGutterStartX() + lineNumber.lineNumbersGutterWidth - lineNumber.gutterSeparatorWidth;
       canvas.drawRect(
           separatorLeft,
           0,
-          separatorLeft + gutterSeparatorWidth,
+          separatorLeft + lineNumber.gutterSeparatorWidth,
           getHeight(),
-          gutterSeparatorPaint);
+          lineNumber.gutterSeparatorPaint);
     }
 
-    if (highlightCurrentLineInGutter
+    if (lineNumber.highlightCurrentLineInGutter
         && (!isCodeFoldingEnabled || !isLineHiddenByFold(cursor.cursorLine))) {
       int currentVisualIndex = getVisualIndexForLineAndChar(cursor.cursorLine, 0);
       if (currentVisualIndex >= firstIndex && currentVisualIndex <= lastIndex) {
         float top = Math.round(currentVisualIndex * lineHeight -  scroll.scrollY);
         float bottom = top + lineHeight;
-        drawCurrentLineHighlightInGutter(canvas, top, bottom);
+        lineNumber.drawCurrentLineHighlightInGutter(canvas, top, bottom);
       }
     }
 
     // Disable line number cache in fallback because it relies on global metrics which are likely
     // invalid here.
     // This prevents "counts wrapped line as a separate line" visual bug.
-    boolean useLineNumberCache = false;
+    boolean uselineNumberCache = false;
 
     canvas.save();
     // Translate for scrolling content
@@ -5872,19 +5709,19 @@ public boolean binarySafeRenderingEnabled = false;
 
     // Pre-calculate line number X position
     float lineNumX = 0f;
-    if (showLineNumbers && !useLineNumberCache) {
+    if (lineNumber.showLineNumbers && !uselineNumberCache) {
       lineNumX =
           isRtl
-              ? getGutterStartX() + GUTTER_TEXT_PADDING
-              : getGutterStartX() + lineNumbersGutterWidth - GUTTER_TEXT_PADDING;
+              ? lineNumber.getGutterStartX() + lineNumber.GUTTER_TEXT_PADDING
+              : lineNumber.getGutterStartX() + lineNumber.lineNumbersGutterWidth - lineNumber.GUTTER_TEXT_PADDING;
     }
 
     // Prepare text clipping
     int saveCount = canvas.save();
     if (isRtl) {
-      canvas.clipRect(0, 0, getWidth() - lineNumbersGutterWidth, getHeight());
+      canvas.clipRect(0, 0, getWidth() - lineNumber.lineNumbersGutterWidth, getHeight());
     } else {
-      canvas.clipRect(lineNumbersGutterWidth, 0, getWidth(), getHeight());
+      canvas.clipRect(lineNumber.lineNumbersGutterWidth, 0, getWidth(), getHeight());
     }
     canvas.translate(getTextStartX() - getEffectiveScrollX(), 0); // already translated by translateY
 
@@ -5926,30 +5763,30 @@ public boolean binarySafeRenderingEnabled = false;
         float y = Math.round(top + lineHeight - paint.descent());
 
         // Draw line number ONLY for the first segment of the wrapped line
-        if (showLineNumbers && seg == 0 && !useLineNumberCache) {
+        if (lineNumber.showLineNumbers && seg == 0 && !uselineNumberCache) {
           canvas.restore(); // Exit text clip
-          int start = writeIntToChars(line + 1, lineNumberChars);
-          int count = lineNumberChars.length - start;
+          int start = writeIntToChars(line + 1, lineNumber.lineNumberChars);
+          int count = lineNumber.lineNumberChars.length - start;
           if (line == cursor.cursorLine) {
-            int originalColor = lineNumbersPaint.getColor();
-            lineNumbersPaint.setColor(currentLineNumberColor);
-            canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
-            lineNumbersPaint.setColor(originalColor);
+            int originalColor = lineNumber.lineNumbersPaint.getColor();
+            lineNumber.lineNumbersPaint.setColor(lineNumber.currentLineNumberColor);
+            canvas.drawText(lineNumber.lineNumberChars, start, count, lineNumX, y, lineNumber.lineNumbersPaint);
+            lineNumber.lineNumbersPaint.setColor(originalColor);
           } else {
-            canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
+            canvas.drawText(lineNumber.lineNumberChars, start, count, lineNumX, y, lineNumber.lineNumbersPaint);
           }
           canvas.save(); // Re-enter text clip
           if (isRtl) {
-            canvas.clipRect(0, 0, getWidth() - lineNumbersGutterWidth, getHeight());
+            canvas.clipRect(0, 0, getWidth() - lineNumber.lineNumbersGutterWidth, getHeight());
           } else {
-            canvas.clipRect(lineNumbersGutterWidth, 0, getWidth(), getHeight());
+            canvas.clipRect(lineNumber.lineNumbersGutterWidth, 0, getWidth(), getHeight());
           }
           canvas.translate(getTextStartX() - getEffectiveScrollX(), 0);
         }
 
         if (highlightCurrentLine && line == cursor.cursorLine && !selection.hasSelection) {
           canvas.drawRect(
-              -paddingLeft, top, Math.max(getWrapWidth(), getWidth()), bottom, currentLinePaint);
+              -paddingLeft, top, Math.max(getWrapWidth(), getWidth()), bottom, lineNumber.currentLinePaint);
         }
 
         if (selection.hasSelection && selPaint != null) {
@@ -6629,8 +6466,8 @@ public boolean binarySafeRenderingEnabled = false;
       out[1] = len;
       return;
     }
-    float viewLeft = isRtl ? 0f : lineNumbersGutterWidth;
-    float viewRight = isRtl ? (getWidth() - lineNumbersGutterWidth) : getWidth();
+    float viewLeft = isRtl ? 0f : lineNumber.lineNumbersGutterWidth;
+    float viewRight = isRtl ? (getWidth() - lineNumber.lineNumbersGutterWidth) : getWidth();
     float leftX = viewLeft + getEffectiveScrollX() - getTextStartX();
     float rightX = viewRight + getEffectiveScrollX() - getTextStartX();
 
@@ -6663,8 +6500,8 @@ public boolean binarySafeRenderingEnabled = false;
       out[1] = Math.min(len, Math.max(0, prefetchCols));
       return;
     }
-    float viewLeft = isRtl ? 0f : lineNumbersGutterWidth;
-    float viewRight = isRtl ? (getWidth() - lineNumbersGutterWidth) : getWidth();
+    float viewLeft = isRtl ? 0f : lineNumber.lineNumbersGutterWidth;
+    float viewRight = isRtl ? (getWidth() - lineNumber.lineNumbersGutterWidth) : getWidth();
     float leftX = viewLeft + getEffectiveScrollX() - getTextStartX();
     float rightX = viewRight + getEffectiveScrollX() - getTextStartX();
     if (isRtl) {
@@ -6700,8 +6537,8 @@ public boolean binarySafeRenderingEnabled = false;
     }
     float avg = getAverageCharWidthForLine((lineText == null) ? "" : lineText, globalLine);
     if (avg <= 0f) avg = paint.measureText(" ");
-    float viewLeft = isRtl ? 0f : lineNumbersGutterWidth;
-    float viewRight = isRtl ? (getWidth() - lineNumbersGutterWidth) : getWidth();
+    float viewLeft = isRtl ? 0f : lineNumber.lineNumbersGutterWidth;
+    float viewRight = isRtl ? (getWidth() - lineNumber.lineNumbersGutterWidth) : getWidth();
     float leftX = viewLeft + getEffectiveScrollX() - getTextStartX();
     float rightX = viewRight + getEffectiveScrollX() - getTextStartX();
     if (isRtl) {
@@ -6737,30 +6574,30 @@ public boolean binarySafeRenderingEnabled = false;
     return Math.max(base, pad);
   }
 
-  public boolean shouldUseLineNumberCache() {
-    return showLineNumbers && lineNumbersGutterWidth > 0f && getHeight() > 0;
+  public boolean shouldUselineNumberCache() {
+    return lineNumber.showLineNumbers && lineNumber.lineNumbersGutterWidth > 0f && getHeight() > 0;
   }
 
-  public void ensureLineNumberCacheBitmap(int width, int height) {
-    if (lineNumberCacheBitmap != null
-        && lineNumberCacheWidth == width
-        && lineNumberCacheHeight == height) {
+  public void ensurelineNumberCacheBitmap(int width, int height) {
+    if (lineNumber.lineNumberCacheBitmap != null
+        && lineNumber.lineNumberCacheWidth == width
+        && lineNumber.lineNumberCacheHeight == height) {
       return;
     }
-    lineNumberCacheBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-    lineNumberCacheCanvas = new Canvas(lineNumberCacheBitmap);
-    lineNumberCacheWidth = width;
-    lineNumberCacheHeight = height;
+    lineNumber.lineNumberCacheBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+    lineNumber.lineNumberCacheCanvas = new Canvas(lineNumber.lineNumberCacheBitmap);
+    lineNumber.lineNumberCacheWidth = width;
+    lineNumber.lineNumberCacheHeight = height;
   }
 
-  public void drawLineNumbersCachedUnwrapped(
+  public void drawlineNumbersCachedUnwrapped(
       Canvas canvas,
       int firstVisibleIndex,
       int lastVisibleIndex,
       int firstVisibleLine,
       int lastVisibleLine) {
-    if (!shouldUseLineNumberCache()) {
-      drawLineNumbersDirectUnwrapped(
+    if (!shouldUselineNumberCache()) {
+      drawlineNumbersDirectUnwrapped(
           canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine);
       return;
     }
@@ -6779,85 +6616,85 @@ public boolean binarySafeRenderingEnabled = false;
       }
     }
 
-    int gutterWidth = Math.max(1, Math.round(lineNumbersGutterWidth));
+    int gutterWidth = Math.max(1, Math.round(lineNumber.lineNumbersGutterWidth));
     float padPx = lineHeight;
     int height = getHeight() + Math.round(padPx * 2f);
     float baseScrollY = (float) Math.floor( scroll.scrollY / lineHeight) * lineHeight - padPx;
 
     boolean needsRebuild =
-        lineNumberCacheBitmap == null
-            || lineNumberCacheWidth != gutterWidth
-            || lineNumberCacheHeight != height
-            || lineNumberCacheFirstIndex != firstVisibleIndex
-            || lineNumberCacheLastIndex != drawLastIndex
-            || Math.abs(lineNumberCacheBaseScrollY - baseScrollY) > 0.1f
-            || lineNumberCacheTextSize != lineNumbersPaint.getTextSize()
-            || lineNumberCacheTypeface != lineNumbersPaint.getTypeface()
-            || lineNumberCacheRtl != isRtl
-            || lineNumberCacheWrapped
-            || lineNumberCacheCodeFolding != isCodeFoldingEnabled
-            || Math.abs(lineNumberCacheGutterWidth - lineNumbersGutterWidth) > 0.1f
-            || Math.abs(lineNumberCacheFoldMarkerWidth - foldMarkerGutterWidth) > 0.1f
-            || Math.abs(lineNumberCacheLineHeight - lineHeight) > 0.1f
-            || lineNumberCacheColor != lineNumbersPaint.getColor();
+        lineNumber.lineNumberCacheBitmap == null
+            || lineNumber.lineNumberCacheWidth != gutterWidth
+            || lineNumber.lineNumberCacheHeight != height
+            || lineNumber.lineNumberCacheFirstIndex != firstVisibleIndex
+            || lineNumber.lineNumberCacheLastIndex != drawLastIndex
+            || Math.abs(lineNumber.lineNumberCacheBaseScrollY - baseScrollY) > 0.1f
+            || lineNumber.lineNumberCacheTextSize != lineNumber.lineNumbersPaint.getTextSize()
+            || lineNumber.lineNumberCacheTypeface != lineNumber.lineNumbersPaint.getTypeface()
+            || lineNumber.lineNumberCacheRtl != isRtl
+            || lineNumber.lineNumberCacheWrapped
+            || lineNumber.lineNumberCacheCodeFolding != isCodeFoldingEnabled
+            || Math.abs(lineNumber.lineNumberCacheGutterWidth - lineNumber.lineNumbersGutterWidth) > 0.1f
+            || Math.abs(lineNumber.lineNumberCacheFoldMarkerWidth - foldMarkerGutterWidth) > 0.1f
+            || Math.abs(lineNumber.lineNumberCacheLineHeight - lineHeight) > 0.1f
+            || lineNumber.lineNumberCacheColor != lineNumber.lineNumbersPaint.getColor();
 
     if (needsRebuild) {
-      ensureLineNumberCacheBitmap(gutterWidth, height);
-      lineNumberCacheBitmap.eraseColor(0);
+      ensurelineNumberCacheBitmap(gutterWidth, height);
+      lineNumber.lineNumberCacheBitmap.eraseColor(0);
 
       float lineNumX =
           isRtl
-              ? getGutterStartX()
-                  + GUTTER_TEXT_PADDING
+              ? lineNumber.getGutterStartX()
+                  + lineNumber.GUTTER_TEXT_PADDING
                   + (isCodeFoldingEnabled ? foldMarkerGutterWidth : 0f)
-              : getGutterStartX()
-                  + lineNumbersGutterWidth
+              : lineNumber.getGutterStartX()
+                  + lineNumber.lineNumbersGutterWidth
                   - (isCodeFoldingEnabled ? foldMarkerGutterWidth : 0f)
-                  - GUTTER_TEXT_PADDING;
-      float lineNumXLocal = lineNumX - getGutterStartX();
+                  - lineNumber.GUTTER_TEXT_PADDING;
+      float lineNumXLocal = lineNumX - lineNumber.getGutterStartX();
 
       if (isCodeFoldingEnabled) {
         for (int v = firstVisibleIndex; v <= drawLastIndex; v++) {
           int i = mapVisibleIndexToGlobal(v);
-          int start = writeIntToChars(i + 1, lineNumberChars);
-          int count = lineNumberChars.length - start;
+          int start = writeIntToChars(i + 1, lineNumber.lineNumberChars);
+          int count = lineNumber.lineNumberChars.length - start;
           float y = Math.round(v * lineHeight - baseScrollY + lineHeight - paint.descent());
-          lineNumberCacheCanvas.drawText(
-              lineNumberChars, start, count, lineNumXLocal, y, lineNumbersPaint);
+          lineNumber.lineNumberCacheCanvas.drawText(
+              lineNumber.lineNumberChars, start, count, lineNumXLocal, y, lineNumber.lineNumbersPaint);
         }
       } else {
         for (int i = firstVisibleLine; i <= drawLastLine; i++) {
-          int start = writeIntToChars(i + 1, lineNumberChars);
-          int count = lineNumberChars.length - start;
+          int start = writeIntToChars(i + 1, lineNumber.lineNumberChars);
+          int count = lineNumber.lineNumberChars.length - start;
           float y = Math.round(i * lineHeight - baseScrollY + lineHeight - paint.descent());
-          lineNumberCacheCanvas.drawText(
-              lineNumberChars, start, count, lineNumXLocal, y, lineNumbersPaint);
+          lineNumber.lineNumberCacheCanvas.drawText(
+              lineNumber.lineNumberChars, start, count, lineNumXLocal, y, lineNumber.lineNumbersPaint);
         }
       }
 
-      lineNumberCacheFirstIndex = firstVisibleIndex;
-      lineNumberCacheLastIndex = drawLastIndex;
-      lineNumberCacheBaseScrollY = baseScrollY;
-      lineNumberCacheTextSize = lineNumbersPaint.getTextSize();
-      lineNumberCacheTypeface = lineNumbersPaint.getTypeface();
-      lineNumberCacheRtl = isRtl;
-      lineNumberCacheWrapped = false;
-      lineNumberCacheCodeFolding = isCodeFoldingEnabled;
-      lineNumberCacheGutterWidth = lineNumbersGutterWidth;
-      lineNumberCacheFoldMarkerWidth = foldMarkerGutterWidth;
-      lineNumberCacheLineHeight = lineHeight;
-      lineNumberCacheColor = lineNumbersPaint.getColor();
+      lineNumber.lineNumberCacheFirstIndex = firstVisibleIndex;
+      lineNumber.lineNumberCacheLastIndex = drawLastIndex;
+      lineNumber.lineNumberCacheBaseScrollY = baseScrollY;
+      lineNumber.lineNumberCacheTextSize = lineNumber.lineNumbersPaint.getTextSize();
+      lineNumber.lineNumberCacheTypeface = lineNumber.lineNumbersPaint.getTypeface();
+      lineNumber.lineNumberCacheRtl = isRtl;
+      lineNumber.lineNumberCacheWrapped = false;
+      lineNumber.lineNumberCacheCodeFolding = isCodeFoldingEnabled;
+      lineNumber.lineNumberCacheGutterWidth = lineNumber.lineNumbersGutterWidth;
+      lineNumber.lineNumberCacheFoldMarkerWidth = foldMarkerGutterWidth;
+      lineNumber.lineNumberCacheLineHeight = lineHeight;
+      lineNumber.lineNumberCacheColor = lineNumber.lineNumbersPaint.getColor();
     }
 
-    float offsetY = lineNumberCacheBaseScrollY -  scroll.scrollY;
-    canvas.drawBitmap(lineNumberCacheBitmap, getGutterStartX(), offsetY, null);
-    drawCurrentLineNumberUnwrapped(canvas, firstVisibleIndex, lastVisibleIndex);
+    float offsetY = lineNumber.lineNumberCacheBaseScrollY -  scroll.scrollY;
+    canvas.drawBitmap(lineNumber.lineNumberCacheBitmap, lineNumber.getGutterStartX(), offsetY, null);
+    drawCurrentlineNumberUnwrapped(canvas, firstVisibleIndex, lastVisibleIndex);
   }
 
-  public void drawLineNumbersCachedWrapped(
+  public void drawlineNumbersCachedWrapped(
       Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
-    if (!shouldUseLineNumberCache()) {
-      drawLineNumbersDirectWrapped(canvas, firstVisualIndex, lastVisualIndex);
+    if (!shouldUselineNumberCache()) {
+      drawlineNumbersDirectWrapped(canvas, firstVisualIndex, lastVisualIndex);
       return;
     }
 
@@ -6867,67 +6704,67 @@ public boolean binarySafeRenderingEnabled = false;
       drawLastIndex = Math.min(lastVisualIndex + 1, totalVisual - 1);
     }
 
-    int gutterWidth = Math.max(1, Math.round(lineNumbersGutterWidth));
+    int gutterWidth = Math.max(1, Math.round(lineNumber.lineNumbersGutterWidth));
     float padPx = lineHeight;
     int height = getHeight() + Math.round(padPx * 2f);
     float baseScrollY = (float) Math.floor( scroll.scrollY / lineHeight) * lineHeight - padPx;
 
     boolean needsRebuild =
-        lineNumberCacheBitmap == null
-            || lineNumberCacheWidth != gutterWidth
-            || lineNumberCacheHeight != height
-            || lineNumberCacheFirstIndex != firstVisualIndex
-            || lineNumberCacheLastIndex != drawLastIndex
-            || Math.abs(lineNumberCacheBaseScrollY - baseScrollY) > 0.1f
-            || lineNumberCacheTextSize != lineNumbersPaint.getTextSize()
-            || lineNumberCacheTypeface != lineNumbersPaint.getTypeface()
-            || lineNumberCacheRtl != isRtl
-            || !lineNumberCacheWrapped
-            || lineNumberCacheCodeFolding != isCodeFoldingEnabled
-            || Math.abs(lineNumberCacheGutterWidth - lineNumbersGutterWidth) > 0.1f
-            || Math.abs(lineNumberCacheLineHeight - lineHeight) > 0.1f
-            || lineNumberCacheColor != lineNumbersPaint.getColor();
+        lineNumber.lineNumberCacheBitmap == null
+            || lineNumber.lineNumberCacheWidth != gutterWidth
+            || lineNumber.lineNumberCacheHeight != height
+            || lineNumber.lineNumberCacheFirstIndex != firstVisualIndex
+            || lineNumber.lineNumberCacheLastIndex != drawLastIndex
+            || Math.abs(lineNumber.lineNumberCacheBaseScrollY - baseScrollY) > 0.1f
+            || lineNumber.lineNumberCacheTextSize != lineNumber.lineNumbersPaint.getTextSize()
+            || lineNumber.lineNumberCacheTypeface != lineNumber.lineNumbersPaint.getTypeface()
+            || lineNumber.lineNumberCacheRtl != isRtl
+            || !lineNumber.lineNumberCacheWrapped
+            || lineNumber.lineNumberCacheCodeFolding != isCodeFoldingEnabled
+            || Math.abs(lineNumber.lineNumberCacheGutterWidth - lineNumber.lineNumbersGutterWidth) > 0.1f
+            || Math.abs(lineNumber.lineNumberCacheLineHeight - lineHeight) > 0.1f
+            || lineNumber.lineNumberCacheColor != lineNumber.lineNumbersPaint.getColor();
 
     if (needsRebuild) {
-      ensureLineNumberCacheBitmap(gutterWidth, height);
-      lineNumberCacheBitmap.eraseColor(0);
+      ensurelineNumberCacheBitmap(gutterWidth, height);
+      lineNumber.lineNumberCacheBitmap.eraseColor(0);
 
       float lineNumX =
           isRtl
-              ? getGutterStartX() + GUTTER_TEXT_PADDING
-              : getGutterStartX() + lineNumbersGutterWidth - GUTTER_TEXT_PADDING;
-      float lineNumXLocal = lineNumX - getGutterStartX();
+              ? lineNumber.getGutterStartX() + lineNumber.GUTTER_TEXT_PADDING
+              : lineNumber.getGutterStartX() + lineNumber.lineNumbersGutterWidth - lineNumber.GUTTER_TEXT_PADDING;
+      float lineNumXLocal = lineNumX - lineNumber.getGutterStartX();
 
       for (int v = firstVisualIndex; v <= drawLastIndex; v++) {
         VisualLinePosition pos = getVisualPositionForIndex(v);
         if (pos.segment != 0) continue;
-        int start = writeIntToChars(pos.line + 1, lineNumberChars);
-        int count = lineNumberChars.length - start;
+        int start = writeIntToChars(pos.line + 1, lineNumber.lineNumberChars);
+        int count = lineNumber.lineNumberChars.length - start;
         float y = Math.round(v * lineHeight - baseScrollY + lineHeight - paint.descent());
-        lineNumberCacheCanvas.drawText(
-            lineNumberChars, start, count, lineNumXLocal, y, lineNumbersPaint);
+        lineNumber.lineNumberCacheCanvas.drawText(
+            lineNumber.lineNumberChars, start, count, lineNumXLocal, y, lineNumber.lineNumbersPaint);
       }
 
-      lineNumberCacheFirstIndex = firstVisualIndex;
-      lineNumberCacheLastIndex = drawLastIndex;
-      lineNumberCacheBaseScrollY = baseScrollY;
-      lineNumberCacheTextSize = lineNumbersPaint.getTextSize();
-      lineNumberCacheTypeface = lineNumbersPaint.getTypeface();
-      lineNumberCacheRtl = isRtl;
-      lineNumberCacheWrapped = true;
-      lineNumberCacheCodeFolding = isCodeFoldingEnabled;
-      lineNumberCacheGutterWidth = lineNumbersGutterWidth;
-      lineNumberCacheFoldMarkerWidth = foldMarkerGutterWidth;
-      lineNumberCacheLineHeight = lineHeight;
-      lineNumberCacheColor = lineNumbersPaint.getColor();
+      lineNumber.lineNumberCacheFirstIndex = firstVisualIndex;
+      lineNumber.lineNumberCacheLastIndex = drawLastIndex;
+      lineNumber.lineNumberCacheBaseScrollY = baseScrollY;
+      lineNumber.lineNumberCacheTextSize = lineNumber.lineNumbersPaint.getTextSize();
+      lineNumber.lineNumberCacheTypeface = lineNumber.lineNumbersPaint.getTypeface();
+      lineNumber.lineNumberCacheRtl = isRtl;
+      lineNumber.lineNumberCacheWrapped = true;
+      lineNumber.lineNumberCacheCodeFolding = isCodeFoldingEnabled;
+      lineNumber.lineNumberCacheGutterWidth = lineNumber.lineNumbersGutterWidth;
+      lineNumber.lineNumberCacheFoldMarkerWidth = foldMarkerGutterWidth;
+      lineNumber.lineNumberCacheLineHeight = lineHeight;
+      lineNumber.lineNumberCacheColor = lineNumber.lineNumbersPaint.getColor();
     }
 
-    float offsetY = lineNumberCacheBaseScrollY -  scroll.scrollY;
-    canvas.drawBitmap(lineNumberCacheBitmap, getGutterStartX(), offsetY, null);
-    drawCurrentLineNumberWrapped(canvas, firstVisualIndex, lastVisualIndex);
+    float offsetY = lineNumber.lineNumberCacheBaseScrollY -  scroll.scrollY;
+    canvas.drawBitmap(lineNumber.lineNumberCacheBitmap, lineNumber.getGutterStartX(), offsetY, null);
+    drawCurrentlineNumberWrapped(canvas, firstVisualIndex, lastVisualIndex);
   }
 
-  public void drawLineNumbersDirectUnwrapped(
+  public void drawlineNumbersDirectUnwrapped(
       Canvas canvas,
       int firstVisibleIndex,
       int lastVisibleIndex,
@@ -6945,52 +6782,52 @@ public boolean binarySafeRenderingEnabled = false;
 
     float lineNumX =
         isRtl
-            ? getGutterStartX()
-                + GUTTER_TEXT_PADDING
+            ? lineNumber.getGutterStartX()
+                + lineNumber.GUTTER_TEXT_PADDING
                 + (isCodeFoldingEnabled ? foldMarkerGutterWidth : 0f)
-            : getGutterStartX()
-                + lineNumbersGutterWidth
+            : lineNumber.getGutterStartX()
+                + lineNumber.lineNumbersGutterWidth
                 - (isCodeFoldingEnabled ? foldMarkerGutterWidth : 0f)
-                - GUTTER_TEXT_PADDING;
+                - lineNumber.GUTTER_TEXT_PADDING;
 
     if (isCodeFoldingEnabled) {
       for (int v = firstVisibleIndex; v <= drawLastIndex; v++) {
         int i = mapVisibleIndexToGlobal(v);
-        int start = writeIntToChars(i + 1, lineNumberChars);
-        int count = lineNumberChars.length - start;
+        int start = writeIntToChars(i + 1, lineNumber.lineNumberChars);
+        int count = lineNumber.lineNumberChars.length - start;
         float y = Math.round(v * lineHeight -  scroll.scrollY + lineHeight - paint.descent());
         if (i == cursor.cursorLine) {
-          int originalColor = lineNumbersPaint.getColor();
-          lineNumbersPaint.setColor(currentLineNumberColor);
-          canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
-          lineNumbersPaint.setColor(originalColor);
+          int originalColor = lineNumber.lineNumbersPaint.getColor();
+          lineNumber.lineNumbersPaint.setColor(lineNumber.currentLineNumberColor);
+          canvas.drawText(lineNumber.lineNumberChars, start, count, lineNumX, y, lineNumber.lineNumbersPaint);
+          lineNumber.lineNumbersPaint.setColor(originalColor);
         } else {
-          canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
+          canvas.drawText(lineNumber.lineNumberChars, start, count, lineNumX, y, lineNumber.lineNumbersPaint);
         }
       }
     } else {
       for (int i = firstVisibleLine; i <= drawLastLine; i++) {
-        int start = writeIntToChars(i + 1, lineNumberChars);
-        int count = lineNumberChars.length - start;
+        int start = writeIntToChars(i + 1, lineNumber.lineNumberChars);
+        int count = lineNumber.lineNumberChars.length - start;
         float y = Math.round(i * lineHeight -  scroll.scrollY + lineHeight - paint.descent());
         if (i == cursor.cursorLine) {
-          int originalColor = lineNumbersPaint.getColor();
-          lineNumbersPaint.setColor(currentLineNumberColor);
-          canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
-          lineNumbersPaint.setColor(originalColor);
+          int originalColor = lineNumber.lineNumbersPaint.getColor();
+          lineNumber.lineNumbersPaint.setColor(lineNumber.currentLineNumberColor);
+          canvas.drawText(lineNumber.lineNumberChars, start, count, lineNumX, y, lineNumber.lineNumbersPaint);
+          lineNumber.lineNumbersPaint.setColor(originalColor);
         } else {
-          canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
+          canvas.drawText(lineNumber.lineNumberChars, start, count, lineNumX, y, lineNumber.lineNumbersPaint);
         }
       }
     }
   }
 
-  public void drawLineNumbersDirectWrapped(
+  public void drawlineNumbersDirectWrapped(
       Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
     float lineNumX =
         isRtl
-            ? getGutterStartX() + GUTTER_TEXT_PADDING
-            : getGutterStartX() + lineNumbersGutterWidth - GUTTER_TEXT_PADDING;
+            ? lineNumber.getGutterStartX() + lineNumber.GUTTER_TEXT_PADDING
+            : lineNumber.getGutterStartX() + lineNumber.lineNumbersGutterWidth - lineNumber.GUTTER_TEXT_PADDING;
 
     int drawLastIndex = lastVisualIndex;
     int totalVisual = getTotalVisualLineCount();
@@ -6999,23 +6836,23 @@ public boolean binarySafeRenderingEnabled = false;
     for (int v = firstVisualIndex; v <= drawLastIndex; v++) {
       VisualLinePosition pos = getVisualPositionForIndex(v);
       if (pos.segment != 0) continue;
-      int start = writeIntToChars(pos.line + 1, lineNumberChars);
-      int count = lineNumberChars.length - start;
+      int start = writeIntToChars(pos.line + 1, lineNumber.lineNumberChars);
+      int count = lineNumber.lineNumberChars.length - start;
       float y = Math.round(v * lineHeight -  scroll.scrollY + lineHeight - paint.descent());
       if (pos.line == cursor.cursorLine) {
-        int originalColor = lineNumbersPaint.getColor();
-        lineNumbersPaint.setColor(currentLineNumberColor);
-        canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
-        lineNumbersPaint.setColor(originalColor);
+        int originalColor = lineNumber.lineNumbersPaint.getColor();
+        lineNumber.lineNumbersPaint.setColor(lineNumber.currentLineNumberColor);
+        canvas.drawText(lineNumber.lineNumberChars, start, count, lineNumX, y, lineNumber.lineNumbersPaint);
+        lineNumber.lineNumbersPaint.setColor(originalColor);
       } else {
-        canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
+        canvas.drawText(lineNumber.lineNumberChars, start, count, lineNumX, y, lineNumber.lineNumbersPaint);
       }
     }
   }
 
-  public void drawCurrentLineNumberUnwrapped(
+  public void drawCurrentlineNumberUnwrapped(
       Canvas canvas, int firstVisibleIndex, int lastVisibleIndex) {
-    if (!showLineNumbers) return;
+    if (!lineNumber.showLineNumbers) return;
     if (isCodeFoldingEnabled && isLineHiddenByFold(cursor.cursorLine)) return;
 
     int visibleIndex = isCodeFoldingEnabled ? getVisibleIndexForGlobalLine(cursor.cursorLine) : cursor.cursorLine;
@@ -7023,39 +6860,39 @@ public boolean binarySafeRenderingEnabled = false;
 
     float lineNumX =
         isRtl
-            ? getGutterStartX()
-                + GUTTER_TEXT_PADDING
+            ? lineNumber.getGutterStartX()
+                + lineNumber.GUTTER_TEXT_PADDING
                 + (isCodeFoldingEnabled ? foldMarkerGutterWidth : 0f)
-            : getGutterStartX()
-                + lineNumbersGutterWidth
+            : lineNumber.getGutterStartX()
+                + lineNumber.lineNumbersGutterWidth
                 - (isCodeFoldingEnabled ? foldMarkerGutterWidth : 0f)
-                - GUTTER_TEXT_PADDING;
-    int start = writeIntToChars(cursor.cursorLine + 1, lineNumberChars);
-    int count = lineNumberChars.length - start;
+                - lineNumber.GUTTER_TEXT_PADDING;
+    int start = writeIntToChars(cursor.cursorLine + 1, lineNumber.lineNumberChars);
+    int count = lineNumber.lineNumberChars.length - start;
     float y = Math.round(visibleIndex * lineHeight -  scroll.scrollY + lineHeight - paint.descent());
-    int originalColor = lineNumbersPaint.getColor();
-    lineNumbersPaint.setColor(currentLineNumberColor);
-    canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
-    lineNumbersPaint.setColor(originalColor);
+    int originalColor = lineNumber.lineNumbersPaint.getColor();
+    lineNumber.lineNumbersPaint.setColor(lineNumber.currentLineNumberColor);
+    canvas.drawText(lineNumber.lineNumberChars, start, count, lineNumX, y, lineNumber.lineNumbersPaint);
+    lineNumber.lineNumbersPaint.setColor(originalColor);
   }
 
-  public void drawCurrentLineNumberWrapped(
+  public void drawCurrentlineNumberWrapped(
       Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
-    if (!showLineNumbers) return;
+    if (!lineNumber.showLineNumbers) return;
     int visualIndex = getVisualIndexForLineAndChar(cursor.cursorLine, 0);
     if (visualIndex < firstVisualIndex || visualIndex > lastVisualIndex) return;
 
     float lineNumX =
         isRtl
-            ? getGutterStartX() + GUTTER_TEXT_PADDING
-            : getGutterStartX() + lineNumbersGutterWidth - GUTTER_TEXT_PADDING;
-    int start = writeIntToChars(cursor.cursorLine + 1, lineNumberChars);
-    int count = lineNumberChars.length - start;
+            ? lineNumber.getGutterStartX() + lineNumber.GUTTER_TEXT_PADDING
+            : lineNumber.getGutterStartX() + lineNumber.lineNumbersGutterWidth - lineNumber.GUTTER_TEXT_PADDING;
+    int start = writeIntToChars(cursor.cursorLine + 1, lineNumber.lineNumberChars);
+    int count = lineNumber.lineNumberChars.length - start;
     float y = Math.round(visualIndex * lineHeight -  scroll.scrollY + lineHeight - paint.descent());
-    int originalColor = lineNumbersPaint.getColor();
-    lineNumbersPaint.setColor(currentLineNumberColor);
-    canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
-    lineNumbersPaint.setColor(originalColor);
+    int originalColor = lineNumber.lineNumbersPaint.getColor();
+    lineNumber.lineNumbersPaint.setColor(lineNumber.currentLineNumberColor);
+    canvas.drawText(lineNumber.lineNumberChars, start, count, lineNumX, y, lineNumber.lineNumbersPaint);
+    lineNumber.lineNumbersPaint.setColor(originalColor);
   }
 
   public void drawFoldMarkersForVisibleLines(
@@ -7064,10 +6901,10 @@ public boolean binarySafeRenderingEnabled = false;
 
     float markerX =
         isRtl
-            ? (getGutterStartX() + gutterSeparatorWidth + foldMarkerEdgePadding)
-            : (getGutterStartX()
-                + lineNumbersGutterWidth
-                - gutterSeparatorWidth
+            ? (lineNumber.getGutterStartX() + lineNumber.gutterSeparatorWidth + foldMarkerEdgePadding)
+            : (lineNumber.getGutterStartX()
+                + lineNumber.lineNumbersGutterWidth
+                - lineNumber.gutterSeparatorWidth
                 - foldMarkerEdgePadding);
 
     for (int v = firstVisibleIndex; v <= lastVisibleIndex; v++) {
@@ -10049,7 +9886,7 @@ public boolean binarySafeRenderingEnabled = false;
                           key, finalStreamedSliceStarts.get(key, 0));
                     }
                   }
-                  invalidateLineNumberCache();
+                  lineNumber.invalidateLineNumberCache();
                   invalidateHighlightEnsureRange();
                   invalidateBracketGuideCache();
                   if (recalculateWidthSync) {
@@ -10298,7 +10135,7 @@ public boolean binarySafeRenderingEnabled = false;
     isFileCleared = false;
     selection.isSelectAllActive = false;
     selection.isEntireFileSelected = false;
-    invalidateLineNumberCache();
+    lineNumber.invalidateLineNumberCache();
 
     // Force clear wrap metrics for new file
     wrapMetricsReady = false;
@@ -10371,8 +10208,8 @@ public boolean binarySafeRenderingEnabled = false;
     return editVersion.get();
   }
 
-  public void refreshLineNumberCache() {
-    invalidateLineNumberCache();
+  public void refreshlineNumberCache() {
+    lineNumber.invalidateLineNumberCache();
     requestLayout();
     invalidate();
   }
@@ -10665,7 +10502,7 @@ public boolean binarySafeRenderingEnabled = false;
         lineCountDelta += 1;
 
         int newLineCount = getLinesCount();
-        if (showLineNumbers
+        if (lineNumber.showLineNumbers
             && String.valueOf(oldLineCount).length() != String.valueOf(newLineCount).length()) {
           requestLayout();
         }
@@ -10950,7 +10787,7 @@ public boolean binarySafeRenderingEnabled = false;
         lineCountDelta -= 1;
 
         int newLineCount = getLinesCount();
-        if (showLineNumbers
+        if (lineNumber.showLineNumbers
             && String.valueOf(oldLineCount).length() != String.valueOf(newLineCount).length()) {
           requestLayout();
         }
@@ -11496,7 +11333,7 @@ public boolean binarySafeRenderingEnabled = false;
       }
 
       editVersion.incrementAndGet();
-      invalidateLineNumberCache();
+      lineNumber.invalidateLineNumberCache();
       invalidate();
       return true;
     } catch (Exception e) {
@@ -11617,7 +11454,7 @@ public boolean binarySafeRenderingEnabled = false;
                     modifiedLines.clear();
                   }
                   lineCountDelta = 0;
-                  invalidateLineNumberCache();
+                  lineNumber.invalidateLineNumberCache();
                   requestLayout();
                   invalidate();
                 }
@@ -11933,7 +11770,7 @@ public boolean binarySafeRenderingEnabled = false;
       invalidateWrapMetrics(true);
       requestWrapPrefixRebuild();
     }
-    invalidateLineNumberCache();
+    lineNumber.invalidateLineNumberCache();
     invalidate();
   }
 
@@ -12241,7 +12078,7 @@ public boolean binarySafeRenderingEnabled = false;
       cursor.cursorChar = Math.max(0, target.ch);
 
       int newLineCount = getLinesCount();
-      if (showLineNumbers
+      if (lineNumber.showLineNumbers
           && oldLineCount > 0
           && String.valueOf(oldLineCount).length() != String.valueOf(newLineCount).length()) {
         requestLayout();
@@ -13231,7 +13068,7 @@ public boolean binarySafeRenderingEnabled = false;
       }
 
       int newLineCount = getLinesCount();
-      if (showLineNumbers
+      if (lineNumber.showLineNumbers
           && oldLineCount > 0
           && String.valueOf(oldLineCount).length() != String.valueOf(newLineCount).length()) {
         requestLayout();
@@ -13713,11 +13550,6 @@ public boolean binarySafeRenderingEnabled = false;
 
   public boolean isHeavyDrawSuppressed() {
     return false;
-  }
-
-  public void invalidateLineNumberCache() {
-    lineNumberCacheBitmap = null;
-    lineNumberCacheCanvas = null;
   }
 
   public int getLinesCount() {
@@ -14291,8 +14123,8 @@ public boolean binarySafeRenderingEnabled = false;
       int safeChar = Math.min(cursor.cursorChar, getLogicalLineLength(cursor.cursorLine, line));
       float cursorX = getCaretXForLine(line, cursor.cursorLine, safeChar);
 
-      float viewLeft = isRtl ? 0f : lineNumbersGutterWidth;
-      float viewRight = isRtl ? (getWidth() - lineNumbersGutterWidth) : getWidth();
+      float viewLeft = isRtl ? 0f : lineNumber.lineNumbersGutterWidth;
+      float viewRight = isRtl ? (getWidth() - lineNumber.lineNumbersGutterWidth) : getWidth();
       float scrollMargin = 50f;
       float effectiveScrollX = getEffectiveScrollX();
       float cursorViewX = getTextStartX() + cursorX - effectiveScrollX;

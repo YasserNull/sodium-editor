@@ -26,7 +26,7 @@ public class OnSingleTapUp {
       sodiumeditor.selection.isSelectAllActive = false;
       sodiumeditor.selection.isEntireFileSelected = false;
     }
-    if (sodiumeditor.isCodeFoldingEnabled && sodiumeditor.isInLineNumberGutter(e.getX())) {
+    if (sodiumeditor.isCodeFoldingEnabled && sodiumeditor.lineNumber.isInLineNumberGutter(e.getX())) {
       float gy = e.getY() + sodiumeditor.scroll.scrollY;
       int line = sodiumeditor.getGlobalLineForY(gy);
       if (sodiumeditor.toggleFoldAtLine(line)) {

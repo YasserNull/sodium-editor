@@ -199,7 +199,7 @@ public class OnTouch {
         if (sodiumeditor.selection.isLineNumberSelecting) {
           float y = ey + sodiumeditor.scroll.scrollY;
           int line = sodiumeditor.getGlobalLineForY(y);
-          sodiumeditor.updateLineNumberSelection(line);
+          sodiumeditor.lineNumber.updateLineNumberSelection(line);
           return true;
         }
 
