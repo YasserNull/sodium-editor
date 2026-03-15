@@ -33,7 +33,7 @@ public class Stretch {
    * Apply stretch effect for X axis
    */
   public void pullStretchX(float deltaPx, boolean toRight) {
-    if (!stretchOverscrollEnabled || sodiumeditor.isWordWrapEnabled) return;
+    if (!stretchOverscrollEnabled || sodiumeditor.wordWrap.isWordWrapEnabled) return;
     if (sodiumeditor.getWidth() <= 0) return;
     float norm = Math.abs(deltaPx) / (float) sodiumeditor.getWidth();
     float gain = norm * 0.6f * stretchOverscrollStrength;
@@ -57,7 +57,7 @@ public class Stretch {
    * Absorb stretch from fling velocity for X axis
    */
   public void absorbStretchX(float velocityPxPerSec, boolean toRight) {
-    if (!stretchOverscrollEnabled || sodiumeditor.isWordWrapEnabled) return;
+    if (!stretchOverscrollEnabled || sodiumeditor.wordWrap.isWordWrapEnabled) return;
     float v = Math.min(1f, Math.abs(velocityPxPerSec) / 6000f);
     stretchDirX = toRight ? 1 : -1;
     stretchX = Math.min(1f, stretchX + v * 0.8f * stretchOverscrollStrength);
@@ -132,7 +132,7 @@ public class Stretch {
     int h = sodiumeditor.getHeight();
 
     // Draw horizontal stretch
-    if (stretchX > 0f && !sodiumeditor.isWordWrapEnabled) {
+    if (stretchX > 0f && !sodiumeditor.wordWrap.isWordWrapEnabled) {
       int alpha = (int) (stretchX * 60);
       android.graphics.Paint paint = new android.graphics.Paint();
       paint.setAlpha(alpha);

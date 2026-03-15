@@ -127,17 +127,17 @@ public boolean scrollerIsScrolling = false;
     }
     
     // Word wrap disables horizontal scroll
-    if (sodiumeditor.isWordWrapEnabled) {
+    if (sodiumeditor.wordWrap.isWordWrapEnabled) {
       dx = 0f;
     }
     
     // RTL support
-    if (sodiumeditor.isRtl && !sodiumeditor.isWordWrapEnabled) {
+    if (sodiumeditor.isRtl && !sodiumeditor.wordWrap.isWordWrapEnabled) {
       dx = -dx;
     }
     
     float maxX = 0f;
-    if (!sodiumeditor.isWordWrapEnabled) {
+    if (!sodiumeditor.wordWrap.isWordWrapEnabled) {
       if (dragMaxScrollX < 0f) {
         dragMaxScrollX = getMaxScrollXForClamp();
       } else {
@@ -153,7 +153,7 @@ public boolean scrollerIsScrolling = false;
 
     // Stretch overscroll
     if (stretch.stretchOverscrollEnabled) {
-      if (!sodiumeditor.isWordWrapEnabled) {
+      if (!sodiumeditor.wordWrap.isWordWrapEnabled) {
         if (nextX < 0f && dx < 0f) {
           stretch.pullStretchX(dx, false);
           nextX = 0f;
@@ -170,7 +170,7 @@ public boolean scrollerIsScrolling = false;
         nextY = maxY;
       }
     } else {
-      if (!sodiumeditor.isWordWrapEnabled) {
+      if (!sodiumeditor.wordWrap.isWordWrapEnabled) {
         if ((scrollX <= 0f && dx < 0f) || (scrollX >= maxX && dx > 0f)) {
           dx = 0f;
           nextX = scrollX;
@@ -210,7 +210,7 @@ public boolean scrollerIsScrolling = false;
     int startY = Math.round(scrollY);
     int minX = 0;
     int maxX =
-        sodiumeditor.isWordWrapEnabled
+        sodiumeditor.wordWrap.isWordWrapEnabled
             ? 0
             : Math.max(
                 0,
@@ -222,10 +222,10 @@ public boolean scrollerIsScrolling = false;
         (sodiumeditor.keyboardHeight > 0) ? sodiumeditor.getHeight() - sodiumeditor.keyboardHeight : sodiumeditor.getHeight();
 
     int lineCount =
-        sodiumeditor.isWordWrapEnabled
+        sodiumeditor.wordWrap.isWordWrapEnabled
             ? sodiumeditor.getTotalVisualLineCount()
             : (sodiumeditor.isEof
-                ? sodiumeditor.getVisibleLineCount()
+                ? sodiumeditor.codeFold.getVisibleLineCount()
                 : Math.max(1, sodiumeditor.getLinesCount()));
     
     if (sodiumeditor.isEof) {
@@ -257,19 +257,19 @@ public boolean scrollerIsScrolling = false;
     }
     
     // Word wrap disables horizontal fling
-    if (sodiumeditor.isWordWrapEnabled) {
+    if (sodiumeditor.wordWrap.isWordWrapEnabled) {
       vx = 0f;
     }
     
     // RTL support
-    if (sodiumeditor.isRtl && !sodiumeditor.isWordWrapEnabled) {
+    if (sodiumeditor.isRtl && !sodiumeditor.wordWrap.isWordWrapEnabled) {
       vx = -vx;
     }
     
     int overX = 0;
     int overY = 0;
     if (flingBounceEnabled) {
-      if (!sodiumeditor.isWordWrapEnabled) overX = Math.max(overX, getFlingOverScrollX());
+      if (!sodiumeditor.wordWrap.isWordWrapEnabled) overX = Math.max(overX, getFlingOverScrollX());
       overY = Math.max(overY, getFlingOverScrollY());
     }
     
@@ -593,7 +593,7 @@ public boolean scrollerIsScrolling = false;
     this.flingBounceOverScrollFactor = factor;
   }
   public void clampScrollX() {
-    if (sodiumeditor.isWordWrapEnabled) {
+    if (sodiumeditor.wordWrap.isWordWrapEnabled) {
      scrollX =0f;
       return;
     }
@@ -613,7 +613,7 @@ public boolean scrollerIsScrolling = false;
 
   
   public float getMaxScrollXForClamp() {
-    if (sodiumeditor.isWordWrapEnabled) return 0f;
+    if (sodiumeditor.wordWrap.isWordWrapEnabled) return 0f;
     float rawMaxWidth = sodiumeditor.globalMaxLineWidth;
     if (rawMaxWidth > maxLineWidthForScroll) {
       maxLineWidthForScroll = rawMaxWidth;
@@ -630,7 +630,7 @@ public boolean scrollerIsScrolling = false;
     return maxScrollXForScroll;
   }
   public void scrollToLineFastForSelectAll(int line, int ch) {
-    if (sodiumeditor.isWordWrapEnabled && (!sodiumeditor.wrapMetricsReady || sodiumeditor.wrapLinePrefix == null)) {
+    if (sodiumeditor.wordWrap.isWordWrapEnabled && (!sodiumeditor.wordWrap.wrapMetricsReady || sodiumeditor.wordWrap.wrapLinePrefix == null)) {
        scrollY =Math.max(0f, (line - 5) * sodiumeditor.lineHeight);
     } else {
       int targetVisual = sodiumeditor.getVisualIndexForLineAndChar(line, ch);
@@ -720,8 +720,8 @@ public boolean scrollerIsScrolling = false;
           }
         }
         sodiumeditor.checkAndLoadWindow();
-        if (sodiumeditor.isWordWrapEnabled && sodiumeditor.wrapPrefixRebuildPending && !sodiumeditor.wrapPrefixBuilding) {
-          sodiumeditor.wrapPrefixRebuildPending = false;
+        if (sodiumeditor.wordWrap.isWordWrapEnabled && sodiumeditor.wordWrap.wrapPrefixRebuildPending && !sodiumeditor.wordWrap.wrapPrefixBuilding) {
+          sodiumeditor.wordWrap.wrapPrefixRebuildPending = false;
           sodiumeditor.scheduleWrapPrefixRebuildUpToWindow();
         }
         if (sodiumeditor.selection.hasSelection) sodiumeditor.popup.showPopupAtSelection();
@@ -729,22 +729,22 @@ public boolean scrollerIsScrolling = false;
     }
   }
 
-  
+
   public float getMaxScrollYForClamp() {
     // When word-wrap metrics are rebuilding (common after sodiumeditor.zoom), the temporary visual line count
     // can be underestimated, which would incorrectly clamp  scrollY and cause a visible "jump".
-    if (sodiumeditor.isWordWrapEnabled && !sodiumeditor.wrapMetricsReady && (sodiumeditor.zoom.isScaling || sodiumeditor.zoom.mJustFinishedScale)) {
+    if (sodiumeditor.wordWrap.isWordWrapEnabled && !sodiumeditor.wordWrap.wrapMetricsReady && (sodiumeditor.zoom.isScaling || sodiumeditor.zoom.mJustFinishedScale)) {
       return  scrollY;
     }
 
     float effectiveHeight = (sodiumeditor.keyboardHeight > 0) ? sodiumeditor.getHeight() - sodiumeditor.keyboardHeight : sodiumeditor.getHeight();
     int lineCount =
-        sodiumeditor.isWordWrapEnabled
+        sodiumeditor.wordWrap.isWordWrapEnabled
             ? sodiumeditor.getTotalVisualLineCount()
-            : (sodiumeditor.isCodeFoldingEnabled
-                ? sodiumeditor.getVisibleLineCount()
+            : (sodiumeditor.codeFold.isCodeFoldingEnabled
+                ? sodiumeditor.codeFold.getVisibleLineCount()
                 : Math.max(1, sodiumeditor.getLinesCount()));
-    if (sodiumeditor.isWordWrapEnabled && (sodiumeditor.selection.isSelectAllActive || sodiumeditor.selection.isEntireFileSelected)) {
+    if (sodiumeditor.wordWrap.isWordWrapEnabled && (sodiumeditor.selection.isSelectAllActive || sodiumeditor.selection.isEntireFileSelected)) {
       // Allow select-all jumps even when total visual metrics aren't ready yet.
       lineCount = Math.max(lineCount, sodiumeditor.selection.selEndLine + 1);
     }
@@ -758,7 +758,7 @@ public boolean scrollerIsScrolling = false;
   }
 
   public void clampScrollY() {
-    if (!sodiumeditor.isWordWrapEnabled && sodiumeditor.isWindowLoading &&  scrollY < sodiumeditor.windowStartLine * sodiumeditor.lineHeight) {
+    if (!sodiumeditor.wordWrap.isWordWrapEnabled && sodiumeditor.isWindowLoading &&  scrollY < sodiumeditor.windowStartLine * sodiumeditor.lineHeight) {
       boolean allowAboveWindow = scrollerIsScrolling || flingStopAnimator != null;
       if (!allowAboveWindow) {
          scrollY =sodiumeditor.windowStartLine * sodiumeditor.lineHeight;

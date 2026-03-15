@@ -217,11 +217,11 @@ public class LineNumber {
             String maxLineNum = String.valueOf(maxLine);
             float baseWidth = lineNumbersPaint.measureText(maxLineNum) + (GUTTER_TEXT_PADDING * 2);
             float foldMarkerGutterWidth;
-            if (editor.isCodeFoldingEnabled) {
+            if (editor.codeFold.isCodeFoldingEnabled) {
                 foldMarkerGutterWidth =
-                        editor.foldMarkerPaint.measureText("v")
-                                + editor.foldMarkerSpacing
-                                + editor.foldMarkerEdgePadding;
+                        editor.codeFold.foldMarkerPaint.measureText("v")
+                                + editor.codeFold.foldMarkerSpacing
+                                + editor.codeFold.foldMarkerEdgePadding;
             } else {
                 foldMarkerGutterWidth = 0f;
             }
@@ -230,7 +230,7 @@ public class LineNumber {
             lineNumbersGutterWidth = 0f;
         }
 
-        if (editor.isWordWrapEnabled && Math.abs(lineNumbersGutterWidth - oldGutterWidth) > 0.1f) {
+        if (editor.wordWrap.isWordWrapEnabled && Math.abs(lineNumbersGutterWidth - oldGutterWidth) > 0.1f) {
             editor.invalidateWrapMetrics(true);
             editor.requestWrapPrefixRebuild();
         }
@@ -272,8 +272,8 @@ public class LineNumber {
 
         int drawLastIndex = lastVisibleIndex;
         int drawLastLine = lastVisibleLine;
-        if (editor.isCodeFoldingEnabled) {
-            int visibleCount = editor.getVisibleLineCount();
+        if (editor.codeFold.isCodeFoldingEnabled) {
+            int visibleCount = editor.codeFold.getVisibleLineCount();
             if (visibleCount > 0) {
                 drawLastIndex = Math.min(lastVisibleIndex + 1, visibleCount - 1);
             }
@@ -300,9 +300,9 @@ public class LineNumber {
                         || lineNumberCacheTypeface != lineNumbersPaint.getTypeface()
                         || lineNumberCacheRtl != editor.isRtl
                         || lineNumberCacheWrapped
-                        || lineNumberCacheCodeFolding != editor.isCodeFoldingEnabled
+                        || lineNumberCacheCodeFolding != editor.codeFold.isCodeFoldingEnabled
                         || Math.abs(lineNumberCacheGutterWidth - lineNumbersGutterWidth) > 0.1f
-                        || Math.abs(lineNumberCacheFoldMarkerWidth - editor.foldMarkerGutterWidth) > 0.1f
+                        || Math.abs(lineNumberCacheFoldMarkerWidth - editor.codeFold.foldMarkerGutterWidth) > 0.1f
                         || Math.abs(lineNumberCacheLineHeight - editor.lineHeight) > 0.1f
                         || lineNumberCacheColor != lineNumbersPaint.getColor();
 
@@ -314,16 +314,16 @@ public class LineNumber {
                     editor.isRtl
                             ? getGutterStartX()
                             + GUTTER_TEXT_PADDING
-                            + (editor.isCodeFoldingEnabled ? editor.foldMarkerGutterWidth : 0f)
+                            + (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.foldMarkerGutterWidth : 0f)
                             : getGutterStartX()
                             + lineNumbersGutterWidth
-                            - (editor.isCodeFoldingEnabled ? editor.foldMarkerGutterWidth : 0f)
+                            - (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.foldMarkerGutterWidth : 0f)
                             - GUTTER_TEXT_PADDING;
             float lineNumXLocal = lineNumX - getGutterStartX();
 
-            if (editor.isCodeFoldingEnabled) {
+            if (editor.codeFold.isCodeFoldingEnabled) {
                 for (int v = firstVisibleIndex; v <= drawLastIndex; v++) {
-                    int i = editor.mapVisibleIndexToGlobal(v);
+                    int i = editor.codeFold.mapVisibleIndexToGlobal(v);
                     int start = writeIntToChars(i + 1, lineNumberChars);
                     int count = lineNumberChars.length - start;
                     float y = Math.round(v * editor.lineHeight - baseScrollY + editor.lineHeight - editor.paint.descent());
@@ -347,9 +347,9 @@ public class LineNumber {
             lineNumberCacheTypeface = lineNumbersPaint.getTypeface();
             lineNumberCacheRtl = editor.isRtl;
             lineNumberCacheWrapped = false;
-            lineNumberCacheCodeFolding = editor.isCodeFoldingEnabled;
+            lineNumberCacheCodeFolding = editor.codeFold.isCodeFoldingEnabled;
             lineNumberCacheGutterWidth = lineNumbersGutterWidth;
-            lineNumberCacheFoldMarkerWidth = editor.foldMarkerGutterWidth;
+            lineNumberCacheFoldMarkerWidth = editor.codeFold.foldMarkerGutterWidth;
             lineNumberCacheLineHeight = editor.lineHeight;
             lineNumberCacheColor = lineNumbersPaint.getColor();
         }
@@ -388,7 +388,7 @@ public class LineNumber {
                         || lineNumberCacheTypeface != lineNumbersPaint.getTypeface()
                         || lineNumberCacheRtl != editor.isRtl
                         || !lineNumberCacheWrapped
-                        || lineNumberCacheCodeFolding != editor.isCodeFoldingEnabled
+                        || lineNumberCacheCodeFolding != editor.codeFold.isCodeFoldingEnabled
                         || Math.abs(lineNumberCacheGutterWidth - lineNumbersGutterWidth) > 0.1f
                         || Math.abs(lineNumberCacheLineHeight - editor.lineHeight) > 0.1f
                         || lineNumberCacheColor != lineNumbersPaint.getColor();
@@ -404,7 +404,7 @@ public class LineNumber {
             float lineNumXLocal = lineNumX - getGutterStartX();
 
             for (int v = firstVisualIndex; v <= drawLastIndex; v++) {
-                SodiumEditor.VisualLinePosition pos = editor.getVisualPositionForIndex(v);
+                WordWrap.VisualLinePosition pos = editor.getVisualPositionForIndex(v);
                 if (pos.segment != 0) continue;
                 int start = writeIntToChars(pos.line + 1, lineNumberChars);
                 int count = lineNumberChars.length - start;
@@ -420,9 +420,9 @@ public class LineNumber {
             lineNumberCacheTypeface = lineNumbersPaint.getTypeface();
             lineNumberCacheRtl = editor.isRtl;
             lineNumberCacheWrapped = true;
-            lineNumberCacheCodeFolding = editor.isCodeFoldingEnabled;
+            lineNumberCacheCodeFolding = editor.codeFold.isCodeFoldingEnabled;
             lineNumberCacheGutterWidth = lineNumbersGutterWidth;
-            lineNumberCacheFoldMarkerWidth = editor.foldMarkerGutterWidth;
+            lineNumberCacheFoldMarkerWidth = editor.codeFold.foldMarkerGutterWidth;
             lineNumberCacheLineHeight = editor.lineHeight;
             lineNumberCacheColor = lineNumbersPaint.getColor();
         }
@@ -440,8 +440,8 @@ public class LineNumber {
             int lastVisibleLine) {
         int drawLastIndex = lastVisibleIndex;
         int drawLastLine = lastVisibleLine;
-        if (editor.isCodeFoldingEnabled) {
-            int visibleCount = editor.getVisibleLineCount();
+        if (editor.codeFold.isCodeFoldingEnabled) {
+            int visibleCount = editor.codeFold.getVisibleLineCount();
             if (visibleCount > 0) drawLastIndex = Math.min(lastVisibleIndex + 1, visibleCount - 1);
         } else {
             int total = editor.getLinesCount();
@@ -452,15 +452,15 @@ public class LineNumber {
                 editor.isRtl
                         ? getGutterStartX()
                         + GUTTER_TEXT_PADDING
-                        + (editor.isCodeFoldingEnabled ? editor.foldMarkerGutterWidth : 0f)
+                        + (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.foldMarkerGutterWidth : 0f)
                         : getGutterStartX()
                         + lineNumbersGutterWidth
-                        - (editor.isCodeFoldingEnabled ? editor.foldMarkerGutterWidth : 0f)
+                        - (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.foldMarkerGutterWidth : 0f)
                         - GUTTER_TEXT_PADDING;
 
-        if (editor.isCodeFoldingEnabled) {
+        if (editor.codeFold.isCodeFoldingEnabled) {
             for (int v = firstVisibleIndex; v <= drawLastIndex; v++) {
-                int i = editor.mapVisibleIndexToGlobal(v);
+                int i = editor.codeFold.mapVisibleIndexToGlobal(v);
                 int start = writeIntToChars(i + 1, lineNumberChars);
                 int count = lineNumberChars.length - start;
                 float y = Math.round(v * editor.lineHeight - editor.scroll.scrollY + editor.lineHeight - editor.paint.descent());
@@ -502,7 +502,7 @@ public class LineNumber {
         if (totalVisual > 0) drawLastIndex = Math.min(lastVisualIndex + 1, totalVisual - 1);
 
         for (int v = firstVisualIndex; v <= drawLastIndex; v++) {
-            SodiumEditor.VisualLinePosition pos = editor.getVisualPositionForIndex(v);
+            WordWrap.VisualLinePosition pos = editor.getVisualPositionForIndex(v);
             if (pos.segment != 0) continue;
             int start = writeIntToChars(pos.line + 1, lineNumberChars);
             int count = lineNumberChars.length - start;
@@ -521,19 +521,19 @@ public class LineNumber {
     public void drawCurrentLineNumberUnwrapped(
             Canvas canvas, int firstVisibleIndex, int lastVisibleIndex) {
         if (!showLineNumbers) return;
-        if (editor.isCodeFoldingEnabled && editor.isLineHiddenByFold(editor.cursor.cursorLine)) return;
+        if (editor.codeFold.isCodeFoldingEnabled && editor.codeFold.isLineHiddenByFold(editor.cursor.cursorLine)) return;
 
-        int visibleIndex = editor.isCodeFoldingEnabled ? editor.getVisibleIndexForGlobalLine(editor.cursor.cursorLine) : editor.cursor.cursorLine;
+        int visibleIndex = editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.getVisibleIndexForGlobalLine(editor.cursor.cursorLine) : editor.cursor.cursorLine;
         if (visibleIndex < firstVisibleIndex || visibleIndex > lastVisibleIndex) return;
 
         float lineNumX =
                 editor.isRtl
                         ? getGutterStartX()
                         + GUTTER_TEXT_PADDING
-                        + (editor.isCodeFoldingEnabled ? editor.foldMarkerGutterWidth : 0f)
+                        + (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.foldMarkerGutterWidth : 0f)
                         : getGutterStartX()
                         + lineNumbersGutterWidth
-                        - (editor.isCodeFoldingEnabled ? editor.foldMarkerGutterWidth : 0f)
+                        - (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.foldMarkerGutterWidth : 0f)
                         - GUTTER_TEXT_PADDING;
         int start = writeIntToChars(editor.cursor.cursorLine + 1, lineNumberChars);
         int count = lineNumberChars.length - start;

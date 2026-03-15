@@ -74,7 +74,7 @@ private final SodiumEditor sodiumeditor;
         lastFocusX = detector.getFocusX();
         lastFocusY = detector.getFocusY();
 
-        if (sodiumeditor.isWordWrapEnabled && deferWrapReflowDuringPinch) {
+        if (sodiumeditor.wordWrap.isWordWrapEnabled && deferWrapReflowDuringPinch) {
           pinchVisualZoomActive = true;
           pinchVisualScale = 1f;
           pinchStartTextSizePx = sodiumeditor.paint.getTextSize();
@@ -121,7 +121,7 @@ private final SodiumEditor sodiumeditor;
         }
 
         int anchorGlobalLineAtFocus = -1;
-        if (sodiumeditor.isWordWrapEnabled) {
+        if (sodiumeditor.wordWrap.isWordWrapEnabled) {
           anchorGlobalLineAtFocus = sodiumeditor.getGlobalLineForY(sodiumeditor.scroll.scrollY + focusY);
         }
 
@@ -146,7 +146,7 @@ private final SodiumEditor sodiumeditor;
           sodiumeditor.scroll.scrollX = (sodiumeditor.isRtl ? -effectiveScrollX : effectiveScrollX);
           sodiumeditor.scroll.scrollY = (sodiumeditor.scroll.scrollY + focusY) * effectiveScaleY - focusY;
 
-          if (sodiumeditor.isWordWrapEnabled) {
+          if (sodiumeditor.wordWrap.isWordWrapEnabled) {
             pendingZoomScrollAdjustGlobalLine = anchorGlobalLineAtFocus;
             pendingZoomScrollAdjustFocusY = focusY;
           }
@@ -178,7 +178,7 @@ private final SodiumEditor sodiumeditor;
 
           // Commit the final zoom once, then rebuild wrap metrics.
           if (Math.abs(targetSize - oldSize) > 0.1f) {
-            sodiumeditor.applyTextSizePx(targetSize, sodiumeditor.isWordWrapEnabled);
+            sodiumeditor.applyTextSizePx(targetSize, sodiumeditor.wordWrap.isWordWrapEnabled);
             float newLineHeight = sodiumeditor.paint.getFontSpacing();
             float effectiveScaleY =
                 (oldLineHeight > 0) ? newLineHeight / oldLineHeight : 1f;
@@ -190,7 +190,7 @@ private final SodiumEditor sodiumeditor;
             sodiumeditor.scroll.scrollX = (sodiumeditor.isRtl ? -effectiveScrollX : effectiveScrollX);
             sodiumeditor.scroll.scrollY = (sodiumeditor.scroll.scrollY + focusY) * effectiveScaleY - focusY;
 
-            if (sodiumeditor.isWordWrapEnabled && anchorLine >= 0) {
+            if (sodiumeditor.wordWrap.isWordWrapEnabled && anchorLine >= 0) {
               pendingZoomScrollAdjustGlobalLine = anchorLine;
               pendingZoomScrollAdjustFocusY = focusY;
             }
@@ -199,13 +199,13 @@ private final SodiumEditor sodiumeditor;
             sodiumeditor.invalidate();
           }
         }
-        if (sodiumeditor.wrapPrefixBuilding) {
-          sodiumeditor.wrapPrefixRebuildPending = true;
+        if (sodiumeditor.wordWrap.wrapPrefixBuilding) {
+          sodiumeditor.wordWrap.wrapPrefixRebuildPending = true;
           sodiumeditor.scheduleWrapPrefixRebuildUpToWindow();
         }
 
         // Perform delayed scroll adjustment for word wrap after scaling, if pending.
-        if (sodiumeditor.isWordWrapEnabled && pendingZoomScrollAdjustGlobalLine != -1) {
+        if (sodiumeditor.wordWrap.isWordWrapEnabled && pendingZoomScrollAdjustGlobalLine != -1) {
           final int targetGlobalLine = pendingZoomScrollAdjustGlobalLine;
           final float targetFocusY = pendingZoomScrollAdjustFocusY;
 

@@ -82,7 +82,7 @@ public boolean isLineNumberSelecting = false;
   public void selectAll() {
     sodiumeditor.clearActiveSuggestion(); // Clear suggestion when selecting all
     final boolean keyboardWasVisible = sodiumeditor.keyboardHeight > 0;
-    if (sodiumeditor.isWordWrapEnabled) {
+    if (sodiumeditor.wordWrap.isWordWrapEnabled) {
       // Free the IO thread from wrap rebuilds so select-all can jump to end quickly.
       int widthPx = Math.max(1, Math.round(sodiumeditor.getWrapWidth()));
       if (sodiumeditor.isWrapMetricsUsableForWindow(widthPx)) {

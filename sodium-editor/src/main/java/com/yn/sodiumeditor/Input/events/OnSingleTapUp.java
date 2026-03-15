@@ -26,11 +26,11 @@ public class OnSingleTapUp {
       sodiumeditor.selection.isSelectAllActive = false;
       sodiumeditor.selection.isEntireFileSelected = false;
     }
-    if (sodiumeditor.isCodeFoldingEnabled && sodiumeditor.lineNumber.isInLineNumberGutter(e.getX())) {
+    if (sodiumeditor.codeFold.isCodeFoldingEnabled && sodiumeditor.lineNumber.isInLineNumberGutter(e.getX())) {
       float gy = e.getY() + sodiumeditor.scroll.scrollY;
       int line = sodiumeditor.getGlobalLineForY(gy);
-      if (sodiumeditor.toggleFoldAtLine(line)) {
-        sodiumeditor.startFoldMarkerRipple(line);
+      if (sodiumeditor.codeFold.toggleFoldAtLine(line)) {
+        sodiumeditor.codeFold.startFoldMarkerRipple(line);
         sodiumeditor.popup.hidePopup();
         sodiumeditor.invalidate();
         return true;
@@ -39,15 +39,15 @@ public class OnSingleTapUp {
     float y = e.getY() + sodiumeditor.scroll.scrollY;
     int visibleIndex = Math.max(0, (int) (y / sodiumeditor.lineHeight));
     int totalVisible =
-        sodiumeditor.isWordWrapEnabled ? sodiumeditor.getTotalVisualLineCount() : sodiumeditor.getVisibleLineCount();
+        sodiumeditor.wordWrap.isWordWrapEnabled ? sodiumeditor.getTotalVisualLineCount() : sodiumeditor.codeFold.getVisibleLineCount();
     SodiumEditor.CursorTarget target = sodiumeditor.getCursorTargetForPosition(e.getX(), e.getY(), null);
     int line = target.line;
 
-    if (sodiumeditor.isCodeFoldingEnabled) {
+    if (sodiumeditor.codeFold.isCodeFoldingEnabled) {
       String ln = sodiumeditor.getLineTextForRender(line);
       float xLocal = sodiumeditor.viewToTextX(e.getX());
       float x;
-      if (sodiumeditor.isWordWrapEnabled) {
+      if (sodiumeditor.wordWrap.isWordWrapEnabled) {
         int[] starts = sodiumeditor.getWrapStartsForLine(line, ln);
         int seg =
             sodiumeditor.getWrapSegmentIndexForChar(
@@ -58,8 +58,8 @@ public class OnSingleTapUp {
         x = xLocal;
       }
       if (sodiumeditor.isFoldPlaceholderHit(line, ln, x)) {
-        if (sodiumeditor.toggleFoldAtLine(line)) {
-          sodiumeditor.startFoldMarkerRipple(line);
+        if (sodiumeditor.codeFold.toggleFoldAtLine(line)) {
+          sodiumeditor.codeFold.startFoldMarkerRipple(line);
         }
         sodiumeditor.popup.hidePopup();
         sodiumeditor.invalidate();
@@ -67,33 +67,11 @@ public class OnSingleTapUp {
       }
     }
 
-    boolean afterEnd =
-        sodiumeditor.isEof && line >= sodiumeditor.windowStartLine + sodiumeditor.linesWindow.size() && !sodiumeditor.linesWindow.isEmpty();
-    if (sodiumeditor.isCodeFoldingEnabled) {
-      afterEnd = visibleIndex >= totalVisible;
-    }
+    boolean afterEnd = sodiumeditor.clickAfterEndToAddLine.isClickAfterEnd(visibleIndex, totalVisible);
 
     if (afterEnd) {
-      if (sodiumeditor.isClickAfterEndToAddLineEnabled) {
-        int lastLineIndex = sodiumeditor.windowStartLine + sodiumeditor.linesWindow.size() - 1;
-        // Only add a new line if the user taps exactly on the first empty line after
-        // the text
-        if (visibleIndex == totalVisible) {
-          sodiumeditor.cursor.cursorLine = lastLineIndex;
-          String lastLineText = sodiumeditor.getLineTextForRender(sodiumeditor.cursor.cursorLine);
-          sodiumeditor.cursor.cursorChar = lastLineText.length();
-          sodiumeditor.insertTextAtCursor("\n");
-        } else {
-          // If tapped further down, just move cursor to end of text without adding
-          // lines
-          sodiumeditor.cursor.cursorLine = lastLineIndex;
-          String lastLineText = sodiumeditor.getLineTextForRender(sodiumeditor.cursor.cursorLine);
-          sodiumeditor.cursor.cursorChar = lastLineText.length();
-        }
-      } else {
-        sodiumeditor.cursor.cursorLine = sodiumeditor.windowStartLine + sodiumeditor.linesWindow.size() - 1;
-        String lastLineText = sodiumeditor.getLineTextForRender(sodiumeditor.cursor.cursorLine);
-        sodiumeditor.cursor.cursorChar = lastLineText.length();
+      if (!sodiumeditor.clickAfterEndToAddLine.handleClickAfterEnd(visibleIndex, totalVisible)) {
+        sodiumeditor.clickAfterEndToAddLine.handleDefaultAfterEnd();
       }
     } else {
       sodiumeditor.ensureLineInWindow(line, true);

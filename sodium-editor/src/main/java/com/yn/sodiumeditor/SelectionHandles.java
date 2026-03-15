@@ -153,7 +153,7 @@ public class SelectionHandles {
    */
   private float getLineY(int line) {
     int visualLine = line;
-    if (sodiumeditor.isWordWrapEnabled) {
+    if (sodiumeditor.wordWrap.isWordWrapEnabled) {
       visualLine = sodiumeditor.getVisualIndexForLineAndChar(line, 0);
     }
     return (visualLine * sodiumeditor.lineHeight) - sodiumeditor.scroll.scrollY;

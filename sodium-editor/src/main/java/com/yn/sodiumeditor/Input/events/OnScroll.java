@@ -62,7 +62,7 @@ public class OnScroll extends GestureDetector.SimpleOnGestureListener {
     if (e2.getPointerCount() > 1) return true;
     if (sodiumeditor.zoom.isScaling || sodiumeditor.scaleGestureDetector.isInProgress()) return true;
     if (sodiumeditor.zoom.mJustFinishedScale) return true;
-    if (sodiumeditor.isWordWrapEnabled && sodiumeditor.wrapPrefixBuilding) {
+    if (sodiumeditor.wordWrap.isWordWrapEnabled && sodiumeditor.wordWrap.wrapPrefixBuilding) {
       sodiumeditor.cancelWrapPrefixRebuildForInteraction();
     }
     if (sodiumeditor.suggestionAcceptedThisTouch)

@@ -20,7 +20,7 @@ public class OnFling {
   public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
     if (sodiumeditor.zoom.isScaling || sodiumeditor.scaleGestureDetector.isInProgress()) return true;
     if (sodiumeditor.zoom.mJustFinishedScale) return true;
-    if (sodiumeditor.isWordWrapEnabled && sodiumeditor.wrapPrefixBuilding) {
+    if (sodiumeditor.wordWrap.isWordWrapEnabled && sodiumeditor.wordWrap.wrapPrefixBuilding) {
       sodiumeditor.cancelWrapPrefixRebuildForInteraction();
     }
     if (sodiumeditor.suggestionAcceptedThisTouch)

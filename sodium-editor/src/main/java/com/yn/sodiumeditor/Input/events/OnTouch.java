@@ -113,7 +113,7 @@ public class OnTouch {
         sodiumeditor.downY = ey;
         sodiumeditor.movedSinceDown = false;
         sodiumeditor.suggestionAcceptedThisTouch = false; // Reset flag for new touch sequence
-        sodiumeditor.scroll.dragMaxScrollX = sodiumeditor.isWordWrapEnabled ? -1f : sodiumeditor.scroll.getMaxScrollXForClamp();
+        sodiumeditor.scroll.dragMaxScrollX = sodiumeditor.wordWrap.isWordWrapEnabled ? -1f : sodiumeditor.scroll.getMaxScrollXForClamp();
 
         sodiumeditor.scroll.showScrollBar();
         if (sodiumeditor.scroll.scrollBarEnabled) {
@@ -215,7 +215,7 @@ public class OnTouch {
           else if (ey > (sodiumeditor.getHeight() - sodiumeditor.keyboardHeight) - scrollMargin) sodiumeditor.autoScrollY = scrollSpeed;
           if (ex < scrollMargin) sodiumeditor.autoScrollX = -scrollSpeed;
           else if (ex > sodiumeditor.getWidth() - scrollMargin) sodiumeditor.autoScrollX = scrollSpeed;
-          if (sodiumeditor.isRtl && !sodiumeditor.isWordWrapEnabled) sodiumeditor.autoScrollX = -sodiumeditor.autoScrollX;
+          if (sodiumeditor.isRtl && !sodiumeditor.wordWrap.isWordWrapEnabled) sodiumeditor.autoScrollX = -sodiumeditor.autoScrollX;
 
           // Prevent horizontal auto-scroll when the handle is already at the line boundary.
           if (sodiumeditor.autoScrollX > 0 && sodiumeditor.lastDragAtLineEnd) sodiumeditor.autoScrollX = 0;
@@ -346,8 +346,8 @@ public class OnTouch {
           if (sodiumeditor.selection.hasSelection) sodiumeditor.popup.showPopupAtSelection();
           sodiumeditor.restartInput(); // Sync IME state
           Log.d("SodiumEditor", "onTouchEvent.ACTION_UP: Scroll/Zoom ended, restarted input.");
-          if (sodiumeditor.isWordWrapEnabled && sodiumeditor.wrapPrefixRebuildPending && !sodiumeditor.wrapPrefixBuilding) {
-            sodiumeditor.wrapPrefixRebuildPending = false;
+          if (sodiumeditor.wordWrap.isWordWrapEnabled && sodiumeditor.wordWrap.wrapPrefixRebuildPending && !sodiumeditor.wordWrap.wrapPrefixBuilding) {
+            sodiumeditor.wordWrap.wrapPrefixRebuildPending = false;
             sodiumeditor.scheduleWrapPrefixRebuildUpToWindow();
           }
         }

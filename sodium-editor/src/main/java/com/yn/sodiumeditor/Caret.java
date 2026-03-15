@@ -137,7 +137,7 @@ public class Caret {
    */
   public float getCaretY() {
     int visualLine = cursor.cursorLine;
-    if (sodiumeditor.isWordWrapEnabled) {
+    if (sodiumeditor.wordWrap.isWordWrapEnabled) {
       visualLine = sodiumeditor.getVisualIndexForLineAndChar(cursor.cursorLine, cursor.cursorChar);
     }
     return (visualLine * sodiumeditor.lineHeight) - sodiumeditor.scroll.scrollY;
@@ -226,7 +226,7 @@ public class Caret {
    * Invalidate caret area
    */
   public void invalidateCaretArea() {
-    if (sodiumeditor.isWordWrapEnabled) {
+    if (sodiumeditor.wordWrap.isWordWrapEnabled) {
       sodiumeditor.invalidate();
       return;
     }
