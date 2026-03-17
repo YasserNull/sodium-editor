@@ -45,8 +45,8 @@ public class Caret {
   public float caretWidth = 2f;
   public int caretColor = 0xFF000000;
   
-  private final Runnable blinkRunnable;
-  private final Handler mainHandler = new Handler(Looper.getMainLooper());
+  public final Runnable blinkRunnable;
+  public final Handler mainHandler = new Handler(Looper.getMainLooper());
   @Nullable public ValueAnimator cursorAnimAnimator;
   
   private final SodiumEditor sodiumeditor;

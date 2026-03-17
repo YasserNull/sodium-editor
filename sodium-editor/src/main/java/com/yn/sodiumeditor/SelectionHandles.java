@@ -138,7 +138,7 @@ public class SelectionHandles {
   /**
    * Get character X position
    */
-  private float getCharX(int line, int ch) {
+  public float getCharX(int line, int ch) {
     String lineText = sodiumeditor.getLineTextForRender(line);
     if (lineText == null) return sodiumeditor.getTextStartX();
     
@@ -151,7 +151,7 @@ public class SelectionHandles {
   /**
    * Get line Y position
    */
-  private float getLineY(int line) {
+  public float getLineY(int line) {
     int visualLine = line;
     if (sodiumeditor.wordWrap.isWordWrapEnabled) {
       visualLine = sodiumeditor.getVisualIndexForLineAndChar(line, 0);
@@ -162,7 +162,7 @@ public class SelectionHandles {
   /**
    * Compare two positions
    */
-  private int comparePos(int lineA, int charA, int lineB, int charB) {
+  public int comparePos(int lineA, int charA, int lineB, int charB) {
     if (lineA != lineB) return Integer.compare(lineA, lineB);
     return Integer.compare(charA, charB);
   }

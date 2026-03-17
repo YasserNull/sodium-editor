@@ -166,7 +166,7 @@ public class BracketCache {
                 rebuildFoldRangesInBg(newCache);
                 
                 final int finalVersion = cacheVersion;
-                editor.mainHandler.post(() -> {
+                editor.caret.mainHandler.post(() -> {
                     if (scanToken == myToken) {
                         lineCache.clear();
                         lineCache.putAll(newCache);

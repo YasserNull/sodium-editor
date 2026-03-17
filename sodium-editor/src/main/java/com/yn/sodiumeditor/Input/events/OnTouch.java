@@ -58,7 +58,7 @@ public class OnTouch {
       sodiumeditor.selection.selecting = false;
       sodiumeditor.selection.isLineNumberSelecting = false;
       sodiumeditor.selection.lineNumberSelectAnchorLine = -1;
-      sodiumeditor.mainHandler.removeCallbacks(sodiumeditor.autoScrollRunnable);
+      sodiumeditor.caret.mainHandler.removeCallbacks(sodiumeditor.autoScrollRunnable);
       if (!sodiumeditor.scroll.scroller.isFinished()) {
         sodiumeditor.scroll.scroller.computeScrollOffset();
         sodiumeditor.scroll.scrollX = sodiumeditor.scroll.scroller.getCurrX();
@@ -95,7 +95,7 @@ public class OnTouch {
       sodiumeditor.selection.selecting = false;
       sodiumeditor.selection.isLineNumberSelecting = false;
       sodiumeditor.selection.lineNumberSelectAnchorLine = -1;
-      sodiumeditor.mainHandler.removeCallbacks(sodiumeditor.autoScrollRunnable);
+      sodiumeditor.caret.mainHandler.removeCallbacks(sodiumeditor.autoScrollRunnable);
       sodiumeditor.scroll.dragMaxScrollX = -1f;
       return true;
     }
@@ -149,10 +149,10 @@ public class OnTouch {
         // area.
         float gx = ex + sodiumeditor.getEffectiveScrollX() - sodiumeditor.getTextStartX();
         float gy = ey + sodiumeditor.scroll.scrollY - sodiumeditor.getHitTestBaseY();
-        if (sodiumeditor.selection.hasSelection && sodiumeditor.leftHandleRect.contains(gx, gy)) {
+        if (sodiumeditor.selection.hasSelection && sodiumeditor.selectionHandles.leftHandleRect.contains(gx, gy)) {
           sodiumeditor.draggingHandle = 1;
           return true;
-        } else if (sodiumeditor.selection.hasSelection && sodiumeditor.rightHandleRect.contains(gx, gy)) {
+        } else if (sodiumeditor.selection.hasSelection && sodiumeditor.selectionHandles.rightHandleRect.contains(gx, gy)) {
           sodiumeditor.draggingHandle = 2;
           return true;
         } else if (sodiumeditor.isFocused() && !sodiumeditor.selection.hasSelection && sodiumeditor.cursorHandleRect.contains(gx, gy)) {
@@ -221,8 +221,8 @@ public class OnTouch {
           if (sodiumeditor.autoScrollX > 0 && sodiumeditor.lastDragAtLineEnd) sodiumeditor.autoScrollX = 0;
           if (sodiumeditor.autoScrollX < 0 && sodiumeditor.lastDragAtLineStart) sodiumeditor.autoScrollX = 0;
 
-          if (sodiumeditor.autoScrollX != 0 || sodiumeditor.autoScrollY != 0) sodiumeditor.mainHandler.post(sodiumeditor.autoScrollRunnable);
-          else sodiumeditor.mainHandler.removeCallbacks(sodiumeditor.autoScrollRunnable);
+          if (sodiumeditor.autoScrollX != 0 || sodiumeditor.autoScrollY != 0) sodiumeditor.caret.mainHandler.post(sodiumeditor.autoScrollRunnable);
+          else sodiumeditor.caret.mainHandler.removeCallbacks(sodiumeditor.autoScrollRunnable);
 
           sodiumeditor.invalidate();
           return true;
@@ -232,7 +232,7 @@ public class OnTouch {
         return true;
 
       case MotionEvent.ACTION_UP:
-        sodiumeditor.mainHandler.removeCallbacks(sodiumeditor.autoScrollRunnable);
+        sodiumeditor.caret.mainHandler.removeCallbacks(sodiumeditor.autoScrollRunnable);
         sodiumeditor.scroll.dragMaxScrollX = -1f;
 
         if (sodiumeditor.scroll.draggingScrollBar) {
@@ -264,7 +264,7 @@ public class OnTouch {
             } else if (actionForTap == Popup.POPUP_ACTION_PASTE) {
               sodiumeditor.pasteFromClipboard();
             } else if (actionForTap == Popup.POPUP_ACTION_DELETE) {
-              sodiumeditor.deleteSelection();
+              sodiumeditor.selection.deleteSelection();
             } else if (actionForTap == Popup.POPUP_ACTION_SELECT_ALL) {
               if (!sodiumeditor.selection.isSelectAllActive) sodiumeditor.selection.selectAll();
               else sodiumeditor.popup.hidePopup();
@@ -360,7 +360,7 @@ public class OnTouch {
         return true;
 
       case MotionEvent.ACTION_CANCEL:
-        sodiumeditor.mainHandler.removeCallbacks(sodiumeditor.autoScrollRunnable);
+        sodiumeditor.caret.mainHandler.removeCallbacks(sodiumeditor.autoScrollRunnable);
         sodiumeditor.pointerDown = false;
         sodiumeditor.draggingHandle = 0;
         sodiumeditor.selection.selecting = false;
@@ -372,7 +372,7 @@ public class OnTouch {
         sodiumeditor.scroll.dragMaxScrollX = -1f;
         sodiumeditor.scroll.draggingScrollBar = false;
         if (sodiumeditor.scroll.scrollBarFadeEnabled) {
-          sodiumeditor.mainHandler.removeCallbacks(sodiumeditor.scroll.scrollBarHideRunnable);
+          sodiumeditor.caret.mainHandler.removeCallbacks(sodiumeditor.scroll.scrollBarHideRunnable);
         }
         Log.d("SodiumEditor", "onTouchEvent.ACTION_CANCEL: Passing to GestureDetector.");
         sodiumeditor.scroll.gestureDetector.onTouchEvent(event);

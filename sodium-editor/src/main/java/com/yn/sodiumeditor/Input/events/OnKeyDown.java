@@ -67,10 +67,10 @@ public class OnKeyDown {
     int uc = event.getUnicodeChar();
     if (uc != 0) {
       String s = String.valueOf((char) uc);
-      editor.replaceSelectionWithText(s);
+      editor.selection.replaceSelectionWithText(s);
       editor.charAnimation.startCharAnimationFromText(s);
     } else {
-      editor.replaceSelectionWithText("");
+      editor.selection.replaceSelectionWithText("");
     }
     return true;
   }
@@ -95,7 +95,7 @@ public class OnKeyDown {
 
       case KeyEvent.KEYCODE_DEL:
         if (editor.selection.hasSelection) {
-          editor.replaceSelectionWithText("");
+          editor.selection.replaceSelectionWithText("");
         } else {
           editor.deleteCharAtCursor();
         }
@@ -103,7 +103,7 @@ public class OnKeyDown {
 
       case KeyEvent.KEYCODE_FORWARD_DEL:
         if (editor.selection.hasSelection) {
-          editor.replaceSelectionWithText("");
+          editor.selection.replaceSelectionWithText("");
         } else {
           editor.deleteForwardAtCursor();
         }
@@ -111,7 +111,7 @@ public class OnKeyDown {
 
       case KeyEvent.KEYCODE_ENTER:
         if (editor.selection.hasSelection) {
-          editor.replaceSelectionWithText("\n");
+          editor.selection.replaceSelectionWithText("\n");
         } else {
           editor.insertNewlineAtCursor();
         }

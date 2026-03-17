@@ -53,7 +53,7 @@ public class OnLongPress {
     sodiumeditor.cursor.cursorChar = charIndex;
 
     // Try smart selection, but show minimal popup even if it fails (e.g., empty line)
-    boolean hasSelection = sodiumeditor.applySmartDoubleTapSelection(line, charIndex, ln);
+    boolean hasSelection = sodiumeditor.selection.applySmartDoubleTapSelection(line, charIndex, ln);
     
     if (hasSelection) {
       sodiumeditor.popup.showPopupAtSelection();

@@ -22,7 +22,7 @@ public class WordWrap {
   private final Handler mainHandler;
 
   // Word wrap state
-  public boolean isWordWrapEnabled = true;
+  public boolean isWordWrapEnabled = false;
   public int wrapWidthPx = -1;
   public final HashMap<Integer, int[]> wrapCache = new HashMap<>();
   public volatile int[] wrapLineCounts = null;

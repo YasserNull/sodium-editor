@@ -102,7 +102,7 @@ public class CodeFold {
         if (created == null) return false;
         created.collapsed = true;
         foldRanges.put(created.startLine, created);
-        if (created.isIndentFold) editor.indentGuideIntervalsDirty = true;
+        if (created.isIndentFold) editor.indentGuides.markIntervalsDirty();
         foldIntervalsDirty = true;
         editor.invalidate();
         return true;
@@ -257,7 +257,7 @@ public class CodeFold {
         FoldRange found = findFoldRangeForLine(line);
         if (found == null) return null;
         foldRanges.put(found.startLine, found);
-        if (found.isIndentFold) editor.indentGuideIntervalsDirty = true;
+        if (found.isIndentFold) editor.indentGuides.markIntervalsDirty();
         foldIntervalsDirty = true;
         return "v";
     }

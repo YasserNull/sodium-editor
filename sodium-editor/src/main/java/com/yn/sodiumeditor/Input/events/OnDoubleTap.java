@@ -30,7 +30,7 @@ public class OnDoubleTap {
       return onSingleTapUp.onSingleTapUp(e);
     }
     int charIndex = Math.max(0, Math.min(target.ch, ln.length()));
-    if (!sodiumeditor.applySmartDoubleTapSelection(line, charIndex, ln)) {
+    if (!sodiumeditor.selection.applySmartDoubleTapSelection(line, charIndex, ln)) {
       return onSingleTapUp.onSingleTapUp(e);
     }
     sodiumeditor.popup.showPopupAtSelection();

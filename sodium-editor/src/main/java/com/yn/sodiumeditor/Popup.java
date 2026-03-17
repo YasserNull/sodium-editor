@@ -471,7 +471,7 @@ public class Popup {
       eL = t;
     }
     long lines = (long) eL - (long) sL + 1L;
-    return lines > editor.hideCopyCutMaxLines;
+    return lines > editor.selection.hideCopyCutMaxLines;
   }
 
   /**

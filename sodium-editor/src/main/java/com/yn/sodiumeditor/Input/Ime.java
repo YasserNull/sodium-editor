@@ -121,7 +121,7 @@ public class Ime {
       @Override
       public CharSequence getSelectedText(int flags) {
         if (sodiumeditor.isDisabled || sodiumeditor.isReadOnly) return "";
-        return sodiumeditor.getSelectedText();
+        return sodiumeditor.selection.getSelectedText();
       }
 
       @Override
@@ -170,7 +170,7 @@ public class Ime {
         if (sOff == 0 && eOff == 0 && cursorOff > 0 && !sodiumeditor.selection.hasSelection) return true;
         CursorTarget s = offsetToLineCharInContext(ctx, sOff);
         CursorTarget e = offsetToLineCharInContext(ctx, eOff);
-        sodiumeditor.setSelectionInternal(s.line, s.ch, e.line, e.ch);
+        sodiumeditor.selection.setSelectionInternal(s.line, s.ch, e.line, e.ch);
         sodiumeditor.cursor.cursorLine = e.line;
         sodiumeditor.cursor.cursorChar = e.ch;
         sodiumeditor.caret.resetBlink();
@@ -195,7 +195,7 @@ public class Ime {
         CursorTarget s = offsetToLineCharInContext(ctx, sOff);
         CursorTarget e = offsetToLineCharInContext(ctx, eOff);
         if (s.line != e.line) {
-          sodiumeditor.setSelectionInternal(s.line, s.ch, e.line, e.ch);
+          sodiumeditor.selection.setSelectionInternal(s.line, s.ch, e.line, e.ch);
           sodiumeditor.cursor.cursorLine = e.line;
           sodiumeditor.cursor.cursorChar = e.ch;
           sodiumeditor.caret.resetBlink();
@@ -280,8 +280,8 @@ public class Ime {
                 String word = line.substring(bounds[0], bounds[1]);
                 if (!word.isEmpty() && lastImeCommitText.startsWith(word)) {
                   if (!word.equals(lastImeCommitText)) {
-                    sodiumeditor.setSelectionInternal(sodiumeditor.cursor.cursorLine, bounds[0], sodiumeditor.cursor.cursorLine, bounds[1]);
-                    sodiumeditor.replaceSelectionWithText(lastImeCommitText);
+                    sodiumeditor.selection.setSelectionInternal(sodiumeditor.cursor.cursorLine, bounds[0], sodiumeditor.cursor.cursorLine, bounds[1]);
+                    sodiumeditor.selection.replaceSelectionWithText(lastImeCommitText);
                   }
                   sodiumeditor.insertTextAtCursor(str);
                   suppressNextCommitText = false;
@@ -337,7 +337,7 @@ public class Ime {
         }
 
         if (sodiumeditor.selection.hasSelection) {
-          sodiumeditor.replaceSelectionWithText(str);
+          sodiumeditor.selection.replaceSelectionWithText(str);
           commitComposing(true);
           sodiumeditor.charAnimation.startCharAnimationFromText(text);
           sodiumeditor.handleAutoPairing(str);
@@ -374,7 +374,7 @@ public class Ime {
         if (text == null) return true;
 
         if (sodiumeditor.selection.hasSelection) {
-          sodiumeditor.replaceSelectionWithText(text.toString());
+          sodiumeditor.selection.replaceSelectionWithText(text.toString());
           sodiumeditor.charAnimation.startCharAnimationFromText(text);
           sodiumeditor.updateSuggestion();
           return true;
@@ -407,7 +407,7 @@ public class Ime {
         if (sodiumeditor.zoom.isZoomGestureActive()) return true;
 
         if (sodiumeditor.selection.hasSelection) {
-          sodiumeditor.replaceSelectionWithText("");
+          sodiumeditor.selection.replaceSelectionWithText("");
           sodiumeditor.updateSuggestion();
           return true;
         }
@@ -722,7 +722,7 @@ public class Ime {
     if (insert.isEmpty()) return false;
 
     if (sodiumeditor.selection.hasSelection) {
-      sodiumeditor.replaceSelectionWithText(insert);
+      sodiumeditor.selection.replaceSelectionWithText(insert);
       return true;
     }
     String line = sodiumeditor.getLineTextForRender(sodiumeditor.cursor.cursorLine);
@@ -731,8 +731,8 @@ public class Ime {
     if (pos == line.length()) pos = Math.max(0, pos - 1);
     int[] bounds = sodiumeditor.computeWordBounds(line, pos);
     if (bounds[0] == bounds[1]) return false;
-    sodiumeditor.setSelectionInternal(sodiumeditor.cursor.cursorLine, bounds[0], sodiumeditor.cursor.cursorLine, bounds[1]);
-    sodiumeditor.replaceSelectionWithText(insert);
+    sodiumeditor.selection.setSelectionInternal(sodiumeditor.cursor.cursorLine, bounds[0], sodiumeditor.cursor.cursorLine, bounds[1]);
+    sodiumeditor.selection.replaceSelectionWithText(insert);
     return true;
   }
 
@@ -757,8 +757,8 @@ public class Ime {
     if (line == null || bounds[0] >= bounds[1] || bounds[1] > line.length()) return false;
     String word = line.substring(bounds[0], bounds[1]);
     if (word.isEmpty() || word.equals(core)) return false;
-    sodiumeditor.setSelectionInternal(sodiumeditor.cursor.cursorLine, bounds[0], sodiumeditor.cursor.cursorLine, bounds[1]);
-    sodiumeditor.replaceSelectionWithText(core);
+    sodiumeditor.selection.setSelectionInternal(sodiumeditor.cursor.cursorLine, bounds[0], sodiumeditor.cursor.cursorLine, bounds[1]);
+    sodiumeditor.selection.replaceSelectionWithText(core);
     if (!trailing.isEmpty()) sodiumeditor.insertTextAtCursor(trailing);
     markImeCommit(insert);
     sodiumeditor.charAnimation.startCharAnimationFromText(insert);
