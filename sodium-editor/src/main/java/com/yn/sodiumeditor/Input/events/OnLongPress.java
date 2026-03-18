@@ -2,6 +2,7 @@ package com.yn.sodiumeditor.Input.events;
 
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.EditOperators;
 
 /**
  * OnLongPress handles onLongPress() gesture event for SodiumEditor.
@@ -40,7 +41,7 @@ public class OnLongPress {
     }
 
     // Position calculation
-    SodiumEditor.CursorTarget target = sodiumeditor.getCursorTargetForPosition(e.getX(), e.getY(), null);
+    EditOperators.CursorTarget target = sodiumeditor.getCursorTargetForPosition(e.getX(), e.getY(), null);
     int line = target.line;
     sodiumeditor.ensureLineInWindow(line, true); // Make sure line data is available
 

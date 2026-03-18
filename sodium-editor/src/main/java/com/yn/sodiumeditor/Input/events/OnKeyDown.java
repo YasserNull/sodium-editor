@@ -97,7 +97,7 @@ public class OnKeyDown {
         if (editor.selection.hasSelection) {
           editor.selection.replaceSelectionWithText("");
         } else {
-          editor.deleteCharAtCursor();
+          editor.editOperators.deleteCharAtCursor();
         }
         return true;
 
@@ -105,7 +105,7 @@ public class OnKeyDown {
         if (editor.selection.hasSelection) {
           editor.selection.replaceSelectionWithText("");
         } else {
-          editor.deleteForwardAtCursor();
+          editor.editOperators.deleteForwardAtCursor();
         }
         return true;
 

@@ -56,7 +56,7 @@ public class ClickAfterEndToAddLine {
       editor.cursor.cursorLine = lastLineIndex;
       String lastLineText = editor.getLineTextForRender(editor.cursor.cursorLine);
       editor.cursor.cursorChar = lastLineText.length();
-      editor.insertTextAtCursor("\n");
+      editor.editOperators.insertTextAtCursor("\n");
     } else {
       // If tapped further down, just move cursor to end of text without adding
       // lines

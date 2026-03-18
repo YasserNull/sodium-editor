@@ -61,7 +61,7 @@ public class BracketGuides {
   public void setBracketGuidesStrokeWidth(float width) {
     if (this.bracketGuideStrokeWidth == width) return;
     this.baseBracketGuideStrokeWidth = width;
-    this.baseBracketGuideTextSizePx = editor.paint.getTextSize();
+    this.baseBracketGuideTextSizePx = editor.textRender.paint.getTextSize();
     updateStrokeWidth();
     invalidateBracketGuideCache();
     editor.invalidate();
@@ -71,7 +71,7 @@ public class BracketGuides {
    * Updates stroke width based on text size.
    */
   public void updateStrokeWidth() {
-    float sizePx = editor.paint.getTextSize();
+    float sizePx = editor.textRender.paint.getTextSize();
     bracketGuideStrokeWidth = Math.max(
         1f,
         editor.scaleByTextSize(baseBracketGuideStrokeWidth, baseBracketGuideTextSizePx, sizePx));
@@ -111,7 +111,7 @@ public class BracketGuides {
       return;
     }
 
-    int v = editor.editVersion.get();
+    int v = editor.editOperators.editVersion.get();
     int cfg = getBracketGuideCacheConfigHash();
     if (startLine == bracketGuideCacheStartLine
         && endLine == bracketGuideCacheEndLine
@@ -120,7 +120,7 @@ public class BracketGuides {
       return;
     }
 
-    BracketGuideState state = new BracketGuideState(editor.isBlockCommentsEnabled, 0);
+    BracketGuideState state = new BracketGuideState(editor.highlite.isBlockCommentsEnabled, 0);
     bracketGuideTokensWindow.clear();
     bracketGuideTokensWindow.ensureCapacity(endLine - startLine + 1);
 
@@ -188,7 +188,7 @@ public class BracketGuides {
         break;
       }
 
-      if (editor.isBlockCommentsEnabled
+      if (editor.highlite.isBlockCommentsEnabled
           && i + 1 < length
           && line.charAt(i) == '/'
           && line.charAt(i + 1) == '*'
@@ -202,10 +202,10 @@ public class BracketGuides {
         continue;
       }
 
-      if (editor.isTripleQuoteStart(line, i) && !SodiumEditor.isEscaped(line, i)) {
+      if (editor.highlite.isTripleQuoteStart(line, i) && !SodiumEditor.isEscaped(line, i)) {
         int end = SodiumEditor.findTripleQuoteEnd(line, i + 3);
         if (end < 0) {
-          if (editor.isTripleQuoteStringsEnabled) {
+          if (editor.highlite.isTripleQuoteStringsEnabled) {
             state.stringState = SodiumEditor.STRING_STATE_TRIPLE;
           }
           return tokensToDraw;
@@ -215,10 +215,10 @@ public class BracketGuides {
       }
 
       char c = line.charAt(i);
-      if (editor.isStringDelimiter(c) && !SodiumEditor.isEscaped(line, i)) {
+      if (editor.highlite.isStringDelimiter(c) && !SodiumEditor.isEscaped(line, i)) {
         int end = SodiumEditor.findStringEnd(line, i + 1, c);
         if (end < 0) {
-          if (editor.isMultiLineStringsEnabled) {
+          if (editor.highlite.isMultiLineStringsEnabled) {
             state.stringState = editor.getStringStateForDelimiter(c);
           }
           return tokensToDraw;
@@ -255,9 +255,9 @@ public class BracketGuides {
         || guideTokens == null
         || guideTokens.isEmpty()) return;
     if (line == null) line = "";
-    editor.guideSeenXCount = 0;
-    float top = editor.getDrawLineTop(globalLine);
-    float bottom = top + editor.lineHeight;
+    editor.indentGuides.guideSeenXCount = 0;
+    float top = editor.textRender.getDrawLineTop(globalLine);
+    float bottom = top + editor.textRender.lineHeight;
     int firstNonSpace = editor.getFirstNonSpaceIndex(line);
     boolean adjustTopGuideToClosingBrace =
         (firstNonSpace >= 0 && line.charAt(firstNonSpace) == '}');
@@ -269,21 +269,21 @@ public class BracketGuides {
       float x = (adjustTopGuideToClosingBrace && tokenIndex == 0) ? closingBraceX : token.x;
       tokenIndex++;
       boolean seen = false;
-      for (int i = 0; i < editor.guideSeenXCount; i++) {
-        if (Math.abs(editor.guideSeenXBuffer[i] - x) <= 0.5f) {
+      for (int i = 0; i < editor.indentGuides.guideSeenXCount; i++) {
+        if (Math.abs(editor.indentGuides.guideSeenXBuffer[i] - x) <= 0.5f) {
           seen = true;
           break;
         }
       }
       if (seen) continue;
-      if (editor.guideSeenXBuffer == null || editor.guideSeenXBuffer.length < editor.guideSeenXCount + 1) {
-        float[] next = new float[Math.max(16, editor.guideSeenXCount + 8)];
-        if (editor.guideSeenXBuffer != null && editor.guideSeenXCount > 0) {
-          System.arraycopy(editor.guideSeenXBuffer, 0, next, 0, editor.guideSeenXCount);
+      if (editor.indentGuides.guideSeenXBuffer == null || editor.indentGuides.guideSeenXBuffer.length < editor.indentGuides.guideSeenXCount + 1) {
+        float[] next = new float[Math.max(16, editor.indentGuides.guideSeenXCount + 8)];
+        if (editor.indentGuides.guideSeenXBuffer != null && editor.indentGuides.guideSeenXCount > 0) {
+          System.arraycopy(editor.indentGuides.guideSeenXBuffer, 0, next, 0, editor.indentGuides.guideSeenXCount);
         }
-        editor.guideSeenXBuffer = next;
+        editor.indentGuides.guideSeenXBuffer = next;
       }
-      editor.guideSeenXBuffer[editor.guideSeenXCount++] = x;
+      editor.indentGuides.guideSeenXBuffer[editor.indentGuides.guideSeenXCount++] = x;
 
       if (!editor.isWhitespaceAtX(line, globalLine, x)) continue;
       canvas.drawLine(x, top, x, bottom, bracketGuidePaint);

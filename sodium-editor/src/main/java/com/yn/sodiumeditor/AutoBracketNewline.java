@@ -71,7 +71,7 @@ public class AutoBracketNewline {
       return;
     }
 
-    editor.insertCharAtCursor('\n');
+    editor.editOperators.insertCharAtCursor('\n');
   }
 
   /**
@@ -90,7 +90,7 @@ public class AutoBracketNewline {
 
     int targetLine = editor.cursor.cursorLine + 1;
     int targetChar = innerIndent.length();
-    editor.insertTextAtCursor(insertText);
+    editor.editOperators.insertTextAtCursor(insertText);
 
     editor.cursor.cursorLine = targetLine;
     editor.cursor.cursorChar = targetChar;
@@ -115,9 +115,9 @@ public class AutoBracketNewline {
       if (c == '{' || c == '}') {
         String baseIndent = editor.getLineLeadingWhitespace(editor.cursor.cursorLine);
         int baseWidth = editor.getIndentWidth(baseIndent);
-        int unit = SodiumEditor.INDENT_BLOCK_UNIT.length();
+        int unit = IndentGuides.INDENT_BLOCK_UNIT.length();
         int targetWidth = baseWidth;
-        
+
         if (c == '{') {
           int firstNonSpace = SodiumEditor.getFirstNonSpaceIndex(before);
           boolean startsWithClosingParenOrBracket =
@@ -129,8 +129,8 @@ public class AutoBracketNewline {
         } else {
           targetWidth = Math.max(0, baseWidth - unit);
         }
-        
-        editor.insertTextAtCursor("\n" + SodiumEditor.buildIndentFromWidth(targetWidth));
+
+        editor.editOperators.insertTextAtCursor("\n" + SodiumEditor.buildIndentFromWidth(targetWidth));
         return true;
       }
     }
@@ -147,8 +147,8 @@ public class AutoBracketNewline {
     String before = ln.substring(0, safeChar);
     String trimmed = SodiumEditor.rstripWhitespace(before);
     String baseIndent = editor.getLineLeadingWhitespace(editor.cursor.cursorLine);
-    String extraIndent = trimmed.endsWith(":") ? SodiumEditor.INDENT_BLOCK_UNIT : "";
-    editor.insertTextAtCursor("\n" + baseIndent + extraIndent);
+    String extraIndent = trimmed.endsWith(":") ? IndentGuides.INDENT_BLOCK_UNIT : "";
+    editor.editOperators.insertTextAtCursor("\n" + baseIndent + extraIndent);
   }
 
   /**
@@ -156,7 +156,7 @@ public class AutoBracketNewline {
    */
   private void insertNewlineWithBaseIndent() {
     String baseIndent = editor.getLineLeadingWhitespace(editor.cursor.cursorLine);
-    editor.insertTextAtCursor("\n" + baseIndent);
+    editor.editOperators.insertTextAtCursor("\n" + baseIndent);
   }
 
   /**

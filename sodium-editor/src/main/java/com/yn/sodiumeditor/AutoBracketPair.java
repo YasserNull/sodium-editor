@@ -33,7 +33,7 @@ public class AutoBracketPair {
     String closing = getClosingPair(c);
 
     if (closing != null) {
-      editor.insertTextAtCursor(closing);
+      editor.editOperators.insertTextAtCursor(closing);
       for (int i = 0; i < closing.length(); i++) {
         editor.moveCursorLeft();
       }
@@ -106,7 +106,7 @@ public class AutoBracketPair {
     String closing = getClosingPair(opening);
     if (closing == null) return;
     
-    editor.insertTextAtCursor(opening + closing);
+    editor.editOperators.insertTextAtCursor(opening + closing);
     editor.moveCursorLeft();
   }
 

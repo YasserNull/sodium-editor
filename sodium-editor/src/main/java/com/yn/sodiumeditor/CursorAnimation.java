@@ -129,9 +129,9 @@ public class CursorAnimation {
     float dx = cursorAnimTargetX - cursorAnimX;
     float dy = cursorAnimTargetY - cursorAnimY;
     float distance = (float) Math.hypot(dx, dy);
-    
+
     // If distance is too large, snap to target
-    if (distance > editor.lineHeight * 6f) {
+    if (distance > editor.textRender.lineHeight * 6f) {
       editor.removeCallbacks(cursorAnimStep);
       cursorAnimRunning = false;
       cursorAnimX = targetX;

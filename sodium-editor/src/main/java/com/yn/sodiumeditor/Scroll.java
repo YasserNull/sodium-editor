@@ -66,8 +66,7 @@ public class Scroll {
   public int scrollBarHaloColor = 0x40FFFFFF;
   public float scrollBarHaloSizePx = 8f;
   @Nullable public ValueAnimator scrollBarFadeAnimator;
-  public final android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
-  public final Runnable scrollBarHideRunnable = this::startScrollBarFadeOut;
+    public final Runnable scrollBarHideRunnable = this::startScrollBarFadeOut;
 public final Paint scrollBarPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public final Paint scrollBarHaloPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public final RectF scrollBarThumbRect = new RectF();
@@ -132,7 +131,7 @@ public boolean scrollerIsScrolling = false;
     }
     
     // RTL support
-    if (sodiumeditor.isRtl && !sodiumeditor.wordWrap.isWordWrapEnabled) {
+    if (sodiumeditor.textRender.isRtl && !sodiumeditor.wordWrap.isWordWrapEnabled) {
       dx = -dx;
     }
     
@@ -185,7 +184,7 @@ public boolean scrollerIsScrolling = false;
     showScrollBar();
 
     sodiumeditor.removeCallbacks(delayedWindowCheck);
-    if (Math.abs(distanceY) > sodiumeditor.lineHeight * 6f) {
+    if (Math.abs(distanceY) > sodiumeditor.textRender.lineHeight * 6f) {
       sodiumeditor.checkAndLoadWindow();
     } else {
       sodiumeditor.postDelayed(delayedWindowCheck, 60);
@@ -234,11 +233,11 @@ public boolean scrollerIsScrolling = false;
               ? Math.min(100f, sodiumeditor.keyboardHeight * 0.4f)
               : 100f;
       maxScrollYFloat =
-          Math.max(0f, lineCount * sodiumeditor.lineHeight - (effectiveHeight - paddingToUse));
+          Math.max(0f, lineCount * sodiumeditor.textRender.lineHeight - (effectiveHeight - paddingToUse));
     } else {
-      float virtualExtraSpace = Math.max(sodiumeditor.prefetchLines * sodiumeditor.lineHeight, 2000f);
+      float virtualExtraSpace = Math.max(sodiumeditor.prefetchLines * sodiumeditor.textRender.lineHeight, 2000f);
       maxScrollYFloat =
-          Math.max(0f, lineCount * sodiumeditor.lineHeight + virtualExtraSpace - effectiveHeight);
+          Math.max(0f, lineCount * sodiumeditor.textRender.lineHeight + virtualExtraSpace - effectiveHeight);
     }
     int maxY = Math.max(0, Math.round(maxScrollYFloat));
 
@@ -262,7 +261,7 @@ public boolean scrollerIsScrolling = false;
     }
     
     // RTL support
-    if (sodiumeditor.isRtl && !sodiumeditor.wordWrap.isWordWrapEnabled) {
+    if (sodiumeditor.textRender.isRtl && !sodiumeditor.wordWrap.isWordWrapEnabled) {
       vx = -vx;
     }
     
@@ -413,8 +412,8 @@ public boolean scrollerIsScrolling = false;
     cancelScrollBarFade();
     scrollBarAlpha = 1f;
     sodiumeditor.invalidate();
-    mainHandler.removeCallbacks(scrollBarHideRunnable);
-    mainHandler.postDelayed(scrollBarHideRunnable, scrollBarFadeDelayMs);
+    sodiumeditor.caret.mainHandler.removeCallbacks(scrollBarHideRunnable);
+    sodiumeditor.caret.mainHandler.postDelayed(scrollBarHideRunnable, scrollBarFadeDelayMs);
   }
 
   /**
@@ -631,10 +630,10 @@ public boolean scrollerIsScrolling = false;
   }
   public void scrollToLineFastForSelectAll(int line, int ch) {
     if (sodiumeditor.wordWrap.isWordWrapEnabled && (!sodiumeditor.wordWrap.wrapMetricsReady || sodiumeditor.wordWrap.wrapLinePrefix == null)) {
-       scrollY =Math.max(0f, (line - 5) * sodiumeditor.lineHeight);
+       scrollY =Math.max(0f, (line - 5) * sodiumeditor.textRender.lineHeight);
     } else {
       int targetVisual = sodiumeditor.getVisualIndexForLineAndChar(line, ch);
-       scrollY =Math.max(0f, (targetVisual - 5) * sodiumeditor.lineHeight);
+       scrollY =Math.max(0f, (targetVisual - 5) * sodiumeditor.textRender.lineHeight);
     }
     clampScrollY();
   }
@@ -751,17 +750,17 @@ public boolean scrollerIsScrolling = false;
     if (sodiumeditor.isEof) {
       float paddingToUse =
           (sodiumeditor.keyboardHeight > 0) ? sodiumeditor.getKeyboardBarrierPadding() : sodiumeditor.getBottomBarrierPadding();
-      return Math.max(0f, lineCount * sodiumeditor.lineHeight - (effectiveHeight - paddingToUse));
+      return Math.max(0f, lineCount * sodiumeditor.textRender.lineHeight - (effectiveHeight - paddingToUse));
     }
-    float virtualExtraSpace = Math.max(sodiumeditor.prefetchLines * sodiumeditor.lineHeight, 2000f);
-    return Math.max(0f, lineCount * sodiumeditor.lineHeight + virtualExtraSpace - effectiveHeight);
+    float virtualExtraSpace = Math.max(sodiumeditor.prefetchLines * sodiumeditor.textRender.lineHeight, 2000f);
+    return Math.max(0f, lineCount * sodiumeditor.textRender.lineHeight + virtualExtraSpace - effectiveHeight);
   }
 
   public void clampScrollY() {
-    if (!sodiumeditor.wordWrap.isWordWrapEnabled && sodiumeditor.isWindowLoading &&  scrollY < sodiumeditor.windowStartLine * sodiumeditor.lineHeight) {
+    if (!sodiumeditor.wordWrap.isWordWrapEnabled && sodiumeditor.isWindowLoading &&  scrollY < sodiumeditor.windowStartLine * sodiumeditor.textRender.lineHeight) {
       boolean allowAboveWindow = scrollerIsScrolling || flingStopAnimator != null;
       if (!allowAboveWindow) {
-         scrollY =sodiumeditor.windowStartLine * sodiumeditor.lineHeight;
+         scrollY =sodiumeditor.windowStartLine * sodiumeditor.textRender.lineHeight;
         if (!scroller.isFinished()) scroller.abortAnimation();
       }
     }

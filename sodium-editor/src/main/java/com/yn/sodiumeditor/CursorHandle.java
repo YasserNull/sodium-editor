@@ -12,6 +12,7 @@ import android.graphics.RectF;
  */
 public class CursorHandle {
 
+  
   // Cursor handle appearance
   public float cursorHandleWidth = 40f;
   public float cursorHandleHeight = 50f;
@@ -38,7 +39,7 @@ public class CursorHandle {
     float caretX = caret.getCaretX();
     float caretY = caret.getCaretY();
     float handleLeft = caretX - cursorHandleWidth / 2;
-    float handleTop = caretY - cursorHandleHeight + sodiumeditor.lineHeight;
+    float handleTop = caretY - cursorHandleHeight + sodiumeditor.textRender.lineHeight;
     
     cursorHandleRect.set(
         handleLeft,
@@ -96,6 +97,7 @@ public class CursorHandle {
 
   public void setCursorHandleColor(int color) {
     cursorHandleColor = color;
+    sodiumeditor.invalidate();
   }
 
   public void setCursorHandleRadius(float radius) {

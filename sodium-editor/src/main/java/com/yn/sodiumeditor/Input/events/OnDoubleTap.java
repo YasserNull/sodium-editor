@@ -2,6 +2,7 @@ package com.yn.sodiumeditor.Input.events;
 
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.EditOperators;
 
 /**
  * OnDoubleTap handles onDoubleTap() gesture event for SodiumEditor.
@@ -22,7 +23,7 @@ public class OnDoubleTap {
   public boolean onDoubleTap(MotionEvent e) {
     if (sodiumeditor.suggestionAcceptedThisTouch)
       return true; // Don't process if suggestion was accepted
-    SodiumEditor.CursorTarget target = sodiumeditor.getCursorTargetForPosition(e.getX(), e.getY(), null);
+    EditOperators.CursorTarget target = sodiumeditor.getCursorTargetForPosition(e.getX(), e.getY(), null);
     int line = target.line;
     sodiumeditor.ensureLineInWindow(line, true);
     String ln = sodiumeditor.getLineTextForRender(line);

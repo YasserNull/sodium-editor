@@ -169,7 +169,7 @@ public class Popup {
   public void setPopupTextFollowsEditorTypeface(boolean follow) {
     popupTextFollowsEditorTypeface = follow;
     if (follow) {
-      popupTextPaint.setTypeface(editor.paint.getTypeface());
+      popupTextPaint.setTypeface(editor.textRender.paint.getTypeface());
     }
     if (showPopup) editor.invalidate();
   }
@@ -375,12 +375,12 @@ public class Popup {
       String cursorLineText = editor.getLineTextForRender(editor.cursor.cursorLine);
       anchorX = editor.getViewXForLineChar(cursorLineText, editor.cursor.cursorLine, editor.cursor.cursorChar);
       anchorY_top = editor.getViewYTopForLineChar(editor.cursor.cursorLine, editor.cursor.cursorChar);
-      anchorY_bottom = anchorY_top + editor.lineHeight;
+      anchorY_bottom = anchorY_top + editor.textRender.lineHeight;
     } else {
       // Anchor to selection (existing logic)
       int nStartLine, nEndLine, nEndChar;
       String endLineText;
-      if (editor.comparePos(editor.selection.selStartLine, editor.selection.selStartChar, editor.selection.selEndLine, editor.selection.selEndChar) <= 0) {
+      if (editor.editOperators.comparePos(editor.selection.selStartLine, editor.selection.selStartChar, editor.selection.selEndLine, editor.selection.selEndChar) <= 0) {
         nStartLine = editor.selection.selStartLine;
         nEndLine = editor.selection.selEndLine;
         nEndChar = editor.selection.selEndChar;
@@ -393,7 +393,7 @@ public class Popup {
       }
 
       anchorY_top = editor.getViewYTopForLineChar(nStartLine, 0);
-      anchorY_bottom = editor.getViewYTopForLineChar(nEndLine, nEndChar) + editor.lineHeight;
+      anchorY_bottom = editor.getViewYTopForLineChar(nEndLine, nEndChar) + editor.textRender.lineHeight;
       anchorX = editor.getViewXForLineChar(endLineText, nEndLine, nEndChar);
     }
 
@@ -402,7 +402,7 @@ public class Popup {
     if (proposedLeft + totalWidth > editor.getWidth()) proposedLeft = editor.getWidth() - totalWidth;
     if (proposedLeft < 0) proposedLeft = 0;
 
-    final float popupVerticalPadding = editor.lineHeight * 0.75f;
+    final float popupVerticalPadding = editor.textRender.lineHeight * 0.75f;
 
     float topAbove = anchorY_top - totalHeight - popupVerticalPadding;
     float topBelow = anchorY_bottom + popupVerticalPadding;

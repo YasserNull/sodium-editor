@@ -12,6 +12,9 @@ import java.util.List;
  */
 public class IndentGuides {
 
+  // Indent block unit constant
+  public static final String INDENT_BLOCK_UNIT = "    ";
+
   private final SodiumEditor editor;
 
   // Indent guides state
@@ -63,7 +66,7 @@ public class IndentGuides {
   public void setIndentGuidesStrokeWidth(float width) {
     if (this.indentGuideStrokeWidth == width) return;
     this.baseIndentGuideStrokeWidth = width;
-    this.baseIndentGuideTextSizePx = editor.paint.getTextSize();
+    this.baseIndentGuideTextSizePx = editor.textRender.paint.getTextSize();
     updateStrokeWidth();
     editor.invalidate();
   }
@@ -72,7 +75,7 @@ public class IndentGuides {
    * Updates stroke width based on text size.
    */
   public void updateStrokeWidth() {
-    float sizePx = editor.paint.getTextSize();
+    float sizePx = editor.textRender.paint.getTextSize();
     indentGuideStrokeWidth = Math.max(
         1f,
         editor.scaleByTextSize(baseIndentGuideStrokeWidth, baseIndentGuideTextSizePx, sizePx));
@@ -106,11 +109,11 @@ public class IndentGuides {
       for (int j = 0; j < line.length(); j++) {
         char c = line.charAt(j);
         if (c == ' ') spaces++;
-        else if (c == '\t') spaces += SodiumEditor.DEFAULT_TAB_SIZE_SPACES;
+        else if (c == '\t') spaces += TextRender.DEFAULT_TAB_SIZE_SPACES;
         else break;
       }
 
-      if (spaces >= SodiumEditor.INDENT_BLOCK_UNIT.length()) {
+      if (spaces >= INDENT_BLOCK_UNIT.length()) {
         if (start < 0) start = i;
       } else {
         if (start >= 0) {
@@ -175,11 +178,11 @@ public class IndentGuides {
     if (!isLineInIndentBlock(globalLine)) return;
     if (line == null || line.isEmpty()) return;
 
-    int unitSpaces = SodiumEditor.INDENT_BLOCK_UNIT.length();
+    int unitSpaces = INDENT_BLOCK_UNIT.length();
     if (unitSpaces <= 0) return;
 
-    float top = editor.getDrawLineTop(globalLine);
-    float bottom = top + editor.lineHeight;
+    float top = editor.textRender.getDrawLineTop(globalLine);
+    float bottom = top + editor.textRender.lineHeight;
     int columns = 0;
     int nextGuide = unitSpaces;
     float x = 0f;
@@ -187,9 +190,9 @@ public class IndentGuides {
     for (int i = 0; i < line.length(); i++) {
       char c = line.charAt(i);
       if (c != ' ' && c != '\t') break;
-      float adv = editor.measureTextWithVisualSpaces(line, i, i + 1, editor.paint);
+      float adv = editor.measureTextWithVisualSpaces(line, i, i + 1, editor.textRender.paint);
       if (c == '\t') {
-        columns += SodiumEditor.DEFAULT_TAB_SIZE_SPACES;
+        columns += TextRender.DEFAULT_TAB_SIZE_SPACES;
       } else {
         columns += 1;
       }

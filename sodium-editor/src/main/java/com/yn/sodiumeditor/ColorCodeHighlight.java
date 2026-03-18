@@ -114,8 +114,8 @@ public class ColorCodeHighlight {
 
     if (triples.length == 0) return;
 
-    float top = editor.getDrawLineTop(globalLine);
-    float bottom = top + editor.lineHeight;
+    float top = editor.textRender.getDrawLineTop(globalLine);
+    float bottom = top + editor.textRender.lineHeight;
     colorOverlayPaint.setStyle(Paint.Style.FILL);
     for (int i = 0; i + 2 < triples.length; i += 3) {
       int start = triples[i];

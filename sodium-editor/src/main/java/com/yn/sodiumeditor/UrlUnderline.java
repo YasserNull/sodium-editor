@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
+import com.yn.sodiumeditor.TextRender;
 /**
  * Manages URL underlining for the SodiumEditor.
  * Detects and underlines URLs in text.
@@ -23,10 +23,10 @@ public class UrlUnderline {
   public final Paint urlUnderlineTmpPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
   // URL underline cache
-  public final LinkedHashMap<Integer, List<SodiumEditor.UnderlineSpan>> urlUnderlineCache =
-      new LinkedHashMap<Integer, List<SodiumEditor.UnderlineSpan>>(1000, 0.75f, true) {
+  public final LinkedHashMap<Integer, List<TextRender.UnderlineSpan>> urlUnderlineCache =
+      new LinkedHashMap<Integer, List<TextRender.UnderlineSpan>>(1000, 0.75f, true) {
         @Override
-        protected boolean removeEldestEntry(Map.Entry<Integer, List<SodiumEditor.UnderlineSpan>> eldest) {
+        protected boolean removeEldestEntry(Map.Entry<Integer, List<TextRender.UnderlineSpan>> eldest) {
           return size() > 1000;
         }
       };
@@ -78,19 +78,19 @@ public class UrlUnderline {
   /**
    * Gets URL underline spans for a line.
    */
-  public List<SodiumEditor.UnderlineSpan> getUrlUnderlineSpansForLine(String line, int globalLine) {
+  public List<TextRender.UnderlineSpan> getUrlUnderlineSpansForLine(String line, int globalLine) {
     if (!isUrlUnderliningEnabled || urlUnderlinePattern == null) return null;
-    List<SodiumEditor.UnderlineSpan> cached = urlUnderlineCache.get(globalLine);
+    List<TextRender.UnderlineSpan> cached = urlUnderlineCache.get(globalLine);
     if (cached != null) return cached;
 
-    List<SodiumEditor.UnderlineSpan> spans = new ArrayList<>();
+    List<TextRender.UnderlineSpan> spans = new ArrayList<>();
     Matcher matcher = urlUnderlinePattern.matcher(line);
     while (matcher.find()) {
       int start = matcher.start();
       int end = matcher.end();
       end = trimUrlUnderlineEnd(line, start, end);
       if (end > start) {
-        spans.add(new SodiumEditor.UnderlineSpan(start, end, false));
+        spans.add(new TextRender.UnderlineSpan(start, end, false));
       }
     }
     urlUnderlineCache.put(globalLine, spans);

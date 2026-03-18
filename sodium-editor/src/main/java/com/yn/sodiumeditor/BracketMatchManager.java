@@ -6,7 +6,7 @@ import android.graphics.RectF;
 import androidx.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.HashMap;
-
+import com.yn.sodiumeditor.TextRender;
 /**
  * Manages bracket matching for the SodiumEditor.
  * Finds and highlights matching bracket pairs.
@@ -22,7 +22,7 @@ public class BracketMatchManager {
   public float baseBracketMatchStrokeWidth = bracketMatchStrokeWidth;
   public float baseBracketMatchTextSizePx = 0f;
   public final RectF bracketMatchRect = new RectF();
-
+  public int bracketMatchColor = 0x00FF00;
   // Bracket match cache
   @Nullable public SodiumEditor.BracketMatch cachedBracketMatch = null;
   public int cachedBracketMatchCursorLine = -1;
@@ -31,7 +31,7 @@ public class BracketMatchManager {
 
   public BracketMatchManager(SodiumEditor editor) {
     this.editor = editor;
-    bracketMatchPaint.setColor(editor.cursorAndHandlesColor);
+    bracketMatchPaint.setColor(bracketMatchColor);
     bracketMatchPaint.setStyle(Paint.Style.STROKE);
     bracketMatchPaint.setStrokeWidth(bracketMatchStrokeWidth);
   }
@@ -60,7 +60,7 @@ public class BracketMatchManager {
   public void setBracketMatchStrokeWidth(float width) {
     if (this.bracketMatchStrokeWidth == width) return;
     this.baseBracketMatchStrokeWidth = width;
-    this.baseBracketMatchTextSizePx = editor.paint.getTextSize();
+    this.baseBracketMatchTextSizePx = editor.textRender.paint.getTextSize();
     updateStrokeWidth();
     editor.invalidate();
   }
@@ -69,7 +69,7 @@ public class BracketMatchManager {
    * Updates stroke width based on text size.
    */
   public void updateStrokeWidth() {
-    float sizePx = editor.paint.getTextSize();
+    float sizePx = editor.textRender.paint.getTextSize();
     bracketMatchStrokeWidth = Math.max(
         1f,
         editor.scaleByTextSize(baseBracketMatchStrokeWidth, baseBracketMatchTextSizePx, sizePx));
@@ -93,7 +93,7 @@ public class BracketMatchManager {
       int firstVisibleLine, int lastVisibleLine, HashMap<Integer, String> directLines) {
     if (!isBracketMatchingEnabled) return null;
 
-    int v = editor.editVersion.get();
+    int v = editor.editOperators.editVersion.get();
     if (cachedBracketMatch != null
         && cachedBracketMatchCursorLine == editor.cursor.cursorLine
         && cachedBracketMatchCursorChar == editor.cursor.cursorChar
@@ -140,13 +140,13 @@ public class BracketMatchManager {
     }
     if (targetIndex < 0) return null;
 
-    SodiumEditor.HighlightLineState startState = editor.highlite.getLineStateAtStart(firstVisibleLine);
-    boolean inBlockComment = startState.inBlockComment && editor.isBlockCommentsEnabled;
+    TextRender.HighlightLineState startState = editor.highlite.getLineStateAtStart(firstVisibleLine);
+    boolean inBlockComment = startState.inBlockComment && editor.highlite.isBlockCommentsEnabled;
     int stringState = startState.stringState;
-    if (!editor.isBlockCommentsEnabled) inBlockComment = false;
-    if (!editor.isMultiLineStringsEnabled && stringState != SodiumEditor.STRING_STATE_TRIPLE) stringState = 0;
-    if (!editor.isBacktickStringsEnabled && stringState == SodiumEditor.STRING_STATE_BACKTICK) stringState = 0;
-    if (!editor.isTripleQuoteStringsEnabled && stringState == SodiumEditor.STRING_STATE_TRIPLE) stringState = 0;
+    if (!editor.highlite.isBlockCommentsEnabled) inBlockComment = false;
+    if (!editor.highlite.isMultiLineStringsEnabled && stringState != SodiumEditor.STRING_STATE_TRIPLE) stringState = 0;
+    if (!editor.highlite.isBacktickStringsEnabled && stringState == SodiumEditor.STRING_STATE_BACKTICK) stringState = 0;
+    if (!editor.highlite.isTripleQuoteStringsEnabled && stringState == SodiumEditor.STRING_STATE_TRIPLE) stringState = 0;
 
     ArrayDeque<SodiumEditor.BracketToken> stack = new ArrayDeque<>();
 
@@ -186,7 +186,7 @@ public class BracketMatchManager {
           break;
         }
 
-        if (editor.isBlockCommentsEnabled
+        if (editor.highlite.isBlockCommentsEnabled
             && i + 1 < len
             && text.charAt(i) == '/'
             && text.charAt(i + 1) == '*'
@@ -202,12 +202,12 @@ public class BracketMatchManager {
           continue;
         }
 
-        if (editor.isTripleQuoteStart(text, i) && !SodiumEditor.isEscaped(text, i)) {
+        if (editor.highlite.isTripleQuoteStart(text, i) && !SodiumEditor.isEscaped(text, i)) {
           int end = SodiumEditor.findTripleQuoteEnd(text, i + 3);
           int endPos = end >= 0 ? end + 3 : len;
           if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
           if (end < 0) {
-            if (editor.isTripleQuoteStringsEnabled) {
+            if (editor.highlite.isTripleQuoteStringsEnabled) {
               stringState = SodiumEditor.STRING_STATE_TRIPLE;
             }
             break;
@@ -217,12 +217,12 @@ public class BracketMatchManager {
         }
 
         char c = text.charAt(i);
-        if (editor.isStringDelimiter(c) && !SodiumEditor.isEscaped(text, i)) {
+        if (editor.highlite.isStringDelimiter(c) && !SodiumEditor.isEscaped(text, i)) {
           int end = SodiumEditor.findStringEnd(text, i + 1, c);
           int endPos = end >= 0 ? end + 1 : len;
           if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
           if (end < 0) {
-            if (editor.isMultiLineStringsEnabled) {
+            if (editor.highlite.isMultiLineStringsEnabled) {
               stringState = editor.getStringStateForDelimiter(c);
             }
             break;
@@ -292,7 +292,7 @@ public class BracketMatchManager {
 
     float left = editor.measureText(line, index, globalLine);
     float right = editor.measureText(line, index + 1, globalLine);
-    if (right <= left) right = left + editor.measureTextWithVisualSpaces(line, index, index + 1, editor.paint);
+    if (right <= left) right = left + editor.measureTextWithVisualSpaces(line, index, index + 1, editor.textRender.paint);
 
     drawBracketBoxRect(canvas, globalLine, left, right);
   }
@@ -310,7 +310,7 @@ public class BracketMatchManager {
     float left = editor.measureText(line, startIndex, globalLine);
     float right = editor.measureText(line, endIndex + 1, globalLine);
     if (right <= left)
-      right = left + editor.measureTextWithVisualSpaces(line, startIndex, endIndex + 1, editor.paint);
+      right = left + editor.measureTextWithVisualSpaces(line, startIndex, endIndex + 1, editor.textRender.paint);
     drawBracketBoxRect(canvas, globalLine, left, right);
   }
 
@@ -319,8 +319,8 @@ public class BracketMatchManager {
    */
   public void drawBracketBoxRect(Canvas canvas, int globalLine, float left, float right) {
     final float padding = 1f;
-    final float top = editor.getDrawLineTop(globalLine) + padding;
-    final float bottom = top + editor.lineHeight - (padding * 2f);
+    final float top = editor.textRender.getDrawLineTop(globalLine) + padding;
+    final float bottom = top + editor.textRender.lineHeight - (padding * 2f);
 
     float l = left - padding;
     float r = right + padding;

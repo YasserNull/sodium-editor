@@ -15,6 +15,7 @@ import android.view.inputmethod.SurroundingText;
 import androidx.annotation.Nullable;
 import java.io.RandomAccessFile;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.EditOperators;
 /**
  * Ime handles all Input Method Editor (IME) logic for SodiumEditor.
  * This includes:
@@ -39,7 +40,7 @@ public class Ime {
   public int composingStartLine = -1;
   public int composingStartChar = 0;
   public boolean composingStartActive = false;
-  @Nullable public SodiumEditor.EditOp composingPendingOp = null;
+  @Nullable public EditOperators.EditOp composingPendingOp = null;
   @Nullable public String lastComposingTextForCharAnim;
 
   // IME commit state
@@ -283,7 +284,7 @@ public class Ime {
                     sodiumeditor.selection.setSelectionInternal(sodiumeditor.cursor.cursorLine, bounds[0], sodiumeditor.cursor.cursorLine, bounds[1]);
                     sodiumeditor.selection.replaceSelectionWithText(lastImeCommitText);
                   }
-                  sodiumeditor.insertTextAtCursor(str);
+                  sodiumeditor.editOperators.insertTextAtCursor(str);
                   suppressNextCommitText = false;
                   return true;
                 }
@@ -322,7 +323,7 @@ public class Ime {
                     if (trimmed.equals(lastImeCommitText)) {
                       return true;
                     }
-                    sodiumeditor.insertTextAtCursor(suffix);
+                    sodiumeditor.editOperators.insertTextAtCursor(suffix);
                     commitComposing(true);
                     sodiumeditor.charAnimation.startCharAnimationFromText(suffix);
                     sodiumeditor.handleAutoPairing(suffix);
@@ -358,7 +359,7 @@ public class Ime {
           return true;
         }
 
-        sodiumeditor.insertTextAtCursor(str);
+        sodiumeditor.editOperators.insertTextAtCursor(str);
         commitComposing(true);
         sodiumeditor.charAnimation.startCharAnimationFromText(text);
         sodiumeditor.handleAutoPairing(str);
@@ -411,8 +412,8 @@ public class Ime {
           sodiumeditor.updateSuggestion();
           return true;
         }
-        for (int i = 0; i < beforeLength; i++) sodiumeditor.deleteCharAtCursor();
-        for (int i = 0; i < afterLength; i++) sodiumeditor.deleteForwardAtCursor();
+        for (int i = 0; i < beforeLength; i++) sodiumeditor.editOperators.deleteCharAtCursor();
+        for (int i = 0; i < afterLength; i++) sodiumeditor.editOperators.deleteForwardAtCursor();
         sodiumeditor.updateSuggestion();
         return true;
       }
@@ -482,7 +483,7 @@ public class Ime {
   public void replaceComposingWith(CharSequence textSeq) {
     if (sodiumeditor.isReadOnly) return;
     sodiumeditor.invalidatePendingIOForEdit();
-    sodiumeditor.editVersion.incrementAndGet();
+    sodiumeditor.editOperators.editVersion.incrementAndGet();
 
     sodiumeditor.ensureLineInWindow(composingLine, true);
     if (sodiumeditor.isWindowLoading
@@ -512,7 +513,7 @@ public class Ime {
           }
 
           if (removed != null && !removed.isEmpty()) {
-            android.graphics.Paint p = sodiumeditor.getPaintForChar(composingLine, at, base);
+            android.graphics.Paint p = sodiumeditor.textRender.getPaintForChar(composingLine, at, base);
             sodiumeditor.charAnimation.startDeleteAnimation(composingLine, at, removed, p);
           }
         }
@@ -548,21 +549,21 @@ public class Ime {
   public void updateComposingPendingOp(@Nullable String text, int beforeLine, int beforeChar) {
     if (!hasComposing) return;
     if (text == null) text = "";
-    if (text.length() > SodiumEditor.UNDO_TEXT_LIMIT) return;
+    if (text.length() > EditOperators.UNDO_TEXT_LIMIT) return;
 
     int startLine = composingStartActive ? composingStartLine : composingLine;
     int startChar = composingStartActive ? composingStartChar : composingOffset;
 
     if (composingPendingOp == null) {
       if (text.isEmpty()) return;
-      SodiumEditor.EditOp op = new SodiumEditor.EditOp();
+      EditOperators.EditOp op = new EditOperators.EditOp();
       op.startLine = startLine;
       op.startChar = startChar;
       op.endLine = startLine;
       op.endChar = startChar;
       op.removedText = "";
       op.insertedText = text;
-      SodiumEditor.CursorTarget insertedEnd = sodiumeditor.computeCursorAfterInsert(startLine, startChar, text);
+      EditOperators.CursorTarget insertedEnd = sodiumeditor.editOperators.computeCursorAfterInsert(startLine, startChar, text);
       op.insertedEndLine = insertedEnd.line;
       op.insertedEndChar = insertedEnd.ch;
       op.cursorLineBefore = beforeLine;
@@ -570,16 +571,16 @@ public class Ime {
       op.cursorLineAfter = sodiumeditor.cursor.cursorLine;
       op.cursorCharAfter = sodiumeditor.cursor.cursorChar;
       op.timestamp = System.currentTimeMillis();
-      sodiumeditor.lineCountDelta += sodiumeditor.countNewlines(text);
+      sodiumeditor.editOperators.lineCountDelta += sodiumeditor.editOperators.countNewlines(text);
       composingPendingOp = op;
-      sodiumeditor.undoStack.addLast(op);
-      while (sodiumeditor.undoStack.size() > SodiumEditor.UNDO_STACK_LIMIT) {
-        sodiumeditor.undoStack.removeFirst();
+      sodiumeditor.editOperators.undoStack.addLast(op);
+      while (sodiumeditor.editOperators.undoStack.size() > EditOperators.UNDO_STACK_LIMIT) {
+        sodiumeditor.editOperators.undoStack.removeFirst();
       }
-      sodiumeditor.redoStack.clear();
-      sodiumeditor.pendingEdits.addLast(op);
-      sodiumeditor.pendingRedo.clear();
-      sodiumeditor.lastEditTimestamp = op.timestamp;
+      sodiumeditor.editOperators.redoStack.clear();
+      sodiumeditor.editOperators.pendingEdits.addLast(op);
+      sodiumeditor.editOperators.pendingRedo.clear();
+      sodiumeditor.editOperators.lastEditTimestamp = op.timestamp;
       Log.d(
           "SodiumEditorCompose",
           "start composing op s=" + startLine + ":" + startChar + " textLen=" + text.length());
@@ -587,25 +588,25 @@ public class Ime {
     }
 
     String prev = composingPendingOp.insertedText == null ? "" : composingPendingOp.insertedText;
-    int prevNewlines = sodiumeditor.countNewlines(prev);
-    int newNewlines = sodiumeditor.countNewlines(text);
-    sodiumeditor.lineCountDelta += (newNewlines - prevNewlines);
+    int prevNewlines = sodiumeditor.editOperators.countNewlines(prev);
+    int newNewlines = sodiumeditor.editOperators.countNewlines(text);
+    sodiumeditor.editOperators.lineCountDelta += (newNewlines - prevNewlines);
 
     composingPendingOp.insertedText = text;
-    SodiumEditor.CursorTarget insertedEnd = sodiumeditor.computeCursorAfterInsert(startLine, startChar, text);
+    EditOperators.CursorTarget insertedEnd = sodiumeditor.editOperators.computeCursorAfterInsert(startLine, startChar, text);
     composingPendingOp.insertedEndLine = insertedEnd.line;
     composingPendingOp.insertedEndChar = insertedEnd.ch;
     composingPendingOp.cursorLineAfter = sodiumeditor.cursor.cursorLine;
     composingPendingOp.cursorCharAfter = sodiumeditor.cursor.cursorChar;
     composingPendingOp.timestamp = System.currentTimeMillis();
-    sodiumeditor.lastEditTimestamp = composingPendingOp.timestamp;
+    sodiumeditor.editOperators.lastEditTimestamp = composingPendingOp.timestamp;
 
     Log.d("SodiumEditorCompose", "update composing op textLen=" + text.length());
 
     if (text.isEmpty()) {
       // Remove it from pending/history because composing ended with empty.
-      sodiumeditor.pendingEdits.remove(composingPendingOp);
-      sodiumeditor.undoStack.remove(composingPendingOp);
+      sodiumeditor.editOperators.pendingEdits.remove(composingPendingOp);
+      sodiumeditor.editOperators.undoStack.remove(composingPendingOp);
       composingPendingOp = null;
       Log.d("SodiumEditorCompose", "remove composing op (empty)");
     }
@@ -759,7 +760,7 @@ public class Ime {
     if (word.isEmpty() || word.equals(core)) return false;
     sodiumeditor.selection.setSelectionInternal(sodiumeditor.cursor.cursorLine, bounds[0], sodiumeditor.cursor.cursorLine, bounds[1]);
     sodiumeditor.selection.replaceSelectionWithText(core);
-    if (!trailing.isEmpty()) sodiumeditor.insertTextAtCursor(trailing);
+    if (!trailing.isEmpty()) sodiumeditor.editOperators.insertTextAtCursor(trailing);
     markImeCommit(insert);
     sodiumeditor.charAnimation.startCharAnimationFromText(insert);
     return true;

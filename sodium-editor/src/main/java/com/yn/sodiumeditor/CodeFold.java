@@ -58,8 +58,8 @@ public class CodeFold {
         foldPlaceholderPaint.setColor(0xFFE0E0E0);
         foldPlaceholderPaint.setStyle(Paint.Style.FILL);
         foldMarkerPaint.setColor(0xFF888888);
-        foldMarkerPaint.setTextAlign(editor.isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
-        foldMarkerPaint.setTextSize(editor.paint.getTextSize());
+        foldMarkerPaint.setTextAlign(editor.textRender.isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
+        foldMarkerPaint.setTextSize(editor.textRender.paint.getTextSize());
         foldRipplePaint.setStyle(Paint.Style.FILL);
     }
 
@@ -268,7 +268,7 @@ public class CodeFold {
     public void drawFoldMarkersForVisibleLines(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex) {
         if (!isCodeFoldingEnabled) return;
 
-        float markerX = editor.isRtl
+        float markerX = editor.textRender.isRtl
                 ? (editor.lineNumber.getGutterStartX() + editor.lineNumber.gutterSeparatorWidth + foldMarkerEdgePadding)
                 : (editor.lineNumber.getGutterStartX()
                 + editor.lineNumber.lineNumbersGutterWidth
@@ -279,12 +279,12 @@ public class CodeFold {
             int line = mapVisibleIndexToGlobal(v);
             String marker = getFoldMarkerForLine(line, editor.getLineTextForRender(line));
             if (marker == null) continue;
-            float y = Math.round(v * editor.lineHeight - editor.scroll.scrollY + editor.lineHeight - editor.paint.descent());
+            float y = Math.round(v * editor.textRender.lineHeight - editor.scroll.scrollY + editor.textRender.lineHeight - editor.textRender.paint.descent());
             if (line == foldRippleLine && foldRippleAlpha > 0f) {
                 int base = foldMarkerPaint.getColor();
                 int alpha = Math.min(255, Math.max(0, (int) (255f * foldRippleAlpha)));
                 foldRipplePaint.setColor((base & 0x00FFFFFF) | (alpha << 24));
-                float centerY = Math.round(v * editor.lineHeight - editor.scroll.scrollY + editor.lineHeight * 0.5f);
+                float centerY = Math.round(v * editor.textRender.lineHeight - editor.scroll.scrollY + editor.textRender.lineHeight * 0.5f);
                 canvas.drawCircle(markerX, centerY, foldRippleRadius, foldRipplePaint);
             }
             canvas.drawText(marker, markerX, y, foldMarkerPaint);
@@ -310,17 +310,17 @@ public class CodeFold {
         }
 
         // Get Y position using editor's draw coordinate system
-        float lineTop = editor.getDrawLineTop(globalLine);
-        float lineBottom = editor.getDrawLineBottom(globalLine);
-        float y = lineTop + editor.lineHeight - editor.paint.descent();
+        float lineTop = editor.textRender.getDrawLineTop(globalLine);
+        float lineBottom = editor.textRender.getDrawLineBottom(globalLine);
+        float y = lineTop + editor.textRender.lineHeight - editor.textRender.paint.descent();
 
         // Draw prefix (the part before the fold)
         editor.drawHighlightedSegment(canvas, line, globalLine, 0, prefixEnd, 0f, y);
 
         // Draw placeholder button
         String placeholderText = FOLD_PLACEHOLDER_TEXT;
-        editor.paint.getTextBounds(placeholderText, 0, placeholderText.length(), editor.textBounds);
-        float placeholderWidth = Math.max(0f, editor.paint.measureText(placeholderText));
+        editor.textRender.paint.getTextBounds(placeholderText, 0, placeholderText.length(), editor.textRender.textBounds);
+        float placeholderWidth = Math.max(0f, editor.textRender.paint.measureText(placeholderText));
         float xStart = editor.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
         float padY = foldPlaceholderPadY;
         float placeholderLeft = xStart;
@@ -331,17 +331,17 @@ public class CodeFold {
         foldPlaceholderRect.set(placeholderLeft, placeholderTop, placeholderRight, placeholderBottom);
         foldMarkerPaint.setColor(0xFFE0E0E0);
         canvas.drawRoundRect(foldPlaceholderRect, foldPlaceholderCorner, foldPlaceholderCorner, foldMarkerPaint);
-        editor.paint.setUnderlineText(false);
-        canvas.drawText(placeholderText, placeholderLeft, y, editor.paint);
+        editor.textRender.paint.setUnderlineText(false);
+        canvas.drawText(placeholderText, placeholderLeft, y, editor.textRender.paint);
 
         // Draw suffix (closing bracket or */)
         float xAfter = placeholderLeft + placeholderWidth;
         if (range.isBlockComment) {
-            Paint commentPaint = (editor.blockCommentHighlightRule != null) ? editor.blockCommentHighlightRule.paint : editor.paint;
+            Paint commentPaint = (editor.blockCommentHighlightRule != null) ? editor.blockCommentHighlightRule.paint : editor.textRender.paint;
             commentPaint.setUnderlineText(false);
             canvas.drawText("*/", xAfter, y, commentPaint);
         } else if (!range.isIndentFold) {
-            canvas.drawText(String.valueOf(range.closeChar), xAfter, y, editor.paint);
+            canvas.drawText(String.valueOf(range.closeChar), xAfter, y, editor.textRender.paint);
         }
     }
 
@@ -366,7 +366,7 @@ public class CodeFold {
         if (gutterWidth <= 0f) {
             gutterWidth = foldMarkerPaint.measureText("v") + foldMarkerSpacing + foldMarkerEdgePadding;
         }
-        foldRippleMaxRadius = Math.max(editor.lineHeight * 0.35f, Math.min(editor.lineHeight * 0.6f, gutterWidth * 0.6f));
+        foldRippleMaxRadius = Math.max(editor.textRender.lineHeight * 0.35f, Math.min(editor.textRender.lineHeight * 0.6f, gutterWidth * 0.6f));
         if (foldRippleAnimator != null) foldRippleAnimator.cancel();
         foldRippleAnimator = ValueAnimator.ofFloat(0f, 1f);
         foldRippleAnimator.setDuration(220);
@@ -585,7 +585,7 @@ public class CodeFold {
                 break;
             }
 
-            if (editor.isBlockCommentsEnabled
+            if (editor.highlite.isBlockCommentsEnabled
                     && i + 1 < len
                     && line.charAt(i) == '/'
                     && line.charAt(i + 1) == '*'
@@ -593,7 +593,7 @@ public class CodeFold {
                 return new FoldToken(i, true, '/');
             }
 
-            if (editor.isTripleQuoteStringsEnabled && editor.isTripleQuoteStart(line, i) && !editor.isEscaped(line, i)) {
+            if (editor.highlite.isTripleQuoteStringsEnabled && editor.highlite.isTripleQuoteStart(line, i) && !editor.isEscaped(line, i)) {
                 int end = editor.findTripleQuoteEnd(line, i + 3);
                 if (end < 0) return null;
                 i = end + 3;
@@ -601,7 +601,7 @@ public class CodeFold {
             }
 
             char c = line.charAt(i);
-            if (editor.isStringDelimiter(c) && !editor.isEscaped(line, i)) {
+            if (editor.highlite.isStringDelimiter(c) && !editor.isEscaped(line, i)) {
                 int end = editor.findStringEnd(line, i + 1, c);
                 if (end < 0) return null;
                 i = end + 1;
@@ -695,7 +695,7 @@ public class CodeFold {
                     inLineComment = true;
                     continue;
                 }
-                if (editor.isBlockCommentsEnabled && i + 1 < line.length() && line.charAt(i) == '/' && line.charAt(i + 1) == '*') {
+                if (editor.highlite.isBlockCommentsEnabled && i + 1 < line.length() && line.charAt(i) == '/' && line.charAt(i + 1) == '*') {
                     inBlockComment = true;
                     i += 2;
                     continue;

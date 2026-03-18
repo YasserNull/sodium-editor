@@ -179,7 +179,7 @@ public class CharAnimation {
     final int lineForAnim = targetLine;
     final int atForAnim = Math.max(0, atChar);
     final String textForAnim = removedText;
-    final Paint p = (paintToUse != null) ? paintToUse : editor.paint;
+    final Paint p = (paintToUse != null) ? paintToUse : editor.textRender.paint;
     
     long now = SystemClock.uptimeMillis();
     long delta = (lastCharAnimUptime == 0L) ? Long.MAX_VALUE : (now - lastCharAnimUptime);

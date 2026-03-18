@@ -77,7 +77,7 @@ private final SodiumEditor sodiumeditor;
         if (sodiumeditor.wordWrap.isWordWrapEnabled && deferWrapReflowDuringPinch) {
           pinchVisualZoomActive = true;
           pinchVisualScale = 1f;
-          pinchStartTextSizePx = sodiumeditor.paint.getTextSize();
+          pinchStartTextSizePx = sodiumeditor.textRender.paint.getTextSize();
           pinchTargetTextSizePx = pinchStartTextSizePx;
           pinchFocusX = lastFocusX;
           pinchFocusY = lastFocusY;
@@ -126,8 +126,8 @@ private final SodiumEditor sodiumeditor;
         }
 
         // Zoom
-        float oldLineHeight = sodiumeditor.paint.getFontSpacing();
-        float currentSize = sodiumeditor.paint.getTextSize();
+        float oldLineHeight = sodiumeditor.textRender.paint.getFontSpacing();
+        float currentSize = sodiumeditor.textRender.paint.getTextSize();
         float newSize = currentSize * scale;
 
         newSize = Math.max(minZoomTextSizePx, Math.min(newSize, maxZoomTextSizePx));
@@ -135,7 +135,7 @@ private final SodiumEditor sodiumeditor;
 
         if (Math.abs(newSize - currentSize) > 0.1f) {
           sodiumeditor.applyTextSizePx(newSize);
-          float newLineHeight = sodiumeditor.paint.getFontSpacing();
+          float newLineHeight = sodiumeditor.textRender.paint.getFontSpacing();
           float effectiveScaleY = (oldLineHeight > 0) ? newLineHeight / oldLineHeight : 1f;
 
           // Adjust scroll to make zoom appear centered on the focal point.
@@ -143,7 +143,7 @@ private final SodiumEditor sodiumeditor;
           effectiveScrollX =
               (effectiveScrollX + focusX - sodiumeditor.getTextStartX()) * scale
                   - (focusX - sodiumeditor.getTextStartX());
-          sodiumeditor.scroll.scrollX = (sodiumeditor.isRtl ? -effectiveScrollX : effectiveScrollX);
+          sodiumeditor.scroll.scrollX = (sodiumeditor.textRender.isRtl ? -effectiveScrollX : effectiveScrollX);
           sodiumeditor.scroll.scrollY = (sodiumeditor.scroll.scrollY + focusY) * effectiveScaleY - focusY;
 
           if (sodiumeditor.wordWrap.isWordWrapEnabled) {
@@ -169,8 +169,8 @@ private final SodiumEditor sodiumeditor;
           pinchVisualZoomActive = false;
           pinchVisualScale = 1f;
 
-          float oldSize = sodiumeditor.paint.getTextSize();
-          float oldLineHeight = sodiumeditor.paint.getFontSpacing();
+          float oldSize = sodiumeditor.textRender.paint.getTextSize();
+          float oldLineHeight = sodiumeditor.textRender.paint.getFontSpacing();
           float targetSize = quantizeZoomSizePx(pinchTargetTextSizePx);
           float focusX = pinchFocusX;
           float focusY = pinchFocusY;
@@ -179,7 +179,7 @@ private final SodiumEditor sodiumeditor;
           // Commit the final zoom once, then rebuild wrap metrics.
           if (Math.abs(targetSize - oldSize) > 0.1f) {
             sodiumeditor.applyTextSizePx(targetSize, sodiumeditor.wordWrap.isWordWrapEnabled);
-            float newLineHeight = sodiumeditor.paint.getFontSpacing();
+            float newLineHeight = sodiumeditor.textRender.paint.getFontSpacing();
             float effectiveScaleY =
                 (oldLineHeight > 0) ? newLineHeight / oldLineHeight : 1f;
 
@@ -187,7 +187,7 @@ private final SodiumEditor sodiumeditor;
             effectiveScrollX =
                 (effectiveScrollX + focusX - sodiumeditor.getTextStartX()) * targetSize / oldSize
                     - (focusX - sodiumeditor.getTextStartX());
-            sodiumeditor.scroll.scrollX = (sodiumeditor.isRtl ? -effectiveScrollX : effectiveScrollX);
+            sodiumeditor.scroll.scrollX = (sodiumeditor.textRender.isRtl ? -effectiveScrollX : effectiveScrollX);
             sodiumeditor.scroll.scrollY = (sodiumeditor.scroll.scrollY + focusY) * effectiveScaleY - focusY;
 
             if (sodiumeditor.wordWrap.isWordWrapEnabled && anchorLine >= 0) {

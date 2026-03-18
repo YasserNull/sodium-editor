@@ -2,6 +2,7 @@ package com.yn.sodiumeditor.Input.events;
 
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.EditOperators;
 
 /**
  * OnSingleTapUp handles onSingleTapUp() gesture event for SodiumEditor.
@@ -37,10 +38,10 @@ public class OnSingleTapUp {
       }
     }
     float y = e.getY() + sodiumeditor.scroll.scrollY;
-    int visibleIndex = Math.max(0, (int) (y / sodiumeditor.lineHeight));
+    int visibleIndex = Math.max(0, (int) (y / sodiumeditor.textRender.lineHeight));
     int totalVisible =
         sodiumeditor.wordWrap.isWordWrapEnabled ? sodiumeditor.getTotalVisualLineCount() : sodiumeditor.codeFold.getVisibleLineCount();
-    SodiumEditor.CursorTarget target = sodiumeditor.getCursorTargetForPosition(e.getX(), e.getY(), null);
+    EditOperators.CursorTarget target = sodiumeditor.getCursorTargetForPosition(e.getX(), e.getY(), null);
     int line = target.line;
 
     if (sodiumeditor.codeFold.isCodeFoldingEnabled) {
@@ -53,7 +54,7 @@ public class OnSingleTapUp {
             sodiumeditor.getWrapSegmentIndexForChar(
                 starts, Math.max(0, Math.min(target.ch, ln.length())));
         int segStart = sodiumeditor.getWrapSegmentStart(starts, seg);
-        x = xLocal + sodiumeditor.measureTextWithVisualSpaces(ln, 0, segStart, sodiumeditor.paint);
+        x = xLocal + sodiumeditor.measureTextWithVisualSpaces(ln, 0, segStart, sodiumeditor.textRender.paint);
       } else {
         x = xLocal;
       }

@@ -81,7 +81,7 @@ public class CurrentLineHighlight {
         float right = left + editor.lineNumber.lineNumbersGutterWidth;
         float sep = editor.lineNumber.gutterSeparatorWidth;
         if (sep > 0f) {
-            if (editor.isRtl) {
+            if (editor.textRender.isRtl) {
                 left = Math.min(right, left + sep);
             } else {
                 right = Math.max(left, right - sep);
@@ -103,11 +103,11 @@ public class CurrentLineHighlight {
         if (visibleIndex < firstVisibleIndex || visibleIndex > lastVisibleIndex) return;
         if (editor.codeFold.isCodeFoldingEnabled && editor.codeFold.isLineHiddenByFold(globalLine)) return;
 
-        float top = visibleIndex * editor.lineHeight - editor.scroll.scrollY;
-        float bottom = top + editor.lineHeight;
+        float top = visibleIndex * editor.textRender.lineHeight - editor.scroll.scrollY;
+        float bottom = top + editor.textRender.lineHeight;
 
-        float viewLeft = editor.isRtl ? 0f : editor.lineNumber.lineNumbersGutterWidth;
-        float viewRight = editor.isRtl ? (editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth) : editor.getWidth();
+        float viewLeft = editor.textRender.isRtl ? 0f : editor.lineNumber.lineNumbersGutterWidth;
+        float viewRight = editor.textRender.isRtl ? (editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth) : editor.getWidth();
 
         canvas.drawRect(viewLeft, top, viewRight, bottom, currentLinePaint);
     }
@@ -124,10 +124,10 @@ public class CurrentLineHighlight {
             WordWrap.VisualLinePosition pos = editor.getVisualPositionForIndex(v);
             if (pos.line != cursorLine) continue;
 
-            float top = v * editor.lineHeight - editor.scroll.scrollY;
-            float bottom = top + editor.lineHeight;
+            float top = v * editor.textRender.lineHeight - editor.scroll.scrollY;
+            float bottom = top + editor.textRender.lineHeight;
 
-            canvas.drawRect(-editor.paddingLeft, top, Math.max(editor.getWrapWidth(), editor.getWidth()), bottom, currentLinePaint);
+            canvas.drawRect(-editor.textRender.paddingLeft, top, Math.max(editor.getWrapWidth(), editor.getWidth()), bottom, currentLinePaint);
         }
     }
 

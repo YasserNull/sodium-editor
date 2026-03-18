@@ -242,7 +242,7 @@ public class WordWrap {
     final int[] baseCounts =
         (wrapLineCounts != null && wrapLineCounts.length == total) ? wrapLineCounts.clone() : null;
 
-    int anchorVisualIndex = Math.max(0, (int) (editor.scroll.scrollY / editor.lineHeight));
+    int anchorVisualIndex = Math.max(0, (int) (editor.scroll.scrollY / editor.textRender.lineHeight));
     VisualLinePosition anchorPos = getVisualPositionForIndex(anchorVisualIndex);
     final int anchorLine = anchorPos.line;
     final int oldAnchorPrefix =
@@ -250,7 +250,7 @@ public class WordWrap {
             ? wrapLinePrefix[anchorLine]
             : anchorLine;
 
-    final Paint wrapPaint = new Paint(editor.paint);
+    final Paint wrapPaint = new Paint(editor.textRender.paint);
 
     editor.ioHandler.post(
         () -> {
@@ -363,7 +363,7 @@ public class WordWrap {
                 wrapPrefixValidUpToLine =
                     Math.max(wrapPrefixValidUpToLine, Math.min(targetLineFinal, total - 1));
                 if (deltaPrefix != 0) {
-                  editor.scroll.scrollY += deltaPrefix * editor.lineHeight;
+                  editor.scroll.scrollY += deltaPrefix * editor.textRender.lineHeight;
                   editor.scroll.clampScrollY();
                 }
                 editor.postInvalidateOnAnimation();
@@ -493,7 +493,7 @@ public class WordWrap {
     wrapSnapshotSize = size;
     wrapSnapshotBuilding = true;
     final int token = wrapSnapshotToken.incrementAndGet();
-    final Paint wrapPaint = new Paint(editor.paint);
+    final Paint wrapPaint = new Paint(editor.textRender.paint);
 
     editor.ioHandler.post(
         () -> {
@@ -562,7 +562,7 @@ public class WordWrap {
     }
     final int token = wrapMetricsToken.incrementAndGet();
     final int widthPx = Math.max(1, Math.round(getWrapWidth()));
-    final Paint wrapPaint = new Paint(editor.paint);
+    final Paint wrapPaint = new Paint(editor.textRender.paint);
     wrapMetricsBuilding = true;
     editor.ioHandler.post(() -> buildWrapMetricsFromFile(token, widthPx, wrapPaint));
   }
@@ -676,7 +676,7 @@ public class WordWrap {
    * Computes wrap count for a line.
    */
   public int computeWrapCountForLine(String line, int widthPx) {
-    int[] starts = computeWrapStarts(line, widthPx, editor.paint, true);
+    int[] starts = computeWrapStarts(line, widthPx, editor.textRender.paint, true);
     return Math.max(1, starts.length);
   }
 
@@ -701,11 +701,11 @@ public class WordWrap {
     boolean cacheable = isWrapCacheableForLine(globalLine);
     if (!cacheable) {
       wrapCache.remove(globalLine);
-      return computeWrapStarts(line, widthPx, editor.paint, true);
+      return computeWrapStarts(line, widthPx, editor.textRender.paint, true);
     }
     int[] cached = wrapCache.get(globalLine);
     if (cached != null) return cached;
-    int[] starts = computeWrapStarts(line, widthPx, editor.paint, true);
+    int[] starts = computeWrapStarts(line, widthPx, editor.textRender.paint, true);
     wrapCache.put(globalLine, starts);
     return starts;
   }
@@ -734,10 +734,10 @@ public class WordWrap {
     }
     float[] widths;
     if (useSharedBuffer) {
-      if (editor.measureWidthBuffer == null || editor.measureWidthBuffer.length < len) {
-        editor.measureWidthBuffer = new float[len];
+      if (editor.textRender.measureWidthBuffer == null || editor.textRender.measureWidthBuffer.length < len) {
+        editor.textRender.measureWidthBuffer = new float[len];
       }
-      widths = editor.measureWidthBuffer;
+      widths = editor.textRender.measureWidthBuffer;
     } else {
       widths = new float[len];
     }
@@ -1039,7 +1039,7 @@ public class WordWrap {
       int newAnchorFirstVisual = wrapLinePrefix[anchorLine] + Math.max(0, anchorSeg);
       int dv = newAnchorFirstVisual - anchorFirstVisual;
       if (dv != 0) {
-        editor.scroll.scrollY += dv * editor.lineHeight;
+        editor.scroll.scrollY += dv * editor.textRender.lineHeight;
         editor.scroll.clampScrollY();
       }
     }
@@ -1063,7 +1063,7 @@ public class WordWrap {
     if (text == null || text.isEmpty()) return 0;
     start = Math.max(0, Math.min(start, text.length()));
     end = Math.max(start, Math.min(end, text.length()));
-    if (editor.isRtl) {
+    if (editor.textRender.isRtl) {
       float baseX = editor.getRtlSegmentBaseX(text, globalLine, start, end);
       x -= baseX;
       float w = editor.measureHighlightedSegmentWidth(text, globalLine, start, end);
@@ -1073,17 +1073,17 @@ public class WordWrap {
     int len = end - start;
     if (len <= 0) return start;
     if (editor.getVisualSpaceScale() == 1) {
-      int count = editor.paint.breakText(text, start, end, true, x, null);
+      int count = editor.textRender.paint.breakText(text, start, end, true, x, null);
       int idx = start + Math.max(0, count);
       return Math.min(idx, end);
     }
-    if (editor.measureWidthBuffer == null || editor.measureWidthBuffer.length < len) {
-      editor.measureWidthBuffer = new float[len];
+    if (editor.textRender.measureWidthBuffer == null || editor.textRender.measureWidthBuffer.length < len) {
+      editor.textRender.measureWidthBuffer = new float[len];
     }
-    editor.paint.getTextWidths(text, start, end, editor.measureWidthBuffer);
+    editor.textRender.paint.getTextWidths(text, start, end, editor.textRender.measureWidthBuffer);
     float current = 0f;
     for (int i = 0; i < len; i++) {
-      float adv = getCharAdvanceWidth(text.charAt(start + i), editor.measureWidthBuffer[i], editor.paint);
+      float adv = getCharAdvanceWidth(text.charAt(start + i), editor.textRender.measureWidthBuffer[i], editor.textRender.paint);
       float mid = current + adv * 0.5f;
       if (x < mid) return start + i;
       if (x < current + adv) return start + i + 1;
@@ -1095,10 +1095,10 @@ public class WordWrap {
   /**
    * Gets cursor target for position.
    */
-  public SodiumEditor.CursorTarget getCursorTargetForPosition(
+  public EditOperators.CursorTarget getCursorTargetForPosition(
       float viewX, float viewY, @Nullable java.util.Map<Integer, String> directLines) {
     float y = viewY + editor.scroll.scrollY;
-    int visualIndex = Math.max(0, (int) (y / editor.lineHeight));
+    int visualIndex = Math.max(0, (int) (y / editor.textRender.lineHeight));
     VisualLinePosition pos =
         isWordWrapEnabled
             ? getVisualPositionForIndex(visualIndex)
@@ -1108,7 +1108,7 @@ public class WordWrap {
       float x = editor.viewToTextX(viewX);
       int charIndex = editor.getCharIndexForX(line, x, pos.line);
       int clamped = Math.max(0, Math.min(charIndex, editor.getLogicalLineLength(pos.line, line)));
-      return new SodiumEditor.CursorTarget(pos.line, clamped);
+      return new EditOperators.CursorTarget(pos.line, clamped);
     }
     int[] starts = getWrapStartsForLine(pos.line, line);
     int seg = Math.min(Math.max(0, pos.segment), Math.max(0, starts.length - 1));
@@ -1117,6 +1117,6 @@ public class WordWrap {
     float x = editor.viewToTextX(viewX);
     int charIndex = getCharIndexForXInRange(line, pos.line, segStart, segEnd, x);
     int clamped = Math.max(0, Math.min(charIndex, line.length()));
-    return new SodiumEditor.CursorTarget(pos.line, clamped);
+    return new EditOperators.CursorTarget(pos.line, clamped);
   }
 }

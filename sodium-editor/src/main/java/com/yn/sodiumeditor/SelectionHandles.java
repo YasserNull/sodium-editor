@@ -12,12 +12,17 @@ import android.graphics.RectF;
  * - Handle position updates
  */
 public class SelectionHandles {
+public final Paint handlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
   // Selection handle appearance
   public float handleWidth = 40f;
   public float handleHeight = 50f;
   public int handleColor = 0xFF33B5E5;
-  public float handleRadius = 6f;
+  public int selectionHandleColor = 0xFF33B5E5;
+  public float handleRadius = 30f;
+  
+  public float baseHandleRadiusPx = handleRadius;
+  public float baseHandleTextSizePx = 0f;
   
   // Selection handle rects
   public RectF leftHandleRect = new RectF();
@@ -69,17 +74,17 @@ public class SelectionHandles {
     
     // Update left handle (start)
     float leftHandleLeft = startX - handleWidth / 2;
-    float leftHandleTop = startY - handleHeight + sodiumeditor.lineHeight;
+    float leftHandleTop = startY - handleHeight + sodiumeditor.textRender.lineHeight;
     leftHandleRect.set(
         leftHandleLeft,
         leftHandleTop,
         leftHandleLeft + handleWidth,
         leftHandleTop + handleHeight
     );
-    
+
     // Update right handle (end)
     float rightHandleLeft = endX - handleWidth / 2;
-    float rightHandleTop = endY - handleHeight + sodiumeditor.lineHeight;
+    float rightHandleTop = endY - handleHeight + sodiumeditor.textRender.lineHeight;
     rightHandleRect.set(
         rightHandleLeft,
         rightHandleTop,
@@ -141,10 +146,10 @@ public class SelectionHandles {
   public float getCharX(int line, int ch) {
     String lineText = sodiumeditor.getLineTextForRender(line);
     if (lineText == null) return sodiumeditor.getTextStartX();
-    
+
     int safeChar = Math.max(0, Math.min(ch, lineText.length()));
-    float textX = sodiumeditor.measureTextWithVisualSpaces(lineText, 0, safeChar, sodiumeditor.paint);
-    
+    float textX = sodiumeditor.measureTextWithVisualSpaces(lineText, 0, safeChar, sodiumeditor.textRender.paint);
+
     return sodiumeditor.getTextStartX() + textX - sodiumeditor.scroll.scrollX;
   }
 
@@ -156,7 +161,7 @@ public class SelectionHandles {
     if (sodiumeditor.wordWrap.isWordWrapEnabled) {
       visualLine = sodiumeditor.getVisualIndexForLineAndChar(line, 0);
     }
-    return (visualLine * sodiumeditor.lineHeight) - sodiumeditor.scroll.scrollY;
+    return (visualLine * sodiumeditor.textRender.lineHeight) - sodiumeditor.scroll.scrollY;
   }
 
   /**
@@ -228,6 +233,10 @@ public class SelectionHandles {
     handleColor = color;
   }
 
+public void setSelectionHandleColor(int color) {
+    selectionHandleColor = color;
+    sodiumeditor.invalidate();
+  }
   public void setHandleRadius(float radius) {
     if (radius < 0f) return;
     handleRadius = radius;

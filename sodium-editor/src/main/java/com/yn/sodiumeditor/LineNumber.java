@@ -13,12 +13,13 @@ public class LineNumber {
 
     // --- Line Number State ---
     public boolean showLineNumbers = true;
-    public boolean highlightCurrentLineInGutter = true;
-    public boolean lineNumberSelectionEnabled = true;
+        public boolean lineNumberSelectionEnabled = true;
     public float lineNumbersGutterWidth = 0f;
     public final Paint lineNumbersPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     public final Paint gutterPaint = new Paint();
     public final Paint gutterSeparatorPaint = new Paint();
+    public final Paint currentLinePaint = new Paint();
+    public boolean highlightCurrentLineInGutter = true;
     public Bitmap lineNumberCacheBitmap;
     public Canvas lineNumberCacheCanvas;
     public int lineNumberCacheWidth = 0;
@@ -41,18 +42,17 @@ public class LineNumber {
     public static final float GUTTER_TEXT_PADDING = 20f;
 
     public final SodiumEditor editor;
-    public final Paint currentLinePaint = new Paint();
-
+    
     public LineNumber(SodiumEditor editor) {
         this.editor = editor;
         // Initialization for line numbers
         lineNumbersPaint.setTextAlign(Paint.Align.RIGHT);
         lineNumbersPaint.setColor(0xFF888888); // Default gray color
-        lineNumbersPaint.setTextSize(editor.paint.getTextSize());
-        lineNumbersPaint.setTypeface(editor.paint.getTypeface());
+        lineNumbersPaint.setTextSize(editor.textRender.paint.getTextSize());
+        lineNumbersPaint.setTypeface(editor.textRender.paint.getTypeface());
         gutterPaint.setColor(0xFFFAFAFA); // Default light gray background
         gutterSeparatorPaint.setColor(0xFF555555);
-        currentLinePaint.setColor(0x202196F3); // Default: translucent gray
+        
     }
 
     public void setShowLineNumbers(boolean show) {
@@ -150,7 +150,7 @@ public class LineNumber {
     }
 
     public void setLineNumberTypeface(@Nullable Typeface typeface) {
-        Typeface finalTypeface = (typeface != null) ? typeface : editor.baseTypeface;
+        Typeface finalTypeface = (typeface != null) ? typeface : editor.textRender.baseTypeface;
         lineNumbersPaint.setTypeface(finalTypeface);
         invalidateLineNumberCache();
         editor.requestLayout();
@@ -168,7 +168,7 @@ public class LineNumber {
     }
 
     public float getGutterStartX() {
-        return editor.isRtl ? editor.getWidth() - lineNumbersGutterWidth : 0;
+        return editor.textRender.isRtl ? editor.getWidth() - lineNumbersGutterWidth : 0;
     }
 
     public boolean isInLineNumberGutter(float x) {
@@ -248,7 +248,7 @@ public class LineNumber {
         float right = left + lineNumbersGutterWidth;
         float sep = gutterSeparatorWidth;
         if (sep > 0f) {
-            if (editor.isRtl) {
+            if (editor.textRender.isRtl) {
                 left = Math.min(right, left + sep);
             } else {
                 right = Math.max(left, right - sep);
@@ -285,9 +285,9 @@ public class LineNumber {
         }
 
         int gutterWidth = Math.max(1, Math.round(lineNumbersGutterWidth));
-        float padPx = editor.lineHeight;
+        float padPx = editor.textRender.lineHeight;
         int height = editor.getHeight() + Math.round(padPx * 2f);
-        float baseScrollY = (float) Math.floor(editor.scroll.scrollY / editor.lineHeight) * editor.lineHeight - padPx;
+        float baseScrollY = (float) Math.floor(editor.scroll.scrollY / editor.textRender.lineHeight) * editor.textRender.lineHeight - padPx;
 
         boolean needsRebuild =
                 lineNumberCacheBitmap == null
@@ -298,12 +298,12 @@ public class LineNumber {
                         || Math.abs(lineNumberCacheBaseScrollY - baseScrollY) > 0.1f
                         || lineNumberCacheTextSize != lineNumbersPaint.getTextSize()
                         || lineNumberCacheTypeface != lineNumbersPaint.getTypeface()
-                        || lineNumberCacheRtl != editor.isRtl
+                        || lineNumberCacheRtl != editor.textRender.isRtl
                         || lineNumberCacheWrapped
                         || lineNumberCacheCodeFolding != editor.codeFold.isCodeFoldingEnabled
                         || Math.abs(lineNumberCacheGutterWidth - lineNumbersGutterWidth) > 0.1f
                         || Math.abs(lineNumberCacheFoldMarkerWidth - editor.codeFold.foldMarkerGutterWidth) > 0.1f
-                        || Math.abs(lineNumberCacheLineHeight - editor.lineHeight) > 0.1f
+                        || Math.abs(lineNumberCacheLineHeight - editor.textRender.lineHeight) > 0.1f
                         || lineNumberCacheColor != lineNumbersPaint.getColor();
 
         if (needsRebuild) {
@@ -311,7 +311,7 @@ public class LineNumber {
             lineNumberCacheBitmap.eraseColor(0);
 
             float lineNumX =
-                    editor.isRtl
+                    editor.textRender.isRtl
                             ? getGutterStartX()
                             + GUTTER_TEXT_PADDING
                             + (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.foldMarkerGutterWidth : 0f)
@@ -326,7 +326,7 @@ public class LineNumber {
                     int i = editor.codeFold.mapVisibleIndexToGlobal(v);
                     int start = writeIntToChars(i + 1, lineNumberChars);
                     int count = lineNumberChars.length - start;
-                    float y = Math.round(v * editor.lineHeight - baseScrollY + editor.lineHeight - editor.paint.descent());
+                    float y = Math.round(v * editor.textRender.lineHeight - baseScrollY + editor.textRender.lineHeight - editor.textRender.paint.descent());
                     lineNumberCacheCanvas.drawText(
                             lineNumberChars, start, count, lineNumXLocal, y, lineNumbersPaint);
                 }
@@ -334,7 +334,7 @@ public class LineNumber {
                 for (int i = firstVisibleLine; i <= drawLastLine; i++) {
                     int start = writeIntToChars(i + 1, lineNumberChars);
                     int count = lineNumberChars.length - start;
-                    float y = Math.round(i * editor.lineHeight - baseScrollY + editor.lineHeight - editor.paint.descent());
+                    float y = Math.round(i * editor.textRender.lineHeight - baseScrollY + editor.textRender.lineHeight - editor.textRender.paint.descent());
                     lineNumberCacheCanvas.drawText(
                             lineNumberChars, start, count, lineNumXLocal, y, lineNumbersPaint);
                 }
@@ -345,12 +345,12 @@ public class LineNumber {
             lineNumberCacheBaseScrollY = baseScrollY;
             lineNumberCacheTextSize = lineNumbersPaint.getTextSize();
             lineNumberCacheTypeface = lineNumbersPaint.getTypeface();
-            lineNumberCacheRtl = editor.isRtl;
+            lineNumberCacheRtl = editor.textRender.isRtl;
             lineNumberCacheWrapped = false;
             lineNumberCacheCodeFolding = editor.codeFold.isCodeFoldingEnabled;
             lineNumberCacheGutterWidth = lineNumbersGutterWidth;
             lineNumberCacheFoldMarkerWidth = editor.codeFold.foldMarkerGutterWidth;
-            lineNumberCacheLineHeight = editor.lineHeight;
+            lineNumberCacheLineHeight = editor.textRender.lineHeight;
             lineNumberCacheColor = lineNumbersPaint.getColor();
         }
 
@@ -373,9 +373,9 @@ public class LineNumber {
         }
 
         int gutterWidth = Math.max(1, Math.round(lineNumbersGutterWidth));
-        float padPx = editor.lineHeight;
+        float padPx = editor.textRender.lineHeight;
         int height = editor.getHeight() + Math.round(padPx * 2f);
-        float baseScrollY = (float) Math.floor(editor.scroll.scrollY / editor.lineHeight) * editor.lineHeight - padPx;
+        float baseScrollY = (float) Math.floor(editor.scroll.scrollY / editor.textRender.lineHeight) * editor.textRender.lineHeight - padPx;
 
         boolean needsRebuild =
                 lineNumberCacheBitmap == null
@@ -386,11 +386,11 @@ public class LineNumber {
                         || Math.abs(lineNumberCacheBaseScrollY - baseScrollY) > 0.1f
                         || lineNumberCacheTextSize != lineNumbersPaint.getTextSize()
                         || lineNumberCacheTypeface != lineNumbersPaint.getTypeface()
-                        || lineNumberCacheRtl != editor.isRtl
+                        || lineNumberCacheRtl != editor.textRender.isRtl
                         || !lineNumberCacheWrapped
                         || lineNumberCacheCodeFolding != editor.codeFold.isCodeFoldingEnabled
                         || Math.abs(lineNumberCacheGutterWidth - lineNumbersGutterWidth) > 0.1f
-                        || Math.abs(lineNumberCacheLineHeight - editor.lineHeight) > 0.1f
+                        || Math.abs(lineNumberCacheLineHeight - editor.textRender.lineHeight) > 0.1f
                         || lineNumberCacheColor != lineNumbersPaint.getColor();
 
         if (needsRebuild) {
@@ -398,7 +398,7 @@ public class LineNumber {
             lineNumberCacheBitmap.eraseColor(0);
 
             float lineNumX =
-                    editor.isRtl
+                    editor.textRender.isRtl
                             ? getGutterStartX() + GUTTER_TEXT_PADDING
                             : getGutterStartX() + lineNumbersGutterWidth - GUTTER_TEXT_PADDING;
             float lineNumXLocal = lineNumX - getGutterStartX();
@@ -408,7 +408,7 @@ public class LineNumber {
                 if (pos.segment != 0) continue;
                 int start = writeIntToChars(pos.line + 1, lineNumberChars);
                 int count = lineNumberChars.length - start;
-                float y = Math.round(v * editor.lineHeight - baseScrollY + editor.lineHeight - editor.paint.descent());
+                float y = Math.round(v * editor.textRender.lineHeight - baseScrollY + editor.textRender.lineHeight - editor.textRender.paint.descent());
                 lineNumberCacheCanvas.drawText(
                         lineNumberChars, start, count, lineNumXLocal, y, lineNumbersPaint);
             }
@@ -418,12 +418,12 @@ public class LineNumber {
             lineNumberCacheBaseScrollY = baseScrollY;
             lineNumberCacheTextSize = lineNumbersPaint.getTextSize();
             lineNumberCacheTypeface = lineNumbersPaint.getTypeface();
-            lineNumberCacheRtl = editor.isRtl;
+            lineNumberCacheRtl = editor.textRender.isRtl;
             lineNumberCacheWrapped = true;
             lineNumberCacheCodeFolding = editor.codeFold.isCodeFoldingEnabled;
             lineNumberCacheGutterWidth = lineNumbersGutterWidth;
             lineNumberCacheFoldMarkerWidth = editor.codeFold.foldMarkerGutterWidth;
-            lineNumberCacheLineHeight = editor.lineHeight;
+            lineNumberCacheLineHeight = editor.textRender.lineHeight;
             lineNumberCacheColor = lineNumbersPaint.getColor();
         }
 
@@ -449,7 +449,7 @@ public class LineNumber {
         }
 
         float lineNumX =
-                editor.isRtl
+                editor.textRender.isRtl
                         ? getGutterStartX()
                         + GUTTER_TEXT_PADDING
                         + (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.foldMarkerGutterWidth : 0f)
@@ -463,7 +463,7 @@ public class LineNumber {
                 int i = editor.codeFold.mapVisibleIndexToGlobal(v);
                 int start = writeIntToChars(i + 1, lineNumberChars);
                 int count = lineNumberChars.length - start;
-                float y = Math.round(v * editor.lineHeight - editor.scroll.scrollY + editor.lineHeight - editor.paint.descent());
+                float y = Math.round(v * editor.textRender.lineHeight - editor.scroll.scrollY + editor.textRender.lineHeight - editor.textRender.paint.descent());
                 if (i == editor.cursor.cursorLine) {
                     int originalColor = lineNumbersPaint.getColor();
                     lineNumbersPaint.setColor(currentLineNumberColor);
@@ -477,7 +477,7 @@ public class LineNumber {
             for (int i = firstVisibleLine; i <= drawLastLine; i++) {
                 int start = writeIntToChars(i + 1, lineNumberChars);
                 int count = lineNumberChars.length - start;
-                float y = Math.round(i * editor.lineHeight - editor.scroll.scrollY + editor.lineHeight - editor.paint.descent());
+                float y = Math.round(i * editor.textRender.lineHeight - editor.scroll.scrollY + editor.textRender.lineHeight - editor.textRender.paint.descent());
                 if (i == editor.cursor.cursorLine) {
                     int originalColor = lineNumbersPaint.getColor();
                     lineNumbersPaint.setColor(currentLineNumberColor);
@@ -493,7 +493,7 @@ public class LineNumber {
     public void drawLineNumbersDirectWrapped(
             Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
         float lineNumX =
-                editor.isRtl
+                editor.textRender.isRtl
                         ? getGutterStartX() + GUTTER_TEXT_PADDING
                         : getGutterStartX() + lineNumbersGutterWidth - GUTTER_TEXT_PADDING;
 
@@ -506,7 +506,7 @@ public class LineNumber {
             if (pos.segment != 0) continue;
             int start = writeIntToChars(pos.line + 1, lineNumberChars);
             int count = lineNumberChars.length - start;
-            float y = Math.round(v * editor.lineHeight - editor.scroll.scrollY + editor.lineHeight - editor.paint.descent());
+            float y = Math.round(v * editor.textRender.lineHeight - editor.scroll.scrollY + editor.textRender.lineHeight - editor.textRender.paint.descent());
             if (pos.line == editor.cursor.cursorLine) {
                 int originalColor = lineNumbersPaint.getColor();
                 lineNumbersPaint.setColor(currentLineNumberColor);
@@ -527,7 +527,7 @@ public class LineNumber {
         if (visibleIndex < firstVisibleIndex || visibleIndex > lastVisibleIndex) return;
 
         float lineNumX =
-                editor.isRtl
+                editor.textRender.isRtl
                         ? getGutterStartX()
                         + GUTTER_TEXT_PADDING
                         + (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.foldMarkerGutterWidth : 0f)
@@ -537,7 +537,7 @@ public class LineNumber {
                         - GUTTER_TEXT_PADDING;
         int start = writeIntToChars(editor.cursor.cursorLine + 1, lineNumberChars);
         int count = lineNumberChars.length - start;
-        float y = Math.round(visibleIndex * editor.lineHeight - editor.scroll.scrollY + editor.lineHeight - editor.paint.descent());
+        float y = Math.round(visibleIndex * editor.textRender.lineHeight - editor.scroll.scrollY + editor.textRender.lineHeight - editor.textRender.paint.descent());
         int originalColor = lineNumbersPaint.getColor();
         lineNumbersPaint.setColor(currentLineNumberColor);
         canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);
@@ -551,12 +551,12 @@ public class LineNumber {
         if (visualIndex < firstVisualIndex || visualIndex > lastVisualIndex) return;
 
         float lineNumX =
-                editor.isRtl
+                editor.textRender.isRtl
                         ? getGutterStartX() + GUTTER_TEXT_PADDING
                         : getGutterStartX() + lineNumbersGutterWidth - GUTTER_TEXT_PADDING;
         int start = writeIntToChars(editor.cursor.cursorLine + 1, lineNumberChars);
         int count = lineNumberChars.length - start;
-        float y = Math.round(visualIndex * editor.lineHeight - editor.scroll.scrollY + editor.lineHeight - editor.paint.descent());
+        float y = Math.round(visualIndex * editor.textRender.lineHeight - editor.scroll.scrollY + editor.textRender.lineHeight - editor.textRender.paint.descent());
         int originalColor = lineNumbersPaint.getColor();
         lineNumbersPaint.setColor(currentLineNumberColor);
         canvas.drawText(lineNumberChars, start, count, lineNumX, y, lineNumbersPaint);

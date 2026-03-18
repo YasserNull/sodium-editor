@@ -35,8 +35,8 @@ public class Selection {
   public final RectF selectionHighlightRect = new RectF();
   // Selection appearance
   public int selectionColor = 0x4033B5E5;
-  public int selectionHandleColor = 0xFF33B5E5;
   public int selectionHighlightColor = 0x8033B5E5;
+  public int selectionHandleColor = 0xFF33B5E5;
   
   
   private final SodiumEditor sodiumeditor;
@@ -111,7 +111,7 @@ public boolean isLineNumberSelecting = false;
       }
     }
     sodiumeditor.setDisable(true);
-    sodiumeditor.showLoadingCircle(true);
+    sodiumeditor.loadingCircle.showLoadingCircle(true);
 
     isSelectAllActive = true;
     isEntireFileSelected = true;
@@ -143,7 +143,7 @@ public boolean isLineNumberSelecting = false;
       sodiumeditor.scroll.scrollToLineFastForSelectAll(selEndLine, selEndChar);
 
       sodiumeditor.setDisable(false);
-      sodiumeditor.showLoadingCircle(false);
+      sodiumeditor.loadingCircle.showLoadingCircle(false);
       sodiumeditor.invalidate();
       sodiumeditor.requestFocus();
       sodiumeditor.popup.showPopupAtSelection();
@@ -171,7 +171,7 @@ public boolean isLineNumberSelecting = false;
       sodiumeditor.scroll.scrollToLineFastForSelectAll(windowLast, selEndChar);
 
       sodiumeditor.setDisable(false);
-      sodiumeditor.showLoadingCircle(false);
+      sodiumeditor.loadingCircle.showLoadingCircle(false);
       sodiumeditor.invalidate();
       sodiumeditor.requestFocus();
       sodiumeditor.popup.showPopupAtSelection();
@@ -211,7 +211,7 @@ public boolean isLineNumberSelecting = false;
               sodiumeditor.scroll.scrollToLineFastForSelectAll(windowLast, selEndChar);
 
               sodiumeditor.setDisable(false);
-              sodiumeditor.showLoadingCircle(false);
+              sodiumeditor.loadingCircle.showLoadingCircle(false);
               sodiumeditor.invalidate();
               sodiumeditor.requestFocus();
               sodiumeditor.popup.showPopupAtSelection();
@@ -244,7 +244,7 @@ public boolean isLineNumberSelecting = false;
                         sodiumeditor.scroll.scrollToLineFastForSelectAll(fileLastLine, selEndChar);
 
                         sodiumeditor.setDisable(false);
-                        sodiumeditor.showLoadingCircle(false);
+                        sodiumeditor.loadingCircle.showLoadingCircle(false);
                         sodiumeditor.invalidate();
                         sodiumeditor.requestFocus();
                         sodiumeditor.popup.showPopupAtSelection();
@@ -291,7 +291,7 @@ public boolean isLineNumberSelecting = false;
                               sodiumeditor.scroll.scrollToLineFastForSelectAll(selEndLine, selEndChar);
 
                               sodiumeditor.setDisable(false);
-                              sodiumeditor.showLoadingCircle(false);
+                              sodiumeditor.loadingCircle.showLoadingCircle(false);
                               sodiumeditor.invalidate();
                               sodiumeditor.requestFocus();
                               sodiumeditor.popup.showPopupAtSelection();
@@ -311,18 +311,18 @@ public boolean isLineNumberSelecting = false;
             return;
           }
 
-          final int ticket = sodiumeditor.editVersion.incrementAndGet();
+          final int ticket = sodiumeditor.editOperators.editVersion.incrementAndGet();
           Runnable poll =
               new Runnable() {
                 @Override
                 public void run() {
-                  if (ticket != sodiumeditor.editVersion.get()) return;
+                  if (ticket != sodiumeditor.editOperators.editVersion.get()) return;
 
                   // Important: if file became unavailable (e.g. cleared and switched to memory),
                   // stop waiting to avoid infinite spinner.
                   if (sodiumeditor.sourceFile == null) {
                     sodiumeditor.setDisable(false);
-                    sodiumeditor.showLoadingCircle(false);
+                    sodiumeditor.loadingCircle.showLoadingCircle(false);
                     sodiumeditor.invalidate();
                     sodiumeditor.popup.showPopupAtSelection();
                     if (keyboardWasVisible) sodiumeditor.showKeyboard();
@@ -831,14 +831,14 @@ public boolean isLineNumberSelecting = false;
       int beforeChar) {
     String insert = (insertText == null) ? "" : insertText;
     if (removedText == null) {
-      SodiumEditor.EditOp op = new SodiumEditor.EditOp();
+      EditOperators.EditOp op = new EditOperators.EditOp();
       op.startLine = sL;
       op.startChar = sC;
       op.endLine = eL;
       op.endChar = eC;
       op.removedText = null;
       op.insertedText = insert;
-      SodiumEditor.CursorTarget insertedEnd = sodiumeditor.computeCursorAfterInsert(sL, sC, insert);
+      EditOperators.CursorTarget insertedEnd = sodiumeditor.editOperators.computeCursorAfterInsert(sL, sC, insert);
       op.insertedEndLine = insertedEnd.line;
       op.insertedEndChar = insertedEnd.ch;
       op.cursorLineBefore = beforeLine;
@@ -846,18 +846,18 @@ public boolean isLineNumberSelecting = false;
       op.cursorLineAfter = sodiumeditor.cursor.cursorLine;
       op.cursorCharAfter = sodiumeditor.cursor.cursorChar;
       op.timestamp = System.currentTimeMillis();
-      sodiumeditor.recordEditNoUndo(op);
+      sodiumeditor.editOperators.recordEditNoUndo(op);
       return;
     }
-    if (removedText.length() > SodiumEditor.UNDO_TEXT_LIMIT || insert.length() > SodiumEditor.UNDO_TEXT_LIMIT) {
-      SodiumEditor.EditOp op = new SodiumEditor.EditOp();
+    if (removedText.length() > EditOperators.UNDO_TEXT_LIMIT || insert.length() > EditOperators.UNDO_TEXT_LIMIT) {
+      EditOperators.EditOp op = new EditOperators.EditOp();
       op.startLine = sL;
       op.startChar = sC;
       op.endLine = eL;
       op.endChar = eC;
       op.removedText = null;
       op.insertedText = insert;
-      SodiumEditor.CursorTarget insertedEnd = sodiumeditor.computeCursorAfterInsert(sL, sC, insert);
+      EditOperators.CursorTarget insertedEnd = sodiumeditor.editOperators.computeCursorAfterInsert(sL, sC, insert);
       op.insertedEndLine = insertedEnd.line;
       op.insertedEndChar = insertedEnd.ch;
       op.cursorLineBefore = beforeLine;
@@ -865,17 +865,17 @@ public boolean isLineNumberSelecting = false;
       op.cursorLineAfter = sodiumeditor.cursor.cursorLine;
       op.cursorCharAfter = sodiumeditor.cursor.cursorChar;
       op.timestamp = System.currentTimeMillis();
-      sodiumeditor.recordEditNoUndo(op);
+      sodiumeditor.editOperators.recordEditNoUndo(op);
       return;
     }
-    SodiumEditor.EditOp op = new SodiumEditor.EditOp();
+    EditOperators.EditOp op = new EditOperators.EditOp();
     op.startLine = sL;
     op.startChar = sC;
     op.endLine = eL;
     op.endChar = eC;
     op.removedText = removedText;
     op.insertedText = insert;
-    SodiumEditor.CursorTarget insertedEnd = sodiumeditor.computeCursorAfterInsert(sL, sC, insert);
+    EditOperators.CursorTarget insertedEnd = sodiumeditor.editOperators.computeCursorAfterInsert(sL, sC, insert);
     op.insertedEndLine = insertedEnd.line;
     op.insertedEndChar = insertedEnd.ch;
     op.cursorLineBefore = beforeLine;
@@ -883,7 +883,7 @@ public boolean isLineNumberSelecting = false;
     op.cursorLineAfter = sodiumeditor.cursor.cursorLine;
     op.cursorCharAfter = sodiumeditor.cursor.cursorChar;
     op.timestamp = System.currentTimeMillis();
-    sodiumeditor.recordEdit(op);
+    sodiumeditor.editOperators.recordEdit(op);
   }
   public void setSelectionInternal(int sL, int sC, int eL, int eC) {
     int startL = sL, startC = sC, endL = eL, endC = eC;
@@ -908,13 +908,13 @@ public boolean isLineNumberSelecting = false;
   public void replaceSelectionWithText(String insertText) {
     if (sodiumeditor.isReadOnly) return;
     sodiumeditor.invalidatePendingIOForEdit();
-    final int opToken = sodiumeditor.editVersion.incrementAndGet();
+    final int opToken = sodiumeditor.editOperators.editVersion.incrementAndGet();
     sodiumeditor.clearActiveSuggestion(); // Clear suggestion when replacing selection
 
     if (insertText == null) insertText = "";
 
     if (!hasSelection) {
-      if (!insertText.isEmpty()) sodiumeditor.insertTextAtCursor(insertText);
+      if (!insertText.isEmpty()) sodiumeditor.editOperators.insertTextAtCursor(insertText);
       // No selection means no large edit UI was started for it.
       sodiumeditor.updateSuggestion();
       return;
@@ -934,18 +934,18 @@ public boolean isLineNumberSelecting = false;
     String removedText = null;
     if (Math.abs(eL - sL) <= 5000) {
       removedText = sodiumeditor.readRangeText(sL, sC, eL, eC);
-      if (removedText != null && removedText.length() > SodiumEditor.UNDO_TEXT_LIMIT) {
+      if (removedText != null && removedText.length() > EditOperators.UNDO_TEXT_LIMIT) {
         removedText = null;
       }
     }
-    int removedNewlines = sodiumeditor.countNewlines(removedText);
+    int removedNewlines = sodiumeditor.editOperators.countNewlines(removedText);
     if (removedText == null && eL >= sL) {
       removedNewlines = Math.max(0, eL - sL);
     }
-    int insertedNewlines = sodiumeditor.countNewlines(insertText);
+    int insertedNewlines = sodiumeditor.editOperators.countNewlines(insertText);
 
     final boolean selectAllLike = isSelectAllActive || isEntireFileSelected;
-    sodiumeditor.beginLargeEditUiIfNeeded(true, sL, eL, selectAllLike);
+    sodiumeditor.loadingCircle.beginLargeEditUiIfNeeded(true, sL, eL, selectAllLike);
 
     // This is the critical fix: The "Select All" path now correctly cleans up and finalizes the UI
     // state.
@@ -1000,19 +1000,19 @@ public boolean isLineNumberSelecting = false;
             sodiumeditor.linesWindow.add(i, newLines[i]);
           }
         }
-        SodiumEditor.CursorTarget newPos = sodiumeditor.computeCursorAfterInsert(0, 0, insertText);
+        EditOperators.CursorTarget newPos = sodiumeditor.editOperators.computeCursorAfterInsert(0, 0, insertText);
         sodiumeditor.cursor.cursorLine = newPos.line;
         sodiumeditor.cursor.cursorChar = newPos.ch;
       }
 
       // Crucially, end the large edit UI and force a redraw.
       sodiumeditor.onLineCountChanged();
-      sodiumeditor.endLargeEditUi(true);
+      sodiumeditor.loadingCircle.endLargeEditUi(true);
       sodiumeditor.recalculateMaxLineWidth();
       sodiumeditor.keepCursorVisibleHorizontally();
       sodiumeditor.requestLayout(); // Request layout to update gutter width after content cleared
       sodiumeditor.updateSuggestion();
-      sodiumeditor.lineCountDelta += (insertedNewlines - removedNewlines);
+      sodiumeditor.editOperators.lineCountDelta += (insertedNewlines - removedNewlines);
       recordReplaceSelectionEdit(sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
       return;
     }
@@ -1055,15 +1055,15 @@ public boolean isLineNumberSelecting = false;
       clearSelectionStateAfterDelete();
       sodiumeditor.invalidate();
       sodiumeditor.keepCursorVisibleHorizontally();
-      sodiumeditor.endLargeEditUi(false);
+      sodiumeditor.loadingCircle.endLargeEditUi(false);
       sodiumeditor.updateSuggestion();
-      sodiumeditor.lineCountDelta += (insertedNewlines - removedNewlines);
+      sodiumeditor.editOperators.lineCountDelta += (insertedNewlines - removedNewlines);
       recordReplaceSelectionEdit(sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
       return;
     }
 
     // multi-line or inserted text contains '\n'
-    final SodiumEditor.CursorTarget target = sodiumeditor.computeCursorAfterInsert(sL, sC, insertText);
+    final EditOperators.CursorTarget target = sodiumeditor.editOperators.computeCursorAfterInsert(sL, sC, insertText);
 
     // Optional immediate UI update if fully in window
     boolean fullyInWindow = (sL >= sodiumeditor.windowStartLine) && (eL < sodiumeditor.windowStartLine + sodiumeditor.linesWindow.size());
@@ -1076,7 +1076,7 @@ public boolean isLineNumberSelecting = false;
 
     clearSelectionStateAfterDelete();
     sodiumeditor.keepCursorVisibleHorizontally(); // This scrolls to the new cursor and sodiumeditor.invalidates.
-    sodiumeditor.endLargeEditUi(false);
+    sodiumeditor.loadingCircle.endLargeEditUi(false);
 
     if (sodiumeditor.sourceFile == null || sodiumeditor.isFileCleared) {
       if (!fullyInWindow) {
@@ -1085,16 +1085,16 @@ public boolean isLineNumberSelecting = false;
         sodiumeditor.applyMultiLineReplaceInWindowNow(sL, sC, eL, eC, insertText, target);
       }
       sodiumeditor.updateSuggestion();
-      sodiumeditor.lineCountDelta += (insertedNewlines - removedNewlines);
+      sodiumeditor.editOperators.lineCountDelta += (insertedNewlines - removedNewlines);
       recordReplaceSelectionEdit(sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
       return;
     }
 
     final File inFile = sodiumeditor.sourceFile;
     // ابدأ إعادة كتابة الملف في الخلفية بدون تعطيل الواجهة وبدون دائرة تحميل.
-    sodiumeditor.rewriteReplaceRangeAsync(opToken, inFile, sL, sC, eL, eC, insertText, target, false);
+    sodiumeditor.editOperators.rewriteReplaceRangeAsync(opToken, inFile, sL, sC, eL, eC, insertText, target, false);
     sodiumeditor.updateSuggestion();
-    sodiumeditor.lineCountDelta += (insertedNewlines - removedNewlines);
+    sodiumeditor.editOperators.lineCountDelta += (insertedNewlines - removedNewlines);
     recordReplaceSelectionEdit(sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
   }
   
@@ -1146,7 +1146,7 @@ public boolean isLineNumberSelecting = false;
           else startByte = raf.length();
         }
       } else {
-        startByte = sodiumeditor.findLineStartByteByScanning(raf, sL);
+        startByte = sodiumeditor.editOperators.findLineStartByteByScanning(raf, sL);
       }
 
       raf.seek(startByte);

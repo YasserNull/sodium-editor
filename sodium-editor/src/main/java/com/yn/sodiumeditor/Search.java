@@ -83,7 +83,7 @@ public class Search {
     if (!searchHighlightEnabled || !isSearchActive() || line == null || line.isEmpty())
       return new int[0];
 
-    int version = editor.editVersion.get();
+    int version = editor.editOperators.editVersion.get();
     String key = getSearchCacheKey();
     if (searchCacheEditVersion != version
         || (searchCacheKey != null && !searchCacheKey.equals(key))) {
@@ -176,8 +176,8 @@ public class Search {
       int s = Math.max(segStart, start);
       int e = Math.min(segEnd, end);
       if (e <= s) continue;
-      float left = editor.measureTextWithVisualSpaces(line, segStart, s, editor.paint);
-      float right = left + editor.measureTextWithVisualSpaces(line, s, e, editor.paint);
+      float left = editor.measureTextWithVisualSpaces(line, segStart, s, editor.textRender.paint);
+      float right = left + editor.measureTextWithVisualSpaces(line, s, e, editor.textRender.paint);
 
       boolean isCurrentMatch =
           mHighlightCurrentSearchMatch

@@ -12,7 +12,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
+import com.yn.sodiumeditor.TextRender;
 /**
  * Manages path underlining for the SodiumEditor.
  * Detects and underlines file paths in text.
@@ -27,10 +27,10 @@ public class PathUnderline {
   public final Paint pathUnderlineTmpPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
   // Path underline cache
-  public final LinkedHashMap<Integer, List<SodiumEditor.UnderlineSpan>> pathUnderlineCache =
-      new LinkedHashMap<Integer, List<SodiumEditor.UnderlineSpan>>(1000, 0.75f, true) {
+  public final LinkedHashMap<Integer, List<TextRender.UnderlineSpan>> pathUnderlineCache =
+      new LinkedHashMap<Integer, List<TextRender.UnderlineSpan>>(1000, 0.75f, true) {
         @Override
-        protected boolean removeEldestEntry(Map.Entry<Integer, List<SodiumEditor.UnderlineSpan>> eldest) {
+        protected boolean removeEldestEntry(Map.Entry<Integer, List<TextRender.UnderlineSpan>> eldest) {
           return size() > 1000;
         }
       };
@@ -73,12 +73,12 @@ public class PathUnderline {
   /**
    * Gets path underline spans for a line.
    */
-  public List<SodiumEditor.UnderlineSpan> getPathUnderlineSpansForLine(String line, int globalLine) {
+  public List<TextRender.UnderlineSpan> getPathUnderlineSpansForLine(String line, int globalLine) {
     if (!isPathUnderliningEnabled || pathUnderlinePattern == null) return null;
-    List<SodiumEditor.UnderlineSpan> cached = pathUnderlineCache.get(globalLine);
+    List<TextRender.UnderlineSpan> cached = pathUnderlineCache.get(globalLine);
     if (cached != null) return cached;
 
-    List<SodiumEditor.UnderlineSpan> spans = new ArrayList<>();
+    List<TextRender.UnderlineSpan> spans = new ArrayList<>();
     Matcher m = pathUnderlinePattern.matcher(line);
     while (m.find()) {
       int s = m.start();
@@ -93,7 +93,7 @@ public class PathUnderline {
         }
       }
       if (e > s) {
-        spans.add(new SodiumEditor.UnderlineSpan(s, e, true));
+        spans.add(new TextRender.UnderlineSpan(s, e, true));
       }
     }
     pathUnderlineCache.put(globalLine, spans);

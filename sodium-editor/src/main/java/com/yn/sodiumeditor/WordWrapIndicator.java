@@ -35,7 +35,7 @@ public class WordWrapIndicator {
     wordWrapIndicatorPaint.setColor(0xFF9E9E9E);
     wordWrapIndicatorPaint.setAlpha(180);
     wordWrapIndicatorPaint.setTextAlign(Paint.Align.LEFT);
-    wordWrapIndicatorPaint.setTypeface(editor.paint.getTypeface());
+    wordWrapIndicatorPaint.setTypeface(editor.textRender.paint.getTypeface());
     updateMetrics();
   }
 
@@ -62,7 +62,7 @@ public class WordWrapIndicator {
   public void setWordWrapIndicatorTextSize(float sizeSp) {
     if (sizeSp <= 0f) return;
     float px = editor.spToPx(sizeSp);
-    float base = editor.paint.getTextSize();
+    float base = editor.textRender.paint.getTextSize();
     if (base > 0f) {
       wordWrapIndicatorTextScale = px / base;
     } else {
@@ -77,8 +77,8 @@ public class WordWrapIndicator {
    * Updates the indicator metrics based on current paint settings.
    */
   public void updateMetrics() {
-    wordWrapIndicatorPaint.setTextSize(editor.paint.getTextSize() * wordWrapIndicatorTextScale);
-    wordWrapIndicatorPaint.setTypeface(editor.paint.getTypeface());
+    wordWrapIndicatorPaint.setTextSize(editor.textRender.paint.getTextSize() * wordWrapIndicatorTextScale);
+    wordWrapIndicatorPaint.setTypeface(editor.textRender.paint.getTypeface());
     wordWrapIndicatorWidth = wordWrapIndicatorPaint.measureText(WORD_WRAP_INDICATOR_TEXT);
   }
 
@@ -94,7 +94,7 @@ public class WordWrapIndicator {
    * Updates the indicator typeface when typeface changes.
    */
   public void onTypefaceChanged() {
-    wordWrapIndicatorPaint.setTypeface(editor.paint.getTypeface());
+    wordWrapIndicatorPaint.setTypeface(editor.textRender.paint.getTypeface());
     updateMetrics();
   }
 
@@ -135,18 +135,18 @@ public class WordWrapIndicator {
   public int clampSegmentEndForIndicator(String line, int segStart, int segEnd, float wrapWidthPx) {
     if (!isWordWrapIndicatorEnabled || line == null) return segEnd;
     if (segEnd <= segStart) return segEnd;
-    
+
     float reserved = getReservedWidth();
     float available = wrapWidthPx - reserved;
     if (available <= 0f) return segStart;
-    
-    float width = editor.measureTextWithVisualSpaces(line, segStart, segEnd, editor.paint);
+
+    float width = editor.measureTextWithVisualSpaces(line, segStart, segEnd, editor.textRender.paint);
     if (width <= available) return segEnd;
-    
+
     int end = segEnd;
     while (end > segStart) {
       end--;
-      float w = editor.measureTextWithVisualSpaces(line, segStart, end, editor.paint);
+      float w = editor.measureTextWithVisualSpaces(line, segStart, end, editor.textRender.paint);
       if (w <= available) break;
     }
     return end;

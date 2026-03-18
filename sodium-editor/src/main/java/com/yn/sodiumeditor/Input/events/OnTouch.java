@@ -11,6 +11,7 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.inputmethod.InputMethodManager;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.EditOperators;
 import com.yn.sodiumeditor.Popup;
 /**
  * OnTouch handles all touch event logic for SodiumEditor.
@@ -53,7 +54,7 @@ public class OnTouch {
       sodiumeditor.zoom.mJustFinishedScale = true;
       sodiumeditor.pointerDown = false;
       sodiumeditor.movedSinceDown = false;
-      sodiumeditor.draggingHandle = 0;
+      sodiumeditor.selectionHandles.draggingHandle = 0;
       sodiumeditor.scroll.dragMaxScrollX = -1f;
       sodiumeditor.selection.selecting = false;
       sodiumeditor.selection.isLineNumberSelecting = false;
@@ -91,7 +92,7 @@ public class OnTouch {
 
     if (sodiumeditor.hadMultiTouch && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL)) {
       sodiumeditor.pointerDown = false;
-      sodiumeditor.draggingHandle = 0;
+      sodiumeditor.selectionHandles.draggingHandle = 0;
       sodiumeditor.selection.selecting = false;
       sodiumeditor.selection.isLineNumberSelecting = false;
       sodiumeditor.selection.lineNumberSelectAnchorLine = -1;
@@ -148,15 +149,15 @@ public class OnTouch {
         // FIX: Use getTextStartX() to correctly calculate touch coordinates relative to the text
         // area.
         float gx = ex + sodiumeditor.getEffectiveScrollX() - sodiumeditor.getTextStartX();
-        float gy = ey + sodiumeditor.scroll.scrollY - sodiumeditor.getHitTestBaseY();
+        float gy = ey + sodiumeditor.scroll.scrollY - sodiumeditor.textRender.getHitTestBaseY();
         if (sodiumeditor.selection.hasSelection && sodiumeditor.selectionHandles.leftHandleRect.contains(gx, gy)) {
-          sodiumeditor.draggingHandle = 1;
+          sodiumeditor.selectionHandles.draggingHandle = 1;
           return true;
         } else if (sodiumeditor.selection.hasSelection && sodiumeditor.selectionHandles.rightHandleRect.contains(gx, gy)) {
-          sodiumeditor.draggingHandle = 2;
+          sodiumeditor.selectionHandles.draggingHandle = 2;
           return true;
-        } else if (sodiumeditor.isFocused() && !sodiumeditor.selection.hasSelection && sodiumeditor.cursorHandleRect.contains(gx, gy)) {
-          sodiumeditor.draggingHandle = 3;
+        } else if (sodiumeditor.isFocused() && !sodiumeditor.selection.hasSelection && sodiumeditor.cursorHandle.cursorHandleRect.contains(gx, gy)) {
+          sodiumeditor.selectionHandles.draggingHandle = 3;
           return true;
         }
 
@@ -203,23 +204,23 @@ public class OnTouch {
           return true;
         }
 
-        if (sodiumeditor.draggingHandle != 0) {
+        if (sodiumeditor.selectionHandles.draggingHandle != 0) {
           updateHandlePosition(ex, ey);
-          if (sodiumeditor.draggingHandle == 1 || sodiumeditor.draggingHandle == 2) sodiumeditor.popup.showPopupAtSelection();
+          if (sodiumeditor.selectionHandles.draggingHandle == 1 || sodiumeditor.selectionHandles.draggingHandle == 2) sodiumeditor.popup.showPopupAtSelection();
 
-          float scrollMargin = sodiumeditor.lineHeight * 2f;
-          float scrollSpeed = Math.max(4f, sodiumeditor.lineHeight * 0.35f);
+          float scrollMargin = sodiumeditor.textRender.lineHeight * 2f;
+          float scrollSpeed = Math.max(4f, sodiumeditor.textRender.lineHeight * 0.35f);
           sodiumeditor.autoScrollY = 0;
           sodiumeditor.autoScrollX = 0;
           if (ey < scrollMargin) sodiumeditor.autoScrollY = -scrollSpeed;
           else if (ey > (sodiumeditor.getHeight() - sodiumeditor.keyboardHeight) - scrollMargin) sodiumeditor.autoScrollY = scrollSpeed;
           if (ex < scrollMargin) sodiumeditor.autoScrollX = -scrollSpeed;
           else if (ex > sodiumeditor.getWidth() - scrollMargin) sodiumeditor.autoScrollX = scrollSpeed;
-          if (sodiumeditor.isRtl && !sodiumeditor.wordWrap.isWordWrapEnabled) sodiumeditor.autoScrollX = -sodiumeditor.autoScrollX;
+          if (sodiumeditor.textRender.isRtl && !sodiumeditor.wordWrap.isWordWrapEnabled) sodiumeditor.autoScrollX = -sodiumeditor.autoScrollX;
 
           // Prevent horizontal auto-scroll when the handle is already at the line boundary.
-          if (sodiumeditor.autoScrollX > 0 && sodiumeditor.lastDragAtLineEnd) sodiumeditor.autoScrollX = 0;
-          if (sodiumeditor.autoScrollX < 0 && sodiumeditor.lastDragAtLineStart) sodiumeditor.autoScrollX = 0;
+          if (sodiumeditor.autoScrollX > 0 && sodiumeditor.selectionHandles.lastDragAtLineEnd) sodiumeditor.autoScrollX = 0;
+          if (sodiumeditor.autoScrollX < 0 && sodiumeditor.selectionHandles.lastDragAtLineStart) sodiumeditor.autoScrollX = 0;
 
           if (sodiumeditor.autoScrollX != 0 || sodiumeditor.autoScrollY != 0) sodiumeditor.caret.mainHandler.post(sodiumeditor.autoScrollRunnable);
           else sodiumeditor.caret.mainHandler.removeCallbacks(sodiumeditor.autoScrollRunnable);
@@ -288,7 +289,7 @@ public class OnTouch {
         }
 
         // --- Check for tap on suggestion FIRST and consume if it's a clean tap ---
-        SodiumEditor.CursorTarget target = sodiumeditor.getCursorTargetForPosition(event.getX(), event.getY(), null);
+        EditOperators.CursorTarget target = sodiumeditor.getCursorTargetForPosition(event.getX(), event.getY(), null);
         int line = target.line;
 
         // Get line text safely
@@ -335,9 +336,9 @@ public class OnTouch {
         sodiumeditor.pointerDown = false;
         // sodiumeditor.clearActiveSuggestion();
 
-        if (sodiumeditor.draggingHandle != 0) {
-          if (sodiumeditor.draggingHandle == 1 || sodiumeditor.draggingHandle == 2) sodiumeditor.popup.showPopupAtSelection();
-          sodiumeditor.draggingHandle = 0;
+        if (sodiumeditor.selectionHandles.draggingHandle != 0) {
+          if (sodiumeditor.selectionHandles.draggingHandle == 1 || sodiumeditor.selectionHandles.draggingHandle == 2) sodiumeditor.popup.showPopupAtSelection();
+          sodiumeditor.selectionHandles.draggingHandle = 0;
           sodiumeditor.invalidate();
           return true;
         }
@@ -362,7 +363,7 @@ public class OnTouch {
       case MotionEvent.ACTION_CANCEL:
         sodiumeditor.caret.mainHandler.removeCallbacks(sodiumeditor.autoScrollRunnable);
         sodiumeditor.pointerDown = false;
-        sodiumeditor.draggingHandle = 0;
+        sodiumeditor.selectionHandles.draggingHandle = 0;
         sodiumeditor.selection.selecting = false;
         sodiumeditor.selection.isLineNumberSelecting = false;
         sodiumeditor.selection.lineNumberSelectAnchorLine = -1;
@@ -396,7 +397,7 @@ public class OnTouch {
     }
 
     // Correctly calculate X coordinate relative to the text area, accounting for the gutter.
-    SodiumEditor.CursorTarget target = sodiumeditor.getCursorTargetForPosition(touchX, touchY, null);
+    EditOperators.CursorTarget target = sodiumeditor.getCursorTargetForPosition(touchX, touchY, null);
     int line = target.line;
 
     if (sodiumeditor.isEof) {
@@ -407,26 +408,26 @@ public class OnTouch {
     sodiumeditor.ensureLineInWindow(line, true);
     String ln = sodiumeditor.getLineTextForRender(line);
     int clamped = Math.max(0, Math.min(target.ch, ln.length()));
-    sodiumeditor.lastDragAtLineStart = clamped == 0;
-    sodiumeditor.lastDragAtLineEnd = clamped == ln.length();
+    sodiumeditor.selectionHandles.lastDragAtLineStart = clamped == 0;
+    sodiumeditor.selectionHandles.lastDragAtLineEnd = clamped == ln.length();
 
-    if (sodiumeditor.draggingHandle == 1) {
-      if (sodiumeditor.isRtl) {
+    if (sodiumeditor.selectionHandles.draggingHandle == 1) {
+      if (sodiumeditor.textRender.isRtl) {
         sodiumeditor.selection.selEndLine = line;
         sodiumeditor.selection.selEndChar = clamped;
       } else {
         sodiumeditor.selection.selStartLine = line;
         sodiumeditor.selection.selStartChar = clamped;
       }
-    } else if (sodiumeditor.draggingHandle == 2) {
-      if (sodiumeditor.isRtl) {
+    } else if (sodiumeditor.selectionHandles.draggingHandle == 2) {
+      if (sodiumeditor.textRender.isRtl) {
         sodiumeditor.selection.selStartLine = line;
         sodiumeditor.selection.selStartChar = clamped;
       } else {
         sodiumeditor.selection.selEndLine = line;
         sodiumeditor.selection.selEndChar = clamped;
       }
-    } else if (sodiumeditor.draggingHandle == 3) {
+    } else if (sodiumeditor.selectionHandles.draggingHandle == 3) {
       sodiumeditor.cursor.cursorLine = line;
       sodiumeditor.cursor.cursorChar = clamped;
       sodiumeditor.keepCursorVisibleHorizontally();
@@ -449,7 +450,7 @@ public class OnTouch {
       Paint paint) {
     if (right <= left || bottom <= top) return;
 
-    float radius = Math.min(12f, Math.max(2f, sodiumeditor.lineHeight * 0.22f));
+    float radius = Math.min(12f, Math.max(2f, sodiumeditor.textRender.lineHeight * 0.22f));
     // Keep vertical edges flush between lines to avoid "seam" lines when selecting multiple lines.
     float insetX = 0.5f;
     sodiumeditor.selection.selectionRectTmp.set(left + insetX, top, right - insetX, bottom);

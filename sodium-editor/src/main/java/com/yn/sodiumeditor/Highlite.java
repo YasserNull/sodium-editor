@@ -12,7 +12,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
+import com.yn.sodiumeditor.TextRender;
 /**
  * Manages syntax highlighting for the SodiumEditor.
  * Handles highlight rules, caches, and span calculation.
@@ -22,19 +22,19 @@ public class Highlite {
   private final SodiumEditor editor;
 
   // Highlight rules
-  public final List<SodiumEditor.HighlightRule> highlightRules = new ArrayList<>();
-  public SodiumEditor.HighlightRule stringHighlightRule;
-  public SodiumEditor.HighlightRule blockCommentHighlightRule;
-  public final ArrayList<SodiumEditor.HighlightRule> regexHighlightRules = new ArrayList<>();
-  @Nullable public SodiumEditor.HighlightRule lineCommentHighlightRule;
-  public SodiumEditor.HighlightRule whitespaceStringRule;
-  public SodiumEditor.HighlightRule whitespaceCommentRule;
+  public final List<TextRender.HighlightRule> highlightRules = new ArrayList<>();
+  public TextRender.HighlightRule stringHighlightRule;
+  public TextRender.HighlightRule blockCommentHighlightRule;
+  public final ArrayList<TextRender.HighlightRule> regexHighlightRules = new ArrayList<>();
+  @Nullable public TextRender.HighlightRule lineCommentHighlightRule;
+  public TextRender.HighlightRule whitespaceStringRule;
+  public TextRender.HighlightRule whitespaceCommentRule;
 
   // Highlight caches
-  public final LinkedHashMap<Integer, List<SodiumEditor.HighlightSpan>> highlightCache =
-      new LinkedHashMap<Integer, List<SodiumEditor.HighlightSpan>>(1000, 0.75f, true) {
+  public final LinkedHashMap<Integer, List<TextRender.HighlightSpan>> highlightCache =
+      new LinkedHashMap<Integer, List<TextRender.HighlightSpan>>(1000, 0.75f, true) {
         @Override
-        protected boolean removeEldestEntry(Map.Entry<Integer, List<SodiumEditor.HighlightSpan>> eldest) {
+        protected boolean removeEldestEntry(Map.Entry<Integer, List<TextRender.HighlightSpan>> eldest) {
           return size() > 1000;
         }
       };
@@ -75,23 +75,23 @@ public class Highlite {
 
   private void initWhitespaceRules() {
     whitespaceStringRule =
-        new SodiumEditor.HighlightRule(
+        new TextRender.HighlightRule(
             "",
             SodiumEditor.STYLE_NORMAL,
             0xFF000000,
-            editor.paint.getTextSize(),
-            editor.paint.getTypeface(),
+            editor.textRender.paint.getTextSize(),
+            editor.textRender.paint.getTypeface(),
             false,
-            SodiumEditor.HighlightRuleType.STRING);
+            TextRender.HighlightRuleType.STRING);
     whitespaceCommentRule =
-        new SodiumEditor.HighlightRule(
+        new TextRender.HighlightRule(
             "",
             SodiumEditor.STYLE_NORMAL,
             0xFF000000,
-            editor.paint.getTextSize(),
-            editor.paint.getTypeface(),
+            editor.textRender.paint.getTextSize(),
+            editor.textRender.paint.getTypeface(),
             false,
-            SodiumEditor.HighlightRuleType.BLOCK_COMMENT);
+            TextRender.HighlightRuleType.BLOCK_COMMENT);
   }
 
   /**
@@ -105,26 +105,26 @@ public class Highlite {
    * Adds a highlight rule with underline option.
    */
   public void addHighlightRule(String regex, int style, int color, boolean underline) {
-    SodiumEditor.HighlightRuleType type = SodiumEditor.HighlightRuleType.REGEX;
+    TextRender.HighlightRuleType type = TextRender.HighlightRuleType.REGEX;
     if (regex.equals(Highlite.RULE_STRING)) {
-      type = SodiumEditor.HighlightRuleType.STRING;
+      type = TextRender.HighlightRuleType.STRING;
     } else if (regex.equals(Highlite.RULE_BLOCK_COMMENT)) {
-      type = SodiumEditor.HighlightRuleType.BLOCK_COMMENT;
+      type = TextRender.HighlightRuleType.BLOCK_COMMENT;
     } else if (isLineCommentRegex(regex)) {
-      type = SodiumEditor.HighlightRuleType.LINE_COMMENT;
+      type = TextRender.HighlightRuleType.LINE_COMMENT;
     }
 
-    SodiumEditor.HighlightRule rule =
-        new SodiumEditor.HighlightRule(
-            regex, style, color, editor.paint.getTextSize(), editor.paint.getTypeface(), underline, type);
-    if (type == SodiumEditor.HighlightRuleType.LINE_COMMENT) {
+    TextRender.HighlightRule rule =
+        new TextRender.HighlightRule(
+            regex, style, color, editor.textRender.paint.getTextSize(), editor.textRender.paint.getTypeface(), underline, type);
+    if (type == TextRender.HighlightRuleType.LINE_COMMENT) {
       addLineCommentDelimiter(extractLineCommentDelimiter(regex));
       lineCommentHighlightRule = rule;
     } else {
       highlightRules.add(rule);
-      if (type == SodiumEditor.HighlightRuleType.STRING) {
+      if (type == TextRender.HighlightRuleType.STRING) {
         stringHighlightRule = rule;
-      } else if (type == SodiumEditor.HighlightRuleType.BLOCK_COMMENT) {
+      } else if (type == TextRender.HighlightRuleType.BLOCK_COMMENT) {
         blockCommentHighlightRule = rule;
       } else {
         regexHighlightRules.add(rule);
@@ -177,14 +177,14 @@ public class Highlite {
 
     if (lineCommentHighlightRule == null || lineCommentHighlightRule.style != style) {
       lineCommentHighlightRule =
-          new SodiumEditor.HighlightRule(
+          new TextRender.HighlightRule(
               "",
               style,
               color,
-              editor.paint.getTextSize(),
-              editor.paint.getTypeface(),
+              editor.textRender.paint.getTextSize(),
+              editor.textRender.paint.getTypeface(),
               false,
-              SodiumEditor.HighlightRuleType.LINE_COMMENT);
+              TextRender.HighlightRuleType.LINE_COMMENT);
       lineCommentHighlightRule.paint.setColor(color);
       clearHighlightCaches();
       return;
@@ -218,14 +218,14 @@ public class Highlite {
         highlightRules.remove(blockCommentHighlightRule);
       }
       blockCommentHighlightRule =
-          new SodiumEditor.HighlightRule(
+          new TextRender.HighlightRule(
               "",
               style,
               color,
-              editor.paint.getTextSize(),
-              editor.paint.getTypeface(),
+              editor.textRender.paint.getTextSize(),
+              editor.textRender.paint.getTypeface(),
               false,
-              SodiumEditor.HighlightRuleType.BLOCK_COMMENT);
+              TextRender.HighlightRuleType.BLOCK_COMMENT);
       highlightRules.add(blockCommentHighlightRule);
     } else {
       if (blockCommentHighlightRule.paint.getColor() != color) {
@@ -239,7 +239,7 @@ public class Highlite {
    * Updates highlight rules when text size changes.
    */
   public void onTextSizeChanged(float sizePx) {
-    for (SodiumEditor.HighlightRule rule : highlightRules) {
+    for (TextRender.HighlightRule rule : highlightRules) {
       rule.updateTextSize(sizePx);
     }
     if (lineCommentHighlightRule != null) lineCommentHighlightRule.updateTextSize(sizePx);
@@ -253,7 +253,7 @@ public class Highlite {
    */
   public void onTypefaceChanged(Typeface baseTypeface) {
     if (lineCommentHighlightRule != null) lineCommentHighlightRule.updateTypeface(baseTypeface);
-    for (SodiumEditor.HighlightRule rule : highlightRules) {
+    for (TextRender.HighlightRule rule : highlightRules) {
       rule.updateTypeface(baseTypeface);
     }
     clearHighlightCaches();
@@ -266,14 +266,14 @@ public class Highlite {
       int startLine, int endLine, @Nullable Map<Integer, String> directLines) {
     if (highlightRules.isEmpty()) return;
 
-    SodiumEditor.HighlightRule stringRule = stringHighlightRule;
-    SodiumEditor.HighlightRule blockRule = blockCommentHighlightRule;
+    TextRender.HighlightRule stringRule = stringHighlightRule;
+    TextRender.HighlightRule blockRule = blockCommentHighlightRule;
     boolean inBlock = false;
     int stringState = 0;
     boolean needRegex = !regexHighlightRules.isEmpty();
 
     for (int i = startLine; i <= endLine; i++) {
-      List<SodiumEditor.HighlightSpan> cachedSpans = highlightCache.get(i);
+      List<TextRender.HighlightSpan> cachedSpans = highlightCache.get(i);
       if (cachedSpans != null) {
         if (!needRegex) continue;
         boolean cachedInBlock = false;
@@ -288,14 +288,14 @@ public class Highlite {
       String line = editor.getLineTextForRenderWithDirect(i, directLines);
       if (line == null) line = "";
 
-      List<SodiumEditor.HighlightSpan> spans = new ArrayList<>();
-      List<SodiumEditor.HighlightSpan> exclusionSpans = new ArrayList<>();
+      List<TextRender.HighlightSpan> spans = new ArrayList<>();
+      List<TextRender.HighlightSpan> exclusionSpans = new ArrayList<>();
 
-      SodiumEditor.HighlightLineState startState = getLineStateAtStart(i);
-      SodiumEditor.HighlightRule parseStringRule = stringRule != null ? stringRule : whitespaceStringRule;
-      SodiumEditor.HighlightRule parseBlockRule = blockRule != null ? blockRule : whitespaceCommentRule;
+      TextRender.HighlightLineState startState = getLineStateAtStart(i);
+      TextRender.HighlightRule parseStringRule = stringRule != null ? stringRule : whitespaceStringRule;
+      TextRender.HighlightRule parseBlockRule = blockRule != null ? blockRule : whitespaceCommentRule;
 
-      SodiumEditor.LineParseResult parseResult =
+      TextRender.LineParseResult parseResult =
           parseLineForSyntax(
               line,
               startState.inBlockComment,
@@ -311,11 +311,11 @@ public class Highlite {
       }
 
       if (needRegex && !line.isEmpty()) {
-        for (SodiumEditor.HighlightRule rule : regexHighlightRules) {
+        for (TextRender.HighlightRule rule : regexHighlightRules) {
           Matcher matcher = rule.pattern.matcher(line);
           while (matcher.find()) {
             if (matcher.start() == matcher.end()) continue;
-            SodiumEditor.HighlightSpan span = new SodiumEditor.HighlightSpan(matcher.start(), matcher.end(), rule.paint);
+            TextRender.HighlightSpan span = new TextRender.HighlightSpan(matcher.start(), matcher.end(), rule.paint);
             if (hasOverlap(span, spans) || hasOverlap(span, exclusionSpans)) continue;
             spans.add(span);
           }
@@ -327,7 +327,7 @@ public class Highlite {
       }
 
       highlightCache.put(i, spans);
-      if (editor.isBlockCommentsEnabled) {
+      if (editor.highlite.isBlockCommentsEnabled) {
         blockCommentEndStateCache.put(i, parseResult.endsInBlockComment);
       }
       stringEndStateCache.put(i, parseResult.endsInStringState);
@@ -340,12 +340,12 @@ public class Highlite {
   /**
    * Gets or calculates highlight spans for a line.
    */
-  public List<SodiumEditor.HighlightSpan> getHighlightSpansForLine(String line, int globalLine) {
+  public List<TextRender.HighlightSpan> getHighlightSpansForLine(String line, int globalLine) {
     if (editor.getLogicalLineLength(globalLine, line) > editor.maxSyntaxLineLength) {
       return new ArrayList<>();
     }
 
-    List<SodiumEditor.HighlightSpan> spans = highlightCache.get(globalLine);
+    List<TextRender.HighlightSpan> spans = highlightCache.get(globalLine);
     if (spans == null) {
       spans = calculateSpansForLine(line, globalLine);
       highlightCache.put(globalLine, spans);
@@ -356,8 +356,8 @@ public class Highlite {
   /**
    * Calculates highlight spans for a line.
    */
-  public List<SodiumEditor.HighlightSpan> calculateSpansForLine(String line, int globalLine) {
-    List<SodiumEditor.HighlightSpan> spans = new ArrayList<>();
+  public List<TextRender.HighlightSpan> calculateSpansForLine(String line, int globalLine) {
+    List<TextRender.HighlightSpan> spans = new ArrayList<>();
     if (editor.getLogicalLineLength(globalLine, line) > editor.maxSyntaxLineLength) {
       return spans;
     }
@@ -365,9 +365,9 @@ public class Highlite {
       return spans;
     }
 
-    SodiumEditor.HighlightRule stringRule = stringHighlightRule;
-    SodiumEditor.HighlightRule blockCommentRule = blockCommentHighlightRule;
-    List<SodiumEditor.HighlightSpan> exclusionSpans = new ArrayList<>();
+    TextRender.HighlightRule stringRule = stringHighlightRule;
+    TextRender.HighlightRule blockCommentRule = blockCommentHighlightRule;
+    List<TextRender.HighlightSpan> exclusionSpans = new ArrayList<>();
 
     if (isBlockCommentsEnabled
         || !lineCommentDelimiters.isEmpty()
@@ -377,11 +377,11 @@ public class Highlite {
         || stringRule != null
         || blockCommentRule != null
         || lineCommentHighlightRule != null) {
-      SodiumEditor.HighlightLineState startState = getLineStateAtStart(globalLine);
-      SodiumEditor.HighlightRule parseStringRule = stringRule != null ? stringRule : whitespaceStringRule;
-      SodiumEditor.HighlightRule parseBlockRule =
+      TextRender.HighlightLineState startState = getLineStateAtStart(globalLine);
+      TextRender.HighlightRule parseStringRule = stringRule != null ? stringRule : whitespaceStringRule;
+      TextRender.HighlightRule parseBlockRule =
           blockCommentRule != null ? blockCommentRule : whitespaceCommentRule;
-      SodiumEditor.LineParseResult parseResult =
+      TextRender.LineParseResult parseResult =
           parseLineForSyntax(
               line,
               startState.inBlockComment,
@@ -404,11 +404,11 @@ public class Highlite {
     }
 
     if (!regexHighlightRules.isEmpty() && !line.isEmpty()) {
-      for (SodiumEditor.HighlightRule rule : regexHighlightRules) {
+      for (TextRender.HighlightRule rule : regexHighlightRules) {
         Matcher matcher = rule.pattern.matcher(line);
         while (matcher.find()) {
           if (matcher.start() == matcher.end()) continue;
-          SodiumEditor.HighlightSpan span = new SodiumEditor.HighlightSpan(matcher.start(), matcher.end(), rule.paint);
+          TextRender.HighlightSpan span = new TextRender.HighlightSpan(matcher.start(), matcher.end(), rule.paint);
           if (hasOverlap(span, spans) || hasOverlap(span, exclusionSpans)) continue;
           spans.add(span);
         }
@@ -424,15 +424,15 @@ public class Highlite {
   /**
    * Gets the highlight line state at the start of a line.
    */
-  public SodiumEditor.HighlightLineState getLineStateAtStart(int globalLine) {
-    if (globalLine <= editor.windowStartLine) return new SodiumEditor.HighlightLineState(false, 0);
+  public TextRender.HighlightLineState getLineStateAtStart(int globalLine) {
+    if (globalLine <= editor.windowStartLine) return new TextRender.HighlightLineState(false, 0);
     int windowEnd = editor.windowStartLine + editor.linesWindow.size() - 1;
-    if (globalLine > windowEnd) return new SodiumEditor.HighlightLineState(false, 0);
+    if (globalLine > windowEnd) return new TextRender.HighlightLineState(false, 0);
 
     Boolean cachedBlockPrev = blockCommentEndStateCache.get(globalLine - 1);
     Integer cachedStringPrev = stringEndStateCache.get(globalLine - 1);
     if (cachedBlockPrev != null && cachedStringPrev != null) {
-      return new SodiumEditor.HighlightLineState(cachedBlockPrev, cachedStringPrev);
+      return new TextRender.HighlightLineState(cachedBlockPrev, cachedStringPrev);
     }
 
     boolean inBlock = false;
@@ -447,27 +447,27 @@ public class Highlite {
       }
       String lineText = editor.getLineFromWindowLocal(line - editor.windowStartLine);
       if (lineText == null) lineText = "";
-      SodiumEditor.LineParseResult result =
+      TextRender.LineParseResult result =
           parseLineForSyntax(lineText, inBlock, stringState, null, null, false);
       inBlock = result.endsInBlockComment;
       stringState = result.endsInStringState;
       blockCommentEndStateCache.put(line, inBlock);
       stringEndStateCache.put(line, stringState);
     }
-    return new SodiumEditor.HighlightLineState(inBlock, stringState);
+    return new TextRender.HighlightLineState(inBlock, stringState);
   }
 
   /**
    * Parses a line for syntax highlighting.
    */
-  public SodiumEditor.LineParseResult parseLineForSyntax(
+  public TextRender.LineParseResult parseLineForSyntax(
       String line,
       boolean inBlockComment,
       int stringState,
-      SodiumEditor.HighlightRule stringRule,
-      SodiumEditor.HighlightRule blockCommentRule,
+      TextRender.HighlightRule stringRule,
+      TextRender.HighlightRule blockCommentRule,
       boolean collectSpans) {
-    List<SodiumEditor.HighlightSpan> spans = new ArrayList<>();
+    List<TextRender.HighlightSpan> spans = new ArrayList<>();
     int length = line.length();
     int i = 0;
     if (!isBlockCommentsEnabled) {
@@ -488,12 +488,12 @@ public class Highlite {
         int end = findBlockCommentEnd(line, i);
         if (end < 0) {
           if (collectSpans && blockCommentRule != null && isBlockCommentsEnabled && length > 0) {
-            spans.add(new SodiumEditor.HighlightSpan(0, length, blockCommentRule.paint));
+            spans.add(new TextRender.HighlightSpan(0, length, blockCommentRule.paint));
           }
-          return new SodiumEditor.LineParseResult(spans, true, 0);
+          return new TextRender.LineParseResult(spans, true, 0);
         }
         if (collectSpans && blockCommentRule != null && isBlockCommentsEnabled) {
-          spans.add(new SodiumEditor.HighlightSpan(0, end + 2, blockCommentRule.paint));
+          spans.add(new TextRender.HighlightSpan(0, end + 2, blockCommentRule.paint));
         }
         i = end + 2;
         inBlockComment = false;
@@ -504,16 +504,16 @@ public class Highlite {
         SodiumEditor.StringEndResult endResult = findStringEndForState(line, i, stringState);
         if (endResult.found) {
           if (collectSpans && stringRule != null) {
-            spans.add(new SodiumEditor.HighlightSpan(0, endResult.endIndex, stringRule.paint));
+            spans.add(new TextRender.HighlightSpan(0, endResult.endIndex, stringRule.paint));
           }
           i = endResult.endIndex;
           stringState = 0;
           continue;
         }
         if (collectSpans && stringRule != null && length > 0) {
-          spans.add(new SodiumEditor.HighlightSpan(0, length, stringRule.paint));
+          spans.add(new TextRender.HighlightSpan(0, length, stringRule.paint));
         }
-        return new SodiumEditor.LineParseResult(spans, false, stringState);
+        return new TextRender.LineParseResult(spans, false, stringState);
       }
 
       if (isLineCommentStart(line, i)) {
@@ -521,10 +521,10 @@ public class Highlite {
           Paint commentPaint =
               (lineCommentHighlightRule != null)
                   ? lineCommentHighlightRule.paint
-                  : ((blockCommentRule != null) ? blockCommentRule.paint : editor.paint);
-          spans.add(new SodiumEditor.HighlightSpan(i, length, commentPaint));
+                  : ((blockCommentRule != null) ? blockCommentRule.paint : editor.textRender.paint);
+          spans.add(new TextRender.HighlightSpan(i, length, commentPaint));
         }
-        return new SodiumEditor.LineParseResult(spans, false, 0);
+        return new TextRender.LineParseResult(spans, false, 0);
       }
 
       char c = line.charAt(i);
@@ -532,16 +532,16 @@ public class Highlite {
         int end = findTripleQuoteEnd(line, i + 3);
         if (end >= 0) {
           if (collectSpans && stringRule != null) {
-            spans.add(new SodiumEditor.HighlightSpan(i, end + 3, stringRule.paint));
+            spans.add(new TextRender.HighlightSpan(i, end + 3, stringRule.paint));
           }
           i = end + 3;
           continue;
         }
         if (isTripleQuoteStringsEnabled) {
           if (collectSpans && stringRule != null && length > 0) {
-            spans.add(new SodiumEditor.HighlightSpan(i, length, stringRule.paint));
+            spans.add(new TextRender.HighlightSpan(i, length, stringRule.paint));
           }
-          return new SodiumEditor.LineParseResult(spans, false, STRING_STATE_TRIPLE);
+          return new TextRender.LineParseResult(spans, false, STRING_STATE_TRIPLE);
         }
       }
 
@@ -549,16 +549,16 @@ public class Highlite {
         int end = findStringEnd(line, i + 1, c);
         if (end >= 0) {
           if (collectSpans && stringRule != null) {
-            spans.add(new SodiumEditor.HighlightSpan(i, end + 1, stringRule.paint));
+            spans.add(new TextRender.HighlightSpan(i, end + 1, stringRule.paint));
           }
           i = end + 1;
           continue;
         }
         if (isMultiLineStringsEnabled) {
           if (collectSpans && stringRule != null && length > 0) {
-            spans.add(new SodiumEditor.HighlightSpan(i, length, stringRule.paint));
+            spans.add(new TextRender.HighlightSpan(i, length, stringRule.paint));
           }
-          return new SodiumEditor.LineParseResult(spans, false, getStringStateForDelimiter(c));
+          return new TextRender.LineParseResult(spans, false, getStringStateForDelimiter(c));
         }
       }
 
@@ -570,12 +570,12 @@ public class Highlite {
         int end = findBlockCommentEnd(line, i + 2);
         if (end < 0) {
           if (collectSpans && blockCommentRule != null && length > 0) {
-            spans.add(new SodiumEditor.HighlightSpan(i, length, blockCommentRule.paint));
+            spans.add(new TextRender.HighlightSpan(i, length, blockCommentRule.paint));
           }
-          return new SodiumEditor.LineParseResult(spans, true, 0);
+          return new TextRender.LineParseResult(spans, true, 0);
         }
         if (collectSpans && blockCommentRule != null) {
-          spans.add(new SodiumEditor.HighlightSpan(i, end + 2, blockCommentRule.paint));
+          spans.add(new TextRender.HighlightSpan(i, end + 2, blockCommentRule.paint));
         }
         i = end + 2;
         continue;
@@ -584,12 +584,12 @@ public class Highlite {
       i++;
     }
 
-    return new SodiumEditor.LineParseResult(spans, inBlockComment, stringState);
+    return new TextRender.LineParseResult(spans, inBlockComment, stringState);
   }
 
   // Helper methods
-  public static boolean hasOverlap(SodiumEditor.HighlightSpan span, List<SodiumEditor.HighlightSpan> spans) {
-    for (SodiumEditor.HighlightSpan other : spans) {
+  public static boolean hasOverlap(TextRender.HighlightSpan span, List<TextRender.HighlightSpan> spans) {
+    for (TextRender.HighlightSpan other : spans) {
       if (span.start < other.end && other.start < span.end) {
         return true;
       }
