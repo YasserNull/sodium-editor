@@ -15,7 +15,7 @@ public class WordWrapIndicator {
   private final Handler mainHandler;
 
   // Word wrap indicator state
-  public boolean isWordWrapIndicatorEnabled = false;
+  public boolean isWordWrapIndicatorEnabled = true;
   public static final String WORD_WRAP_INDICATOR_TEXT = "\u21A9"; // ↩
   public final Paint wordWrapIndicatorPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public float wordWrapIndicatorPadPx = 0f;

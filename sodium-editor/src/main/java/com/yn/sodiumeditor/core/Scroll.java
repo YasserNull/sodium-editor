@@ -817,7 +817,23 @@ public boolean scrollerIsScrolling = false;
         && (editor.zoom.isScaling || editor.scaleGestureDetector.isInProgress() || editor.multiTouchActive)) {
       return;
     }
-    int cursorVisualIndex = editor.getVisualIndexForLineAndChar(editor.cursor.cursorLine, editor.cursor.cursorChar);
+    float oldScrollX = scrollX;
+    float oldScrollY = scrollY;
+    
+    // Rebuild fold intervals if dirty before calculating cursor position
+    if (editor.codeFold.isCodeFoldingEnabled) {
+      editor.codeFold.rebuildFoldIntervalsIfNeeded();
+    }
+    
+    // Get visual index accounting for code folding
+    int cursorVisualIndex;
+    if (editor.codeFold.isCodeFoldingEnabled) {
+      cursorVisualIndex = editor.codeFold.getVisibleIndexForGlobalLine(editor.cursor.cursorLine);
+      if (cursorVisualIndex < 0) return; // Line is hidden by fold
+    } else {
+      cursorVisualIndex = editor.getVisualIndexForLineAndChar(editor.cursor.cursorLine, editor.cursor.cursorChar);
+    }
+    
     float cursorYTop = cursorVisualIndex * editor.textRender.lineHeight;
     float cursorYBottom = cursorYTop + editor.textRender.lineHeight;
     int viewHeight = editor.getHeight() - editor.keyboardHeight;
@@ -875,9 +891,16 @@ public boolean scrollerIsScrolling = false;
         "keepCursorVisible scrollX=" + scrollX
             + " effectiveScrollX=" + editor.getEffectiveScrollX()
             + " cursorLine=" + editor.cursor.cursorLine
-            + " cursorChar=" + editor.cursor.cursorChar,
+            + " cursorChar=" + editor.cursor.cursorChar
+            + " visualIndex=" + cursorVisualIndex,
         200);
-    editor.invalidate();
+    boolean scrollChanged =
+        Math.abs(scrollX - oldScrollX) > 0.5f || Math.abs(scrollY - oldScrollY) > 0.5f;
+    if (scrollChanged) {
+      editor.invalidate();
+    } else {
+      editor.invalidateCursorArea();
+    }
   }
 
   /**

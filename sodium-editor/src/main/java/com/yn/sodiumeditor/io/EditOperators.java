@@ -325,6 +325,7 @@ public class EditOperators {
   public void recordEdit(EditOp op) {
     if (isApplyingUndoRedo) return;
     if (op == null) return;
+    editor.markTyping();
     boolean tooLarge =
         (op.removedText != null && op.removedText.length() > UNDO_TEXT_LIMIT)
             || (op.insertedText != null && op.insertedText.length() > UNDO_TEXT_LIMIT);
@@ -417,6 +418,7 @@ public class EditOperators {
   public void recordEditNoUndo(EditOp op) {
     if (isApplyingUndoRedo) return;
     if (op == null) return;
+    editor.markTyping();
     // Save-only record for very large edits or unknown removed text.
     pendingEdits.addLast(op);
     pendingRedo.clear();
@@ -948,6 +950,36 @@ public class EditOperators {
       editor.ime.composingLength = 0;
     }
 
+    if (editor.codeFold.isCodeFoldingEnabled) {
+      com.yn.sodiumeditor.core.CodeFold.FoldRange hidden =
+          editor.codeFold.getCollapsedRangeContainingLine(editor.cursor.cursorLine);
+      if (hidden != null) {
+        String endLineText = editor.getLineTextForRender(hidden.endLine);
+        if (endLineText == null) {
+          editor.fileIO.ensureLineInWindow(hidden.endLine, true);
+          endLineText = editor.getLineTextForRender(hidden.endLine);
+        }
+        int closeIdx = editor.codeFold.resolveCloseCharIndex(hidden, endLineText);
+        int afterClose = (closeIdx >= 0) ? closeIdx + 1 : (endLineText != null ? endLineText.length() : 0);
+        editor.cursor.cursorLine = hidden.endLine;
+        editor.cursor.cursorChar = Math.max(afterClose, editor.cursor.cursorChar);
+      } else {
+        com.yn.sodiumeditor.core.CodeFold.FoldRange start =
+            editor.codeFold.getFoldRangeAtStart(editor.cursor.cursorLine);
+        if (start != null && start.collapsed && editor.cursor.cursorChar > start.openCharIndex) {
+          String endLineText = editor.getLineTextForRender(start.endLine);
+          if (endLineText == null) {
+            editor.fileIO.ensureLineInWindow(start.endLine, true);
+            endLineText = editor.getLineTextForRender(start.endLine);
+          }
+          int closeIdx = editor.codeFold.resolveCloseCharIndex(start, endLineText);
+          int afterClose = (closeIdx >= 0) ? closeIdx + 1 : (endLineText != null ? endLineText.length() : 0);
+          editor.cursor.cursorLine = start.endLine;
+          editor.cursor.cursorChar = Math.max(afterClose, editor.cursor.cursorChar);
+        }
+      }
+    }
+
     final int beforeLine = editor.cursor.cursorLine;
     final int beforeChar = editor.cursor.cursorChar;
 
@@ -966,11 +998,13 @@ public class EditOperators {
       localIdx = Math.max(0, Math.min(localIdx, editor.textRender.linesWindow.size() - 1));
     }
 
+    boolean fullInvalidate = false;
     synchronized (editor.textRender.linesWindow) {
       String base = editor.getLineFromWindowLocal(localIdx);
       if (base == null) base = "";
 
       if (c == '\n') {
+        fullInvalidate = true;
         int oldLineCount = editor.getLinesCount();
         String before = base.substring(0, Math.min(editor.cursor.cursorChar, base.length()));
         String after = base.substring(Math.min(editor.cursor.cursorChar, base.length()));
@@ -982,8 +1016,35 @@ public class EditOperators {
         editor.textRender.modifiedLines.put(editor.cursor.cursorLine, before);
         editor.textRender.modifiedLines.put(editor.cursor.cursorLine + 1, after);
         if (editor.codeFold.isCodeFoldingEnabled) {
-          editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
-          editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine + 1);
+          boolean preserveFold = false;
+          com.yn.sodiumeditor.core.CodeFold.FoldRange range =
+              editor.codeFold.getCollapsedRangeContainingLine(editor.cursor.cursorLine);
+          if (range == null) {
+            range = editor.codeFold.getFoldRangeAtStart(editor.cursor.cursorLine);
+          }
+          if (range != null && range.collapsed) {
+            String endLineText = editor.getLineTextForRender(range.endLine);
+            int closeIdx = range.closeCharIndex;
+            if (endLineText != null) {
+              int resolved = editor.codeFold.resolveCloseCharIndex(range, endLineText);
+              if (resolved >= 0) closeIdx = resolved;
+            }
+            if (editor.cursor.cursorLine == range.endLine) {
+              if (closeIdx >= 0) {
+                preserveFold = editor.cursor.cursorChar >= closeIdx + 1;
+              } else {
+                // Unknown close index: keep fold to avoid expanding while editing after placeholder.
+                preserveFold = true;
+              }
+            }
+            if (editor.cursor.cursorLine == range.startLine && editor.cursor.cursorChar > range.openCharIndex) {
+              preserveFold = true;
+            }
+          }
+          if (!preserveFold) {
+            editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
+            editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine + 1);
+          }
         }
 
         editor.computeWidthForLine(editor.cursor.cursorLine, before);
@@ -1008,7 +1069,10 @@ public class EditOperators {
         editor.updateLocalLine(localIdx, modified);
         editor.textRender.modifiedLines.put(editor.cursor.cursorLine, modified);
         if (editor.codeFold.isCodeFoldingEnabled) {
-          editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
+          if (editor.containsBracketChars(String.valueOf(c))) {
+            editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
+          }
+          editor.codeFold.adjustFoldRangeForLineEdit(editor.cursor.cursorLine, pos, 1, 0);
         }
         editor.invalidateHighlightCacheForLine(editor.cursor.cursorLine);
         editor.cursor.cursorChar++;
@@ -1019,7 +1083,11 @@ public class EditOperators {
         editor.textRender.currentMaxWindowLineWidth = Math.max(editor.textRender.currentMaxWindowLineWidth, newWidth);
         editor.textRender.globalMaxLineWidth = Math.max(editor.textRender.globalMaxLineWidth, editor.textRender.currentMaxWindowLineWidth);
       }
-      editor.invalidate();
+      if (fullInvalidate) {
+        editor.invalidate();
+      } else {
+        editor.invalidateLineGlobal(editor.cursor.cursorLine);
+      }
       editor.keepCursorVisibleHorizontally();
     }
     editor.autoCompletion.updateSuggestion();
@@ -1082,9 +1150,11 @@ public class EditOperators {
         String modified = base.substring(0, safeStart) + base.substring(editor.cursor.cursorChar);
         editor.updateLocalLine(localIdx, modified);
         editor.textRender.modifiedLines.put(editor.cursor.cursorLine, modified);
-        if (editor.codeFold.isCodeFoldingEnabled && editor.containsBracketChars(removed)) {
-          editor.bracketCache.invalidateLines(editor.cursor.cursorLine, editor.cursor.cursorLine);
-          editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
+        if (editor.codeFold.isCodeFoldingEnabled) {
+          if (editor.containsBracketChars(removed)) {
+            editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
+          }
+          editor.codeFold.adjustFoldRangeForLineEdit(editor.cursor.cursorLine, safeStart, -1, 1);
         }
         editor.invalidateHighlightCacheForLine(editor.cursor.cursorLine);
         editor.cursor.cursorChar = safeStart;
@@ -1122,7 +1192,6 @@ public class EditOperators {
         editor.updateLocalLine(prevLocal, merged);
         editor.textRender.modifiedLines.put(prevGlobal, merged);
         if (editor.codeFold.isCodeFoldingEnabled) {
-          editor.bracketCache.invalidateLines(prevGlobal, prevGlobal + 1);
           editor.codeFold.invalidateFoldRangeForLine(prevGlobal);
           editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
         }
@@ -1201,9 +1270,11 @@ public class EditOperators {
         String modified = base.substring(0, editor.cursor.cursorChar) + base.substring(editor.cursor.cursorChar + 1);
         editor.updateLocalLine(localIdx, modified);
         editor.textRender.modifiedLines.put(editor.cursor.cursorLine, modified);
-        if (editor.codeFold.isCodeFoldingEnabled && editor.containsBracketChars(removed)) {
-          editor.bracketCache.invalidateLines(editor.cursor.cursorLine, editor.cursor.cursorLine);
-          editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
+        if (editor.codeFold.isCodeFoldingEnabled) {
+          if (editor.containsBracketChars(removed)) {
+            editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
+          }
+          editor.codeFold.adjustFoldRangeForLineEdit(editor.cursor.cursorLine, editor.cursor.cursorChar, -1, 1);
         }
         editor.computeWidthForLine(editor.cursor.cursorLine, modified);
         if (oldWidth != null && oldWidth >= editor.textRender.currentMaxWindowLineWidth)
@@ -1239,7 +1310,6 @@ public class EditOperators {
           editor.textRender.linesWindow.remove(nextLocal);
           editor.textRender.modifiedLines.put(editor.cursor.cursorLine, merged);
           if (editor.codeFold.isCodeFoldingEnabled) {
-            editor.bracketCache.invalidateLines(editor.cursor.cursorLine, nextGlobal);
             editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
             editor.codeFold.invalidateFoldRangeForLine(nextGlobal);
           }
@@ -1300,9 +1370,11 @@ public class EditOperators {
       editor.updateLocalLine(localIdx, modified);
       editor.textRender.modifiedLines.put(editor.cursor.cursorLine, modified);
       editor.invalidateHighlightCacheForLine(editor.cursor.cursorLine);
-      if (editor.codeFold.isCodeFoldingEnabled && editor.containsBracketChars(text)) {
-        editor.bracketCache.invalidateLines(editor.cursor.cursorLine, editor.cursor.cursorLine);
-        editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
+      if (editor.codeFold.isCodeFoldingEnabled) {
+        if (editor.containsBracketChars(text)) {
+          editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
+        }
+        editor.codeFold.adjustFoldRangeForLineEdit(editor.cursor.cursorLine, pos, text.length(), 0);
       }
       editor.cursor.cursorChar += text.length();
       editor.computeWidthForLine(editor.cursor.cursorLine, modified);
@@ -1402,9 +1474,11 @@ public class EditOperators {
         String modified = left + parts[0] + right;
         editor.updateLocalLine(local, modified);
         editor.textRender.modifiedLines.put(editor.cursor.cursorLine, modified);
-        if (editor.codeFold.isCodeFoldingEnabled && editor.containsBracketChars(parts[0])) {
-          editor.bracketCache.invalidateLines(editor.cursor.cursorLine, editor.cursor.cursorLine);
-          editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
+        if (editor.codeFold.isCodeFoldingEnabled) {
+          if (editor.containsBracketChars(parts[0])) {
+            editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
+          }
+          editor.codeFold.adjustFoldRangeForLineEdit(editor.cursor.cursorLine, pos, parts[0].length(), 0);
         }
         editor.textRender.lineWidthCache.remove(editor.cursor.cursorLine);
         editor.cursor.cursorChar += parts[0].length();
@@ -1414,7 +1488,6 @@ public class EditOperators {
         editor.updateLocalLine(local, firstLine);
         editor.textRender.modifiedLines.put(editor.cursor.cursorLine, firstLine);
         if (editor.codeFold.isCodeFoldingEnabled && editor.containsBracketChars(parts[0])) {
-          editor.bracketCache.invalidateLines(editor.cursor.cursorLine, editor.cursor.cursorLine);
           editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
         }
 
@@ -1428,7 +1501,6 @@ public class EditOperators {
         for (int i = 0; i < linesToInsert.size(); i++) {
           editor.textRender.modifiedLines.put(editor.cursor.cursorLine + 1 + i, linesToInsert.get(i));
           if (editor.codeFold.isCodeFoldingEnabled && editor.containsBracketChars(linesToInsert.get(i))) {
-            editor.bracketCache.invalidateLines(editor.cursor.cursorLine + 1 + i, editor.cursor.cursorLine + 1 + i);
             editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine + 1 + i);
           }
         }

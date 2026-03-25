@@ -20,7 +20,7 @@ public class WhitespaceGuides {
   private final SodiumEditor editor;
 
   // Whitespace guides state
-  public boolean isWhitespaceGuidesEnabled = false;
+  public boolean isWhitespaceGuidesEnabled = true;
   public final Paint whitespaceGuidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public final Paint whitespaceGuideDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public float whitespaceGuideSpaceWidth = 0f;
@@ -37,10 +37,10 @@ public class WhitespaceGuides {
   }
 
   private void initPaint() {
-    whitespaceGuidePaint.setColor(0xFF555555);
+    whitespaceGuidePaint.setColor(0xFFCCCCCC);
     whitespaceGuidePaint.setStyle(Paint.Style.FILL);
     whitespaceGuidePaint.setUnderlineText(false);
-    whitespaceGuideDotPaint.setColor(0xFF555555);
+    whitespaceGuideDotPaint.setColor(0xFFCCCCCC);
     whitespaceGuideDotPaint.setStyle(Paint.Style.STROKE);
     whitespaceGuideDotPaint.setStrokeCap(Paint.Cap.ROUND);
     updateMetrics();

@@ -379,6 +379,11 @@ public final LoadingCircle loadingCircle;
   public int lastHighlightEnsureStartLine = -1;
   public int lastHighlightEnsureEndLine = -1;
   public int lastHighlightEnsureEditVersion = -1;
+  private long lastHighlightInvalidateMs = 0L;
+  private static final long HIGHLIGHT_ENSURE_THROTTLE_MS = 50L;
+  private static final long HIGHLIGHT_INVALIDATE_THROTTLE_MS = 50L;
+  private long lastTypingMs = 0L;
+  private static final long HIGHLIGHT_TYPING_WINDOW_MS = 180L;
 
   // Syntax highlighting manager
   public final Highlite highlite;
@@ -583,6 +588,8 @@ errorUnderline = new ErrorUnderline(this);
     textRender.paint.setSubpixelText(true);
     textRender.paint.setHinting(Paint.HINTING_ON);
     textRender.paint.setUnderlineText(false); // Explicitly disable underlines to fix visual artifact
+    codeFold.foldMarkerTextScale = 1f;
+    codeFold.foldMarkerPaint.setTextSize(textRender.paint.getTextSize());
     textRender.baseTypeface = (textRender.paint.getTypeface() != null) ? textRender.paint.getTypeface() : Typeface.MONOSPACE;
     textRender.lineHeight = textRender.paint.getFontSpacing();
     lineNumber.lineNumbersPaint.setTextSize(36);
@@ -812,6 +819,9 @@ errorUnderline = new ErrorUnderline(this);
 
   public void setCodeFoldingEnabled(boolean enabled) {
     codeFold.setCodeFoldingEnabled(enabled);
+    if (enabled && !lineNumber.showLineNumbers) {
+      codeFold.setCodeFoldingEnabled(false);
+    }
   }
 
   public void setFoldPlaceholderColor(int color) {
@@ -1093,7 +1103,11 @@ errorUnderline = new ErrorUnderline(this);
     selectionHandles.handleRadius = Math.max(4f, scaleByTextSize(selectionHandles.baseHandleRadiusPx, selectionHandles.baseHandleTextSizePx, sizePx));
     cursor.cursorWidth = Math.max(1f, scaleByTextSize(cursor.baseCursorWidthPx, cursor.baseCursorTextSizePx, sizePx));
 
+    codeFold.foldMarkerTextScale = 1f;
+    codeFold.foldMarkerPaint.setTextSize(sizePx);
     indentGuides.updateStrokeWidth();
+    bracketGuides.updateStrokeWidth();
+    bracketMatchManager.updateStrokeWidth();
   }
 
   public void applyTypeface(@Nullable Typeface typeface, int style) {
@@ -1125,6 +1139,17 @@ errorUnderline = new ErrorUnderline(this);
       int startLine, int endLine, @Nullable java.util.HashMap<Integer, String> directLines) {
     if (startLine > endLine) return;
     int v = editOperators.editVersion.get();
+    long now = android.os.SystemClock.uptimeMillis();
+    if (v != lastHighlightEnsureEditVersion
+        && (now - lastTypingMs) < HIGHLIGHT_TYPING_WINDOW_MS) {
+      int line = Math.max(0, cursor.cursorLine);
+      startLine = line;
+      endLine = line;
+    }
+    if (v != lastHighlightEnsureEditVersion
+        && (now - lastHighlightInvalidateMs) < HIGHLIGHT_ENSURE_THROTTLE_MS) {
+      return;
+    }
     if (startLine == lastHighlightEnsureStartLine
         && endLine == lastHighlightEnsureEndLine
         && v == lastHighlightEnsureEditVersion) {
@@ -1137,9 +1162,21 @@ errorUnderline = new ErrorUnderline(this);
   }
 
   public void invalidateHighlightEnsureRange() {
+    long now = android.os.SystemClock.uptimeMillis();
+    if ((now - lastHighlightInvalidateMs) < HIGHLIGHT_INVALIDATE_THROTTLE_MS) {
+      return;
+    }
     lastHighlightEnsureStartLine = -1;
     lastHighlightEnsureEndLine = -1;
     lastHighlightEnsureEditVersion = -1;
+    lastHighlightInvalidateMs = now;
+    if (DEBUG_RENDER_LOGS) {
+      android.util.Log.d("SodiumRender", "highlightEnsureInvalidate");
+    }
+  }
+
+  public void markTyping() {
+    lastTypingMs = android.os.SystemClock.uptimeMillis();
   }
 
   // --- Layout and Measurement ---
@@ -1387,9 +1424,6 @@ errorUnderline = new ErrorUnderline(this);
   public void computeScroll() {
     scroll.computeScroll();
   }
-  
-  
-
   
   public static int trimUrlUnderlineEnd(String line, int start, int end) {
     return UrlUnderline.trimUrlUnderlineEnd(line, start, end);
@@ -1963,19 +1997,23 @@ public static class StringEndResult {
   }
 
   public void drawTeardropHandle(Canvas canvas, float cx, float cy, Paint paint) {
-    Paint.Style prevStyle = textRender.paint.getStyle();
-    float prevStroke = textRender.paint.getStrokeWidth();
-    Paint.Cap prevCap = textRender.paint.getStrokeCap();
+    // Save paint state
+    Paint.Style prevStyle = paint.getStyle();
+    int prevColor = paint.getColor();
+    float prevStroke = paint.getStrokeWidth();
+    Paint.Cap prevCap = paint.getStrokeCap();
 
-    textRender.paint.setStyle(Paint.Style.FILL);
+    paint.setStyle(Paint.Style.FILL);
     textRender.teardropPath.reset();
     textRender.teardropPath.addOval(
         cx - selectionHandles.handleRadius, cy, cx + selectionHandles.handleRadius, cy + selectionHandles.handleRadius * 2, Path.Direction.CW);
-    canvas.drawPath(textRender.teardropPath,textRender.paint);
+    canvas.drawPath(textRender.teardropPath, paint);
 
-    textRender.paint.setStyle(prevStyle);
-    textRender.paint.setStrokeWidth(prevStroke);
-    textRender.paint.setStrokeCap(prevCap);
+    // Restore paint state
+    paint.setStyle(prevStyle);
+    paint.setColor(prevColor);
+    paint.setStrokeWidth(prevStroke);
+    paint.setStrokeCap(prevCap);
   }
 
   public boolean shouldHideCopyCutForSelection() {

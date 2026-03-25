@@ -11,9 +11,9 @@ import com.yn.sodiumeditor.core.WordWrap;
 public class CurrentLineHighlight {
 
     // --- Current Line Highlight State ---
-    public boolean highlightCurrentLine = false;
-    public boolean highlightCurrentLineInGutter = false;
-    public int currentLineHighlightColor = 0x202196F3; // Default: translucent gray
+    public boolean highlightCurrentLine = true;
+    public boolean highlightCurrentLineInGutter = true;
+    public int currentLineHighlightColor = 0x302196F3; // Default: translucent blue
     public final Paint currentLinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private final SodiumEditor editor;
@@ -30,6 +30,9 @@ public class CurrentLineHighlight {
     public void setHighlightCurrentLine(boolean enabled) {
         if (this.highlightCurrentLine == enabled) return;
         this.highlightCurrentLine = enabled;
+        if (!enabled && highlightCurrentLineInGutter) {
+            highlightCurrentLineInGutter = false;
+        }
         editor.invalidate();
     }
 
@@ -61,6 +64,9 @@ public class CurrentLineHighlight {
      * Enable or disable current line highlight in the gutter.
      */
     public void setCurrentLineGutterHighlightEnabled(boolean enabled) {
+        if (!highlightCurrentLine && enabled) {
+            enabled = false;
+        }
         if (highlightCurrentLineInGutter == enabled) return;
         highlightCurrentLineInGutter = enabled;
         if (editor.lineNumber.showLineNumbers) editor.invalidate();

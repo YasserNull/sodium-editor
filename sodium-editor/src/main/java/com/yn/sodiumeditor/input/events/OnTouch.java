@@ -11,6 +11,7 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.inputmethod.InputMethodManager;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.core.CodeFold;
 import com.yn.sodiumeditor.io.EditOperators;
 import com.yn.sodiumeditor.core.selection.Popup;
 /**
@@ -431,6 +432,70 @@ public class OnTouch {
     editor.fileIO.ensureLineInWindow(line, true);
     String ln = editor.getLineTextForRender(line);
     int clamped = Math.max(0, Math.min(target.ch, ln.length()));
+
+    if (editor.codeFold.isCodeFoldingEnabled) {
+      CodeFold.FoldRange range = editor.codeFold.getFoldRangeAtStart(line);
+      if (range != null && range.collapsed) {
+        float xLocal = editor.viewToTextX(touchX);
+        float x;
+        if (editor.wordWrap.isWordWrapEnabled) {
+          int[] starts = editor.wordWrap.getWrapStartsForLine(line, ln);
+          int seg =
+              editor.wordWrap.getWrapSegmentIndexForChar(
+                  starts, Math.max(0, Math.min(clamped, ln.length())));
+          int segStart = editor.wordWrap.getWrapSegmentStart(starts, seg);
+          x = xLocal + editor.measureTextWithVisualSpaces(ln, 0, segStart, editor.textRender.paint);
+        } else {
+          x = xLocal;
+        }
+
+        int prefixEnd;
+        if (range.isBlockComment) {
+          prefixEnd = Math.min(range.openCharIndex + 2, ln.length());
+        } else if (range.isIndentFold) {
+          prefixEnd = ln.length();
+        } else {
+          prefixEnd = Math.min(range.openCharIndex + 1, ln.length());
+        }
+        float xStart =
+            editor.measureHighlightedSegmentWidth(ln, line, 0, prefixEnd);
+        float placeholderWidth =
+            Math.max(0f, editor.textRender.paint.measureText(CodeFold.FOLD_PLACEHOLDER_TEXT));
+        float closeStart = xStart + placeholderWidth;
+        float closeWidth =
+            range.isBlockComment
+                ? editor.textRender.paint.measureText("*/")
+                : editor.textRender.paint.measureText(String.valueOf(range.closeChar));
+        String endLineText = editor.getLineTextForRender(range.endLine);
+        int closeIdx = editor.codeFold.resolveCloseCharIndex(range, endLineText);
+        int suffixStart =
+            range.isBlockComment
+                ? (closeIdx >= 0 ? closeIdx + 2 : (endLineText != null ? endLineText.length() : 0))
+                : (closeIdx >= 0 ? closeIdx + 1 : (endLineText != null ? endLineText.length() : 0));
+
+        if (x <= xStart) {
+          line = range.startLine;
+          clamped = Math.max(0, range.openCharIndex);
+        } else if (x <= closeStart + closeWidth || endLineText == null) {
+          line = range.endLine;
+          clamped = (closeIdx >= 0) ? (closeIdx + 1) : 0;
+        } else {
+          float xSuffix = Math.max(0f, x - (closeStart + closeWidth));
+          int idx =
+              editor.getCharIndexForXInRange(
+                  endLineText,
+                  range.endLine,
+                  Math.max(0, Math.min(suffixStart, endLineText.length())),
+                  endLineText.length(),
+                  xSuffix);
+          line = range.endLine;
+          clamped = Math.max(suffixStart, Math.min(idx, endLineText.length()));
+        }
+        ln = editor.getLineTextForRender(line);
+        if (ln == null) ln = "";
+        clamped = Math.max(0, Math.min(clamped, ln.length()));
+      }
+    }
     editor.selectionHandles.lastDragAtLineStart = clamped == 0;
     editor.selectionHandles.lastDragAtLineEnd = clamped == ln.length();
 

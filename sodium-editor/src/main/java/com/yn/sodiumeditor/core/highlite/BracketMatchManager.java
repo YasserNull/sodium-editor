@@ -17,13 +17,13 @@ public class BracketMatchManager {
   private final SodiumEditor editor;
 
   // Bracket matching state
-  public boolean isBracketMatchingEnabled = false;
+  public boolean isBracketMatchingEnabled = true;
   public final Paint bracketMatchPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  public float bracketMatchStrokeWidth = 2f;
+  public float bracketMatchStrokeWidth = 3f;
   public float baseBracketMatchStrokeWidth = bracketMatchStrokeWidth;
   public float baseBracketMatchTextSizePx = 0f;
   public final RectF bracketMatchRect = new RectF();
-  public int bracketMatchColor = 0x00FF00;
+  public int bracketMatchColor = 0x302196F3; // Opaque Yellow
   // Bracket match cache
   @Nullable public SodiumEditor.BracketMatch cachedBracketMatch = null;
   public int cachedBracketMatchCursorLine = -1;
@@ -51,6 +51,7 @@ public class BracketMatchManager {
    * Sets the bracket match color.
    */
   public void setBracketMatchColor(int color) {
+    bracketMatchColor = color;
     bracketMatchPaint.setColor(color);
     editor.invalidate();
   }
@@ -89,6 +90,7 @@ public class BracketMatchManager {
 
   /**
    * Finds and caches bracket match for the current cursor position.
+   * Searches the ENTIRE document to find matching brackets, not just visible range.
    */
   public SodiumEditor.BracketMatch findAndCacheBracketMatch(
       int firstVisibleLine, int lastVisibleLine, HashMap<Integer, String> directLines) {
@@ -102,7 +104,8 @@ public class BracketMatchManager {
       return cachedBracketMatch;
     }
 
-    SodiumEditor.BracketMatch match = findBracketMatchInVisible(firstVisibleLine, lastVisibleLine, directLines);
+    // Search entire document for matching bracket, not just visible range
+    SodiumEditor.BracketMatch match = findBracketMatchInDocument();
     if (match != null) {
       cachedBracketMatch = match;
       cachedBracketMatchCursorLine = editor.cursor.cursorLine;
@@ -117,11 +120,26 @@ public class BracketMatchManager {
    */
   public SodiumEditor.BracketMatch findBracketMatchInVisible(
       int firstVisibleLine, int lastVisibleLine, HashMap<Integer, String> directLines) {
-    if (!isBracketMatchingEnabled) return null;
-    if (editor.cursor.cursorLine < firstVisibleLine || editor.cursor.cursorLine > lastVisibleLine) return null;
+    if (!isBracketMatchingEnabled) {
+      if (editor.DEBUG_RENDER_LOGS) {
+        android.util.Log.d("BracketMatch", "findBracketMatchInVisible: matching disabled");
+      }
+      return null;
+    }
+    if (editor.cursor.cursorLine < firstVisibleLine || editor.cursor.cursorLine > lastVisibleLine) {
+      if (editor.DEBUG_RENDER_LOGS) {
+        android.util.Log.d("BracketMatch", "findBracketMatchInVisible: cursor line " + editor.cursor.cursorLine + " not in visible range [" + firstVisibleLine + "," + lastVisibleLine + "]");
+      }
+      return null;
+    }
 
     String cursorLineText = editor.getLineTextForRenderWithDirect(editor.cursor.cursorLine, directLines);
-    if (cursorLineText == null) return null;
+    if (cursorLineText == null) {
+      if (editor.DEBUG_RENDER_LOGS) {
+        android.util.Log.d("BracketMatch", "findBracketMatchInVisible: cursor line text is null");
+      }
+      return null;
+    }
 
     int targetIndex = -1;
     char targetChar = 0;
@@ -139,7 +157,16 @@ public class BracketMatchManager {
         targetChar = c;
       }
     }
-    if (targetIndex < 0) return null;
+    if (targetIndex < 0) {
+      if (editor.DEBUG_RENDER_LOGS) {
+        android.util.Log.d("BracketMatch", "findBracketMatchInVisible: no bracket at cursor cursorLine=" + editor.cursor.cursorLine + " cursorChar=" + editor.cursor.cursorChar + " lineText=\"" + cursorLineText + "\"");
+      }
+      return null;
+    }
+
+    if (editor.DEBUG_RENDER_LOGS) {
+      android.util.Log.d("BracketMatch", "findBracketMatchInVisible: found bracket at line=" + editor.cursor.cursorLine + " index=" + targetIndex + " char='" + targetChar + "'");
+    }
 
     TextRender.HighlightLineState startState = editor.highlite.getLineStateAtStart(firstVisibleLine);
     boolean inBlockComment = startState.inBlockComment && editor.highlite.isBlockCommentsEnabled;
@@ -256,10 +283,179 @@ public class BracketMatchManager {
   }
 
   /**
+   * Finds bracket match in the ENTIRE document.
+   * This ensures matching works even when the matching bracket is outside the visible range.
+   */
+  public SodiumEditor.BracketMatch findBracketMatchInDocument() {
+    if (!isBracketMatchingEnabled) {
+      if (editor.DEBUG_RENDER_LOGS) {
+        android.util.Log.d("BracketMatch", "findBracketMatchInDocument: matching disabled");
+      }
+      return null;
+    }
+
+    int totalLines = editor.getLinesCount();
+    if (totalLines == 0) return null;
+
+    String cursorLineText = editor.getLineTextForRender(editor.cursor.cursorLine);
+    if (cursorLineText == null) {
+      if (editor.DEBUG_RENDER_LOGS) {
+        android.util.Log.d("BracketMatch", "findBracketMatchInDocument: cursor line text is null");
+      }
+      return null;
+    }
+
+    int targetIndex = -1;
+    char targetChar = 0;
+    if (editor.cursor.cursorChar > 0 && editor.cursor.cursorChar - 1 < cursorLineText.length()) {
+      char c = cursorLineText.charAt(editor.cursor.cursorChar - 1);
+      if (SodiumEditor.isBracketChar(c)) {
+        targetIndex = editor.cursor.cursorChar - 1;
+        targetChar = c;
+      }
+    }
+    if (targetIndex < 0 && editor.cursor.cursorChar < cursorLineText.length()) {
+      char c = cursorLineText.charAt(editor.cursor.cursorChar);
+      if (SodiumEditor.isBracketChar(c)) {
+        targetIndex = editor.cursor.cursorChar;
+        targetChar = c;
+      }
+    }
+    if (targetIndex < 0) {
+      if (editor.DEBUG_RENDER_LOGS) {
+        android.util.Log.d("BracketMatch", "findBracketMatchInDocument: no bracket at cursor cursorLine=" + editor.cursor.cursorLine + " cursorChar=" + editor.cursor.cursorChar + " lineText=\"" + cursorLineText + "\"");
+      }
+      return null;
+    }
+
+    if (editor.DEBUG_RENDER_LOGS) {
+      android.util.Log.d("BracketMatch", "findBracketMatchInDocument: found bracket at line=" + editor.cursor.cursorLine + " index=" + targetIndex + " char='" + targetChar + "'");
+    }
+
+    // Get syntax state at the beginning of the document
+    TextRender.HighlightLineState startState = editor.highlite.getLineStateAtStart(0);
+    boolean inBlockComment = startState.inBlockComment && editor.highlite.isBlockCommentsEnabled;
+    int stringState = startState.stringState;
+    if (!editor.highlite.isBlockCommentsEnabled) inBlockComment = false;
+    if (!editor.highlite.isMultiLineStringsEnabled && stringState != SodiumEditor.STRING_STATE_TRIPLE) stringState = 0;
+    if (!editor.highlite.isBacktickStringsEnabled && stringState == SodiumEditor.STRING_STATE_BACKTICK) stringState = 0;
+    if (!editor.highlite.isTripleQuoteStringsEnabled && stringState == SodiumEditor.STRING_STATE_TRIPLE) stringState = 0;
+
+    ArrayDeque<SodiumEditor.BracketToken> stack = new ArrayDeque<>();
+
+    // Scan from line 0 to end of document
+    for (int line = 0; line < totalLines; line++) {
+      String text = editor.getLineTextForRender(line);
+      if (text == null) text = "";
+      int len = text.length();
+      int i = 0;
+      boolean inLineComment = false;
+
+      while (i < len) {
+        if (inLineComment) break;
+
+        if (inBlockComment) {
+          int end = SodiumEditor.findBlockCommentEnd(text, i);
+          int endPos = (end < 0) ? len : end + 2;
+          if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
+          if (end < 0) break;
+          i = end + 2;
+          inBlockComment = false;
+          continue;
+        }
+
+        if (stringState != 0) {
+          SodiumEditor.StringEndResult endResult = editor.findStringEndForState(text, i, stringState);
+          int endPos = endResult.found ? endResult.endIndex : len;
+          if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
+          if (!endResult.found) break;
+          i = endResult.endIndex;
+          stringState = 0;
+          continue;
+        }
+
+        if (editor.highlite.isLineCommentStart(text, i)) {
+          if (line == editor.cursor.cursorLine && targetIndex >= i) return null;
+          inLineComment = true;
+          break;
+        }
+
+        if (editor.highlite.isBlockCommentsEnabled
+            && i + 1 < len
+            && text.charAt(i) == '/'
+            && text.charAt(i + 1) == '*'
+            && !Highlite.isTokenEscaped(text, i)) {
+          int end = SodiumEditor.findBlockCommentEnd(text, i + 2);
+          int endPos = (end < 0) ? len : end + 2;
+          if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
+          if (end < 0) {
+            inBlockComment = true;
+            break;
+          }
+          i = end + 2;
+          continue;
+        }
+
+        if (editor.highlite.isTripleQuoteStart(text, i) && !Highlite.isEscaped(text, i)) {
+          int end = Highlite.findTripleQuoteEnd(text, i + 3);
+          int endPos = end >= 0 ? end + 3 : len;
+          if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
+          if (end < 0) {
+            if (editor.highlite.isTripleQuoteStringsEnabled) {
+              stringState = SodiumEditor.STRING_STATE_TRIPLE;
+            }
+            break;
+          }
+          i = end + 3;
+          continue;
+        }
+
+        char c = text.charAt(i);
+        if (editor.highlite.isStringDelimiter(c) && !Highlite.isEscaped(text, i)) {
+          int end = Highlite.findStringEnd(text, i + 1, c);
+          int endPos = end >= 0 ? end + 1 : len;
+          if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
+          if (end < 0) {
+            if (editor.highlite.isMultiLineStringsEnabled) {
+              stringState = editor.getStringStateForDelimiter(c);
+            }
+            break;
+          }
+          i = end + 1;
+          continue;
+        }
+
+        if (SodiumEditor.isBracketChar(c) && !Highlite.isEscaped(text, i)) {
+          SodiumEditor.BracketToken token = new SodiumEditor.BracketToken(line, i, c);
+          if (SodiumEditor.isOpeningBracket(c)) {
+            stack.push(token);
+          } else if (SodiumEditor.isClosingBracket(c)) {
+            if (!stack.isEmpty() && stack.peek().bracket == SodiumEditor.matchingBracket(c)) {
+              SodiumEditor.BracketToken open = stack.pop();
+              if (line == editor.cursor.cursorLine && i == targetIndex) {
+                return new SodiumEditor.BracketMatch(open.line, open.ch, line, i);
+              }
+              if (open.line == editor.cursor.cursorLine && open.ch == targetIndex) {
+                return new SodiumEditor.BracketMatch(open.line, open.ch, line, i);
+              }
+            }
+          }
+        }
+
+        i++;
+      }
+    }
+    return new SodiumEditor.BracketMatch(editor.cursor.cursorLine, targetIndex, editor.cursor.cursorLine, targetIndex);
+  }
+
+  /**
    * Draws bracket match for a line.
    */
   public void drawBracketMatchForLine(
       Canvas canvas, String line, int globalLine, SodiumEditor.BracketMatch match) {
+    if (editor.DEBUG_RENDER_LOGS) {
+      android.util.Log.d("BracketMatch", "drawBracketMatchForLine: globalLine=" + globalLine + " match=" + (match != null ? "openLine=" + match.openLine + " openChar=" + match.openChar + " closeLine=" + match.closeLine + " closeChar=" + match.closeChar : "null"));
+    }
     if (match == null) return;
     if (globalLine != match.openLine && globalLine != match.closeLine) return;
     if (line == null || line.isEmpty()) return;
@@ -283,6 +479,61 @@ public class BracketMatchManager {
 
     int index = (globalLine == match.openLine) ? match.openChar : match.closeChar;
     drawBracketBox(canvas, line, globalLine, index);
+  }
+
+  /**
+   * Draws bracket match for a line segment (wrapped mode).
+   */
+  public void drawBracketMatchForSegment(
+      Canvas canvas, String line, int globalLine, int segStart, int segEnd, float segBaseX,
+      float top, SodiumEditor.BracketMatch match) {
+    if (match == null) return;
+    if (globalLine != match.openLine && globalLine != match.closeLine) return;
+    if (line == null || line.isEmpty()) return;
+
+    if (match.openLine == match.closeLine) {
+      if (match.openChar == match.closeChar) {
+        if (match.openChar >= segStart && match.openChar < segEnd) {
+          drawBracketBoxSegment(canvas, line, globalLine, segStart, segEnd, segBaseX, top, match.openChar);
+        }
+        return;
+      }
+
+      if (globalLine == match.openLine) {
+        if (match.openChar >= segStart && match.openChar < segEnd) {
+          drawBracketBoxSegment(canvas, line, globalLine, segStart, segEnd, segBaseX, top, match.openChar);
+        }
+        if (match.closeChar >= segStart && match.closeChar < segEnd) {
+          drawBracketBoxSegment(canvas, line, globalLine, segStart, segEnd, segBaseX, top, match.closeChar);
+        }
+      }
+      return;
+    }
+
+    int charIdx = (globalLine == match.openLine) ? match.openChar : match.closeChar;
+    if (charIdx >= segStart && charIdx < segEnd) {
+      drawBracketBoxSegment(canvas, line, globalLine, segStart, segEnd, segBaseX, top, charIdx);
+    }
+  }
+
+  /**
+   * Draws bracket box for a single character in a segment.
+   */
+  public void drawBracketBoxSegment(
+      Canvas canvas, String line, int globalLine, int segStart, int segEnd, float segBaseX,
+      float top, int index) {
+    if (index < 0 || index >= line.length()) return;
+
+    float left = editor.getCaretXForSegment(line, globalLine, segStart, segEnd, index);
+    float right = editor.getCaretXForSegment(line, globalLine, segStart, segEnd, index + 1);
+    
+    // Adjust for RTL where getCaretXForSegment includes segBaseX
+    if (editor.textRender.isRtl) {
+      left -= segBaseX;
+      right -= segBaseX;
+    }
+
+    drawBracketBoxRectAtY(canvas, top, left, right);
   }
 
   /**
@@ -321,6 +572,14 @@ public class BracketMatchManager {
   public void drawBracketBoxRect(Canvas canvas, int globalLine, float left, float right) {
     final float padding = 1f;
     final float top = editor.textRender.getDrawLineTop(globalLine) + padding;
+    drawBracketBoxRectAtY(canvas, top, left, right);
+  }
+
+  /**
+   * Draws bracket box rectangle at specific Y position.
+   */
+  public void drawBracketBoxRectAtY(Canvas canvas, float top, float left, float right) {
+    final float padding = 1f;
     final float bottom = top + editor.textRender.lineHeight - (padding * 2f);
 
     float l = left - padding;

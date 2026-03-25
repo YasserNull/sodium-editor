@@ -12,7 +12,7 @@ import androidx.annotation.Nullable;
 public class LineNumber {
 
     // --- Line Number State ---
-    public boolean showLineNumbers = false;
+    public boolean showLineNumbers = true;
         public boolean lineNumberSelectionEnabled = true;
     public float lineNumbersGutterWidth = 0f;
     public final Paint lineNumbersPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -58,6 +58,14 @@ public class LineNumber {
     public void setShowLineNumbers(boolean show) {
         if (this.showLineNumbers == show) return;
         this.showLineNumbers = show;
+        if (!show) {
+            if (editor.codeFold.isCodeFoldingEnabled) {
+                editor.codeFold.setCodeFoldingEnabled(false);
+            }
+            if (editor.currentLineHighlight.highlightCurrentLineInGutter) {
+                editor.currentLineHighlight.setCurrentLineGutterHighlightEnabled(false);
+            }
+        }
         invalidateLineNumberCache();
         editor.requestLayout();
     }
@@ -255,7 +263,8 @@ public class LineNumber {
             }
         }
         if (right <= left) return;
-        canvas.drawRect(left, top, right, bottom, currentLinePaint);
+        // Use the same color as the main current line highlight
+        canvas.drawRect(left, top, right, bottom, editor.currentLineHighlight.currentLinePaint);
     }
 
     public void drawLineNumbersCachedUnwrapped(

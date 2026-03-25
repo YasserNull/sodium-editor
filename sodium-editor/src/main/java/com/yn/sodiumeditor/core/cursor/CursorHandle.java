@@ -16,7 +16,7 @@ public class CursorHandle {
   // Cursor handle appearance
   public float cursorHandleWidth = 40f;
   public float cursorHandleHeight = 50f;
-  public int cursorHandleColor = 0xFF33B5E5;
+  public int cursorHandleColor = 0xFF2196F3; // Blue
   public float cursorHandleRadius = 6f;
   
   // Cursor handle rect

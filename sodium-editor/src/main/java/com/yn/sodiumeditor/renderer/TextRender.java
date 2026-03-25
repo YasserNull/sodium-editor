@@ -30,17 +30,17 @@ public class TextRender {
     private final SodiumEditor editor;
 public final List<String> linesWindow = new ArrayList<>();
   public int windowStartLine = 0;
-  public int windowSize = 1000; // 2000 yyy
-  public int prefetchLines = 1000; // 1000 yyy
+  public int windowSize = 200; // 2000 yyy
+  public int prefetchLines = 200; // 1000 yyy
     public final LinkedHashMap<Integer, String> modifiedLines = new LinkedHashMap<>();
   public final LinkedHashMap<Integer, Float> lineWidthCache;
-  public int lineWidthCacheSize = 1000; // 2000 yyy
+  public int lineWidthCacheSize = 200; // 2000 yyy
   public float currentMaxWindowLineWidth = 0f;
   public float globalMaxLineWidth = 0f;
   
   public int maxSyntaxLineLength = 4096;
-  public int prefetchCols = 1000;
-  public int colsWidthCacheSize = 1000;
+  public int prefetchCols = 200;
+  public int colsWidthCacheSize = 200;
   public final LinkedHashMap<Integer, Float> avgCharWidthCache =
       new LinkedHashMap<Integer, Float>(colsWidthCacheSize, 0.75f, true) {
         @Override

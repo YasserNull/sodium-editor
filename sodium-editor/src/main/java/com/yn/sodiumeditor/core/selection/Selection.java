@@ -39,7 +39,7 @@ public class Selection {
   // Selection appearance
   public int selectionColor = 0x4033B5E5;
   public int selectionHighlightColor = 0x8033B5E5;
-  public int selectionHandleColor = 0xFF33B5E5;
+  public int selectionHandleColor = 0xFF2196F3; // Blue
   public boolean selectionAnimationEnabled = true;
   public float selectionAlpha = 1f;
   public float handleAlpha = 1f;

@@ -161,6 +161,9 @@ public class Highlite {
    */
   public void invalidateHighlightCacheForLine(int line) {
     highlightCache.remove(line);
+    if (editor.DEBUG_RENDER_LOGS) {
+      android.util.Log.d("SodiumRender", "highlightInvalidate line=" + line);
+    }
   }
 
   /**
@@ -265,6 +268,8 @@ public class Highlite {
   public void ensureHighlightCacheForVisibleRange(
       int startLine, int endLine, @Nullable Map<Integer, String> directLines) {
     if (highlightRules.isEmpty()) return;
+    long startMs = android.os.SystemClock.uptimeMillis();
+    int parsed = 0;
 
     TextRender.HighlightRule stringRule = stringHighlightRule;
     TextRender.HighlightRule blockRule = blockCommentHighlightRule;
@@ -334,6 +339,16 @@ public class Highlite {
 
       inBlock = parseResult.endsInBlockComment;
       stringState = parseResult.endsInStringState;
+      parsed++;
+    }
+
+    if (editor.DEBUG_RENDER_LOGS) {
+      long dt = android.os.SystemClock.uptimeMillis() - startMs;
+      if (dt > 4) {
+        android.util.Log.d(
+            "SodiumRender",
+            "highlightEnsure dtMs=" + dt + " lines=" + (endLine - startLine + 1) + " parsed=" + parsed);
+      }
     }
   }
 

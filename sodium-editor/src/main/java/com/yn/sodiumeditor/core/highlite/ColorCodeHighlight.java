@@ -17,7 +17,7 @@ public class ColorCodeHighlight {
   private final SodiumEditor editor;
 
   // Color code highlighting state
-  public boolean isColorHighlightingEnabled = false;
+  public boolean isColorHighlightingEnabled = true;
 
   // Color code background cache
   public final LinkedHashMap<Integer, int[]> colorCodeBgCache =

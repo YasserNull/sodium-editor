@@ -49,10 +49,7 @@ public class PathUnderline {
   public void setPathUnderliningEnabled(boolean enabled) {
     if (this.isPathUnderliningEnabled == enabled) return;
     this.isPathUnderliningEnabled = enabled;
-    // Clear all caches when state changes to ensure fresh checks.
-    pathUnderlineCache.clear();
-    pathValidationCache.clear();
-    pendingPathValidations.clear();
+    clearAllCaches();
     editor.invalidate();
   }
 
@@ -72,11 +69,21 @@ public class PathUnderline {
 
   /**
    * Gets path underline spans for a line.
+   * Only returns spans for paths that have been validated as existing.
    */
   public List<TextRender.UnderlineSpan> getPathUnderlineSpansForLine(String line, int globalLine) {
-    if (!isPathUnderliningEnabled || pathUnderlinePattern == null) return null;
+    if (!isPathUnderliningEnabled || pathUnderlinePattern == null) {
+      if (editor.DEBUG_RENDER_LOGS) {
+        android.util.Log.d("PathUnderline", "getPathUnderlineSpansForLine line=" + globalLine + " disabled=" + !isPathUnderliningEnabled + " pattern=" + (pathUnderlinePattern == null));
+      }
+      return null;
+    }
     List<TextRender.UnderlineSpan> cached = pathUnderlineCache.get(globalLine);
     if (cached != null) return cached;
+
+    if (editor.DEBUG_RENDER_LOGS) {
+      android.util.Log.d("PathUnderline", "getPathUnderlineSpansForLine line=" + globalLine + " cache miss, searching for paths");
+    }
 
     List<TextRender.UnderlineSpan> spans = new ArrayList<>();
     Matcher m = pathUnderlinePattern.matcher(line);
@@ -93,10 +100,32 @@ public class PathUnderline {
         }
       }
       if (e > s) {
-        spans.add(new TextRender.UnderlineSpan(s, e, true));
+        String path = line.substring(s, e);
+        // Only underline if path exists (check cache first)
+        Boolean exists = pathValidationCache.get(path);
+        if (editor.DEBUG_RENDER_LOGS) {
+          android.util.Log.d("PathUnderline", "found path=\"" + path + "\" exists=" + exists + " pending=" + pendingPathValidations.contains(path));
+        }
+        if (exists != null && exists) {
+          spans.add(new TextRender.UnderlineSpan(s, e, true));
+          if (editor.DEBUG_RENDER_LOGS) {
+            android.util.Log.d("PathUnderline", "added underline span for path=\"" + path + "\"");
+          }
+        } else if (exists == null && !pendingPathValidations.contains(path)) {
+          // Path not validated yet - validate in background
+          validatePathInBackground(path, globalLine);
+          if (editor.DEBUG_RENDER_LOGS) {
+            android.util.Log.d("PathUnderline", "queued path=\"" + path + "\" for validation");
+          }
+        }
+        // If exists == false, don't underline (path doesn't exist)
       }
     }
+    // Always cache the result (even if empty) to avoid re-validation
     pathUnderlineCache.put(globalLine, spans);
+    if (editor.DEBUG_RENDER_LOGS) {
+      android.util.Log.d("PathUnderline", "cached " + spans.size() + " spans for line=" + globalLine);
+    }
     return spans;
   }
 
@@ -107,6 +136,22 @@ public class PathUnderline {
     if (!isPathUnderliningEnabled || pathUnderlinePattern == null) return;
     if (pathUnderlineCache.get(globalLine) != null) return;
     getPathUnderlineSpansForLine(line, globalLine);
+  }
+
+  /**
+   * Invalidates path underline cache for a line (e.g., when file system changes).
+   */
+  public void invalidatePathUnderlineCacheForLine(int line) {
+    pathUnderlineCache.remove(line);
+  }
+
+  /**
+   * Clears all path underline caches and validation cache.
+   */
+  public void clearAllCaches() {
+    pathUnderlineCache.clear();
+    pathValidationCache.clear();
+    pendingPathValidations.clear();
   }
 
   /**
@@ -138,8 +183,9 @@ public class PathUnderline {
             pathValidationCache.put(path, exists);
             pendingPathValidations.remove(path);
 
+            // Only redraw if path exists (no need to redraw for non-existing paths)
+            // The cache will be updated on next draw call
             if (exists) {
-              // Invalidate caches for the line and trigger a redraw
               editor.caret.mainHandler.post(
                   () -> {
                     pathUnderlineCache.remove(lineToInvalidate);

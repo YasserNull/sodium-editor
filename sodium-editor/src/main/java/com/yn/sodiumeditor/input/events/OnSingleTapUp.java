@@ -2,6 +2,7 @@ package com.yn.sodiumeditor.input.events;
 
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.core.CodeFold;
 import com.yn.sodiumeditor.io.EditOperators;
 
 /**
@@ -65,6 +66,56 @@ public class OnSingleTapUp {
         editor.popup.hidePopup();
         editor.invalidate();
         return true;
+      }
+      CodeFold.FoldRange range = editor.codeFold.getFoldRangeAtStart(line);
+      if (range != null && range.collapsed) {
+        String endLineText = editor.getLineTextForRender(range.endLine);
+        float[] bounds = new float[2];
+        if (editor.codeFold.getFoldPlaceholderBounds(line, ln, bounds)) {
+          float xStart =
+              editor.measureHighlightedSegmentWidth(
+                  ln,
+                  line,
+                  0,
+                  range.isBlockComment ? Math.min(range.openCharIndex + 2, ln.length())
+                      : range.isIndentFold ? ln.length()
+                      : Math.min(range.openCharIndex + 1, ln.length()));
+          float placeholderWidth =
+              Math.max(0f, editor.textRender.paint.measureText(CodeFold.FOLD_PLACEHOLDER_TEXT));
+          float closeStart = xStart + placeholderWidth;
+          float closeWidth = editor.textRender.paint.measureText(String.valueOf(range.closeChar));
+          int closeIdx = editor.codeFold.resolveCloseCharIndex(range, endLineText);
+          int suffixStart =
+              range.isBlockComment ? (closeIdx >= 0 ? closeIdx + 2 : -1)
+                  : (closeIdx >= 0 ? closeIdx + 1 : -1);
+
+          if (x <= xStart) {
+            editor.cursor.cursorLine = line;
+            editor.cursor.cursorChar = Math.max(0, range.openCharIndex);
+          } else if (x <= closeStart + closeWidth || suffixStart < 0 || endLineText == null) {
+            editor.cursor.cursorLine = range.endLine;
+            editor.cursor.cursorChar = (closeIdx >= 0) ? (closeIdx + 1) : 0;
+          } else {
+            float xSuffix = Math.max(0f, x - (closeStart + closeWidth));
+            int idx =
+                editor.getCharIndexForXInRange(
+                    endLineText,
+                    range.endLine,
+                    suffixStart,
+                    endLineText.length(),
+                    xSuffix);
+            editor.cursor.cursorLine = range.endLine;
+            editor.cursor.cursorChar = Math.max(suffixStart, Math.min(idx, endLineText.length()));
+          }
+
+          editor.popup.hidePopup();
+          editor.invalidate();
+          editor.caret.resetBlink();
+          editor.showKeyboard();
+          editor.restartInput();
+          editor.autoCompletion.updateSuggestion();
+          return true;
+        }
       }
     }
 

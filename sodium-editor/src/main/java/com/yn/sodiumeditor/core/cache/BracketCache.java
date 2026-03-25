@@ -128,6 +128,7 @@ public class BracketCache {
         cacheVersion++;
 
         editor.fileIO.ioHandler.post(() -> {
+            long startMs = android.os.SystemClock.uptimeMillis();
             if (myToken != scanToken) return;
 
             Map<Integer, LineBracketInfo> newCache = new HashMap<>();
@@ -169,6 +170,10 @@ public class BracketCache {
                 
                 final int finalVersion = cacheVersion;
                 editor.caret.mainHandler.post(() -> {
+                    long dt = android.os.SystemClock.uptimeMillis() - startMs;
+                    if (editor.DEBUG_RENDER_LOGS && dt > 8) {
+                        android.util.Log.d("SodiumRender", "bracketScan dtMs=" + dt + " lines=" + newCache.size());
+                    }
                     if (scanToken == myToken) {
                         lineCache.clear();
                         lineCache.putAll(newCache);
@@ -197,7 +202,7 @@ public class BracketCache {
                     BracketPosition match = findMatchingBracketQuick(cache, bp);
                     if (match != null && match.line > bp.line) {
                         CodeFold.FoldRange range = new CodeFold.FoldRange(
-                            bp.line, match.line, bp.column, bp.bracket, match.bracket, false, false
+                            bp.line, match.line, bp.column, bp.bracket, match.bracket, match.column, false, false
                         );
                         editor.codeFold.foldRanges.put(bp.line, range);
                     }
@@ -377,12 +382,20 @@ public class BracketCache {
      * Invalidate cache for a specific line range.
      */
     public void invalidateLines(int startLine, int endLine) {
+        long startMs = android.os.SystemClock.uptimeMillis();
         for (int i = startLine; i <= endLine; i++) {
             lineCache.remove(i);
         }
         // Also invalidate any folds that might be affected
         if (editor.codeFold.isCodeFoldingEnabled) {
             editor.codeFold.foldIntervalsDirty = true;
+        }
+        if (editor.DEBUG_RENDER_LOGS) {
+            long dt = android.os.SystemClock.uptimeMillis() - startMs;
+            if (dt > 2) {
+                android.util.Log.d("SodiumRender", "bracketInvalidate dtMs=" + dt
+                        + " lines=" + (endLine - startLine + 1));
+            }
         }
     }
 
@@ -391,8 +404,11 @@ public class BracketCache {
      * Reads directly from file if not in window buffer.
      */
     public LineBracketInfo getLineInfo(int lineNum) {
+        long startMs = android.os.SystemClock.uptimeMillis();
         LineBracketInfo info = lineCache.get(lineNum);
-        if (info != null) return info;
+        if (info != null) {
+            return info;
+        }
 
         // Try to read directly from file using line offsets
         String line = null;
@@ -429,6 +445,13 @@ public class BracketCache {
 
         info = parseLine(lineNum, line, inBlockComment, stringState);
         lineCache.put(lineNum, info);
+        if (editor.DEBUG_RENDER_LOGS) {
+            long dt = android.os.SystemClock.uptimeMillis() - startMs;
+            if (dt > 2) {
+                android.util.Log.d("SodiumRender", "bracketLineParse dtMs=" + dt
+                        + " line=" + lineNum + " len=" + line.length());
+            }
+        }
         return info;
     }
 

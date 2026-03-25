@@ -8,6 +8,8 @@ import android.animation.ValueAnimator;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.os.SystemClock;
+import android.util.Log;
 import android.view.animation.DecelerateInterpolator;
 import androidx.annotation.Nullable;
 import java.io.RandomAccessFile;
@@ -25,6 +27,7 @@ public class CodeFold {
     // --- Code Fold State ---
     public boolean isCodeFoldingEnabled =true;
     public final ConcurrentHashMap<Integer, FoldRange> foldRanges = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, Boolean> pendingFoldComputations = new ConcurrentHashMap<>();
     public final ArrayList<int[]> foldIntervals = new ArrayList<>();
     public boolean foldIntervalsDirty = true;
 
@@ -36,6 +39,8 @@ public class CodeFold {
     public float foldPlaceholderCorner = 3f;
     public float foldPlaceholderPadX = 3f;
     public float foldPlaceholderPadY = 2f;
+    public int foldMarkerColor = 0xFF2196F3;
+    public int foldMarkerPendingColor = 0xFFFFA000;
     public final Paint foldPlaceholderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     public final Paint foldMarkerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     public final Paint foldRipplePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -59,8 +64,9 @@ public class CodeFold {
 
         foldPlaceholderPaint.setColor(0xFFE0E0E0);
         foldPlaceholderPaint.setStyle(Paint.Style.FILL);
-        foldMarkerPaint.setColor(0xFF888888);
+        foldMarkerPaint.setColor(foldMarkerColor);
         foldMarkerPaint.setTextAlign(editor.textRender.isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
+        foldMarkerTextScale = 1f;
         foldMarkerPaint.setTextSize(editor.textRender.paint.getTextSize());
         foldRipplePaint.setStyle(Paint.Style.FILL);
     }
@@ -74,6 +80,9 @@ public class CodeFold {
         if (!enabled) {
             foldRanges.clear();
             foldIntervals.clear();
+        } else {
+            foldMarkerTextScale = 1f;
+            foldMarkerPaint.setTextSize(editor.textRender.paint.getTextSize());
         }
         foldIntervalsDirty = true;
         editor.updateTextSizeDependentMetrics();
@@ -92,6 +101,9 @@ public class CodeFold {
      */
     public boolean toggleFoldAtLine(int line) {
         if (!isCodeFoldingEnabled) return false;
+        if (editor.DEBUG_RENDER_LOGS) {
+            Log.d("SodiumRender", "toggleFold line=" + line);
+        }
         FoldRange existing = foldRanges.get(line);
         if (existing != null) {
             existing.collapsed = !existing.collapsed;
@@ -99,14 +111,21 @@ public class CodeFold {
             editor.invalidate();
             return true;
         }
-
-        FoldRange created = findFoldRangeForLine(line);
-        if (created == null) return false;
-        created.collapsed = true;
-        foldRanges.put(created.startLine, created);
-        if (created.isIndentFold) editor.indentGuides.markIntervalsDirty();
-        foldIntervalsDirty = true;
-        editor.invalidate();
+        if (pendingFoldComputations.putIfAbsent(line, Boolean.TRUE) != null) {
+            return false;
+        }
+        editor.fileIO.ioHandler.post(() -> {
+            FoldRange created = findFoldRangeForLine(line);
+            pendingFoldComputations.remove(line);
+            if (created == null) return;
+            created.collapsed = true;
+            editor.caret.mainHandler.post(() -> {
+                foldRanges.put(created.startLine, created);
+                if (created.isIndentFold) editor.indentGuides.markIntervalsDirty();
+                foldIntervalsDirty = true;
+                editor.invalidate();
+            });
+        });
         return true;
     }
 
@@ -205,6 +224,7 @@ public class CodeFold {
         // Initialize the global line number with the clamped visible index.
         // This is the starting point, assuming no folds affect it initially.
         int globalLine = clampedVisibleIndex;
+        int addedHidden = 0;
 
         // Iterate through all the collapsed fold intervals.
         // Each interval represents a range of HIDDEN lines: [firstHiddenLine, lastHiddenLine].
@@ -225,10 +245,18 @@ public class CodeFold {
             // We need to advance the globalLine number by the count of lines hidden in this interval.
             // This effectively skips over the hidden lines.
             globalLine += hiddenLineCount;
+            addedHidden += hiddenLineCount;
         }
-        
+
         // Finally, clamp the calculated globalLine to ensure it's within the actual document bounds.
-        return Math.max(0, Math.min(globalLine, totalLines - 1));
+        int result = Math.max(0, Math.min(globalLine, totalLines - 1));
+        if (addedHidden > 5000 && editor.DEBUG_RENDER_LOGS) {
+            Log.d("SodiumRender", "mapVisibleIndexToGlobal visible=" + visibleIndex
+                    + " result=" + result
+                    + " addedHidden=" + addedHidden
+                    + " intervals=" + foldIntervals.size());
+        }
+        return result;
     }
 
     /**
@@ -256,11 +284,6 @@ public class CodeFold {
         if (lineText == null) return null;
         boolean isIndentCandidate = editor.isIndentationBlocksEnabled && isIndentFoldCandidate(lineText);
         if (!isIndentCandidate && !shouldShowFoldMarkerFromLine(lineText)) return null;
-        FoldRange found = findFoldRangeForLine(line);
-        if (found == null) return null;
-        foldRanges.put(found.startLine, found);
-        if (found.isIndentFold) editor.indentGuides.markIntervalsDirty();
-        foldIntervalsDirty = true;
         return "v";
     }
 
@@ -269,6 +292,7 @@ public class CodeFold {
      */
     public void drawFoldMarkersForVisibleLines(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex) {
         if (!isCodeFoldingEnabled) return;
+        long startMs = SystemClock.uptimeMillis();
 
         float markerX = editor.textRender.isRtl
                 ? (editor.lineNumber.getGutterStartX() + editor.lineNumber.gutterSeparatorWidth + foldMarkerEdgePadding)
@@ -279,6 +303,12 @@ public class CodeFold {
 
         for (int v = firstVisibleIndex; v <= lastVisibleIndex; v++) {
             int line = mapVisibleIndexToGlobal(v);
+            int baseColor = foldMarkerPaint.getColor();
+            if (pendingFoldComputations.containsKey(line)) {
+                foldMarkerPaint.setColor(foldMarkerPendingColor);
+            } else {
+                foldMarkerPaint.setColor(foldMarkerColor);
+            }
             String marker = getFoldMarkerForLine(line, editor.getLineTextForRender(line));
             if (marker == null) continue;
             float y = Math.round(v * editor.textRender.lineHeight - editor.scroll.scrollY + editor.textRender.lineHeight - editor.textRender.paint.descent());
@@ -290,6 +320,12 @@ public class CodeFold {
                 canvas.drawCircle(markerX, centerY, foldRippleRadius, foldRipplePaint);
             }
             canvas.drawText(marker, markerX, y, foldMarkerPaint);
+            foldMarkerPaint.setColor(baseColor);
+        }
+        long dt = SystemClock.uptimeMillis() - startMs;
+        if (dt > 8 && editor.DEBUG_RENDER_LOGS) {
+            Log.d("SodiumRender", "foldMarkers draw dtMs=" + dt
+                    + " first=" + firstVisibleIndex + " last=" + lastVisibleIndex);
         }
     }
 
@@ -297,6 +333,7 @@ public class CodeFold {
      * Draw a folded line placeholder.
      */
     public void drawFoldedLine(Canvas canvas, String line, int globalLine) {
+        long startMs = SystemClock.uptimeMillis();
         FoldRange range = foldRanges.get(globalLine);
         if (range == null || !range.collapsed) return;
         if (line == null) line = "";
@@ -341,9 +378,45 @@ public class CodeFold {
         if (range.isBlockComment) {
             Paint commentPaint = (editor.blockCommentHighlightRule != null) ? editor.blockCommentHighlightRule.paint : editor.textRender.paint;
             commentPaint.setUnderlineText(false);
-            canvas.drawText("*/", xAfter, y, commentPaint);
+            String close = "*/";
+            canvas.drawText(close, xAfter, y, commentPaint);
+            float closeWidth = commentPaint.measureText(close);
+            int closeIdx = range.closeCharIndex;
+            String endLineText = (range.endLine == globalLine) ? line : editor.getLineTextForRender(range.endLine);
+            if (endLineText != null) {
+                if (closeIdx < 0 || closeIdx >= endLineText.length()) {
+                    closeIdx = findBlockCommentEnd(endLineText, Math.max(0, range.openCharIndex + 2));
+                }
+                if (closeIdx >= 0) {
+                    int suffixStart = Math.min(endLineText.length(), closeIdx + 2);
+                    if (suffixStart < endLineText.length()) {
+                        float sx = xAfter + closeWidth;
+                        editor.drawHighlightedSegment(canvas, endLineText, range.endLine, suffixStart, endLineText.length(), sx, y);
+                    }
+                }
+            }
         } else if (!range.isIndentFold) {
-            canvas.drawText(String.valueOf(range.closeChar), xAfter, y, editor.textRender.paint);
+            String close = String.valueOf(range.closeChar);
+            canvas.drawText(close, xAfter, y, editor.textRender.paint);
+            float closeWidth = editor.textRender.paint.measureText(close);
+            int closeIdx = range.closeCharIndex;
+            String endLineText = (range.endLine == globalLine) ? line : editor.getLineTextForRender(range.endLine);
+            if (endLineText != null) {
+                if (closeIdx < 0 || closeIdx >= endLineText.length()) {
+                    closeIdx = findClosingBracketInLine(endLineText, Math.max(0, range.openCharIndex + 1), range.openChar, range.closeChar);
+                }
+                if (closeIdx >= 0) {
+                    int suffixStart = Math.min(endLineText.length(), closeIdx + 1);
+                    if (suffixStart < endLineText.length()) {
+                        float sx = xAfter + closeWidth;
+                        editor.drawHighlightedSegment(canvas, endLineText, range.endLine, suffixStart, endLineText.length(), sx, y);
+                    }
+                }
+            }
+        }
+        long dt = SystemClock.uptimeMillis() - startMs;
+        if (dt > 4 && editor.DEBUG_RENDER_LOGS) {
+            Log.d("SodiumRender", "foldedLine draw dtMs=" + dt + " line=" + globalLine);
         }
     }
 
@@ -394,6 +467,7 @@ public class CodeFold {
      */
     public void rebuildFoldIntervalsIfNeeded() {
         if (!foldIntervalsDirty) return;
+        long startMs = SystemClock.uptimeMillis();
         foldIntervalsDirty = false;
         foldIntervals.clear();
         if (!isCodeFoldingEnabled || foldRanges.isEmpty()) return;
@@ -421,6 +495,10 @@ public class CodeFold {
         }
         foldIntervals.set(write++, cur);
         while (foldIntervals.size() > write) foldIntervals.remove(foldIntervals.size() - 1);
+        long dt = SystemClock.uptimeMillis() - startMs;
+        if (dt > 8 && editor.DEBUG_RENDER_LOGS) {
+            Log.d("SodiumRender", "foldIntervals rebuild dtMs=" + dt + " ranges=" + foldRanges.size());
+        }
     }
 
     /**
@@ -444,8 +522,6 @@ public class CodeFold {
             return range.startLine < line && range.endLine > line;
         });
         
-        // Invalidate bracket cache for this line and nearby
-        editor.bracketCache.invalidateLines(Math.max(0, line - 1), line + 2);
         foldIntervalsDirty = true;
     }
 
@@ -469,22 +545,59 @@ public class CodeFold {
         String ln = editor.getLineTextForRender(line);
         if (ln == null) ln = "";
 
-        if (editor.isIndentationBlocksEnabled && isIndentFoldCandidate(ln)) {
-            FoldRange indentRange = findIndentFoldRangeForLine(line, null);
-            if (indentRange != null) return indentRange;
-        }
-
-        // Use bracket cache for bracket-based folds
-        BracketCache.LineBracketInfo info = editor.bracketCache.getLineInfo(line);
-        for (BracketCache.BracketPosition bp : info.brackets) {
-            if (bp.isOpening && !editor.bracketCache.isInStringOrComment(line, bp.column)) {
-                BracketCache.BracketPosition match = editor.bracketCache.findMatchingBracket(bp);
-                if (match != null && match.line > line) {
-                    return new FoldRange(line, match.line, bp.column, bp.bracket, match.bracket, false, false);
-                }
+        RandomAccessFile raf = null;
+        if (editor.fileIO.isIndexReady && editor.fileIO.sourceFile != null) {
+            try {
+                raf = new RandomAccessFile(editor.fileIO.sourceFile, "r");
+            } catch (Exception ignored) {
+                raf = null;
             }
         }
 
+        if (editor.isIndentationBlocksEnabled && isIndentFoldCandidate(ln)) {
+            FoldRange indentRange = findIndentFoldRangeForLine(line, raf);
+            if (indentRange != null) {
+                if (raf != null) {
+                    try { raf.close(); } catch (Exception ignored) {}
+                }
+                return indentRange;
+            }
+        }
+
+        FoldToken token = findFoldTokenInLine(ln, 0);
+        if (token == null) {
+            if (raf != null) {
+                try { raf.close(); } catch (Exception ignored) {}
+            }
+            return null;
+        }
+        if (token.isBlockComment) {
+            int endLine = findBlockCommentEndLine(line, token.index, raf);
+            int endIdx = -1;
+            if (endLine == line) {
+                endIdx = findBlockCommentEnd(ln, token.index + 2);
+            }
+            if (endLine > line) {
+                if (raf != null) {
+                    try { raf.close(); } catch (Exception ignored) {}
+                }
+                return new FoldRange(line, endLine, token.index, token.openChar, token.openChar, endIdx, true, false);
+            }
+            if (raf != null) {
+                try { raf.close(); } catch (Exception ignored) {}
+            }
+            return null;
+        }
+        FoldMatch match = findMatchingBracketFrom(line, token.index, token.openChar, raf);
+        if (match != null && match.endLine > line) {
+            if (raf != null) {
+                try { raf.close(); } catch (Exception ignored) {}
+            }
+            return new FoldRange(line, match.endLine, token.index, token.openChar, match.closeChar, match.endChar, false, false);
+        }
+        if (raf != null) {
+            try { raf.close(); } catch (Exception ignored) {}
+        }
         return null;
     }
 
@@ -550,39 +663,50 @@ public class CodeFold {
 
         if (endLine > line) {
             int openIdx = Math.max(0, trimmed.length() - 1);
-            return new FoldRange(line, endLine, openIdx, ':', ':', false, true);
+            return new FoldRange(line, endLine, openIdx, ':', ':', -1, false, true);
         }
         return null;
     }
 
     private FoldToken findFoldTokenInLine(String line, int startIndex) {
+        return findLastUnclosedFoldTokenInLine(line, startIndex);
+    }
+
+    private FoldToken findLastUnclosedFoldTokenInLine(String line, int startIndex) {
         if (line == null || line.isEmpty()) return null;
         int len = line.length();
         int i = Math.max(0, startIndex);
         boolean inLineComment = false;
         boolean inBlockComment = false;
-        int stringState = 0;
+        char quoteChar = 0;
+        java.util.ArrayList<Character> stack = new java.util.ArrayList<>();
+        java.util.ArrayList<Integer> stackIdx = new java.util.ArrayList<>();
 
         while (i < len) {
             if (inLineComment) break;
 
             if (inBlockComment) {
                 int end = findBlockCommentEnd(line, i);
-                if (end < 0) return null;
+                if (end < 0) break;
                 i = end + 2;
                 inBlockComment = false;
                 continue;
             }
 
-            if (stringState != 0) {
-                SodiumEditor.StringEndResult endResult = editor.findStringEndForState(line, i, stringState);
-                if (!endResult.found) return null;
-                i = endResult.endIndex;
-                stringState = 0;
+            if (quoteChar != 0) {
+                char qc = line.charAt(i);
+                if (qc == quoteChar && !isTokenEscaped(line, i)) {
+                    quoteChar = 0;
+                }
+                i++;
                 continue;
             }
 
             if (editor.highlite.isLineCommentStart(line, i)) {
+                inLineComment = true;
+                break;
+            }
+            if (line.charAt(i) == '#' && !editor.highlite.isEscaped(line, i)) {
                 inLineComment = true;
                 break;
             }
@@ -592,36 +716,48 @@ public class CodeFold {
                     && line.charAt(i) == '/'
                     && line.charAt(i + 1) == '*'
                     && !isTokenEscaped(line, i)) {
-                return new FoldToken(i, true, '/');
+                int end = findBlockCommentEnd(line, i + 2);
+                if (end < 0) break;
+                i = end + 2;
+                continue;
             }
 
             if (editor.highlite.isTripleQuoteStringsEnabled && editor.highlite.isTripleQuoteStart(line, i) && !editor.highlite.isEscaped(line, i)) {
                 int end = editor.highlite.findTripleQuoteEnd(line, i + 3);
-                if (end < 0) return null;
+                if (end < 0) break;
                 i = end + 3;
                 continue;
             }
 
             char c = line.charAt(i);
-            if (editor.highlite.isStringDelimiter(c) && !editor.highlite.isEscaped(line, i)) {
-                int end = editor.highlite.findStringEnd(line, i + 1, c);
-                if (end < 0) return null;
-                i = end + 1;
+            if ((c == '\'' || c == '"' || c == '`') && !isTokenEscaped(line, i)) {
+                quoteChar = c;
+                i++;
                 continue;
             }
 
-            // Only check for OPENING brackets, not closing brackets
             if (!editor.highlite.isEscaped(line, i)) {
-                if (c == '{') return new FoldToken(i, false, c);
+                if (c == '{' || c == '(' || c == '[') {
+                    stack.add(c);
+                    stackIdx.add(i);
+                } else if (c == '}' || c == ')' || c == ']') {
+                    if (!stack.isEmpty()) {
+                        char open = stack.get(stack.size() - 1);
+                        if ((open == '{' && c == '}')
+                                || (open == '(' && c == ')')
+                                || (open == '[' && c == ']')) {
+                            stack.remove(stack.size() - 1);
+                            stackIdx.remove(stackIdx.size() - 1);
+                        }
+                    }
+                }
             }
             i++;
         }
-        // Second pass for ( and [ only (not closing brackets)
-        for (int j = Math.max(0, startIndex); j < len; j++) {
-            char c = line.charAt(j);
-            if (!editor.highlite.isEscaped(line, j)) {
-                if (c == '(' || c == '[') return new FoldToken(j, false, c);
-            }
+
+        if (!stack.isEmpty()) {
+            int idx = stackIdx.get(stackIdx.size() - 1);
+            return new FoldToken(idx, false, stack.get(stack.size() - 1));
         }
         return null;
     }
@@ -655,6 +791,70 @@ public class CodeFold {
         return -1;
     }
 
+    private int findClosingBracketInLine(String line, int startChar, char openBracket, char closeBracket) {
+        if (line == null) return -1;
+        int i = Math.max(0, startChar);
+        int depth = 1;
+        boolean inLineComment = false;
+        boolean inBlockComment = false;
+        char quoteChar = 0;
+
+        while (i < line.length()) {
+            if (inLineComment) break;
+            if (inBlockComment) {
+                int end = findBlockCommentEnd(line, i);
+                if (end < 0) break;
+                i = end + 2;
+                inBlockComment = false;
+                continue;
+            }
+            if (quoteChar != 0) {
+                char qc = line.charAt(i);
+                if (qc == quoteChar && !isTokenEscaped(line, i)) {
+                    quoteChar = 0;
+                }
+                i++;
+                continue;
+            }
+
+            if (editor.highlite.isLineCommentStart(line, i)) {
+                inLineComment = true;
+                break;
+            }
+            if (line.charAt(i) == '#' && !isTokenEscaped(line, i)) {
+                inLineComment = true;
+                break;
+            }
+            if (editor.highlite.isBlockCommentsEnabled
+                    && i + 1 < line.length()
+                    && line.charAt(i) == '/'
+                    && line.charAt(i + 1) == '*'
+                    && !isTokenEscaped(line, i)) {
+                inBlockComment = true;
+                i += 2;
+                continue;
+            }
+
+            char c = line.charAt(i);
+            if ((c == '\'' || c == '"' || c == '`') && !isTokenEscaped(line, i)) {
+                quoteChar = c;
+                i++;
+                continue;
+            }
+
+            if (c == openBracket && !isTokenEscaped(line, i)) {
+                depth++;
+            } else if (c == closeBracket && !isTokenEscaped(line, i)) {
+                depth--;
+                if (depth == 0) {
+                    return i;
+                }
+            }
+            i++;
+        }
+        return -1;
+    }
+
     private FoldMatch findMatchingBracketFrom(int startLine, int startChar, char openBracket, @Nullable RandomAccessFile raf) {
         char closeBracket = getClosingBracket(openBracket);
         int depth = 1;
@@ -664,7 +864,7 @@ public class CodeFold {
         int i = startChar + 1;
         boolean inLineComment = false;
         boolean inBlockComment = false;
-        int stringState = 0;
+        char quoteChar = 0;
 
         while (true) {
             while (i < line.length()) {
@@ -682,21 +882,23 @@ public class CodeFold {
                     inBlockComment = false;
                     continue;
                 }
-                if (stringState != 0) {
-                    SodiumEditor.StringEndResult result = editor.findStringEndForState(line, i, stringState);
-                    if (!result.found) {
-                        i = line.length();
-                        break;
+                if (quoteChar != 0) {
+                    char qc = line.charAt(i);
+                    if (qc == quoteChar && !isTokenEscaped(line, i)) {
+                        quoteChar = 0;
                     }
-                    i = result.endIndex;
-                    stringState = 0;
+                    i++;
                     continue;
                 }
 
-                if (editor.highlite.isLineCommentStart(line, i)) {
-                    inLineComment = true;
-                    continue;
-                }
+            if (editor.highlite.isLineCommentStart(line, i)) {
+                inLineComment = true;
+                continue;
+            }
+            if (line.charAt(i) == '#' && !editor.highlite.isEscaped(line, i)) {
+                inLineComment = true;
+                continue;
+            }
                 if (editor.highlite.isBlockCommentsEnabled && i + 1 < line.length() && line.charAt(i) == '/' && line.charAt(i + 1) == '*') {
                     inBlockComment = true;
                     i += 2;
@@ -704,16 +906,9 @@ public class CodeFold {
                 }
 
                 char c = line.charAt(i);
-                if (editor.highlite.isStringDelimiter(c) && !editor.highlite.isEscaped(line, i)) {
-                    stringState = editor.getStringStateForDelimiter(c);
-                    if (stringState == 0) {
-                        int end = editor.highlite.findStringEnd(line, i + 1, c);
-                        if (end < 0) {
-                            i = line.length();
-                            break;
-                        }
-                        i = end + 1;
-                    }
+                if ((c == '\'' || c == '"' || c == '`') && !isTokenEscaped(line, i)) {
+                    quoteChar = c;
+                    i++;
                     continue;
                 }
 
@@ -722,7 +917,7 @@ public class CodeFold {
                 } else if (c == closeBracket && !editor.highlite.isEscaped(line, i)) {
                     depth--;
                     if (depth == 0) {
-                        return new FoldMatch(startLine, closeBracket);
+                        return new FoldMatch(startLine, i, closeBracket);
                     }
                 }
                 i++;
@@ -765,22 +960,8 @@ public class CodeFold {
 
     private boolean shouldShowFoldMarkerFromLine(String line) {
         if (line == null || line.isEmpty()) return false;
-        // Only show fold marker if line has an OPENING bracket (not escaped)
-        for (int i = 0; i < line.length(); i++) {
-            char c = line.charAt(i);
-            // Skip escaped characters
-            if (isTokenEscaped(line, i)) continue;
-            // Skip string content
-            if (editor.highlite.isStringDelimiter(c)) {
-                int end = editor.highlite.findStringEnd(line, i + 1, c);
-                if (end < 0) return false;
-                i = end;
-                continue;
-            }
-            // Check for opening brackets only
-            if (c == '{' || c == '(' || c == '[') return true;
-        }
-        return false;
+        // Only show fold marker if line has an unclosed opening token (not escaped, not in strings/comments)
+        return findLastUnclosedFoldTokenInLine(line, 0) != null;
     }
 
     private boolean isTokenEscaped(String line, int index) {
@@ -807,16 +988,18 @@ public class CodeFold {
         public final int openCharIndex;
         public final char openChar;
         public final char closeChar;
+        public final int closeCharIndex;
         public final boolean isBlockComment;
         public final boolean isIndentFold;
         public boolean collapsed;
 
-        public FoldRange(int startLine, int endLine, int openCharIndex, char openChar, char closeChar, boolean isBlockComment, boolean isIndentFold) {
+        public FoldRange(int startLine, int endLine, int openCharIndex, char openChar, char closeChar, int closeCharIndex, boolean isBlockComment, boolean isIndentFold) {
             this.startLine = startLine;
             this.endLine = endLine;
             this.openCharIndex = openCharIndex;
             this.openChar = openChar;
             this.closeChar = closeChar;
+            this.closeCharIndex = closeCharIndex;
             this.isBlockComment = isBlockComment;
             this.isIndentFold = isIndentFold;
             this.collapsed = false;
@@ -839,10 +1022,12 @@ public class CodeFold {
     // --- FoldMatch class ---
     public static final class FoldMatch {
         final int endLine;
+        final int endChar;
         final char closeChar;
 
-        FoldMatch(int endLine, char closeChar) {
+        FoldMatch(int endLine, int endChar, char closeChar) {
             this.endLine = endLine;
+            this.endChar = endChar;
             this.closeChar = closeChar;
         }
     }
@@ -870,10 +1055,101 @@ public class CodeFold {
         }
         float xStart = editor.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
         float placeholderWidth = Math.max(0f, editor.textRender.paint.measureText(FOLD_PLACEHOLDER_TEXT));
-        float pad = Math.max(0f, foldPlaceholderPadX);
-        float left = xStart - pad;
-        float right = xStart + placeholderWidth + pad;
+        float left = xStart;
+        float right = xStart + placeholderWidth;
         return localX >= left && localX <= right;
+    }
+
+    /**
+     * Get placeholder bounds for a folded line.
+     * outBounds[0]=left, outBounds[1]=right
+     */
+    public boolean getFoldPlaceholderBounds(int globalLine, String line, float[] outBounds) {
+        if (outBounds == null || outBounds.length < 2) return false;
+        if (!isCodeFoldingEnabled) return false;
+        FoldRange range = foldRanges.get(globalLine);
+        if (range == null || !range.collapsed) return false;
+        if (line == null) line = "";
+
+        int prefixEnd;
+        if (range.isBlockComment) {
+            prefixEnd = Math.min(range.openCharIndex + 2, line.length());
+        } else if (range.isIndentFold) {
+            prefixEnd = line.length();
+        } else {
+            prefixEnd = Math.min(range.openCharIndex + 1, line.length());
+        }
+        float xStart = editor.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
+        float placeholderWidth = Math.max(0f, editor.textRender.paint.measureText(FOLD_PLACEHOLDER_TEXT));
+        outBounds[0] = xStart;
+        outBounds[1] = xStart + placeholderWidth;
+        return true;
+    }
+
+    /**
+     * Adjust fold range indices after a line edit on the fold start line.
+     */
+    public void adjustFoldRangeForLineEdit(int line, int editIndex, int delta, int deleteLen) {
+        FoldRange range = foldRanges.get(line);
+        if (range == null) return;
+        if (deleteLen > 0 && editIndex <= range.openCharIndex && (editIndex + deleteLen) > range.openCharIndex) {
+            invalidateFoldRangeForLine(line);
+            return;
+        }
+        int newOpen = range.openCharIndex;
+        if (editIndex <= newOpen) newOpen = Math.max(0, newOpen + delta);
+        int newClose = range.closeCharIndex;
+        if (range.endLine == line && newClose >= 0 && editIndex <= newClose) {
+            newClose = Math.max(0, newClose + delta);
+        }
+        FoldRange updated =
+            new FoldRange(
+                range.startLine,
+                range.endLine,
+                newOpen,
+                range.openChar,
+                range.closeChar,
+                newClose,
+                range.isBlockComment,
+                range.isIndentFold);
+        updated.collapsed = range.collapsed;
+        foldRanges.put(range.startLine, updated);
+        foldIntervalsDirty = true;
+    }
+
+    /**
+     * Resolve close char index for a folded range on its end line.
+     */
+    public int resolveCloseCharIndex(FoldRange range, @Nullable String endLineText) {
+        if (range == null || endLineText == null) return -1;
+        if (range.isBlockComment) {
+            int idx = range.closeCharIndex;
+            if (idx < 0 || idx >= endLineText.length()) {
+                idx = findBlockCommentEnd(endLineText, Math.max(0, range.openCharIndex + 2));
+            }
+            return idx;
+        }
+        if (range.closeCharIndex >= 0 && range.closeCharIndex < endLineText.length()) {
+            return range.closeCharIndex;
+        }
+        return findClosingBracketInLine(
+            endLineText,
+            Math.max(0, range.openCharIndex + 1),
+            range.openChar,
+            range.closeChar);
+    }
+
+    /**
+     * Get the collapsed fold range that hides the given line.
+     */
+    public FoldRange getCollapsedRangeContainingLine(int line) {
+        if (!isCodeFoldingEnabled) return null;
+        for (FoldRange range : foldRanges.values()) {
+            if (range.collapsed && line > range.startLine && line <= range.endLine) {
+                return range;
+            }
+        }
+        return null;
     }
 
     /**
@@ -898,7 +1174,16 @@ public class CodeFold {
      * Set fold marker color
      */
     public void setFoldMarkerColor(int color) {
+        foldMarkerColor = color;
         foldMarkerPaint.setColor(color);
+        if (isCodeFoldingEnabled) editor.invalidate();
+    }
+
+    /**
+     * Set fold marker color while fold is being computed.
+     */
+    public void setFoldMarkerPendingColor(int color) {
+        foldMarkerPendingColor = color;
         if (isCodeFoldingEnabled) editor.invalidate();
     }
 

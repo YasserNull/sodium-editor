@@ -175,19 +175,33 @@ public class ViewRender {
       if (needDirect) {
         editor.textRender.directLinesTmp.clear();
         directLines = editor.textRender.directLinesTmp;
-        if (firstVisibleLine < editor.textRender.windowStartLine) {
-          editor.fileIO.populateDirectLinesForRange(
-              firstVisibleLine, Math.min(lastVisibleLine, editor.textRender.windowStartLine - 1), directLines);
-        }
+        int winStart = editor.textRender.windowStartLine;
         int winEnd = editor.textRender.windowStartLine + editor.textRender.linesWindow.size() - 1;
-        if (lastVisibleLine > winEnd) {
-          editor.fileIO.populateDirectLinesForRange(
-              Math.max(firstVisibleLine, winEnd + 1), lastVisibleLine, directLines);
-        }
-        if (directLines.isEmpty()
-            && (firstVisibleLine < editor.textRender.windowStartLine
-                || firstVisibleLine >= editor.textRender.windowStartLine + editor.textRender.linesWindow.size())) {
-          editor.fileIO.populateDirectLinesForRange(firstVisibleLine, lastVisibleLine, directLines);
+        if (editor.codeFold.isCodeFoldingEnabled) {
+          java.util.HashSet<Integer> needed = new java.util.HashSet<>();
+          for (int v = firstVisibleIndex; v <= lastVisibleIndex; v++) {
+            int gl = editor.codeFold.mapVisibleIndexToGlobal(v);
+            if (gl < winStart || gl > winEnd) {
+              needed.add(gl);
+            }
+          }
+          for (Integer gl : needed) {
+            editor.fileIO.populateDirectLinesForRange(gl, gl, directLines);
+          }
+        } else {
+          if (firstVisibleLine < winStart) {
+            editor.fileIO.populateDirectLinesForRange(
+                firstVisibleLine, Math.min(lastVisibleLine, winStart - 1), directLines);
+          }
+          if (lastVisibleLine > winEnd) {
+            editor.fileIO.populateDirectLinesForRange(
+                Math.max(firstVisibleLine, winEnd + 1), lastVisibleLine, directLines);
+          }
+          if (directLines.isEmpty()
+              && (firstVisibleLine < winStart
+                  || firstVisibleLine >= editor.textRender.windowStartLine + editor.textRender.linesWindow.size())) {
+            editor.fileIO.populateDirectLinesForRange(firstVisibleLine, lastVisibleLine, directLines);
+          }
         }
       }
     }
@@ -499,6 +513,63 @@ public class ViewRender {
           drawY + editor.textRender.lineHeight,
           drawX + editor.selectionHandles.handleRadius,
           drawY + editor.textRender.lineHeight + editor.selectionHandles.handleRadius * 2);
+    } else if (editor.isFocused()
+        && !editor.isReadOnly
+        && !editor.selection.hasSelection
+        && editor.codeFold.isCodeFoldingEnabled
+        && editor.codeFold.isLineHiddenByFold(editor.cursor.cursorLine)) {
+      CodeFold.FoldRange hiddenRange = editor.codeFold.getCollapsedRangeContainingLine(editor.cursor.cursorLine);
+      if (hiddenRange != null) {
+        String startLineText = getLineTextForRender(hiddenRange.startLine);
+        String endLineText = getLineTextForRender(editor.cursor.cursorLine);
+        if (startLineText != null && endLineText != null) {
+          int prefixEnd;
+          if (hiddenRange.isBlockComment) {
+            prefixEnd = Math.min(hiddenRange.openCharIndex + 2, startLineText.length());
+          } else if (hiddenRange.isIndentFold) {
+            prefixEnd = startLineText.length();
+          } else {
+            prefixEnd = Math.min(hiddenRange.openCharIndex + 1, startLineText.length());
+          }
+          float prefixWidth =
+              editor.measureHighlightedSegmentWidth(startLineText, hiddenRange.startLine, 0, prefixEnd);
+          float placeholderWidth =
+              Math.max(0f, editor.textRender.paint.measureText(CodeFold.FOLD_PLACEHOLDER_TEXT));
+          float closeWidth =
+              hiddenRange.isBlockComment
+                  ? editor.textRender.paint.measureText("*/")
+                  : editor.textRender.paint.measureText(String.valueOf(hiddenRange.closeChar));
+          int closeIdx = editor.codeFold.resolveCloseCharIndex(hiddenRange, endLineText);
+          int suffixStart =
+              hiddenRange.isBlockComment ? (closeIdx >= 0 ? closeIdx + 2 : endLineText.length())
+                  : (closeIdx >= 0 ? closeIdx + 1 : endLineText.length());
+          int caretChar = Math.max(suffixStart, editor.cursor.cursorChar);
+          float suffixWidth =
+              editor.measureHighlightedSegmentWidth(
+                  endLineText,
+                  editor.cursor.cursorLine,
+                  Math.min(suffixStart, endLineText.length()),
+                  Math.min(caretChar, endLineText.length()));
+          float cursorX = prefixWidth + placeholderWidth + closeWidth + suffixWidth;
+          float cursorY = editor.textRender.getDrawLineTop(hiddenRange.startLine);
+          editor.cursorAnimation.updateCursorDrawPosition(cursorX, cursorY);
+          float drawX = editor.cursorAnimation.cursorDrawX;
+          float drawY = editor.cursorAnimation.cursorDrawY;
+          if (editor.caret.isCursorVisible) {
+            editor.caret.caretPaint.setColor(editor.caret.caretColor);
+            editor.caret.caretPaint.setStrokeWidth(editor.cursor.cursorWidth);
+            canvas.drawLine(drawX, drawY, drawX, drawY + editor.textRender.lineHeight, editor.caret.caretPaint);
+          }
+          editor.selectionHandles.handlePaint.setColor(editor.cursorHandle.cursorHandleColor);
+          editor.selectionHandles.handlePaint.setAlpha(255);
+          drawTeardropHandle(canvas, drawX, drawY + editor.textRender.lineHeight, editor.selectionHandles.handlePaint);
+          editor.cursorHandle.cursorHandleRect.set(
+              drawX - editor.selectionHandles.handleRadius,
+              drawY + editor.textRender.lineHeight,
+              drawX + editor.selectionHandles.handleRadius,
+              drawY + editor.textRender.lineHeight + editor.selectionHandles.handleRadius * 2);
+        }
+      }
     }
 
     if (editor.selection.hasSelection) {
@@ -739,6 +810,15 @@ public class ViewRender {
       selPaint = editor.selection.selectionPaint;
     }
 
+    SodiumEditor.BracketMatch bracketMatchResult = null;
+    if (editor.bracketMatchManager.isBracketMatchingEnabled) {
+      WordWrap.VisualLinePosition firstPos = editor.wordWrap.getVisualPositionForIndex(firstVisualIndex);
+      WordWrap.VisualLinePosition lastPos = editor.wordWrap.getVisualPositionForIndex(lastVisualIndex);
+      int rangeStart = Math.max(0, firstPos.line - 1);
+      int rangeEnd = Math.min(editor.getLinesCount() - 1, lastPos.line + 1);
+      bracketMatchResult = editor.bracketMatchManager.findAndCacheBracketMatch(rangeStart, rangeEnd, directLines);
+    }
+
     int startLine = editor.selection.selStartLine;
     int startChar = editor.selection.selStartChar;
     int endLine = editor.selection.selEndLine;
@@ -786,6 +866,7 @@ public class ViewRender {
       editor.textRender.drawDeleteAnimationForSegment(canvas, line, pos.line, segStart, segDrawEnd, y);
       if (editor.zoom.shouldDrawDecorations()) {
         editor.textRender.drawWhitespaceGuidesForSegment(canvas, line, pos.line, segStart, segDrawEnd, y);
+        editor.bracketMatchManager.drawBracketMatchForSegment(canvas, line, pos.line, segStart, segEnd, segBaseX, top, bracketMatchResult);
       }
       editor.autoCompletion.drawAutoSuggestionWrapped(canvas, line, pos.line, segStart, segDrawEnd, v, y);
       if (editor.wordWrap.indicator.isWordWrapIndicatorEnabled && segEnd < line.length()) {
@@ -1053,6 +1134,11 @@ public class ViewRender {
       endChar = editor.selection.selStartChar;
     }
 
+    SodiumEditor.BracketMatch bracketMatchResult = null;
+    if (editor.bracketMatchManager.isBracketMatchingEnabled) {
+      bracketMatchResult = editor.bracketMatchManager.findAndCacheBracketMatch(firstLine, lastLine, directLines);
+    }
+
     int visualIndex = firstIndex;
     float yOffset = 0f;
     boolean cursorDrawn = false;
@@ -1115,6 +1201,7 @@ public class ViewRender {
         editor.textRender.drawDeleteAnimationForSegment(canvas, text, line, segStart, segDrawEnd, y);
         if (drawDecorations) {
           editor.textRender.drawWhitespaceGuidesForSegment(canvas, text, line, segStart, segDrawEnd, y);
+          editor.bracketMatchManager.drawBracketMatchForSegment(canvas, text, line, segStart, segEnd, segBaseX, top, bracketMatchResult);
         }
         editor.autoCompletion.drawAutoSuggestionWrapped(canvas, text, line, segStart, segDrawEnd, visualIndex, y);
         if (editor.wordWrap.indicator.isWordWrapIndicatorEnabled && segEnd < text.length()) {

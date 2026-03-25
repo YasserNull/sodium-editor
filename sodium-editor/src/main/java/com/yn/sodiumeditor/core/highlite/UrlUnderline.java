@@ -18,7 +18,7 @@ public class UrlUnderline {
   private final SodiumEditor editor;
 
   // URL underlining state
-  public boolean isUrlUnderliningEnabled = false;
+  public boolean isUrlUnderliningEnabled = true;
   @Nullable public Pattern urlUnderlinePattern = UrlUnderline.DEFAULT_URL_UNDERLINE_PATTERN;
   public final Paint urlUnderlineTmpPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 

@@ -18,7 +18,7 @@ public final Paint handlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public float handleWidth = 40f;
   public float handleHeight = 50f;
   public int handleColor = 0xFF33B5E5;
-  public int selectionHandleColor = 0xFF33B5E5;
+  public int selectionHandleColor = 0xFF2196F3; // Blue
   public float handleRadius = 30f;
   
   public float baseHandleRadiusPx = handleRadius;

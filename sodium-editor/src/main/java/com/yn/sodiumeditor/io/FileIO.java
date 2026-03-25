@@ -1120,15 +1120,8 @@ public class FileIO {
 
     editor.ensureHighlightCacheForVisibleRange(firstVisibleLine, lastVisibleLine, null);
     
-    // Scan brackets for fold detection BEFORE showing the file
-    if (editor.codeFold.isCodeFoldingEnabled && editor.bracketCache != null) {
-      // Start scan and wait for it to complete
-      editor.bracketCache.scanFileAsync();
-      // Poll until scan is complete (max 5 seconds)
-      pollScanCompletion(token, 0);
-    } else {
-      finishFileOpen(token);
-    }
+    // Bracket cache disabled; no pre-scan needed.
+    finishFileOpen(token);
   }
 
   private void pollScanCompletion(final int token, int attempts) {
@@ -1233,9 +1226,8 @@ public class FileIO {
     indexDisabledPath = null;
     indexDisabledFileLength = -1L;
 
-    // Clear bracket cache and folds
+    // Clear folds
     if (editor.codeFold.isCodeFoldingEnabled) {
-      editor.bracketCache.clear();
       editor.codeFold.clearAllFolds();
     }
 
