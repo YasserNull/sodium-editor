@@ -25,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CodeFold {
 
     // --- Code Fold State ---
-    public boolean isCodeFoldingEnabled =true;
+    public boolean isCodeFoldingEnabled =false;
     public final ConcurrentHashMap<Integer, FoldRange> foldRanges = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, Boolean> pendingFoldComputations = new ConcurrentHashMap<>();
     public final ArrayList<int[]> foldIntervals = new ArrayList<>();

@@ -1,6 +1,7 @@
 package com.yn.sodiumeditor.core.highlite;
 
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.core.cache.BracketCache;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
@@ -287,23 +288,52 @@ public class BracketMatchManager {
    * This ensures matching works even when the matching bracket is outside the visible range.
    */
   public SodiumEditor.BracketMatch findBracketMatchInDocument() {
-    if (!isBracketMatchingEnabled) {
-      if (editor.DEBUG_RENDER_LOGS) {
-        android.util.Log.d("BracketMatch", "findBracketMatchInDocument: matching disabled");
-      }
-      return null;
-    }
+    if (!isBracketMatchingEnabled) return null;
 
     int totalLines = editor.getLinesCount();
     if (totalLines == 0) return null;
 
-    String cursorLineText = editor.getLineTextForRender(editor.cursor.cursorLine);
-    if (cursorLineText == null) {
-      if (editor.DEBUG_RENDER_LOGS) {
-        android.util.Log.d("BracketMatch", "findBracketMatchInDocument: cursor line text is null");
+    // Use BracketCache if available and ready - much faster
+    if (editor.bracketCache != null && !editor.bracketCache.isScanning()) {
+      int cursorLine = editor.cursor.cursorLine;
+      int cursorChar = editor.cursor.cursorChar;
+      
+      // Look for bracket at or before cursor
+      BracketCache.LineBracketInfo info = editor.bracketCache.getLineInfo(cursorLine);
+      BracketCache.BracketPosition targetBp = null;
+      
+      for (BracketCache.BracketPosition bp : info.brackets) {
+        if (bp.column == cursorChar || bp.column == cursorChar - 1) {
+          targetBp = bp;
+          break;
+        }
       }
-      return null;
+      
+      if (targetBp != null) {
+        BracketCache.BracketPosition match = editor.bracketCache.findMatchingBracket(targetBp);
+        if (match != null) {
+          return (targetBp.isOpening) ?
+              new SodiumEditor.BracketMatch(targetBp.line, targetBp.column, match.line, match.column) :
+              new SodiumEditor.BracketMatch(match.line, match.column, targetBp.line, targetBp.column);
+        }
+      }
     }
+
+    // Limit search to 5000 lines around cursor if synchronously scanning
+    int maxSearchLines = 5000;
+    if (totalLines > maxSearchLines) {
+      // For very large files, only scan a limited range synchronously
+      int start = Math.max(0, editor.cursor.cursorLine - (maxSearchLines / 2));
+      int end = Math.min(totalLines - 1, start + maxSearchLines);
+      return findBracketMatchInRange(start, end);
+    }
+
+    return findBracketMatchInRange(0, totalLines - 1);
+  }
+
+  private SodiumEditor.BracketMatch findBracketMatchInRange(int startLine, int endLine) {
+    String cursorLineText = editor.getLineTextForRender(editor.cursor.cursorLine);
+    if (cursorLineText == null) return null;
 
     int targetIndex = -1;
     char targetChar = 0;
@@ -321,30 +351,15 @@ public class BracketMatchManager {
         targetChar = c;
       }
     }
-    if (targetIndex < 0) {
-      if (editor.DEBUG_RENDER_LOGS) {
-        android.util.Log.d("BracketMatch", "findBracketMatchInDocument: no bracket at cursor cursorLine=" + editor.cursor.cursorLine + " cursorChar=" + editor.cursor.cursorChar + " lineText=\"" + cursorLineText + "\"");
-      }
-      return null;
-    }
+    if (targetIndex < 0) return null;
 
-    if (editor.DEBUG_RENDER_LOGS) {
-      android.util.Log.d("BracketMatch", "findBracketMatchInDocument: found bracket at line=" + editor.cursor.cursorLine + " index=" + targetIndex + " char='" + targetChar + "'");
-    }
-
-    // Get syntax state at the beginning of the document
-    TextRender.HighlightLineState startState = editor.highlite.getLineStateAtStart(0);
+    // Get syntax state at start of range (approximated if not line 0)
+    TextRender.HighlightLineState startState = editor.highlite.getLineStateAtStart(startLine);
     boolean inBlockComment = startState.inBlockComment && editor.highlite.isBlockCommentsEnabled;
     int stringState = startState.stringState;
-    if (!editor.highlite.isBlockCommentsEnabled) inBlockComment = false;
-    if (!editor.highlite.isMultiLineStringsEnabled && stringState != SodiumEditor.STRING_STATE_TRIPLE) stringState = 0;
-    if (!editor.highlite.isBacktickStringsEnabled && stringState == SodiumEditor.STRING_STATE_BACKTICK) stringState = 0;
-    if (!editor.highlite.isTripleQuoteStringsEnabled && stringState == SodiumEditor.STRING_STATE_TRIPLE) stringState = 0;
 
     ArrayDeque<SodiumEditor.BracketToken> stack = new ArrayDeque<>();
-
-    // Scan from line 0 to end of document
-    for (int line = 0; line < totalLines; line++) {
+    for (int line = startLine; line <= endLine; line++) {
       String text = editor.getLineTextForRender(line);
       if (text == null) text = "";
       int len = text.length();
@@ -353,78 +368,41 @@ public class BracketMatchManager {
 
       while (i < len) {
         if (inLineComment) break;
-
         if (inBlockComment) {
           int end = SodiumEditor.findBlockCommentEnd(text, i);
-          int endPos = (end < 0) ? len : end + 2;
-          if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
+          if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < (end < 0 ? len : end + 2)) return null;
           if (end < 0) break;
-          i = end + 2;
-          inBlockComment = false;
-          continue;
+          i = end + 2; inBlockComment = false; continue;
         }
-
         if (stringState != 0) {
           SodiumEditor.StringEndResult endResult = editor.findStringEndForState(text, i, stringState);
-          int endPos = endResult.found ? endResult.endIndex : len;
-          if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
+          if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < (endResult.found ? endResult.endIndex : len)) return null;
           if (!endResult.found) break;
-          i = endResult.endIndex;
-          stringState = 0;
-          continue;
+          i = endResult.endIndex; stringState = 0; continue;
         }
-
         if (editor.highlite.isLineCommentStart(text, i)) {
           if (line == editor.cursor.cursorLine && targetIndex >= i) return null;
-          inLineComment = true;
           break;
         }
-
-        if (editor.highlite.isBlockCommentsEnabled
-            && i + 1 < len
-            && text.charAt(i) == '/'
-            && text.charAt(i + 1) == '*'
-            && !Highlite.isTokenEscaped(text, i)) {
+        if (editor.highlite.isBlockCommentsEnabled && i + 1 < len && text.charAt(i) == '/' && text.charAt(i + 1) == '*' && !Highlite.isTokenEscaped(text, i)) {
           int end = SodiumEditor.findBlockCommentEnd(text, i + 2);
-          int endPos = (end < 0) ? len : end + 2;
-          if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
-          if (end < 0) {
-            inBlockComment = true;
-            break;
-          }
-          i = end + 2;
-          continue;
+          if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < (end < 0 ? len : end + 2)) return null;
+          if (end < 0) { inBlockComment = true; break; }
+          i = end + 2; continue;
         }
-
         if (editor.highlite.isTripleQuoteStart(text, i) && !Highlite.isEscaped(text, i)) {
           int end = Highlite.findTripleQuoteEnd(text, i + 3);
-          int endPos = end >= 0 ? end + 3 : len;
-          if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
-          if (end < 0) {
-            if (editor.highlite.isTripleQuoteStringsEnabled) {
-              stringState = SodiumEditor.STRING_STATE_TRIPLE;
-            }
-            break;
-          }
-          i = end + 3;
-          continue;
+          if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < (end >= 0 ? end + 3 : len)) return null;
+          if (end < 0) { if (editor.highlite.isTripleQuoteStringsEnabled) stringState = SodiumEditor.STRING_STATE_TRIPLE; break; }
+          i = end + 3; continue;
         }
-
         char c = text.charAt(i);
         if (editor.highlite.isStringDelimiter(c) && !Highlite.isEscaped(text, i)) {
           int end = Highlite.findStringEnd(text, i + 1, c);
-          int endPos = end >= 0 ? end + 1 : len;
-          if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
-          if (end < 0) {
-            if (editor.highlite.isMultiLineStringsEnabled) {
-              stringState = editor.getStringStateForDelimiter(c);
-            }
-            break;
-          }
-          i = end + 1;
-          continue;
+          if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < (end >= 0 ? end + 1 : len)) return null;
+          if (end < 0) { if (editor.highlite.isMultiLineStringsEnabled) stringState = editor.getStringStateForDelimiter(c); break; }
+          i = end + 1; continue;
         }
-
         if (SodiumEditor.isBracketChar(c) && !Highlite.isEscaped(text, i)) {
           SodiumEditor.BracketToken token = new SodiumEditor.BracketToken(line, i, c);
           if (SodiumEditor.isOpeningBracket(c)) {
@@ -432,16 +410,12 @@ public class BracketMatchManager {
           } else if (SodiumEditor.isClosingBracket(c)) {
             if (!stack.isEmpty() && stack.peek().bracket == SodiumEditor.matchingBracket(c)) {
               SodiumEditor.BracketToken open = stack.pop();
-              if (line == editor.cursor.cursorLine && i == targetIndex) {
-                return new SodiumEditor.BracketMatch(open.line, open.ch, line, i);
-              }
-              if (open.line == editor.cursor.cursorLine && open.ch == targetIndex) {
+              if ((line == editor.cursor.cursorLine && i == targetIndex) || (open.line == editor.cursor.cursorLine && open.ch == targetIndex)) {
                 return new SodiumEditor.BracketMatch(open.line, open.ch, line, i);
               }
             }
           }
         }
-
         i++;
       }
     }
@@ -453,9 +427,6 @@ public class BracketMatchManager {
    */
   public void drawBracketMatchForLine(
       Canvas canvas, String line, int globalLine, SodiumEditor.BracketMatch match) {
-    if (editor.DEBUG_RENDER_LOGS) {
-      android.util.Log.d("BracketMatch", "drawBracketMatchForLine: globalLine=" + globalLine + " match=" + (match != null ? "openLine=" + match.openLine + " openChar=" + match.openChar + " closeLine=" + match.closeLine + " closeChar=" + match.closeChar : "null"));
-    }
     if (match == null) return;
     if (globalLine != match.openLine && globalLine != match.closeLine) return;
     if (line == null || line.isEmpty()) return;

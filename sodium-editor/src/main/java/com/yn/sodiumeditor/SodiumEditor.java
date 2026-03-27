@@ -679,6 +679,8 @@ errorUnderline = new ErrorUnderline(this);
 
   
 
+  public int heavyFeaturesThreshold = 50000;
+
   public void setPerformanceModeEnabled(boolean enabled) {
     if (this.textRender.isPerformanceModeEnabled == enabled) return;
     this.textRender.isPerformanceModeEnabled = enabled;
@@ -861,7 +863,6 @@ errorUnderline = new ErrorUnderline(this);
     urlUnderline.clearUrlUnderlineCache();
     pathUnderline.clearPathUnderlineCache();
     invalidateHighlightEnsureRange();
-    bracketGuides.invalidateBracketGuideCache();
   }
 
   public void invalidateHighlightCacheForLine(int line) {
@@ -870,7 +871,6 @@ errorUnderline = new ErrorUnderline(this);
     urlUnderline.clearUrlUnderlineCacheForLine(line);
     pathUnderline.clearPathUnderlineCacheForLine(line);
     invalidateHighlightEnsureRange();
-    bracketGuides.invalidateBracketGuideCache();
   }
 
   public void setUrlUnderliningEnabled(boolean enabled) {

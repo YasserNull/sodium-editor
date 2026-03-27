@@ -35,11 +35,50 @@ public class ViewRender {
   // ============================================================================
 
   public void drawContent(Canvas canvas) {
+    // Track current window and visible lines for bracket guides
+    int windowStart = editor.textRender.windowStartLine;
+    int windowEnd = windowStart + editor.textRender.linesWindow.size() - 1;
+    boolean fastScroll = editor.scroll.scrollerIsScrolling || editor.scroll.flingStopAnimator != null;
+    
+    // Calculate visible lines (what's actually on screen)
+    int firstVisibleIndex = (int) (editor.scroll.scrollY / editor.textRender.lineHeight);
+    if (firstVisibleIndex < 0) firstVisibleIndex = 0;
+    int lastVisibleIndex = firstVisibleIndex + (int) Math.ceil(editor.getHeight() / editor.textRender.lineHeight) + 1;
+    int visibleStart = firstVisibleIndex;
+    int visibleEnd = lastVisibleIndex;
+    if (editor.codeFold.isCodeFoldingEnabled) {
+      int visibleCount = editor.codeFold.getVisibleLineCount();
+      if (visibleCount > 0) {
+        visibleStart = Math.max(0, Math.min(visibleStart, visibleCount - 1));
+        visibleEnd = Math.max(visibleStart, Math.min(visibleEnd, visibleCount - 1));
+      }
+    }
+    
+    editor.bracketGuides.beginRenderFrame(windowStart, windowEnd, visibleStart, visibleEnd);
+    editor.bracketGuides.setFrameFastScroll(fastScroll);
+    
+    // Check if bracket guides can be drawn (cache is valid)
+    boolean shouldDrawBracketGuides = editor.bracketGuides.isBracketGuidesEnabled
+        && (editor.bracketGuides.showGuidesDuringFastScroll || !fastScroll);
+    
     if (editor.wordWrap.isWordWrapEnabled) {
-      drawContentWrapped(canvas);
+      drawContentWrapped(canvas, shouldDrawBracketGuides);
+      editor.bracketGuides.endRenderFrameMaybeLog();
       return;
     }
+    drawContentUnfolded(canvas, shouldDrawBracketGuides);
+    editor.bracketGuides.endRenderFrameMaybeLog();
+  }
+  
+  private void drawContentUnfolded(Canvas canvas, boolean drawBracketGuides) {
     final boolean drawDecorations = editor.zoom.shouldDrawDecorations();
+    editor.logRender(
+        "bracketGuidesFlags",
+        "bracketGuides enabled=" + editor.bracketGuides.isBracketGuidesEnabled
+            + " drawDecorations=" + drawDecorations
+            + " drawGuides=" + drawBracketGuides
+            + " fastScroll=" + (editor.scroll.scrollerIsScrolling || editor.scroll.flingStopAnimator != null),
+        500);
 
     // Calculate visible line range
     int firstVisibleIndex = (int) (editor.scroll.scrollY / editor.textRender.lineHeight);
@@ -145,7 +184,7 @@ public class ViewRender {
       canvas.scale(editor.zoom.pinchVisualScale, editor.zoom.pinchVisualScale, pivotX, pivotY);
     }
 
-    drawTextContent(canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine, drawDecorations);
+    drawTextContent(canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine, drawDecorations, drawBracketGuides);
 
     canvas.restore();
     // --- End of main text content drawing ---
@@ -154,8 +193,8 @@ public class ViewRender {
     drawOverlays(canvas);
   }
 
-  private void drawTextContent(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex, 
-                                int firstVisibleLine, int lastVisibleLine, boolean drawDecorations) {
+  private void drawTextContent(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex,
+                                int firstVisibleLine, int lastVisibleLine, boolean drawDecorations, boolean drawBracketGuides) {
     Paint selPaint = null;
     if (editor.selection.hasSelection) {
       editor.selection.selectionPaint.setColor(editor.selection.selectionHighlightColor);
@@ -212,23 +251,45 @@ public class ViewRender {
     }
 
     int winEnd;
+    int winStart;
     synchronized (editor.textRender.linesWindow) {
+      winStart = editor.textRender.windowStartLine;
       winEnd = editor.textRender.windowStartLine + editor.textRender.linesWindow.size() - 1;
     }
     int prefetchForDraw = editor.zoom.isZoomGestureActive() ? 0 : editor.textRender.prefetchLines;
-    int hlStart = Math.max(editor.textRender.windowStartLine, Math.max(0, firstVisibleLine - prefetchForDraw));
-    int hlEnd = Math.min(winEnd, lastVisibleLine + prefetchForDraw);
-    maybeEnsureHighlightCacheForRange(hlStart, hlEnd, directLines);
-
-    if (editor.bracketGuides.isBracketGuidesEnabled && drawDecorations) {
-      editor.bracketGuides.ensureBracketGuideCacheForWindow(editor.textRender.windowStartLine, editor.textRender.windowStartLine + editor.textRender.linesWindow.size() - 1, directLines);
+    int hlStart = Math.max(0, firstVisibleLine - prefetchForDraw);
+    int hlEnd = Math.min(editor.getLinesCount() - 1, lastVisibleLine + prefetchForDraw);
+    
+    // Ensure directLines covers the full scan range if prefetch extends outside window.
+    // This is required for bracket state when opening braces are off-screen but within prefetch.
+    if (editor.fileIO.isIndexReady && (hlStart < winStart || hlEnd > winEnd)) {
+      if (directLines == null) {
+        editor.textRender.directLinesTmp.clear();
+        directLines = editor.textRender.directLinesTmp;
+      }
+      editor.fileIO.populateDirectLinesForRange(hlStart, hlEnd, directLines);
+    } else if (directLines != null && editor.fileIO.isIndexReady) {
+      // If directLines already exists, keep it filled for the scan range
+      editor.fileIO.populateDirectLinesForRange(hlStart, hlEnd, directLines);
     }
 
+    maybeEnsureHighlightCacheForRange(Math.max(editor.textRender.windowStartLine, hlStart), Math.min(winEnd, hlEnd), directLines);
+    // Ensure bracket guide checkpoints are built for synchronous rendering
+    // This is needed for efficient bracket guide state calculation during rendering
+    if (editor.bracketGuides.isBracketGuidesEnabled && drawDecorations && drawBracketGuides) {
+      editor.bracketGuides.ensureBracketGuideCheckpointsUpTo(hlEnd, directLines, null);
+      editor.bracketGuides.ensureBracketGuideSpanCacheForWindow(hlStart, hlEnd, firstVisibleLine, lastVisibleLine, directLines);
+    }
+
+    // Calculate initial bracket guide state for synchronous rendering
+    // This allows bracket guides to be drawn together with lines using the same algorithm
+    BracketGuides.BracketGuideState initialBracketState = null;
+
     if (editor.codeFold.isCodeFoldingEnabled) {
-      drawFoldedContent(canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine, 
-                       directLines, selPaint, bracketMatchResult, drawDecorations);
+      drawFoldedContent(canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine,
+                       directLines, selPaint, bracketMatchResult, drawDecorations, drawBracketGuides, initialBracketState);
     } else {
-      drawUnfoldedContent(canvas, firstVisibleLine, lastVisibleLine, directLines, selPaint, bracketMatchResult, drawDecorations);
+      drawUnfoldedContent(canvas, firstVisibleLine, lastVisibleLine, directLines, selPaint, bracketMatchResult, drawDecorations, drawBracketGuides, initialBracketState);
     }
 
     drawCursorAndHandles(canvas, firstVisibleLine, lastVisibleLine, directLines);
@@ -237,8 +298,15 @@ public class ViewRender {
   private void drawFoldedContent(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex,
                                   int firstVisibleLine, int lastVisibleLine,
                                   HashMap<Integer, String> directLines, Paint selPaint,
-                                  SodiumEditor.BracketMatch bracketMatchResult, boolean drawDecorations) {
+                                  SodiumEditor.BracketMatch bracketMatchResult, boolean drawDecorations, boolean drawBracketGuides,
+                                  BracketGuides.BracketGuideState initialBracketState) {
     if (editor.indentGuides.indentGuideIntervalsDirty) editor.indentGuides.rebuildIndentGuideIntervalsIfNeeded();
+
+    // Track bracket guide state for synchronous rendering
+    BracketGuides.BracketGuideState bracketState = initialBracketState;
+    int windowStart = editor.textRender.windowStartLine;
+    int windowEnd = windowStart + editor.textRender.linesWindow.size() - 1;
+
     for (int v = firstVisibleIndex; v <= lastVisibleIndex; v++) {
       int globalLine = editor.codeFold.mapVisibleIndexToGlobal(v);
       String line = getLineTextForRenderWithDirect(globalLine, directLines);
@@ -276,10 +344,27 @@ public class ViewRender {
       drawColorCodeBackgrounds(canvas, line, globalLine);
 
       if (isFoldStart) {
-        if (editor.bracketGuides.isBracketGuidesEnabled && drawDecorations) {
-          List<BracketGuides.BracketGuideToken> guideTokens = editor.bracketGuides.getBracketGuideTokensForLine(globalLine);
-          drawBracketGuidesForLine(canvas, line, globalLine, guideTokens);
+        // For folded lines, we need to process all hidden lines to maintain correct bracket state
+        if (editor.bracketGuides.isBracketGuidesEnabled && drawDecorations && drawBracketGuides) {
+          // Calculate bracket state if needed
+          if (bracketState == null) {
+            bracketState = editor.bracketGuides.calculateBracketGuideStateFromWindowStart(
+                globalLine, windowStart, windowEnd, directLines);
+          }
+          // Get tokens from state BEFORE processing this line
+          editor.bracketGuides.drawBracketGuidesForLineFromStack(canvas, line, globalLine, bracketState.stack);
+          // Then: update state for THIS line
+          bracketState = editor.bracketGuides.calculateBracketGuideStateForLine(line, globalLine, bracketState);
         }
+        
+        // Process all hidden lines to maintain correct bracket state
+        if (foldRange != null && foldRange.endLine > globalLine) {
+          for (int hiddenLine = globalLine + 1; hiddenLine <= foldRange.endLine; hiddenLine++) {
+            String hiddenLineText = getLineTextForRenderWithDirect(hiddenLine, directLines);
+            bracketState = editor.bracketGuides.calculateBracketGuideStateForLine(hiddenLineText, hiddenLine, bracketState);
+          }
+        }
+        
         if (drawDecorations) {
           editor.textRender.drawWhitespaceGuidesForLine(canvas, line, globalLine, y);
           editor.indentGuides.drawIndentGuidesForLine(canvas, line, globalLine);
@@ -301,9 +386,20 @@ public class ViewRender {
       // Draw auto-completion suggestion
       editor.autoCompletion.drawAutoSuggestion(canvas, line, globalLine, y);
 
-      if (editor.bracketGuides.isBracketGuidesEnabled && drawDecorations) {
-        List<BracketGuides.BracketGuideToken> guideTokens = editor.bracketGuides.getBracketGuideTokensForLine(globalLine);
-        drawBracketGuidesForLine(canvas, line, globalLine, guideTokens);
+      // Draw bracket guides synchronously with line rendering
+      if (editor.bracketGuides.isBracketGuidesEnabled && drawDecorations && drawBracketGuides) {
+        // Calculate bracket state if needed
+        if (bracketState == null) {
+          bracketState = editor.bracketGuides.calculateBracketGuideStateFromWindowStart(
+              globalLine, windowStart, windowEnd, directLines);
+        }
+
+        // Get tokens from the state BEFORE processing this line
+        // This gives us the bracket guides that should be drawn for this line
+        editor.bracketGuides.drawBracketGuidesForLineFromStack(canvas, line, globalLine, bracketState.stack);
+
+        // Update state for next line (process this line's brackets)
+        bracketState = editor.bracketGuides.calculateBracketGuideStateForLine(line, globalLine, bracketState);
       }
 
       if (drawDecorations) {
@@ -315,8 +411,15 @@ public class ViewRender {
 
   private void drawUnfoldedContent(Canvas canvas, int firstVisibleLine, int lastVisibleLine,
                                     HashMap<Integer, String> directLines, Paint selPaint,
-                                    SodiumEditor.BracketMatch bracketMatchResult, boolean drawDecorations) {
+                                    SodiumEditor.BracketMatch bracketMatchResult, boolean drawDecorations, boolean drawBracketGuides,
+                                    BracketGuides.BracketGuideState initialBracketState) {
     if (editor.indentGuides.indentGuideIntervalsDirty) editor.indentGuides.rebuildIndentGuideIntervalsIfNeeded();
+
+    // Fast span-based guides (only for unfolded content)
+    if (editor.bracketGuides.isBracketGuidesEnabled && drawDecorations && drawBracketGuides && !editor.codeFold.isCodeFoldingEnabled) {
+      editor.bracketGuides.drawBracketGuidesForVisibleRange(canvas, firstVisibleLine, lastVisibleLine);
+    }
+    
     for (int globalLine = firstVisibleLine; globalLine <= lastVisibleLine; globalLine++) {
       String line = getLineTextForRenderWithDirect(globalLine, directLines);
       float lineBaseX = editor.textRender.isRtl ? getRtlLineBaseX(line, globalLine) : 0f;
@@ -361,11 +464,6 @@ public class ViewRender {
 
       // Draw auto-completion suggestion
       editor.autoCompletion.drawAutoSuggestion(canvas, line, globalLine, y);
-
-      if (editor.bracketGuides.isBracketGuidesEnabled && drawDecorations) {
-        List<BracketGuides.BracketGuideToken> guideTokens = editor.bracketGuides.getBracketGuideTokensForLine(globalLine);
-        drawBracketGuidesForLine(canvas, line, globalLine, guideTokens);
-      }
 
       if (drawDecorations) {
         editor.bracketMatchManager.drawBracketMatchForLine(canvas, line, globalLine, bracketMatchResult);
@@ -661,14 +759,14 @@ public class ViewRender {
   // Wrapped Content Draw Methods
   // ============================================================================
 
-  public void drawContentWrapped(Canvas canvas) {
+  public void drawContentWrapped(Canvas canvas, boolean drawBracketGuides) {
     int wrapWidthPx = Math.max(1, Math.round(editor.wordWrap.getWrapWidth()));
     final boolean drawDecorations = editor.zoom.shouldDrawDecorations();
     if (!editor.zoom.isZoomGestureActive()) {
       editor.applyPendingWrapPrefixUpdateIfAny();
     }
     if (editor.wordWrap.shouldSuppressWrapMetricsForFastSelectAll()) {
-      drawContentWrappedFallback(canvas, wrapWidthPx);
+      drawContentWrappedFallback(canvas, wrapWidthPx, drawBracketGuides);
       return;
     }
     if (!editor.wordWrap.isWrapMetricsUsableForWindow(wrapWidthPx)) {
@@ -678,7 +776,7 @@ public class ViewRender {
       if (editor.wordWrap.wrapPrefixValidUpToLine < editor.getWindowEndLine()) {
         editor.wordWrap.requestWrapPrefixRebuild();
       }
-      drawContentWrappedFallback(canvas, editor.wordWrap.wrapWidthPx);
+      drawContentWrappedFallback(canvas, editor.wordWrap.wrapWidthPx, drawBracketGuides);
       return;
     }
     int totalLines = editor.getLinesCount();
@@ -814,6 +912,12 @@ public class ViewRender {
     if (editor.bracketMatchManager.isBracketMatchingEnabled) {
       WordWrap.VisualLinePosition firstPos = editor.wordWrap.getVisualPositionForIndex(firstVisualIndex);
       WordWrap.VisualLinePosition lastPos = editor.wordWrap.getVisualPositionForIndex(lastVisualIndex);
+
+      // Calculate hlStart and hlEnd based on global line numbers using the now-defined firstPos and lastPos
+      int hlStart = Math.max(0, firstPos.line - editor.textRender.prefetchLines);
+      int hlEnd = Math.min(editor.getLinesCount() - 1, lastPos.line + editor.textRender.prefetchLines);
+
+      editor.bracketGuides.ensureBracketGuideCacheForWindow(hlStart, hlEnd, firstPos.line, lastPos.line, directLines);
       int rangeStart = Math.max(0, firstPos.line - 1);
       int rangeEnd = Math.min(editor.getLinesCount() - 1, lastPos.line + 1);
       bracketMatchResult = editor.bracketMatchManager.findAndCacheBracketMatch(rangeStart, rangeEnd, directLines);
@@ -1038,7 +1142,7 @@ public class ViewRender {
   // Fallback Wrapped Content Draw Methods
   // ============================================================================
 
-  public void drawContentWrappedFallback(Canvas canvas, int wrapWidthPx) {
+  public void drawContentWrappedFallback(Canvas canvas, int wrapWidthPx, boolean drawBracketGuides) {
     int firstIndex = Math.max(0, (int) (editor.scroll.scrollY / editor.textRender.lineHeight));
     int lastIndex = firstIndex + (int) Math.ceil(editor.getHeight() / editor.textRender.lineHeight) + 5;
     final boolean drawDecorations = editor.zoom.shouldDrawDecorations();

@@ -133,34 +133,27 @@ public class BracketCache {
 
             Map<Integer, LineBracketInfo> newCache = new HashMap<>();
             
-            // Read directly from file using line offsets
-            if (editor.fileIO.isIndexReady && editor.fileIO.sourceFile != null) {
-                RandomAccessFile raf = null;
-                try {
-                    raf = new RandomAccessFile(editor.fileIO.sourceFile, "r");
+            // Read sequentially using BufferedReader for speed
+            if (editor.fileIO.sourceFile != null && editor.fileIO.sourceFile.exists()) {
+                try (java.io.FileInputStream fis = new java.io.FileInputStream(editor.fileIO.sourceFile);
+                     java.io.InputStreamReader isr = new java.io.InputStreamReader(fis, editor.fileIO.fileCharset);
+                     java.io.BufferedReader reader = new java.io.BufferedReader(isr, 65536)) {
                     
                     boolean inBlockComment = false;
                     int stringState = 0;
-                    int totalLines = editor.fileIO.lineOffsets.length;
+                    int lineNum = 0;
+                    String line;
 
-                    for (int lineNum = 0; lineNum < totalLines && myToken == scanToken; lineNum++) {
-                        long offset = editor.fileIO.lineOffsets[lineNum];
-                        raf.seek(offset);
-                        String line = readLine(raf);
-                        if (line == null) line = "";
-
+                    while ((line = reader.readLine()) != null && myToken == scanToken) {
                         LineBracketInfo info = parseLine(lineNum, line, inBlockComment, stringState);
                         newCache.put(lineNum, info);
 
                         inBlockComment = info.isInBlockComment;
                         stringState = info.stringState;
+                        lineNum++;
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
-                } finally {
-                    if (raf != null) {
-                        try { raf.close(); } catch (Exception ignored) {}
-                    }
                 }
             }
 
@@ -188,23 +181,42 @@ public class BracketCache {
     }
 
     /**
-     * Rebuild fold ranges in background thread.
+     * Rebuild fold ranges in background thread using efficient O(N) stack-based matching.
      */
     private void rebuildFoldRangesInBg(Map<Integer, LineBracketInfo> cache) {
         editor.codeFold.foldRanges.clear();
         
-        for (Map.Entry<Integer, LineBracketInfo> entry : cache.entrySet()) {
-            int lineNum = entry.getKey();
-            LineBracketInfo info = entry.getValue();
+        // Use stacks for each bracket type to match them in a single pass
+        java.util.ArrayDeque<BracketPosition> curlyStack = new java.util.ArrayDeque<>();
+        java.util.ArrayDeque<BracketPosition> parenStack = new java.util.ArrayDeque<>();
+        java.util.ArrayDeque<BracketPosition> squareStack = new java.util.ArrayDeque<>();
+        
+        int totalLines = cache.size();
+        for (int lineNum = 0; lineNum < totalLines; lineNum++) {
+            LineBracketInfo info = cache.get(lineNum);
+            if (info == null) continue;
             
             for (BracketPosition bp : info.brackets) {
-                if (bp.isOpening && !isInStringOrCommentQuick(info, bp.column)) {
-                    BracketPosition match = findMatchingBracketQuick(cache, bp);
-                    if (match != null && match.line > bp.line) {
-                        CodeFold.FoldRange range = new CodeFold.FoldRange(
-                            bp.line, match.line, bp.column, bp.bracket, match.bracket, match.column, false, false
-                        );
-                        editor.codeFold.foldRanges.put(bp.line, range);
+                if (isInStringOrCommentQuick(info, bp.column)) continue;
+                
+                if (bp.isOpening) {
+                    if (bp.bracket == BRACKET_CURLY_OPEN) curlyStack.push(bp);
+                    else if (bp.bracket == BRACKET_PAREN_OPEN) parenStack.push(bp);
+                    else if (bp.bracket == BRACKET_SQUARE_OPEN) squareStack.push(bp);
+                } else {
+                    java.util.ArrayDeque<BracketPosition> stack = null;
+                    if (bp.bracket == BRACKET_CURLY_CLOSE) stack = curlyStack;
+                    else if (bp.bracket == BRACKET_PAREN_CLOSE) stack = parenStack;
+                    else if (bp.bracket == BRACKET_SQUARE_CLOSE) stack = squareStack;
+                    
+                    if (stack != null && !stack.isEmpty()) {
+                        BracketPosition open = stack.pop();
+                        if (lineNum > open.line) {
+                            CodeFold.FoldRange range = new CodeFold.FoldRange(
+                                open.line, lineNum, open.column, open.bracket, bp.bracket, bp.column, false, false
+                            );
+                            editor.codeFold.foldRanges.put(open.line, range);
+                        }
                     }
                 }
             }
@@ -223,53 +235,6 @@ public class BracketCache {
             }
         }
         return info.isInBlockComment;
-    }
-
-    /**
-     * Find matching bracket using cached data.
-     */
-    @Nullable
-    private BracketPosition findMatchingBracketQuick(Map<Integer, LineBracketInfo> cache, BracketPosition open) {
-        if (!open.isOpening) return null;
-
-        char closeChar = BracketPosition.getMatchingBracket(open.bracket);
-        int depth = 1;
-        int line = open.line;
-        int col = open.column + 1;
-
-        while (line < cache.size()) {
-            LineBracketInfo info = cache.get(line);
-            if (info == null) break;
-
-            for (BracketPosition bp : info.brackets) {
-                if (bp.line == line && bp.column >= col) {
-                    if (!isInStringOrCommentQuick(info, bp.column)) {
-                        if (bp.bracket == open.bracket && bp.isOpening) {
-                            depth++;
-                        } else if (bp.bracket == closeChar && !bp.isOpening) {
-                            depth--;
-                            if (depth == 0) {
-                                return bp;
-                            }
-                        }
-                    }
-                }
-            }
-
-            line++;
-            col = 0;
-        }
-
-        return null;
-    }
-
-    private String readLine(RandomAccessFile raf) throws IOException {
-        StringBuilder sb = new StringBuilder();
-        int b;
-        while ((b = raf.read()) != -1 && b != '\n') {
-            if (b != '\r') sb.append((char) b);
-        }
-        return sb.toString();
     }
 
     /**
@@ -417,8 +382,7 @@ public class BracketCache {
             try {
                 raf = new RandomAccessFile(editor.fileIO.sourceFile, "r");
                 if (lineNum >= 0 && lineNum < editor.fileIO.lineOffsets.length) {
-                    raf.seek(editor.fileIO.lineOffsets[lineNum]);
-                    line = readLine(raf);
+                    line = editor.fileIO.readLineUtf8AtByte(raf, editor.fileIO.lineOffsets[lineNum]);
                 }
             } catch (Exception ignored) {
             } finally {

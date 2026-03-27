@@ -1096,7 +1096,21 @@ public class FileIO {
     editor.editOperators.lineCountDelta = 0;
 
     loadWindowAround(0, () -> finishInitialFileOpenWarmup(token), false);
-    ioHandler.post(() -> buildFileIndex());
+    ioHandler.post(() -> {
+      buildFileIndex();
+      editor.post(() -> {
+        int total;
+        synchronized (lineOffsetsLock) {
+          total = lineOffsets.length;
+        }
+        if (total > editor.heavyFeaturesThreshold) {
+          editor.bracketGuides.setBracketGuidesEnabled(false);
+          editor.indentGuides.setIndentGuidesEnabled(false);
+        } else {
+          editor.bracketCache.scanFileAsync();
+        }
+      });
+    });
     editor.requestLayout();
     editor.invalidate();
   }

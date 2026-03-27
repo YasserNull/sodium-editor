@@ -27,6 +27,7 @@ public class IndentGuides {
   // Indent guide intervals
   public final List<int[]> indentGuideIntervals = new ArrayList<>();
   public boolean indentGuideIntervalsDirty = true;
+  private boolean buildInProgress = false;
 
   // Buffers for drawing
   public float[] guideSeenXBuffer;
@@ -49,6 +50,9 @@ public class IndentGuides {
   public void setIndentGuidesEnabled(boolean enabled) {
     if (this.isIndentGuidesEnabled == enabled) return;
     this.isIndentGuidesEnabled = enabled;
+    if (enabled) {
+      markIntervalsDirty();
+    }
     editor.invalidate();
   }
 
@@ -93,57 +97,113 @@ public class IndentGuides {
    * Rebuilds indent guide intervals if needed.
    */
   public void rebuildIndentGuideIntervalsIfNeeded() {
-    if (!indentGuideIntervalsDirty) return;
-    indentGuideIntervalsDirty = false;
-    indentGuideIntervals.clear();
+    if (!indentGuideIntervalsDirty || buildInProgress) return;
+    if (!isIndentGuidesEnabled || !editor.isIndentationBlocksEnabled) return;
+    
+    buildInProgress = true;
+    final int totalLines = editor.getLinesCount();
+    if (totalLines <= 0) {
+      buildInProgress = false;
+      indentGuideIntervalsDirty = false;
+      indentGuideIntervals.clear();
+      return;
+    }
 
-    int totalLines = editor.getLinesCount();
-    if (totalLines <= 0) return;
+    editor.fileIO.ioHandler.post(() -> {
+      List<int[]> newIntervals = new ArrayList<>();
+      int start = -1;
+      
+      // Use direct file access for faster scan if possible
+      java.io.RandomAccessFile raf = null;
+      try {
+        if (editor.fileIO.isIndexReady && editor.fileIO.sourceFile != null && editor.fileIO.sourceFile.exists()) {
+          raf = new java.io.RandomAccessFile(editor.fileIO.sourceFile, "r");
+        }
 
-    int start = -1;
-    for (int i = 0; i < totalLines; i++) {
-      String line = editor.getLineTextForRender(i);
-      if (line == null || line.trim().isEmpty()) continue;
+        for (int i = 0; i < totalLines; i++) {
+          String line = getLineTextForScan(i, raf);
+          if (line == null || line.trim().isEmpty()) {
+            if (start >= 0) {
+              newIntervals.add(new int[] {start, i - 1});
+              start = -1;
+            }
+            continue;
+          }
 
-      int spaces = 0;
-      for (int j = 0; j < line.length(); j++) {
-        char c = line.charAt(j);
-        if (c == ' ') spaces++;
-        else if (c == '\t') spaces += TextRender.DEFAULT_TAB_SIZE_SPACES;
-        else break;
-      }
+          int spaces = 0;
+          for (int j = 0; j < line.length(); j++) {
+            char c = line.charAt(j);
+            if (c == ' ') spaces++;
+            else if (c == '\t') spaces += TextRender.DEFAULT_TAB_SIZE_SPACES;
+            else break;
+          }
 
-      if (spaces >= INDENT_BLOCK_UNIT.length()) {
-        if (start < 0) start = i;
-      } else {
+          if (spaces >= INDENT_BLOCK_UNIT.length()) {
+            if (start < 0) start = i;
+          } else {
+            if (start >= 0) {
+              newIntervals.add(new int[] {start, i - 1});
+              start = -1;
+            }
+          }
+        }
+
         if (start >= 0) {
-          indentGuideIntervals.add(new int[] {start, i - 1});
-          start = -1;
+          newIntervals.add(new int[] {start, totalLines - 1});
+        }
+
+        if (!newIntervals.isEmpty()) {
+          Collections.sort(newIntervals, (a, b) -> Integer.compare(a[0], b[0]));
+
+          int write = 0;
+          int[] cur = newIntervals.get(0);
+          for (int i = 1; i < newIntervals.size(); i++) {
+            int[] nxt = newIntervals.get(i);
+            if (nxt[0] <= cur[1] + 1) {
+              cur[1] = Math.max(cur[1], nxt[1]);
+            } else {
+              newIntervals.set(write++, cur);
+              cur = nxt;
+            }
+          }
+          newIntervals.set(write++, cur);
+          while (newIntervals.size() > write)
+            newIntervals.remove(newIntervals.size() - 1);
+        }
+      } catch (Exception e) {
+        e.printStackTrace();
+      } finally {
+        if (raf != null) {
+          try { raf.close(); } catch (Exception ignored) {}
         }
       }
-    }
 
-    if (start >= 0) {
-      indentGuideIntervals.add(new int[] {start, totalLines - 1});
-    }
+      final List<int[]> finalIntervals = newIntervals;
+      editor.post(() -> {
+        indentGuideIntervals.clear();
+        indentGuideIntervals.addAll(finalIntervals);
+        indentGuideIntervalsDirty = false;
+        buildInProgress = false;
+        editor.invalidate();
+      });
+    });
+  }
 
-    if (indentGuideIntervals.isEmpty()) return;
-    Collections.sort(indentGuideIntervals, (a, b) -> Integer.compare(a[0], b[0]));
-
-    int write = 0;
-    int[] cur = indentGuideIntervals.get(0);
-    for (int i = 1; i < indentGuideIntervals.size(); i++) {
-      int[] nxt = indentGuideIntervals.get(i);
-      if (nxt[0] <= cur[1] + 1) {
-        cur[1] = Math.max(cur[1], nxt[1]);
-      } else {
-        indentGuideIntervals.set(write++, cur);
-        cur = nxt;
-      }
+  private String getLineTextForScan(int line, java.io.RandomAccessFile raf) {
+    String mod = editor.textRender.modifiedLines.get(line);
+    if (mod != null) return mod;
+    int winStart = editor.textRender.windowStartLine;
+    int winEnd = winStart + editor.textRender.linesWindow.size();
+    if (line >= winStart && line < winEnd) {
+      return editor.getLineFromWindowLocal(line - winStart);
     }
-    indentGuideIntervals.set(write++, cur);
-    while (indentGuideIntervals.size() > write)
-      indentGuideIntervals.remove(indentGuideIntervals.size() - 1);
+    if (raf != null && editor.fileIO.isIndexReady) {
+      try {
+        long offset = editor.fileIO.lineOffsets[line];
+        return editor.fileIO.readLineUtf8AtByte(raf, offset);
+      } catch (Exception ignored) {}
+    }
+    return null;
   }
 
   /**
