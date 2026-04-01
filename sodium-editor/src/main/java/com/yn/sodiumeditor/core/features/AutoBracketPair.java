@@ -9,7 +9,7 @@ public class AutoBracketPair {
   private final SodiumEditor editor;
 
   // Auto-pairing state
-  public boolean isAutoPairingEnabled = false;
+  public boolean isAutoPairingEnabled = true;
 
   public AutoBracketPair(SodiumEditor editor) {
     this.editor = editor;
@@ -27,17 +27,45 @@ public class AutoBracketPair {
    * Inserts closing bracket/quote if an opening one was typed.
    */
   public void handleAutoPairing(String text) {
-    if (!isAutoPairingEnabled || text == null || text.length() == 0 || text.length() >= 100) return;
+    if (!isAutoPairingEnabled || text == null || text.length() != 1) return;
 
-    char c = text.charAt(text.length() - 1);
-    String closing = getClosingPair(c);
+    char typedChar = text.charAt(0);
+    String ln = editor.getLineTextForRender(editor.cursor.cursorLine);
+    if (ln == null) return;
+    
+    int pos = editor.cursor.cursorChar;
+    char charAfter = (pos < ln.length()) ? ln.charAt(pos) : 0;
 
+    // Smart Skip: If typed char is same as char after cursor (e.g. typing closing quote), 
+    // just move cursor forward instead of inserting.
+    if (typedChar == charAfter && isClosingPair(typedChar)) {
+        // Check if we just inserted this pair or if it's already there
+        // Actually, common IDE behavior is to just overtype if it's a closing bracket/quote
+        editor.editOperators.deleteCharAtCursor(); // Remove the just-inserted duplicate
+        editor.cursor.moveCursorRight(); // Move over existing
+        return;
+    }
+
+    String closing = getClosingPair(typedChar);
     if (closing != null) {
+      // Smart Quote: Don't add pair if we are inside a string or it looks like a closing quote
+      if ((typedChar == '"' || typedChar == '\'') && isInsideQuotes(ln, pos - 1)) {
+          return; 
+      }
+      
       editor.editOperators.insertTextAtCursor(closing);
       for (int i = 0; i < closing.length(); i++) {
         editor.cursor.moveCursorLeft();
       }
     }
+  }
+  
+  private boolean isInsideQuotes(String line, int pos) {
+      int quotes = 0;
+      for (int i = 0; i < pos; i++) {
+          if (line.charAt(i) == '"' && (i == 0 || line.charAt(i-1) != '\\')) quotes++;
+      }
+      return (quotes % 2) != 0;
   }
 
   /**
@@ -76,7 +104,7 @@ public class AutoBracketPair {
    * Checks if a character is a closing bracket/quote.
    */
   public boolean isClosingPair(char c) {
-    return c == ')' || c == '}' || c == ']' || c == '"' || c == '\'' || c == '`' || c == '*';
+    return c == ')' || c == '}' || c == ']' || c == '"' || c == '\'' || c == '`';
   }
 
   /**

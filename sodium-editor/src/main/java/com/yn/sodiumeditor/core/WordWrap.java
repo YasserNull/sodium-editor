@@ -1110,6 +1110,9 @@ public class WordWrap {
       float x = editor.viewToTextX(viewX);
       int charIndex = editor.getCharIndexForX(line, x, pos.line);
       int clamped = Math.max(0, Math.min(charIndex, editor.getLogicalLineLength(pos.line, line)));
+      if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
+        clamped = editor.binaryRender.snapBinaryCursor(line, clamped, pos.line);
+      }
       return new EditOperators.CursorTarget(pos.line, clamped);
     }
     int[] starts = getWrapStartsForLine(pos.line, line);
@@ -1119,6 +1122,9 @@ public class WordWrap {
     float x = editor.viewToTextX(viewX);
     int charIndex = getCharIndexForXInRange(line, pos.line, segStart, segEnd, x);
     int clamped = Math.max(0, Math.min(charIndex, line.length()));
+    if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
+      clamped = editor.binaryRender.snapBinaryCursor(line, clamped, pos.line);
+    }
     return new EditOperators.CursorTarget(pos.line, clamped);
   }
 

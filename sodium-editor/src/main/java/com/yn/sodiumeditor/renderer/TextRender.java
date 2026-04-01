@@ -28,19 +28,24 @@ public class TextRender {
 
     // Reference to the parent SodiumEditor
     private final SodiumEditor editor;
+    private static final ThreadLocal<ArrayList<UnderlineSpan>> TL_UNDERLINES =
+        ThreadLocal.withInitial(ArrayList::new);
+    private static final ThreadLocal<Paint.FontMetrics> TL_FONT_METRICS =
+        ThreadLocal.withInitial(Paint.FontMetrics::new);
+    private final RectF binaryTokenRect = new RectF();
 public final List<String> linesWindow = new ArrayList<>();
   public int windowStartLine = 0;
-  public int windowSize = 100; // 2000 yyy
-  public int prefetchLines = 100; // 1000 yyy
+  public int windowSize = 250; // 2000 yyy
+  public int prefetchLines = 150; // 1000 yyy
     public final LinkedHashMap<Integer, String> modifiedLines = new LinkedHashMap<>();
   public final LinkedHashMap<Integer, Float> lineWidthCache;
-  public int lineWidthCacheSize = 100; // 2000 yyy
+  public int lineWidthCacheSize = 400; // 2000 yyy
   public float currentMaxWindowLineWidth = 0f;
   public float globalMaxLineWidth = 0f;
   
   public int maxSyntaxLineLength = 4096;
   public int prefetchCols = 100;
-  public int colsWidthCacheSize = 100;
+  public int colsWidthCacheSize = 400;
   public final LinkedHashMap<Integer, Float> avgCharWidthCache =
       new LinkedHashMap<Integer, Float>(colsWidthCacheSize, 0.75f, true) {
         @Override
@@ -110,7 +115,7 @@ public final List<String> linesWindow = new ArrayList<>();
     // Visible character range
     public final int[] visibleCharRangeTmp = new int[2];
     public int visibleCharPadding = 2;
-    public boolean isPerformanceModeEnabled = false;
+    public boolean isPerformanceModeEnabled = true;
     public boolean isStableGlyphPositionsEnabled = true;
 
 
@@ -325,6 +330,76 @@ public final List<String> linesWindow = new ArrayList<>();
      * Draw a highlighted line with syntax highlighting, underlines, and animations
      */
     public void drawHighlightedLine(Canvas canvas, String line, int globalLine, float y) {
+    if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
+        getVisibleCharRangeForLine(line, globalLine, visibleCharRangeTmp);
+        int visibleStart = visibleCharRangeTmp[0];
+        int visibleEnd   = visibleCharRangeTmp[1];
+        if (visibleEnd > visibleStart) {
+            int sliceStart = editor.getStreamedLineSliceStart(globalLine);
+            int sliceEnd   = sliceStart + line.length();
+            int drawStart  = Math.max(visibleStart, sliceStart);
+            int drawEnd    = Math.min(visibleEnd,   sliceEnd);
+            if (drawEnd > drawStart) {
+                int relStart = Math.max(0, drawStart - sliceStart);
+                int relEnd   = Math.max(relStart, Math.min(line.length(), drawEnd - sliceStart));
+                int[] spans = editor.binaryRender.getBinaryTokenSpans(globalLine);
+                int[] tokenSpan = new int[2];
+                if (spans != null && editor.binaryRender.findBinaryTokenSpanInSpans(spans, relStart, tokenSpan)) {
+                    relStart = Math.min(relStart, tokenSpan[0]);
+                }
+                if (spans != null && editor.binaryRender.findBinaryTokenSpanInSpans(spans, Math.max(relStart, relEnd - 1), tokenSpan)) {
+                    relEnd = Math.max(relEnd, tokenSpan[1]);
+                    relEnd = Math.min(relEnd, line.length());
+                }
+
+                float x = (relStart > 0) ? paint.measureText(line, 0, relStart) : 0f;
+                if (spans == null || spans.length == 0) {
+                    canvas.drawText(line, relStart, relEnd, x, y, paint);
+                    return;
+                }
+
+                Paint.FontMetrics fm = TL_FONT_METRICS.get();
+                paint.getFontMetrics(fm);
+                float boxTop = y + fm.ascent - editor.binaryRender.binaryTokenPaddingY;
+                float boxBottom = y + fm.descent + editor.binaryRender.binaryTokenPaddingY;
+
+                int idx = relStart;
+                for (int sIdx = 0; sIdx + 1 < spans.length; sIdx += 2) {
+                    int s = spans[sIdx];
+                    int e = spans[sIdx + 1];
+                    if (e <= relStart) continue;
+                    if (s >= relEnd) break;
+                    if (s > idx) {
+                        canvas.drawText(line, idx, s, x, y, paint);
+                        x += paint.measureText(line, idx, s);
+                    }
+                    float tokenWidth = paint.measureText(line, s, e);
+                    float padX = editor.binaryRender.binaryTokenPaddingX;
+                    if (editor.binaryRender.binaryTokenBoxEnabled) {
+                        float left = x;
+                        float right = x + tokenWidth + (padX * 2f);
+                        float radius = editor.binaryRender.binaryTokenCornerRadius;
+                        binaryTokenRect.set(left, boxTop, right, boxBottom);
+                        if (radius > 0f) {
+                            canvas.drawRoundRect(binaryTokenRect, radius, radius, editor.binaryRender.getBinaryTokenFillPaint());
+                            canvas.drawRoundRect(binaryTokenRect, radius, radius, editor.binaryRender.getBinaryTokenStrokePaint());
+                        } else {
+                            canvas.drawRect(binaryTokenRect, editor.binaryRender.getBinaryTokenFillPaint());
+                            canvas.drawRect(binaryTokenRect, editor.binaryRender.getBinaryTokenStrokePaint());
+                        }
+                    }
+                    float textX = x + padX;
+                    canvas.drawText(line, s, e, textX, y, paint);
+                    x += tokenWidth + (padX * 2f);
+                    idx = e;
+                }
+                if (idx < relEnd) {
+                    canvas.drawText(line, idx, relEnd, x, y, paint);
+                }
+            }
+        }
+        return;
+    }
         if (line.isEmpty()) {
             // Handle delete animation for empty lines
             if (globalLine == editor.charAnimation.delAnimLine
@@ -370,7 +445,8 @@ public final List<String> linesWindow = new ArrayList<>();
         }
 
         // Collect underlines
-        List<UnderlineSpan> combinedUnderlines = new ArrayList<>();
+        ArrayList<UnderlineSpan> combinedUnderlines = TL_UNDERLINES.get();
+        combinedUnderlines.clear();
         if (editor.urlUnderline.isUrlUnderliningActive()) {
             List<UnderlineSpan> urlSpans = editor.urlUnderline.getUrlUnderlineSpansForLine(line, globalLine);
             if (urlSpans != null) combinedUnderlines.addAll(urlSpans);
@@ -379,7 +455,7 @@ public final List<String> linesWindow = new ArrayList<>();
             List<UnderlineSpan> pathSpans = editor.pathUnderline.getPathUnderlineSpansForLine(line, globalLine);
             if (pathSpans != null) combinedUnderlines.addAll(pathSpans);
         }
-        if (!combinedUnderlines.isEmpty()) {
+        if (combinedUnderlines.size() > 1) {
             Collections.sort(combinedUnderlines, (s1, s2) -> Integer.compare(s1.start, s2.start));
         }
 
@@ -510,7 +586,8 @@ public final List<String> linesWindow = new ArrayList<>();
         if (start >= end) return;
 
         // Collect underlines
-        List<UnderlineSpan> combinedUnderlines = new ArrayList<>();
+        ArrayList<UnderlineSpan> combinedUnderlines = TL_UNDERLINES.get();
+        combinedUnderlines.clear();
         if (editor.urlUnderline.isUrlUnderliningActive()) {
             List<UnderlineSpan> urlSpans = editor.urlUnderline.getUrlUnderlineSpansForLine(line, globalLine);
             if (urlSpans != null) combinedUnderlines.addAll(urlSpans);
@@ -519,7 +596,7 @@ public final List<String> linesWindow = new ArrayList<>();
             List<UnderlineSpan> pathSpans = editor.pathUnderline.getPathUnderlineSpansForLine(line, globalLine);
             if (pathSpans != null) combinedUnderlines.addAll(pathSpans);
         }
-        if (!combinedUnderlines.isEmpty()) {
+        if (combinedUnderlines.size() > 1) {
             Collections.sort(combinedUnderlines, (s1, s2) -> Integer.compare(s1.start, s2.start));
         }
 
@@ -609,53 +686,52 @@ public final List<String> linesWindow = new ArrayList<>();
      * Get visible character range for a line
      */
     public void getVisibleCharRangeForLine(String line, int globalLine, int[] out) {
-        if (line == null || out == null || out.length < 2) return;
-        int len = editor.getLogicalLineLength(globalLine, line);
-        if (len <= 0) {
-            out[0] = 0;
-            out[1] = 0;
-            return;
-        }
-        if (len > editor.textRender.maxSyntaxLineLength) {
-            getVisibleCharRangeForLineFast(line, globalLine, len, out);
-            return;
-        }
-        if (isStableGlyphPositionsEnabled) {
-            out[0] = 0;
-            out[1] = len;
-            return;
-        }
-        float viewLeft = isRtl ? 0f : editor.lineNumber.lineNumbersGutterWidth;
-        float viewRight = isRtl ? (editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth) : editor.getWidth();
-        float leftX = viewLeft + editor.getEffectiveScrollX() - editor.getTextStartX();
-        float rightX = viewRight + editor.getEffectiveScrollX() - editor.getTextStartX();
+    if (line == null || out == null || out.length < 2) return;
+    int len = editor.getLogicalLineLength(globalLine, line);
+    if (len <= 0) { out[0] = 0; out[1] = 0; return; }
 
-        int start = editor.getCharIndexForX(line, leftX, globalLine);
-        int end = editor.getCharIndexForX(line, rightX, globalLine);
-        if (end < start) {
-            int t = start;
-            start = end;
-            end = t;
-        }
-
-        int pad = visibleCharPadding;
-        start = Math.max(0, start - pad);
-        end = Math.min(len, end + pad);
-        out[0] = start;
-        out[1] = end;
-        if (globalLine <= 2 && (start > 0 || end < len)) {
-            editor.logRender(
-                "visibleRange",
-                "visibleRange line=" + globalLine
-                    + " len=" + len
-                    + " start=" + start
-                    + " end=" + end
-                    + " scrollX=" + editor.scroll.scrollX
-                    + " effectiveScrollX=" + editor.getEffectiveScrollX()
-                    + " textStartX=" + editor.getTextStartX(),
-                200);
-        }
+    if (len > editor.textRender.maxSyntaxLineLength) {
+        getVisibleCharRangeForLineFast(line, globalLine, len, out);
+        return;
     }
+
+    // CRITICAL FIX: binary mode must NEVER skip culling.
+    // isStableGlyphPositionsEnabled was designed for normal text glyph stability,
+    // but binary tokens are pure ASCII — no shaping, no reordering needed.
+    // Skipping culling here means a 1000-byte line = 5000-char string drawn in full every frame.
+    boolean skipCull = isStableGlyphPositionsEnabled
+                       && !editor.binaryRender.isBinarySafeRenderingEnabled();
+    if (skipCull) {
+        out[0] = 0;
+        out[1] = len;
+        return;
+    }
+
+    float viewLeft  = isRtl ? 0f : editor.lineNumber.lineNumbersGutterWidth;
+    float viewRight = isRtl
+        ? (editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth)
+        : editor.getWidth();
+    float leftX  = viewLeft  + editor.getEffectiveScrollX() - editor.getTextStartX();
+    float rightX = viewRight + editor.getEffectiveScrollX() - editor.getTextStartX();
+
+    int start, end;
+
+    if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
+        // Binary fast path: all tokens are fixed-width ASCII — use avg char width
+        float avg = editor.textRender.paint.measureText("X"); // monospace: single char is enough
+        if (avg <= 0f) avg = paint.measureText(" ");
+        start = (int) Math.floor(leftX  / avg);
+        end   = (int) Math.ceil (rightX / avg);
+    } else {
+        start = editor.getCharIndexForX(line, leftX,  globalLine);
+        end   = editor.getCharIndexForX(line, rightX, globalLine);
+    }
+
+    if (end < start) { int t = start; start = end; end = t; }
+    int pad = visibleCharPadding;
+    out[0] = Math.max(0,   start - pad);
+    out[1] = Math.min(len, end   + pad);
+}
 
     /**
      * Get visible character range for a line (fast version for long lines)
@@ -776,7 +852,9 @@ public final List<String> linesWindow = new ArrayList<>();
             Paint segmentPaint, int fadeStart, int fadeEnd, float fadeAlpha) {
         if (start >= end) return 0f;
         boolean hasFade = fadeStart >= 0 && fadeEnd > fadeStart && fadeAlpha < 1f;
-        if (hasFade && containsArabicScript(line, start, end)) {
+if (hasFade
+        && !editor.binaryRender.isBinarySafeRenderingEnabled()
+        && containsArabicScript(line, start, end)) {
             int spaceScale = editor.getVisualSpaceScale();
             if (spaceScale > 1 || line.indexOf('\t', start) >= 0) {
                 return drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, segmentPaint, 1f);
@@ -980,7 +1058,8 @@ public final List<String> linesWindow = new ArrayList<>();
             int fadeStart, int fadeEnd, float fadeAlpha, boolean isPath) {
         if (start >= end) return;
 
-        Paint.FontMetrics fm = textPaint.getFontMetrics();
+        Paint.FontMetrics fm = TL_FONT_METRICS.get();
+        textPaint.getFontMetrics(fm);
         float underlineY = baselineY + (fm.descent * 0.5f);
         underlineY = Math.max(lineTop + 1f, Math.min(underlineY, lineBottom - 2f));
 

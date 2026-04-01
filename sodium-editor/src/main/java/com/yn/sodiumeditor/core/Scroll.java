@@ -2,6 +2,7 @@ package com.yn.sodiumeditor.core;
 
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.Stretch;
+import com.yn.sodiumeditor.core.Edge;
 import android.animation.ValueAnimator;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
@@ -53,6 +54,8 @@ public class Scroll {
 
   // Stretch delegate
   public final Stretch stretch;
+  // Edge effect delegate
+  public final Edge edge;
 
   // Scroll bar state
   public boolean scrollBarEnabled = true;
@@ -103,6 +106,7 @@ public boolean scrollerIsScrolling = false;
 
     // Initialize Stretch
     stretch = new Stretch(editor);
+    edge = new Edge(editor);
 
   }
 
@@ -139,13 +143,9 @@ public boolean scrollerIsScrolling = false;
     
     float maxX = 0f;
     if (!editor.wordWrap.isWordWrapEnabled) {
-      if (dragMaxScrollX < 0f) {
-        dragMaxScrollX = getMaxScrollXForClamp();
-      } else {
-        float freshMax = getMaxScrollXForClamp();
-        if (freshMax > dragMaxScrollX) dragMaxScrollX = freshMax;
-      }
-      maxX = dragMaxScrollX;
+      // نحدث الحد الأقصى دائماً ليشمل المساحة الوهمية
+      maxX = getMaxScrollXForClamp();
+      dragMaxScrollX = maxX;
     }
     
     float maxY = getMaxScrollYForClamp();
@@ -153,22 +153,35 @@ public boolean scrollerIsScrolling = false;
     float nextY = scrollY + dy;
 
     // Stretch overscroll
-    if (stretch.stretchOverscrollEnabled) {
+    float minX = 0f; // العودة للصفر (لا مساحة قبل البداية)
+    if (stretch.stretchOverscrollEnabled || edge.edgeEffectEnabled) {
       if (!editor.wordWrap.isWordWrapEnabled) {
-        if (nextX < 0f && dx < 0f) {
+        if (nextX < minX && dx < 0f) {
+          android.util.Log.d("SodiumScroll", "Trigger pullLeft: dx=" + dx);
           stretch.pullStretchX(dx, false);
-          nextX = 0f;
+          edge.pullLeft(dx, e2.getY());
+          nextX = minX;
         } else if (nextX > maxX && dx > 0f) {
+          android.util.Log.d("SodiumScroll", "Trigger pullRight: dx=" + dx);
           stretch.pullStretchX(dx, true);
+          edge.pullRight(dx, e2.getY());
           nextX = maxX;
+        } else {
+          edge.releaseHorizontal();
         }
       }
       if (nextY < 0f && dy < 0f) {
+        android.util.Log.d("SodiumScroll", "Trigger pullTop: dy=" + dy);
         stretch.pullStretchY(dy, false);
+        edge.pullTop(dy, e2.getX());
         nextY = 0f;
       } else if (nextY > maxY && dy > 0f) {
+        android.util.Log.d("SodiumScroll", "Trigger pullBottom: dy=" + dy);
         stretch.pullStretchY(dy, true);
+        edge.pullBottom(dy, e2.getX());
         nextY = maxY;
+      } else {
+        edge.releaseVertical();
       }
     } else {
       if (!editor.wordWrap.isWordWrapEnabled) {
@@ -177,6 +190,8 @@ public boolean scrollerIsScrolling = false;
           nextX = scrollX;
         }
       }
+      edge.releaseVertical();
+      edge.releaseHorizontal();
     }
 
     scrollY=nextY;
@@ -210,12 +225,7 @@ public boolean scrollerIsScrolling = false;
     int startX = Math.round(scrollX);
     int startY = Math.round(scrollY);
     int minX = 0;
-    int maxX =
-        editor.wordWrap.isWordWrapEnabled
-            ? 0
-            : Math.max(
-                0,
-                Math.round(editor.textRender.globalMaxLineWidth - (editor.getWidth() - editor.getTextStartX())));
+    int maxX = Math.round(getMaxScrollXForClamp());
     int minY = 0;
 
     float maxScrollYFloat;
@@ -346,6 +356,10 @@ public boolean scrollerIsScrolling = false;
    */
   public void drawStretch(android.graphics.Canvas canvas) {
     stretch.drawStretch(canvas);
+  }
+
+  public void drawEdge(android.graphics.Canvas canvas) {
+    edge.draw(canvas);
   }
 
   /**
@@ -491,11 +505,38 @@ public boolean scrollerIsScrolling = false;
   }
 
   public void setScrollPosition(float x, float y) {
-    scrollX =x;
-     scrollY =y;
-    clampScrollX();
-    clampScrollY();
-    editor.invalidate();
+    smoothScrollTo(x, y);
+  }
+
+  public void smoothScrollTo(float targetX, float targetY) {
+    abortAnimation();
+    
+    float startX = scrollX;
+    float startY = scrollY;
+    
+    // Clamp targets
+    float maxX = getMaxScrollXForClamp();
+    float maxY = getMaxScrollYForClamp();
+    float tx = Math.max(0, Math.min(targetX, maxX));
+    float ty = Math.max(0, Math.min(targetY, maxY));
+    
+    if (Math.abs(tx - startX) < 1f && Math.abs(ty - startY) < 1f) {
+        scrollX = tx;
+        scrollY = ty;
+        editor.invalidate();
+        return;
+    }
+
+    flingStopAnimator = ValueAnimator.ofFloat(0f, 1f);
+    flingStopAnimator.setDuration(250);
+    flingStopAnimator.setInterpolator(new DecelerateInterpolator());
+    flingStopAnimator.addUpdateListener(animation -> {
+        float t = (float) animation.getAnimatedValue();
+        scrollX = startX + (tx - startX) * t;
+        scrollY = startY + (ty - startY) * t;
+        editor.invalidate();
+    });
+    flingStopAnimator.start();
   }
 
   public void setScrollSensitivity(float sensitivity) {
@@ -599,15 +640,16 @@ public boolean scrollerIsScrolling = false;
      scrollX =0f;
       return;
     }
+    float min = 0f;
     float max = (editor.pointerDown && dragMaxScrollX >= 0f) ? dragMaxScrollX : getMaxScrollXForClamp();
     boolean allowFlingOverscroll = flingBounceEnabled && scrollerIsScrolling;
     if (allowFlingOverscroll) {
       int over = getFlingOverScrollX();
-      if ( scrollX < -over) scrollX =-over;
+      if ( scrollX < min - over) scrollX = min - over;
       if ( scrollX > max + over) scrollX =max + over;
       return;
     }
-    if ( scrollX < 0) scrollX =0;
+    if ( scrollX < min) scrollX = min;
     if ( scrollX > max) scrollX =max;
   }
 
@@ -616,20 +658,19 @@ public boolean scrollerIsScrolling = false;
   
   public float getMaxScrollXForClamp() {
     if (editor.wordWrap.isWordWrapEnabled) return 0f;
+    
+    // استخدم العرض الأقصى المتاح حالياً
     float rawMaxWidth = editor.textRender.globalMaxLineWidth;
-    if (rawMaxWidth > maxLineWidthForScroll) {
-      maxLineWidthForScroll = rawMaxWidth;
-    }
     float textStartX = editor.getTextStartX();
-    if (textStartX > maxTextStartXForScroll) {
-      maxTextStartXForScroll = textStartX;
-    }
-    float effectiveTextStartX = Math.max(textStartX, maxTextStartXForScroll);
-    float candidateMax = Math.max(0f, maxLineWidthForScroll - (editor.getWidth() - effectiveTextStartX));
-    if (candidateMax > maxScrollXForScroll) {
-      maxScrollXForScroll = candidateMax;
-    }
-    return maxScrollXForScroll;
+    
+    float extraSpace = 100f; // المساحة الوهمية الإضافية
+    float candidateMax = Math.max(0f, (rawMaxWidth + extraSpace) - (editor.getWidth() - textStartX));
+    
+    // نقوم بتحديث القيم المخزنة فقط إذا زاد حجم النص فعلياً
+    if (rawMaxWidth > maxLineWidthForScroll) maxLineWidthForScroll = rawMaxWidth;
+    
+    // نرجع القيمة المحسوبة مباشرة لضمان الدقة في الأنيميشن
+    return candidateMax;
   }
   public void scrollToLineFastForSelectAll(int line, int ch) {
     if (editor.wordWrap.isWordWrapEnabled && (!editor.wordWrap.wrapMetricsReady || editor.wordWrap.wrapLinePrefix == null)) {
@@ -694,9 +735,40 @@ public boolean scrollerIsScrolling = false;
   public void computeScroll() {
     // Delegate to Scroll for basic scroll handling
     if (scroller.computeScrollOffset()) {
+      float oldX = scrollX;
+      float oldY = scrollY;
       scrollX = scroller.getCurrX();
       scrollY = scroller.getCurrY();
       scrollerIsScrolling = true;
+      
+      // Hit boundaries during fling: absorb for edge effect and stretch
+      float maxX = getMaxScrollXForClamp();
+      float maxY = getMaxScrollYForClamp();
+      float velocity = scroller.getCurrVelocity();
+      
+      if (edge.edgeEffectEnabled) {
+        if (scrollY <= 0 && oldY > 0) {
+          android.util.Log.d("SodiumScroll", "Fling absorbTop: velocity=" + velocity);
+          edge.absorbTop(velocity);
+        } else if (scrollY >= maxY && oldY < maxY) {
+          android.util.Log.d("SodiumScroll", "Fling absorbBottom: velocity=" + velocity);
+          edge.absorbBottom(velocity);
+        }
+        if (scrollX <= 0 && oldX > 0) {
+          android.util.Log.d("SodiumScroll", "Fling absorbLeft: velocity=" + velocity);
+          edge.absorbLeft(velocity);
+        } else if (scrollX >= maxX && oldX < maxX) {
+          android.util.Log.d("SodiumScroll", "Fling absorbRight: velocity=" + velocity);
+          edge.absorbRight(velocity);
+        }
+      }
+      if (stretch.stretchOverscrollEnabled) {
+        if (scrollY <= 0 && oldY > 0) stretch.absorbStretchY(velocity, false);
+        else if (scrollY >= maxY && oldY < maxY) stretch.absorbStretchY(velocity, true);
+        if (scrollX <= 0 && oldX > 0) stretch.absorbStretchX(velocity, false);
+        else if (scrollX >= maxX && oldX < maxX) stretch.absorbStretchX(velocity, true);
+      }
+
       editor.removeCallbacks(delayedWindowCheck);
       editor.maybeKickWindowLoad(editor.getGlobalLineForY( scrollY));
       editor.postDelayed(delayedWindowCheck, 40);
@@ -709,6 +781,7 @@ public boolean scrollerIsScrolling = false;
         if (stretch.stretchOverscrollEnabled) {
           stretch.releaseStretch();
         }
+        edge.releaseAll();
         if (flingBounceEnabled) {
           int maxX = Math.round(getMaxScrollXForClamp());
           int maxY = Math.round(getMaxScrollYForClamp());
@@ -791,6 +864,10 @@ public boolean scrollerIsScrolling = false;
     stretch.releaseStretch();
   }
 
+  public void releaseEdge() {
+    edge.releaseAll();
+  }
+
   // ========================================================================
   // Scroll Helper Methods
   // ========================================================================
@@ -845,19 +922,20 @@ public boolean scrollerIsScrolling = false;
     float visibleTop = scrollY;
     float visibleBottom = scrollY + effectiveVisibleHeight;
 
-    if (cursorYBottom > visibleBottom) scrollY = cursorYBottom - (viewHeight - bottomPadding);
-    else if (cursorYTop < visibleTop) scrollY = cursorYTop;
+    float newScrollY = scrollY;
+    if (cursorYBottom > visibleBottom) newScrollY = cursorYBottom - (viewHeight - bottomPadding);
+    else if (cursorYTop < visibleTop) newScrollY = cursorYTop;
 
     if (editor.keyboardHeight > 0) {
       float keyboardTop = editor.getHeight() - editor.keyboardHeight;
       float paddingAboveKeyboard = editor.getKeyboardBarrierPadding();
       float currentCursorViewY = cursorYBottom - scrollY;
       if (currentCursorViewY >= keyboardTop - paddingAboveKeyboard) {
-        scrollY = cursorYBottom - (editor.getHeight() - editor.keyboardHeight - paddingAboveKeyboard);
+        newScrollY = cursorYBottom - (editor.getHeight() - editor.keyboardHeight - paddingAboveKeyboard);
       }
     }
-    clampScrollY();
-
+    
+    float newScrollX = scrollX;
     if (!editor.wordWrap.isWordWrapEnabled) {
       String line = editor.getLineTextForRender(editor.cursor.cursorLine);
       int safeChar = Math.min(editor.cursor.cursorChar, editor.getLogicalLineLength(editor.cursor.cursorLine, line));
@@ -880,26 +958,15 @@ public boolean scrollerIsScrolling = false;
       float maxEffective = editor.textRender.isRtl ? 0f : max;
       if (effectiveScrollX < minEffective) effectiveScrollX = minEffective;
       if (effectiveScrollX > maxEffective) effectiveScrollX = maxEffective;
-      scrollX = editor.textRender.isRtl ? -effectiveScrollX : effectiveScrollX;
+      newScrollX = editor.textRender.isRtl ? -effectiveScrollX : effectiveScrollX;
     } else {
-      scrollX = 0f;
+      newScrollX = 0f;
     }
 
-    clampScrollX();
-    editor.logRender(
-        "keepCursorVisible",
-        "keepCursorVisible scrollX=" + scrollX
-            + " effectiveScrollX=" + editor.getEffectiveScrollX()
-            + " cursorLine=" + editor.cursor.cursorLine
-            + " cursorChar=" + editor.cursor.cursorChar
-            + " visualIndex=" + cursorVisualIndex,
-        200);
-    boolean scrollChanged =
-        Math.abs(scrollX - oldScrollX) > 0.5f || Math.abs(scrollY - oldScrollY) > 0.5f;
-    if (scrollChanged) {
-      editor.invalidate();
+    if (Math.abs(newScrollX - oldScrollX) > 1f || Math.abs(newScrollY - oldScrollY) > 1f) {
+        smoothScrollTo(newScrollX, newScrollY);
     } else {
-      editor.invalidateCursorArea();
+        editor.invalidateCursorArea();
     }
   }
 

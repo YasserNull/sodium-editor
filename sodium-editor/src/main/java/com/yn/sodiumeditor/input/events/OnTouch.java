@@ -214,6 +214,48 @@ public class OnTouch {
             editor.fileIO.ensureLineInWindow(line, true);
             String ln = editor.getLineTextForRender(line);
             int clamped = Math.max(0, Math.min(target.ch, ln.length()));
+            if (editor.codeFold.isCodeFoldingEnabled) {
+              CodeFold.FoldRange range = editor.codeFold.getFoldRangeAtStart(line);
+              if (range != null && range.collapsed) {
+                float[] bounds = new float[2];
+                if (editor.codeFold.getFoldPlaceholderBounds(line, ln, bounds)) {
+                  float x = editor.viewToTextX(ex);
+                  if (editor.wordWrap.isWordWrapEnabled) {
+                    int[] starts = editor.wordWrap.getWrapStartsForLine(line, ln);
+                    int seg =
+                        editor.wordWrap.getWrapSegmentIndexForChar(
+                            starts, Math.max(0, Math.min(target.ch, ln.length())));
+                    int segStart = editor.wordWrap.getWrapSegmentStart(starts, seg);
+                    x = x + editor.measureTextWithVisualSpaces(ln, 0, segStart, editor.textRender.paint);
+                  }
+                  float xStart = bounds[0];
+                  float placeholderWidth =
+                      Math.max(0f, editor.textRender.paint.measureText(CodeFold.FOLD_PLACEHOLDER_TEXT));
+                  float closeStart = xStart + placeholderWidth;
+                  String endLineText = editor.getLineTextForRender(range.endLine);
+                  float closeWidth = editor.textRender.paint.measureText(String.valueOf(range.closeChar));
+                  int closeIdx = editor.codeFold.resolveCloseCharIndex(range, endLineText);
+                  int suffixStart =
+                      range.isBlockComment ? (closeIdx >= 0 ? closeIdx + 2 : -1)
+                          : (closeIdx >= 0 ? closeIdx + 1 : -1);
+                  if (x <= xStart) {
+                    clamped = Math.max(0, range.openCharIndex);
+                  } else if (x <= closeStart + closeWidth || suffixStart < 0 || endLineText == null) {
+                    clamped = (closeIdx >= 0) ? (closeIdx + 1) : 0;
+                  } else {
+                    float xSuffix = Math.max(0f, x - (closeStart + closeWidth));
+                    int idx =
+                        editor.getCharIndexForXInRange(
+                            endLineText,
+                            range.endLine,
+                            suffixStart,
+                            endLineText.length(),
+                            xSuffix);
+                    clamped = Math.max(suffixStart, Math.min(idx, endLineText.length()));
+                  }
+                }
+              }
+            }
             editor.selection.updateLongPressSelection(line, clamped);
             editor.popup.hidePopup();
             editor.invalidate();
@@ -252,6 +294,8 @@ public class OnTouch {
       case MotionEvent.ACTION_UP:
         editor.caret.mainHandler.removeCallbacks(editor.autoScrollRunnable);
         editor.scroll.dragMaxScrollX = -1f;
+        editor.scroll.edge.releaseAll();
+        editor.scroll.stretch.releaseStretch();
 
         if (editor.scroll.draggingScrollBar) {
           editor.scroll.draggingScrollBar = false;
@@ -396,6 +440,8 @@ public class OnTouch {
         editor.autoCompletion.clearActiveSuggestion(); // Clear suggestion on touch cancel
         editor.scroll.dragMaxScrollX = -1f;
         editor.scroll.draggingScrollBar = false;
+        editor.scroll.edge.releaseAll();
+        editor.scroll.stretch.releaseStretch();
         if (editor.scroll.scrollBarFadeEnabled) {
           editor.caret.mainHandler.removeCallbacks(editor.scroll.scrollBarHideRunnable);
         }

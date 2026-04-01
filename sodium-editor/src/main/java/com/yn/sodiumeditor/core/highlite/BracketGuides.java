@@ -799,26 +799,31 @@ public class BracketGuides {
   private static final class BracketSpanStack {
     int[] columns = new int[32];
     int[] startLines = new int[32];
+    int[] openLines = new int[32];
     char[] brackets = new char[32];
     int size = 0;
 
     void clear() { size = 0; }
 
-    void push(int column, int startLine, char bracket) {
+    void push(int column, int guideStartLine, int openLine, char bracket) {
       if (size >= columns.length) {
         int newCap = Math.max(32, size * 2);
         int[] newCols = new int[newCap];
         int[] newStarts = new int[newCap];
+        int[] newOpens = new int[newCap];
         char[] newBrackets = new char[newCap];
         System.arraycopy(columns, 0, newCols, 0, size);
         System.arraycopy(startLines, 0, newStarts, 0, size);
+        System.arraycopy(openLines, 0, newOpens, 0, size);
         System.arraycopy(brackets, 0, newBrackets, 0, size);
         columns = newCols;
         startLines = newStarts;
+        openLines = newOpens;
         brackets = newBrackets;
       }
       columns[size] = column;
-      startLines[size] = startLine;
+      startLines[size] = guideStartLine;
+      openLines[size] = openLine;
       brackets[size] = bracket;
       size++;
     }
@@ -827,13 +832,28 @@ public class BracketGuides {
 
     int topColumn() { return columns[size - 1]; }
     int topStartLine() { return startLines[size - 1]; }
+    int topOpenLine() { return openLines[size - 1]; }
     char topBracket() { return brackets[size - 1]; }
+
+    int findNearestOpenParenIndex() {
+      for (int i = size - 1; i >= 0; i--) {
+        char b = brackets[i];
+        if (b == '(' || b == '[') {
+          return i;
+        }
+      }
+      return -1;
+    }
   }
 
   private static final class BracketSpanScanState {
     boolean inBlockComment;
     int stringState;
     final BracketSpanStack stack = new BracketSpanStack();
+    boolean pendingParen;
+    int pendingParenOpenLine = -1;
+    int pendingParenCloseLine = -1;
+    int pendingParenColumn = -1;
   }
 
   private static final class SpanCollector {
@@ -973,18 +993,54 @@ public class BracketGuides {
       }
 
       if ((c == '{' || c == '}' || c == '(' || c == ')' || c == '[' || c == ']') && !Highlite.isEscaped(line, i)) {
+        if (state.pendingParen && c != '{') {
+          int spanStart = state.pendingParenOpenLine + 1;
+          int spanEnd = state.pendingParenCloseLine - 1;
+          if (spanStart <= spanEnd) {
+            collector.add(state.pendingParenColumn, spanStart, spanEnd, '(');
+          }
+          state.pendingParen = false;
+        }
         if (c == '{' || c == '(' || c == '[') {
-          int column = (c == '{') ? editor.getBraceGuideColumnForLine(line, globalLine, i, firstNonSpace) : i;
-          state.stack.push(column, globalLine, c);
+          int column;
+          if (c == '{') {
+            column = editor.getBraceGuideColumnForLine(line, globalLine, i, firstNonSpace);
+          } else {
+            column = (firstNonSpace >= 0) ? firstNonSpace : i;
+          }
+          int openLine = globalLine;
+          int guideStartLine;
+          if (c == '{') {
+            if (state.pendingParen) {
+              guideStartLine = state.pendingParenOpenLine + 1;
+              column = (state.pendingParenColumn >= 0) ? state.pendingParenColumn : column;
+              state.pendingParen = false;
+            } else {
+              guideStartLine = globalLine + 1;
+            }
+          } else {
+            guideStartLine = globalLine + 1;
+          }
+          state.stack.push(column, guideStartLine, openLine, c);
         } else {
           char open = (c == '}') ? '{' : (c == ')' ? '(' : '[');
           if (state.stack.size > 0 && state.stack.topBracket() == open) {
             int column = state.stack.topColumn();
-            int openLine = state.stack.topStartLine();
+            int guideStart = state.stack.topStartLine();
+            int openLine = state.stack.topOpenLine();
             state.stack.pop();
-            int spanStart = openLine + 1;
-            int spanEnd = globalLine - 1;
-            collector.add(column, spanStart, spanEnd, open);
+            if (open == '(') {
+              state.pendingParen = true;
+              state.pendingParenOpenLine = openLine;
+              state.pendingParenCloseLine = globalLine;
+              state.pendingParenColumn = column;
+            } else {
+              int spanStart = guideStart;
+              int spanEnd = globalLine - 1;
+              if (spanStart <= spanEnd) {
+                collector.add(column, spanStart, spanEnd, open);
+              }
+            }
           }
         }
       }
@@ -1058,7 +1114,7 @@ public class BracketGuides {
         state.stringState = cp.stringState;
         String seedLine = getLineTextForGuideScan(startLine, directLines, null);
         for (BracketGuideToken token : cp.stack) {
-          state.stack.push(token.column, startLine - 1, token.bracket);
+          state.stack.push(token.column, startLine, startLine, token.bracket);
         }
       }
 
@@ -1071,15 +1127,26 @@ public class BracketGuides {
         scanLineForSpans(text, line, state, collector);
       }
 
+      if (state.pendingParen) {
+        int spanStart = state.pendingParenOpenLine + 1;
+        int spanEnd = state.pendingParenCloseLine - 1;
+        if (spanStart <= spanEnd) {
+          collector.add(state.pendingParenColumn, spanStart, spanEnd, '(');
+        }
+        state.pendingParen = false;
+      }
+
       // Close any remaining spans to endLine
       while (state.stack.size > 0) {
         int column = state.stack.topColumn();
-        int openLine = state.stack.topStartLine();
+        int guideStart = state.stack.topStartLine();
         char bracket = state.stack.topBracket();
         state.stack.pop();
-        int spanStart = openLine + 1;
+        int spanStart = guideStart;
         int spanEnd = endLine;
-        collector.add(column, spanStart, spanEnd, bracket);
+        if (spanStart <= spanEnd) {
+          collector.add(column, spanStart, spanEnd, bracket);
+        }
       }
     } catch (Exception ignored) {
     }
@@ -1126,17 +1193,38 @@ public class BracketGuides {
       int drawStart = Math.max(start, s);
       int drawEnd = Math.min(end, e);
       if (drawStart > drawEnd) continue;
-      float top = editor.textRender.getDrawLineTop(drawStart);
-      float bottom = editor.textRender.getDrawLineTop(drawEnd) + editor.textRender.lineHeight;
       float x = getGuideXApproxFromColumn(bracketGuideSpanColumns[i]);
-      if (SodiumEditor.DEBUG_RENDER_LOGS) {
-        frameLineCount++;
-        frameTokenCount++;
+      int segStart = drawStart;
+      for (int line = drawStart; line <= drawEnd; line++) {
+        String ln = getLineTextForGuideScan(line, null, null);
+        if (ln != null && !editor.isWhitespaceAtX(ln, line, x)) {
+          if (segStart <= line - 1) {
+            float top = editor.textRender.getDrawLineTop(segStart);
+            float bottom = editor.textRender.getDrawLineTop(line - 1) + editor.textRender.lineHeight;
+            if (SodiumEditor.DEBUG_RENDER_LOGS) {
+              frameLineCount++;
+              frameTokenCount++;
+            }
+            bracketGuideSpanDrawPts[p++] = x;
+            bracketGuideSpanDrawPts[p++] = top;
+            bracketGuideSpanDrawPts[p++] = x;
+            bracketGuideSpanDrawPts[p++] = bottom;
+          }
+          segStart = line + 1;
+        }
       }
-      bracketGuideSpanDrawPts[p++] = x;
-      bracketGuideSpanDrawPts[p++] = top;
-      bracketGuideSpanDrawPts[p++] = x;
-      bracketGuideSpanDrawPts[p++] = bottom;
+      if (segStart <= drawEnd) {
+        float top = editor.textRender.getDrawLineTop(segStart);
+        float bottom = editor.textRender.getDrawLineTop(drawEnd) + editor.textRender.lineHeight;
+        if (SodiumEditor.DEBUG_RENDER_LOGS) {
+          frameLineCount++;
+          frameTokenCount++;
+        }
+        bracketGuideSpanDrawPts[p++] = x;
+        bracketGuideSpanDrawPts[p++] = top;
+        bracketGuideSpanDrawPts[p++] = x;
+        bracketGuideSpanDrawPts[p++] = bottom;
+      }
     }
 
     if (p > 0) {

@@ -25,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CodeFold {
 
     // --- Code Fold State ---
-    public boolean isCodeFoldingEnabled =false;
+    public boolean isCodeFoldingEnabled =true;
     public final ConcurrentHashMap<Integer, FoldRange> foldRanges = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, Boolean> pendingFoldComputations = new ConcurrentHashMap<>();
     public final ArrayList<int[]> foldIntervals = new ArrayList<>();
@@ -52,6 +52,13 @@ public class CodeFold {
     public float foldRippleRadius = 0f;
     public float foldRippleAlpha = 0f;
     public float foldRippleMaxRadius = 0f;
+    public ValueAnimator foldPlaceholderRippleAnimator;
+    public int foldPlaceholderRippleLine = -1;
+    public float foldPlaceholderRippleRadius = 0f;
+    public float foldPlaceholderRippleAlpha = 0f;
+    public float foldPlaceholderRippleMaxRadius = 0f;
+    public float foldPlaceholderRippleLeft = 0f;
+    public float foldPlaceholderRippleRight = 0f;
 
     // Constants
     public static final int INDENT_FOLD_SCAN_LIMIT = 2000;
@@ -108,6 +115,8 @@ public class CodeFold {
         if (existing != null) {
             existing.collapsed = !existing.collapsed;
             foldIntervalsDirty = true;
+            rebuildFoldIntervalsIfNeeded();
+            editor.scroll.clampScrollY();
             editor.invalidate();
             return true;
         }
@@ -123,6 +132,8 @@ public class CodeFold {
                 foldRanges.put(created.startLine, created);
                 if (created.isIndentFold) editor.indentGuides.markIntervalsDirty();
                 foldIntervalsDirty = true;
+                rebuildFoldIntervalsIfNeeded();
+                editor.scroll.clampScrollY();
                 editor.invalidate();
             });
         });
@@ -368,8 +379,18 @@ public class CodeFold {
         float placeholderBottom = lineBottom - padY;
 
         foldPlaceholderRect.set(placeholderLeft, placeholderTop, placeholderRight, placeholderBottom);
-        foldMarkerPaint.setColor(0xFFE0E0E0);
-        canvas.drawRoundRect(foldPlaceholderRect, foldPlaceholderCorner, foldPlaceholderCorner, foldMarkerPaint);
+        canvas.drawRoundRect(foldPlaceholderRect, foldPlaceholderCorner, foldPlaceholderCorner, foldPlaceholderPaint);
+        if (globalLine == foldPlaceholderRippleLine && foldPlaceholderRippleAlpha > 0f) {
+            int base = foldPlaceholderPaint.getColor();
+            int alpha = Math.min(255, Math.max(0, (int) (255f * foldPlaceholderRippleAlpha)));
+            foldRipplePaint.setColor((base & 0x00FFFFFF) | (alpha << 24));
+            float centerX = (placeholderLeft + placeholderRight) * 0.5f;
+            float centerY = (placeholderTop + placeholderBottom) * 0.5f;
+            int save = canvas.save();
+            canvas.clipRect(foldPlaceholderRect);
+            canvas.drawCircle(centerX, centerY, foldPlaceholderRippleRadius, foldRipplePaint);
+            canvas.restoreToCount(save);
+        }
         editor.textRender.paint.setUnderlineText(false);
         canvas.drawText(placeholderText, placeholderLeft, y, editor.textRender.paint);
 
@@ -460,6 +481,42 @@ public class CodeFold {
             }
         });
         foldRippleAnimator.start();
+    }
+
+    /**
+     * Start a ripple animation on the folded placeholder button.
+     */
+    public void startFoldPlaceholderRipple(int line, float left, float right) {
+        if (!isCodeFoldingEnabled) return;
+        foldPlaceholderRippleLine = line;
+        foldPlaceholderRippleLeft = left;
+        foldPlaceholderRippleRight = right;
+        float w = Math.max(1f, right - left);
+        foldPlaceholderRippleMaxRadius = Math.max(editor.textRender.lineHeight * 0.35f, w * 0.75f);
+        if (foldPlaceholderRippleAnimator != null) foldPlaceholderRippleAnimator.cancel();
+        foldPlaceholderRippleAnimator = ValueAnimator.ofFloat(0f, 1f);
+        foldPlaceholderRippleAnimator.setDuration(220);
+        foldPlaceholderRippleAnimator.setInterpolator(new DecelerateInterpolator());
+        foldPlaceholderRippleAnimator.addUpdateListener(a -> {
+            float t = (float) a.getAnimatedValue();
+            foldPlaceholderRippleRadius = foldPlaceholderRippleMaxRadius * t;
+            foldPlaceholderRippleAlpha = 0.5f * (1f - t);
+            editor.invalidate();
+        });
+        foldPlaceholderRippleAnimator.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                foldPlaceholderRippleAlpha = 0f;
+                foldPlaceholderRippleLine = -1;
+            }
+
+            @Override
+            public void onAnimationCancel(Animator animation) {
+                foldPlaceholderRippleAlpha = 0f;
+                foldPlaceholderRippleLine = -1;
+            }
+        });
+        foldPlaceholderRippleAnimator.start();
     }
 
     /**
@@ -1160,6 +1217,10 @@ public class CodeFold {
         foldRippleAlpha = 0f;
         foldRippleRadius = 0f;
         foldRippleLine = -1;
+        if (foldPlaceholderRippleAnimator != null) foldPlaceholderRippleAnimator.cancel();
+        foldPlaceholderRippleAlpha = 0f;
+        foldPlaceholderRippleRadius = 0f;
+        foldPlaceholderRippleLine = -1;
     }
 
     /**

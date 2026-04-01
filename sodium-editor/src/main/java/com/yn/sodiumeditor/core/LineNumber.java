@@ -251,7 +251,7 @@ public class LineNumber {
     }
 
     public void drawCurrentLineHighlightInGutter(Canvas canvas, float top, float bottom) {
-        if (!showLineNumbers || !highlightCurrentLineInGutter || lineNumbersGutterWidth <= 0f) return;
+        if (!showLineNumbers || !highlightCurrentLineInGutter || lineNumbersGutterWidth <= 0f || editor.selection.hasSelection) return;
         float left = getGutterStartX();
         float right = left + lineNumbersGutterWidth;
         float sep = gutterSeparatorWidth;
@@ -529,7 +529,7 @@ public class LineNumber {
 
     public void drawCurrentLineNumberUnwrapped(
             Canvas canvas, int firstVisibleIndex, int lastVisibleIndex) {
-        if (!showLineNumbers) return;
+        if (!showLineNumbers || editor.selection.hasSelection) return;
         if (editor.codeFold.isCodeFoldingEnabled && editor.codeFold.isLineHiddenByFold(editor.cursor.cursorLine)) return;
 
         int visibleIndex = editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.getVisibleIndexForGlobalLine(editor.cursor.cursorLine) : editor.cursor.cursorLine;
@@ -555,7 +555,7 @@ public class LineNumber {
 
     public void drawCurrentLineNumberWrapped(
             Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
-        if (!showLineNumbers) return;
+        if (!showLineNumbers || editor.selection.hasSelection) return;
         int visualIndex = editor.getVisualIndexForLineAndChar(editor.cursor.cursorLine, 0);
         if (visualIndex < firstVisualIndex || visualIndex > lastVisualIndex) return;
 

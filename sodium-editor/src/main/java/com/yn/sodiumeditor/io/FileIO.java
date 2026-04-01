@@ -249,7 +249,15 @@ public class FileIO {
                                     newStreamedSliceStarts.put(lineIndex, sliceStart);
                                 }
                             } else {
-                                String ln = readLineUtf8AtByte(raf, lineStart);
+                                String ln;
+                                if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
+                                    raf.seek(lineStart);
+                                    byte[] buf = new byte[lineLen];
+                                    if (lineLen > 0) raf.readFully(buf);
+                                    ln = editor.binaryRender.bytesToControlVisibleAndCacheSpans(buf, buf.length, lineIndex);
+                                } else {
+                                    ln = readLineUtf8AtByte(raf, lineStart);
+                                }
                                 if (debugLineLogs < 5) {
                                     String preview = ln;
                                     if (preview.length() > 80) preview = preview.substring(0, 80);
@@ -356,7 +364,7 @@ public class FileIO {
                                 String ln;
                                 if (lineLen > 0) {
                                     if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
-                                        ln = editor.binaryRender.bytesToControlVisible(buf, buf.length);
+                                        ln = editor.binaryRender.bytesToControlVisibleAndCacheSpans(buf, buf.length, lineIndex);
                                     } else {
                                         ln = new String(buf, fileCharset);
                                     }
@@ -967,7 +975,17 @@ public class FileIO {
                         int sliceStart = editor.textRender.streamedSliceTmp[0];
                         int sliceEnd = editor.textRender.streamedSliceTmp[1];
                         if (editor.isSingleByteCharset()) {
-                            ln = readLineSliceAtByte(raf, lineStart, lineByteLen, sliceStart, sliceEnd);
+                            if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
+                                int len = Math.max(0, Math.min(lineLen, sliceEnd) - sliceStart);
+                                byte[] buf = new byte[len];
+                                if (len > 0) {
+                                    raf.seek(lineStart + sliceStart);
+                                    raf.readFully(buf);
+                                }
+                                ln = editor.binaryRender.bytesToControlVisibleAndCacheSpans(buf, buf.length, cur);
+                            } else {
+                                ln = readLineSliceAtByte(raf, lineStart, lineByteLen, sliceStart, sliceEnd);
+                            }
                             editor.setStreamedLineInfo(cur, lineLen, sliceStart);
                         } else {
                             SodiumEditor.StreamedCharSlice slice =
@@ -976,7 +994,14 @@ public class FileIO {
                             editor.setStreamedLineInfo(cur, slice.length, sliceStart);
                         }
                     } else {
-                        ln = readLineUtf8AtByte(raf, lineStart);
+                        if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
+                            raf.seek(lineStart);
+                            byte[] buf = new byte[lineLen];
+                            if (lineLen > 0) raf.readFully(buf);
+                            ln = editor.binaryRender.bytesToControlVisibleAndCacheSpans(buf, buf.length, cur);
+                        } else {
+                            ln = readLineUtf8AtByte(raf, lineStart);
+                        }
                     }
                     out.put(cur, (ln == null) ? "" : ln);
                 }

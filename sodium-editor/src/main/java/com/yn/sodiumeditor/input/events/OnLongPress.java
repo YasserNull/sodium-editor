@@ -47,10 +47,59 @@ public class OnLongPress {
 
     String ln = editor.getLineFromWindowLocal(line - editor.textRender.windowStartLine);
     if (ln == null) ln = editor.getLineTextForRender(line);
+    int cursorLine = line;
     int charIndex = Math.max(0, Math.min(target.ch, ln.length()));
 
+    if (editor.codeFold.isCodeFoldingEnabled) {
+      com.yn.sodiumeditor.core.CodeFold.FoldRange range = editor.codeFold.getFoldRangeAtStart(line);
+      if (range != null && range.collapsed) {
+        float[] bounds = new float[2];
+        if (editor.codeFold.getFoldPlaceholderBounds(line, ln, bounds)) {
+          float xLocal = editor.viewToTextX(e.getX());
+          float x;
+          if (editor.wordWrap.isWordWrapEnabled) {
+            int[] starts = editor.wordWrap.getWrapStartsForLine(line, ln);
+            int seg =
+                editor.wordWrap.getWrapSegmentIndexForChar(
+                    starts, Math.max(0, Math.min(target.ch, ln.length())));
+            int segStart = editor.wordWrap.getWrapSegmentStart(starts, seg);
+            x = xLocal + editor.measureTextWithVisualSpaces(ln, 0, segStart, editor.textRender.paint);
+          } else {
+            x = xLocal;
+          }
+          float xStart = bounds[0];
+          float placeholderWidth =
+              Math.max(0f, editor.textRender.paint.measureText(com.yn.sodiumeditor.core.CodeFold.FOLD_PLACEHOLDER_TEXT));
+          float closeStart = xStart + placeholderWidth;
+          String endLineText = editor.getLineTextForRender(range.endLine);
+          float closeWidth = editor.textRender.paint.measureText(String.valueOf(range.closeChar));
+          int closeIdx = editor.codeFold.resolveCloseCharIndex(range, endLineText);
+          int suffixStart =
+              range.isBlockComment ? (closeIdx >= 0 ? closeIdx + 2 : -1)
+                  : (closeIdx >= 0 ? closeIdx + 1 : -1);
+          if (x <= xStart) {
+            charIndex = Math.max(0, range.openCharIndex);
+          } else if (x <= closeStart + closeWidth || suffixStart < 0 || endLineText == null) {
+            cursorLine = range.endLine;
+            charIndex = (closeIdx >= 0) ? (closeIdx + 1) : 0;
+          } else {
+            float xSuffix = Math.max(0f, x - (closeStart + closeWidth));
+            int idx =
+                editor.getCharIndexForXInRange(
+                    endLineText,
+                    range.endLine,
+                    suffixStart,
+                    endLineText.length(),
+                    xSuffix);
+            cursorLine = range.endLine;
+            charIndex = Math.max(suffixStart, Math.min(idx, endLineText.length()));
+          }
+        }
+      }
+    }
+
     // Set cursor position
-    editor.cursor.cursorLine = line;
+    editor.cursor.cursorLine = cursorLine;
     editor.cursor.cursorChar = charIndex;
 
     // Try smart selection, but show minimal popup even if it fails (e.g., empty line)

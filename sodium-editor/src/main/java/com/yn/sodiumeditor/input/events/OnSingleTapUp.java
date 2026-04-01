@@ -60,6 +60,10 @@ public class OnSingleTapUp {
         x = xLocal;
       }
       if (editor.isFoldPlaceholderHit(line, ln, x)) {
+        float[] bounds = new float[2];
+        if (editor.codeFold.getFoldPlaceholderBounds(line, ln, bounds)) {
+          editor.codeFold.startFoldPlaceholderRipple(line, bounds[0], bounds[1]);
+        }
         if (editor.codeFold.toggleFoldAtLine(line)) {
           editor.codeFold.startFoldMarkerRipple(line);
         }

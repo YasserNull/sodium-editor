@@ -39,6 +39,7 @@ public class ViewRender {
     int windowStart = editor.textRender.windowStartLine;
     int windowEnd = windowStart + editor.textRender.linesWindow.size() - 1;
     boolean fastScroll = editor.scroll.scrollerIsScrolling || editor.scroll.flingStopAnimator != null;
+    boolean binary = editor.binaryRender.isBinarySafeRenderingEnabled();
     
     // Calculate visible lines (what's actually on screen)
     int firstVisibleIndex = (int) (editor.scroll.scrollY / editor.textRender.lineHeight);
@@ -58,8 +59,10 @@ public class ViewRender {
     editor.bracketGuides.setFrameFastScroll(fastScroll);
     
     // Check if bracket guides can be drawn (cache is valid)
-    boolean shouldDrawBracketGuides = editor.bracketGuides.isBracketGuidesEnabled
-        && (editor.bracketGuides.showGuidesDuringFastScroll || !fastScroll);
+    boolean shouldDrawBracketGuides =
+        !binary
+            && editor.bracketGuides.isBracketGuidesEnabled
+            && (editor.bracketGuides.showGuidesDuringFastScroll || !fastScroll);
     
     if (editor.wordWrap.isWordWrapEnabled) {
       drawContentWrapped(canvas, shouldDrawBracketGuides);
@@ -71,7 +74,9 @@ public class ViewRender {
   }
   
   private void drawContentUnfolded(Canvas canvas, boolean drawBracketGuides) {
-    final boolean drawDecorations = editor.zoom.shouldDrawDecorations();
+    final boolean drawDecorations =
+        editor.zoom.shouldDrawDecorations()
+            && !editor.binaryRender.isBinarySafeRenderingEnabled();
     editor.logRender(
         "bracketGuidesFlags",
         "bracketGuides enabled=" + editor.bracketGuides.isBracketGuidesEnabled
@@ -151,14 +156,8 @@ public class ViewRender {
           editor.lineNumber.gutterSeparatorPaint);
     }
 
-    if (editor.currentLineHighlight.highlightCurrentLineInGutter
-        && editor.cursor.cursorLine >= firstVisibleLine
-        && editor.cursor.cursorLine <= lastVisibleLine
-        && (!editor.codeFold.isCodeFoldingEnabled || !editor.codeFold.isLineHiddenByFold(editor.cursor.cursorLine))) {
-      int drawIndex = editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.getVisibleIndexForGlobalLine(editor.cursor.cursorLine) : editor.cursor.cursorLine;
-      float top = Math.round(drawIndex * editor.textRender.lineHeight - editor.scroll.scrollY);
-      float bottom = top + editor.textRender.lineHeight;
-      editor.lineNumber.drawCurrentLineHighlightInGutter(canvas, top, bottom);
+    if (editor.currentLineHighlight.highlightCurrentLineInGutter) {
+      editor.currentLineHighlight.drawCurrentLineHighlightInGutter(canvas, 0f, 0f);
     }
 
     // --- 2. Draw line numbers (vertically scrolled) ---
@@ -246,7 +245,8 @@ public class ViewRender {
     }
 
     SodiumEditor.BracketMatch bracketMatchResult = null;
-    if (editor.bracketMatchManager.isBracketMatchingEnabled) {
+    if (!editor.binaryRender.isBinarySafeRenderingEnabled()
+        && editor.bracketMatchManager.isBracketMatchingEnabled) {
       bracketMatchResult = editor.bracketMatchManager.findAndCacheBracketMatch(firstVisibleLine, lastVisibleLine, directLines);
     }
 
@@ -273,7 +273,9 @@ public class ViewRender {
       editor.fileIO.populateDirectLinesForRange(hlStart, hlEnd, directLines);
     }
 
-    maybeEnsureHighlightCacheForRange(Math.max(editor.textRender.windowStartLine, hlStart), Math.min(winEnd, hlEnd), directLines);
+    if (!editor.binaryRender.isBinarySafeRenderingEnabled()) {
+      maybeEnsureHighlightCacheForRange(Math.max(editor.textRender.windowStartLine, hlStart), Math.min(winEnd, hlEnd), directLines);
+    }
     // Ensure bracket guide checkpoints are built for synchronous rendering
     // This is needed for efficient bracket guide state calculation during rendering
     if (editor.bracketGuides.isBracketGuidesEnabled && drawDecorations && drawBracketGuides) {
@@ -284,6 +286,17 @@ public class ViewRender {
     // Calculate initial bracket guide state for synchronous rendering
     // This allows bracket guides to be drawn together with lines using the same algorithm
     BracketGuides.BracketGuideState initialBracketState = null;
+
+    if (editor.currentLineHighlight.highlightCurrentLine && !editor.selection.hasSelection) {
+      float animatedIndex = editor.currentLineHighlight.getAnimatedVisualIndex();
+      float top = Math.round((animatedIndex - editor.drawBaseLine) * editor.textRender.lineHeight);
+      float bottom = top + editor.textRender.lineHeight;
+      float viewLeft = editor.textRender.isRtl ? 0f : editor.lineNumber.lineNumbersGutterWidth;
+      float viewRight = editor.textRender.isRtl ? (editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth) : editor.getWidth();
+      float left = viewLeft + editor.getEffectiveScrollX() - editor.getTextStartX();
+      float right = viewRight + editor.getEffectiveScrollX() - editor.getTextStartX();
+      canvas.drawRect(left, top, right, bottom, editor.currentLineHighlight.currentLinePaint);
+    }
 
     if (editor.codeFold.isCodeFoldingEnabled) {
       drawFoldedContent(canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine,
@@ -300,7 +313,9 @@ public class ViewRender {
                                   HashMap<Integer, String> directLines, Paint selPaint,
                                   SodiumEditor.BracketMatch bracketMatchResult, boolean drawDecorations, boolean drawBracketGuides,
                                   BracketGuides.BracketGuideState initialBracketState) {
-    if (editor.indentGuides.indentGuideIntervalsDirty) editor.indentGuides.rebuildIndentGuideIntervalsIfNeeded();
+    if (drawDecorations && editor.indentGuides.indentGuideIntervalsDirty) {
+      editor.indentGuides.rebuildIndentGuideIntervalsIfNeeded();
+    }
 
     // Track bracket guide state for synchronous rendering
     BracketGuides.BracketGuideState bracketState = initialBracketState;
@@ -318,17 +333,6 @@ public class ViewRender {
               ? measureHighlightedSegmentWidth(
                   line, globalLine, 0, getLogicalLineLength(globalLine, line))
               : 0f;
-
-      // Highlight the current line, only if there is no selection
-      if (editor.currentLineHighlight.highlightCurrentLine && globalLine == editor.cursor.cursorLine && !editor.selection.hasSelection) {
-        float top = Math.round(editor.textRender.getDrawLineTop(globalLine));
-        float bottom = Math.round(editor.textRender.getDrawLineBottom(globalLine));
-        float viewLeft = editor.textRender.isRtl ? 0f : editor.lineNumber.lineNumbersGutterWidth;
-        float viewRight = editor.textRender.isRtl ? (editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth) : editor.getWidth();
-        float left = viewLeft + editor.getEffectiveScrollX() - editor.getTextStartX();
-        float right = viewRight + editor.getEffectiveScrollX() - editor.getTextStartX();
-        canvas.drawRect(left, top, right, bottom, editor.currentLineHighlight.currentLinePaint);
-      }
 
       if (editor.selection.hasSelection && selPaint != null) {
         drawSelectionForLine(canvas, globalLine, line, lineBaseX, lineWidth, selPaint);
@@ -384,7 +388,9 @@ public class ViewRender {
       }
 
       // Draw auto-completion suggestion
-      editor.autoCompletion.drawAutoSuggestion(canvas, line, globalLine, y);
+      if (!editor.binaryRender.isBinarySafeRenderingEnabled()) {
+        editor.autoCompletion.drawAutoSuggestion(canvas, line, globalLine, y);
+      }
 
       // Draw bracket guides synchronously with line rendering
       if (editor.bracketGuides.isBracketGuidesEnabled && drawDecorations && drawBracketGuides) {
@@ -402,9 +408,9 @@ public class ViewRender {
         bracketState = editor.bracketGuides.calculateBracketGuideStateForLine(line, globalLine, bracketState);
       }
 
-      if (drawDecorations) {
-        editor.bracketMatchManager.drawBracketMatchForLine(canvas, line, globalLine, bracketMatchResult);
-      }
+    if (drawDecorations) {
+      editor.bracketMatchManager.drawBracketMatchForLine(canvas, line, globalLine, bracketMatchResult);
+    }
       canvas.restore();
     }
   }
@@ -413,7 +419,9 @@ public class ViewRender {
                                     HashMap<Integer, String> directLines, Paint selPaint,
                                     SodiumEditor.BracketMatch bracketMatchResult, boolean drawDecorations, boolean drawBracketGuides,
                                     BracketGuides.BracketGuideState initialBracketState) {
-    if (editor.indentGuides.indentGuideIntervalsDirty) editor.indentGuides.rebuildIndentGuideIntervalsIfNeeded();
+    if (drawDecorations && editor.indentGuides.indentGuideIntervalsDirty) {
+      editor.indentGuides.rebuildIndentGuideIntervalsIfNeeded();
+    }
 
     // Fast span-based guides (only for unfolded content)
     if (editor.bracketGuides.isBracketGuidesEnabled && drawDecorations && drawBracketGuides && !editor.codeFold.isCodeFoldingEnabled) {
@@ -428,17 +436,6 @@ public class ViewRender {
               ? measureHighlightedSegmentWidth(
                   line, globalLine, 0, getLogicalLineLength(globalLine, line))
               : 0f;
-
-      // Highlight the current line, only if there is no selection
-      if (editor.currentLineHighlight.highlightCurrentLine && globalLine == editor.cursor.cursorLine && !editor.selection.hasSelection) {
-        float top = Math.round(editor.textRender.getDrawLineTop(globalLine));
-        float bottom = Math.round(editor.textRender.getDrawLineBottom(globalLine));
-        float viewLeft = editor.textRender.isRtl ? 0f : editor.lineNumber.lineNumbersGutterWidth;
-        float viewRight = editor.textRender.isRtl ? (editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth) : editor.getWidth();
-        float left = viewLeft + editor.getEffectiveScrollX() - editor.getTextStartX();
-        float right = viewRight + editor.getEffectiveScrollX() - editor.getTextStartX();
-        canvas.drawRect(left, top, right, bottom, editor.currentLineHighlight.currentLinePaint);
-      }
 
       if (editor.selection.hasSelection && selPaint != null) {
         drawSelectionForLine(canvas, globalLine, line, lineBaseX, lineWidth, selPaint);
@@ -463,7 +460,9 @@ public class ViewRender {
       }
 
       // Draw auto-completion suggestion
-      editor.autoCompletion.drawAutoSuggestion(canvas, line, globalLine, y);
+      if (!editor.binaryRender.isBinarySafeRenderingEnabled()) {
+        editor.autoCompletion.drawAutoSuggestion(canvas, line, globalLine, y);
+      }
 
       if (drawDecorations) {
         editor.bracketMatchManager.drawBracketMatchForLine(canvas, line, globalLine, bracketMatchResult);
@@ -859,20 +858,8 @@ public class ViewRender {
           editor.lineNumber.gutterSeparatorPaint);
     }
 
-    if (editor.currentLineHighlight.highlightCurrentLineInGutter
-        && (!editor.codeFold.isCodeFoldingEnabled || !editor.codeFold.isLineHiddenByFold(editor.cursor.cursorLine))) {
-      int currentVisualIndex = editor.getVisualIndexForLineAndChar(editor.cursor.cursorLine, 0);
-      String cursorLineText = getLineTextForRender(editor.cursor.cursorLine);
-      int[] starts = editor.wordWrap.getWrapStartsForLine(editor.cursor.cursorLine, cursorLineText);
-      int segCount = Math.max(1, starts.length);
-      int lastVisualIndexForLine = currentVisualIndex + segCount - 1;
-      int drawFrom = Math.max(firstVisualIndex, currentVisualIndex);
-      int drawTo = Math.min(lastVisualIndex, lastVisualIndexForLine);
-      for (int v = drawFrom; v <= drawTo; v++) {
-        float top = Math.round(v * editor.textRender.lineHeight - editor.scroll.scrollY);
-        float bottom = top + editor.textRender.lineHeight;
-        editor.lineNumber.drawCurrentLineHighlightInGutter(canvas, top, bottom);
-      }
+    if (editor.currentLineHighlight.highlightCurrentLineInGutter) {
+      editor.currentLineHighlight.drawCurrentLineHighlightInGutter(canvas, 0f, 0f);
     }
 
     // --- 2. Draw line numbers (vertically scrolled) ---
@@ -906,6 +893,13 @@ public class ViewRender {
     if (editor.selection.hasSelection) {
       editor.selection.selectionPaint.setColor(editor.selection.selectionHighlightColor);
       selPaint = editor.selection.selectionPaint;
+    }
+
+    if (editor.currentLineHighlight.highlightCurrentLine && !editor.selection.hasSelection) {
+      float animatedIndex = editor.currentLineHighlight.getAnimatedVisualIndex();
+      float top = Math.round((animatedIndex - firstVisualIndex) * editor.textRender.lineHeight);
+      float bottom = top + editor.textRender.lineHeight;
+      canvas.drawRect(-editor.textRender.paddingLeft, top, Math.max(editor.wordWrap.getWrapWidth(), editor.getWidth()), bottom, editor.currentLineHighlight.currentLinePaint);
     }
 
     SodiumEditor.BracketMatch bracketMatchResult = null;
@@ -948,11 +942,6 @@ public class ViewRender {
       float top = Math.round((v - firstVisualIndex) * editor.textRender.lineHeight);
       float bottom = top + editor.textRender.lineHeight;
       float y = Math.round(top + editor.textRender.lineHeight - editor.textRender.paint.descent());
-
-      if (editor.currentLineHighlight.highlightCurrentLine && pos.line == editor.cursor.cursorLine && !editor.selection.hasSelection) {
-        canvas.drawRect(
-            -editor.textRender.paddingLeft, top, Math.max(editor.wordWrap.getWrapWidth(), editor.getWidth()), bottom, editor.currentLineHighlight.currentLinePaint);
-      }
 
       if (editor.selection.hasSelection && selPaint != null) {
         drawWrappedSelection(canvas, pos, line, segStart, segEnd, segBaseX, startLine, startChar, endLine, endChar, selPaint, top, bottom);
@@ -1190,14 +1179,8 @@ public class ViewRender {
           editor.lineNumber.gutterSeparatorPaint);
     }
 
-    if (editor.currentLineHighlight.highlightCurrentLineInGutter
-        && (!editor.codeFold.isCodeFoldingEnabled || !editor.codeFold.isLineHiddenByFold(editor.cursor.cursorLine))) {
-      int currentVisualIndex = editor.getVisualIndexForLineAndChar(editor.cursor.cursorLine, 0);
-      if (currentVisualIndex >= firstIndex && currentVisualIndex <= lastIndex) {
-        float top = Math.round(currentVisualIndex * editor.textRender.lineHeight - editor.scroll.scrollY);
-        float bottom = top + editor.textRender.lineHeight;
-        editor.lineNumber.drawCurrentLineHighlightInGutter(canvas, top, bottom);
-      }
+    if (editor.currentLineHighlight.highlightCurrentLineInGutter) {
+      editor.currentLineHighlight.drawCurrentLineHighlightInGutter(canvas, 0f, 0f);
     }
 
     boolean uselineNumberCache = false;
@@ -1225,6 +1208,13 @@ public class ViewRender {
     if (editor.selection.hasSelection) {
       editor.selection.selectionPaint.setColor(editor.selection.selectionHighlightColor);
       selPaint = editor.selection.selectionPaint;
+    }
+
+    if (editor.currentLineHighlight.highlightCurrentLine && !editor.selection.hasSelection) {
+      float animatedIndex = editor.currentLineHighlight.getAnimatedVisualIndex();
+      float top = Math.round((animatedIndex - firstIndex) * editor.textRender.lineHeight);
+      float bottom = top + editor.textRender.lineHeight;
+      canvas.drawRect(-editor.textRender.paddingLeft, top, Math.max(editor.wordWrap.getWrapWidth(), editor.getWidth()), bottom, editor.currentLineHighlight.currentLinePaint);
     }
 
     int startLine = editor.selection.selStartLine;
@@ -1282,11 +1272,6 @@ public class ViewRender {
             canvas.clipRect(editor.lineNumber.lineNumbersGutterWidth, 0, editor.getWidth(), editor.getHeight());
           }
           canvas.translate(editor.getTextStartX() - editor.getEffectiveScrollX(), 0);
-        }
-
-        if (editor.currentLineHighlight.highlightCurrentLine && line == editor.cursor.cursorLine && !editor.selection.hasSelection) {
-          canvas.drawRect(
-              -editor.textRender.paddingLeft, top, Math.max(editor.wordWrap.getWrapWidth(), editor.getWidth()), bottom, editor.currentLineHighlight.currentLinePaint);
         }
 
         if (editor.selection.hasSelection && selPaint != null) {

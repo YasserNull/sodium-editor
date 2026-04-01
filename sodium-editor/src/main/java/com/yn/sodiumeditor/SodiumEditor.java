@@ -493,6 +493,7 @@ errorUnderline = new ErrorUnderline(this);
     // Initialize Scroll
     scroll = new Scroll(this);
     // Sync scroll configuration to Scroll
+    scroll.edge.setEdgeEffectColor(0x80808080); // لون رمادي
 
     // Initialize Zoom
     zoom = new Zoom(this);
@@ -1235,6 +1236,26 @@ errorUnderline = new ErrorUnderline(this);
       wordWrap.invalidateWrapMetrics(true);
       wordWrap.requestWrapPrefixRebuild();
     }
+  }
+
+  @Override
+  public boolean onGenericMotionEvent(MotionEvent event) {
+    if ((event.getSource() & android.view.InputDevice.SOURCE_CLASS_POINTER) != 0) {
+      if (event.getAction() == MotionEvent.ACTION_SCROLL) {
+        float hScroll = event.getAxisValue(MotionEvent.AXIS_HSCROLL);
+        float vScroll = event.getAxisValue(MotionEvent.AXIS_VSCROLL);
+        if (hScroll != 0f || vScroll != 0f) {
+          // Use standard multiplier for scroll wheel
+          float mult = 64f * getResources().getDisplayMetrics().density;
+          // distanceX and distanceY are added to scrollX and scrollY in handleScroll.
+          // For wheel, vScroll > 0 is AWAY (up), we want scrollY to decrease.
+          // For wheel, hScroll > 0 is RIGHT, we want scrollX to increase.
+          scroll.handleScroll(null, event, hScroll * mult, -vScroll * mult);
+          return true;
+        }
+      }
+    }
+    return super.onGenericMotionEvent(event);
   }
 
   public float getTextStartX() {
@@ -1987,11 +2008,30 @@ public static class StringEndResult {
     }
     if (fileIO.isWindowLoading) return;
 
-    boolean inside =
-        firstVisibleLine >= textRender.windowStartLine
-            && firstVisibleLine < textRender.windowStartLine + textRender.linesWindow.size();
-    if (!inside) {
-      int targetStart = Math.max(0, firstVisibleLine - textRender.prefetchLines);
+    if (getWidth() == 0 || getHeight() == 0) return;
+    int firstVisibleIndex = Math.max(0, (int) (scroll.scrollY / textRender.lineHeight));
+    int lastVisibleIndex =
+        firstVisibleIndex + (int) Math.ceil(getHeight() / textRender.lineHeight);
+    int firstVisibleGlobal;
+    int lastVisibleGlobal;
+    if (wordWrap.isWordWrapEnabled) {
+      firstVisibleGlobal = wordWrap.getVisualPositionForIndex(firstVisibleIndex).line;
+      lastVisibleGlobal = wordWrap.getVisualPositionForIndex(lastVisibleIndex).line;
+    } else {
+      firstVisibleGlobal = codeFold.mapVisibleIndexToGlobal(firstVisibleIndex);
+      lastVisibleGlobal = codeFold.mapVisibleIndexToGlobal(lastVisibleIndex);
+    }
+    firstVisibleGlobal = Math.max(0, firstVisibleGlobal);
+    lastVisibleGlobal = Math.max(firstVisibleGlobal, lastVisibleGlobal);
+
+    int winStart = textRender.windowStartLine;
+    int winEnd = winStart + textRender.linesWindow.size() - 1;
+    int buffer = Math.max(0, textRender.prefetchLines / 2);
+    boolean outside = firstVisibleGlobal < winStart || firstVisibleGlobal > winEnd;
+    boolean nearTop = winStart > 0 && firstVisibleGlobal < winStart + buffer;
+    boolean nearBottom = !fileIO.isEof && lastVisibleGlobal > winEnd - buffer;
+    if (outside || nearTop || nearBottom) {
+      int targetStart = Math.max(0, firstVisibleGlobal - textRender.prefetchLines);
       fileIO.loadWindowAround(targetStart, null, false);
     }
   }
@@ -2517,6 +2557,9 @@ public static class StringEndResult {
 
   public boolean shouldStreamLineLength(int length) {
     if (wordWrap.isWordWrapEnabled) return false;
+    if (binaryRender.isBinarySafeRenderingEnabled()) {
+      return length > Math.max(256, textRender.getInitialStreamedSliceSize());
+    }
     if (!fileIO.isIndexReady) return false;
     return length > getStreamLineThreshold();
   }
@@ -2787,9 +2830,9 @@ public static class StringEndResult {
     super.onDraw(canvas);
     textRender.drawEditorBackground(canvas);
     if (scroll.stretch.stretchOverscrollEnabled && (scroll.stretch.stretchX != 0f || scroll.stretch.stretchY != 0f)) {
-      float sx = 1f + (scroll.stretch.stretchX * 0.12f * scroll.stretch.stretchOverscrollStrength);
-      float sy = 1f + (scroll.stretch.stretchY * 0.12f * scroll.stretch.stretchOverscrollStrength);
-      float pivotX = (scroll.stretch.stretchDirX < 0) ? 0f : (scroll.stretch.stretchDirX > 0 ? getHeight() : getWidth() * 0.5f);
+      float sx = 1f + (scroll.stretch.stretchX * 0.18f * scroll.stretch.stretchOverscrollStrength);
+      float sy = 1f + (scroll.stretch.stretchY * 0.18f * scroll.stretch.stretchOverscrollStrength);
+      float pivotX = (scroll.stretch.stretchDirX < 0) ? 0f : (scroll.stretch.stretchDirX > 0 ? getWidth() : getWidth() * 0.5f);
       float pivotY = (scroll.stretch.stretchDirY < 0) ? 0f : (scroll.stretch.stretchDirY > 0 ? getHeight() : getHeight() * 0.5f);
       canvas.save();
       canvas.scale(sx, sy, pivotX, pivotY);
@@ -2799,6 +2842,7 @@ public static class StringEndResult {
       viewRenderer.drawContent(canvas);
     }
     scroll.drawStretch(canvas);
+    scroll.drawEdge(canvas);
     scroll.drawScrollBar(canvas);
   }
 }

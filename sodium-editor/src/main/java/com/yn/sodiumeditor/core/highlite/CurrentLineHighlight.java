@@ -1,22 +1,34 @@
 package com.yn.sodiumeditor.core.highlite;
-import com.yn.sodiumeditor.SodiumEditor;
+
+import android.animation.ValueAnimator;
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.graphics.RectF;
+import android.view.animation.PathInterpolator;
+import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.WordWrap;
 
 /**
  * Manages current line highlighting for the SodiumEditor.
+ * Enhanced with ultra-smooth sliding animation.
  */
 public class CurrentLineHighlight {
 
-    // --- Current Line Highlight State ---
     public boolean highlightCurrentLine = true;
     public boolean highlightCurrentLineInGutter = true;
-    public int currentLineHighlightColor = 0x302196F3; // Default: translucent blue
+    public boolean isCurrentLineAnimationEnabled = true; 
+    
+    public int currentLineHighlightColor = 0x302196F3;
     public final Paint currentLinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private final SodiumEditor editor;
+    
+    // Animation state
+    private float animatedVisualIndex = -1f;
+    private float lastTargetIndex = -1f;
+    private ValueAnimator lineAnimator;
+    
+    // Smooth interpolator (Bezier curve for material motion)
+    private final PathInterpolator smoothInterpolator = new PathInterpolator(0.4f, 0f, 0.2f, 1f);
 
     public CurrentLineHighlight(SodiumEditor editor) {
         this.editor = editor;
@@ -24,28 +36,12 @@ public class CurrentLineHighlight {
         currentLinePaint.setColor(currentLineHighlightColor);
     }
 
-    /**
-     * Enable or disable current line highlighting.
-     */
     public void setHighlightCurrentLine(boolean enabled) {
         if (this.highlightCurrentLine == enabled) return;
         this.highlightCurrentLine = enabled;
-        if (!enabled && highlightCurrentLineInGutter) {
-            highlightCurrentLineInGutter = false;
-        }
         editor.invalidate();
     }
 
-    /**
-     * Check if current line highlighting is enabled.
-     */
-    public boolean isHighlightCurrentLineEnabled() {
-        return highlightCurrentLine;
-    }
-
-    /**
-     * Set the highlight color for the current line.
-     */
     public void setCurrentLineHighlightColor(int color) {
         if (this.currentLineHighlightColor == color) return;
         this.currentLineHighlightColor = color;
@@ -53,64 +49,88 @@ public class CurrentLineHighlight {
         if (highlightCurrentLine) editor.invalidate();
     }
 
-    /**
-     * Get the current line highlight color.
-     */
-    public int getCurrentLineHighlightColor() {
-        return currentLineHighlightColor;
-    }
-
-    /**
-     * Enable or disable current line highlight in the gutter.
-     */
     public void setCurrentLineGutterHighlightEnabled(boolean enabled) {
-        if (!highlightCurrentLine && enabled) {
-            enabled = false;
-        }
         if (highlightCurrentLineInGutter == enabled) return;
         highlightCurrentLineInGutter = enabled;
         if (editor.lineNumber.showLineNumbers) editor.invalidate();
     }
 
-    /**
-     * Check if current line gutter highlighting is enabled.
-     */
-    public boolean isCurrentLineGutterHighlightEnabled() {
-        return highlightCurrentLineInGutter;
+    public void setAnimationEnabled(boolean enabled) {
+        this.isCurrentLineAnimationEnabled = enabled;
     }
 
-    /**
-     * Draw the current line highlight in the gutter area.
-     */
+    private float getTargetVisualIndex() {
+        if (editor.wordWrap.isWordWrapEnabled) {
+            return editor.getVisualIndexForLineAndChar(editor.cursor.cursorLine, 0);
+        } else if (editor.codeFold.isCodeFoldingEnabled) {
+            return editor.codeFold.getVisibleIndexForGlobalLine(editor.cursor.cursorLine);
+        } else {
+            return editor.cursor.cursorLine;
+        }
+    }
+
+    private void checkAndStartAnimation() {
+        float target = getTargetVisualIndex();
+        if (target < 0) return;
+
+        // Initialize if first time
+        if (animatedVisualIndex < 0) {
+            animatedVisualIndex = target;
+            lastTargetIndex = target;
+            return;
+        }
+
+        // If target hasn't changed, do nothing
+        if (Math.abs(target - lastTargetIndex) < 0.01f) {
+            return;
+        }
+
+        lastTargetIndex = target;
+
+        if (!isCurrentLineAnimationEnabled) {
+            animatedVisualIndex = target;
+            return;
+        }
+
+        if (lineAnimator != null) lineAnimator.cancel();
+
+        lineAnimator = ValueAnimator.ofFloat(animatedVisualIndex, target);
+        long duration = 140L;
+        lineAnimator.setDuration(duration); // Faster duration
+        editor.cursorAnimation.setAnimationDurationMs(duration);
+        lineAnimator.setInterpolator(smoothInterpolator);
+        lineAnimator.addUpdateListener(animation -> {
+            animatedVisualIndex = (float) animation.getAnimatedValue();
+            editor.postInvalidateOnAnimation();
+        });
+        lineAnimator.start();
+    }
+
+    public float getAnimatedVisualIndex() {
+        checkAndStartAnimation();
+        return animatedVisualIndex;
+    }
+
     public void drawCurrentLineHighlightInGutter(Canvas canvas, float top, float bottom) {
-        if (!editor.lineNumber.showLineNumbers || !highlightCurrentLineInGutter || editor.lineNumber.lineNumbersGutterWidth <= 0f) return;
+        if (!editor.lineNumber.showLineNumbers || !highlightCurrentLineInGutter || editor.selection.hasSelection) return;
+        
+        checkAndStartAnimation();
+        
+        float yOffset = animatedVisualIndex * editor.textRender.lineHeight - editor.scroll.scrollY;
+        float aTop = yOffset;
+        float aBottom = aTop + editor.textRender.lineHeight;
+
         float left = editor.lineNumber.getGutterStartX();
         float right = left + editor.lineNumber.lineNumbersGutterWidth;
-        float sep = editor.lineNumber.gutterSeparatorWidth;
-        if (sep > 0f) {
-            if (editor.textRender.isRtl) {
-                left = Math.min(right, left + sep);
-            } else {
-                right = Math.max(left, right - sep);
-            }
-        }
-        if (right <= left) return;
-        canvas.drawRect(left, top, right, bottom, currentLinePaint);
+        canvas.drawRect(left, aTop, right, aBottom, currentLinePaint);
     }
 
-    /**
-     * Draw the current line highlight for unwrapped text.
-     */
     public void drawCurrentLineHighlightUnwrapped(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex, int firstVisibleLine, int lastVisibleLine) {
         if (!highlightCurrentLine || editor.selection.hasSelection) return;
 
-        int globalLine = editor.cursor.cursorLine;
-        int visibleIndex = editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.getVisibleIndexForGlobalLine(globalLine) : globalLine;
-
-        if (visibleIndex < firstVisibleIndex || visibleIndex > lastVisibleIndex) return;
-        if (editor.codeFold.isCodeFoldingEnabled && editor.codeFold.isLineHiddenByFold(globalLine)) return;
-
-        float top = visibleIndex * editor.textRender.lineHeight - editor.scroll.scrollY;
+        checkAndStartAnimation();
+        
+        float top = animatedVisualIndex * editor.textRender.lineHeight - editor.scroll.scrollY;
         float bottom = top + editor.textRender.lineHeight;
 
         float viewLeft = editor.textRender.isRtl ? 0f : editor.lineNumber.lineNumbersGutterWidth;
@@ -119,28 +139,17 @@ public class CurrentLineHighlight {
         canvas.drawRect(viewLeft, top, viewRight, bottom, currentLinePaint);
     }
 
-    /**
-     * Draw the current line highlight for wrapped text.
-     */
     public void drawCurrentLineHighlightWrapped(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
         if (!highlightCurrentLine || editor.selection.hasSelection) return;
 
-        int cursorLine = editor.cursor.cursorLine;
+        checkAndStartAnimation();
 
-        for (int v = firstVisualIndex; v <= lastVisualIndex; v++) {
-            WordWrap.VisualLinePosition pos = editor.wordWrap.getVisualPositionForIndex(v);
-            if (pos.line != cursorLine) continue;
+        float top = animatedVisualIndex * editor.textRender.lineHeight - editor.scroll.scrollY;
+        float bottom = top + editor.textRender.lineHeight;
 
-            float top = v * editor.textRender.lineHeight - editor.scroll.scrollY;
-            float bottom = top + editor.textRender.lineHeight;
-
-            canvas.drawRect(-editor.textRender.paddingLeft, top, Math.max(editor.wordWrap.getWrapWidth(), editor.getWidth()), bottom, currentLinePaint);
-        }
+        canvas.drawRect(-editor.textRender.paddingLeft, top, Math.max(editor.wordWrap.getWrapWidth(), editor.getWidth()), bottom, currentLinePaint);
     }
 
-    /**
-     * Draw the current line highlight for a specific line segment.
-     */
     public void drawCurrentLineHighlightSegment(Canvas canvas, float left, float top, float right, float bottom) {
         if (!highlightCurrentLine || editor.selection.hasSelection) return;
         canvas.drawRect(left, top, right, bottom, currentLinePaint);

@@ -1143,6 +1143,54 @@ public class EditOperators {
         int safeStart = Math.max(0, editor.cursor.cursorChar - 1);
         String removed = base.substring(safeStart, Math.min(editor.cursor.cursorChar, base.length()));
         boolean atLineEnd = editor.cursor.cursorChar >= base.length();
+        if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
+          int[] span = new int[2];
+          int probe = Math.max(0, editor.cursor.cursorChar - 1);
+          if (editor.binaryRender.findBinaryTokenSpan(base, probe, span)) {
+            int s = span[0];
+            int e = span[1];
+            removed = base.substring(s, Math.min(e, base.length()));
+            if (atLineEnd || s < base.length()) {
+              android.graphics.Paint p = editor.textRender.getPaintForChar(editor.cursor.cursorLine, s, base);
+              editor.charAnimation.startDeleteAnimation(editor.cursor.cursorLine, s, removed, p);
+            }
+            String modified = base.substring(0, s) + base.substring(Math.min(e, base.length()));
+            editor.updateLocalLine(localIdx, modified);
+            editor.textRender.modifiedLines.put(editor.cursor.cursorLine, modified);
+            if (editor.codeFold.isCodeFoldingEnabled) {
+              if (editor.containsBracketChars(removed)) {
+                editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
+              }
+              editor.codeFold.adjustFoldRangeForLineEdit(editor.cursor.cursorLine, s, -(e - s), (e - s));
+            }
+            editor.invalidateHighlightCacheForLine(editor.cursor.cursorLine);
+            editor.cursor.cursorChar = s;
+            editor.computeWidthForLine(editor.cursor.cursorLine, modified);
+            if (oldWidth != null && oldWidth >= editor.textRender.currentMaxWindowLineWidth)
+              editor.fileIO.recalculateMaxLineWidthAsync();
+            editor.invalidateLineGlobal(editor.cursor.cursorLine);
+            editor.selection.clearSelection();
+            editor.selection.selecting = false;
+
+            EditOp op = new EditOp();
+            op.startLine = beforeLine;
+            op.startChar = s;
+            op.endLine = beforeLine;
+            op.endChar = beforeChar;
+            op.removedText = removed;
+            op.insertedText = "";
+            op.insertedEndLine = beforeLine;
+            op.insertedEndChar = s;
+            op.cursorLineBefore = beforeLine;
+            op.cursorCharBefore = beforeChar;
+            op.cursorLineAfter = editor.cursor.cursorLine;
+            op.cursorCharAfter = editor.cursor.cursorChar;
+            op.timestamp = System.currentTimeMillis();
+            recordEdit(op);
+            editor.binaryRender.adjustBinaryTokenSpansForEdit(editor.cursor.cursorLine, s, -(e - s), (e - s));
+            return;
+          }
+        }
         if (atLineEnd) {
           android.graphics.Paint p = editor.textRender.getPaintForChar(editor.cursor.cursorLine, safeStart, base);
           editor.charAnimation.startDeleteAnimation(editor.cursor.cursorLine, safeStart, removed, p);
@@ -1162,6 +1210,9 @@ public class EditOperators {
         if (oldWidth != null && oldWidth >= editor.textRender.currentMaxWindowLineWidth)
           editor.fileIO.recalculateMaxLineWidthAsync();
         editor.invalidateLineGlobal(editor.cursor.cursorLine);
+        if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
+          editor.binaryRender.adjustBinaryTokenSpansForEdit(editor.cursor.cursorLine, safeStart, -1, 1);
+        }
 
         EditOp op = new EditOp();
         op.startLine = beforeLine;
@@ -1263,6 +1314,50 @@ public class EditOperators {
         Float oldWidth = editor.textRender.lineWidthCache.get(editor.cursor.cursorLine);
         String removed = base.substring(editor.cursor.cursorChar, Math.min(editor.cursor.cursorChar + 1, base.length()));
         boolean atLineEnd = editor.cursor.cursorChar == base.length() - 1;
+        if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
+          int[] span = new int[2];
+          int probe = Math.max(0, editor.cursor.cursorChar);
+          if (editor.binaryRender.findBinaryTokenSpan(base, probe, span)) {
+            int s = span[0];
+            int e = span[1];
+            removed = base.substring(s, Math.min(e, base.length()));
+            if (atLineEnd || s < base.length()) {
+              android.graphics.Paint p = editor.textRender.getPaintForChar(editor.cursor.cursorLine, s, base);
+              editor.charAnimation.startDeleteAnimation(editor.cursor.cursorLine, s, removed, p);
+            }
+            String modified = base.substring(0, s) + base.substring(Math.min(e, base.length()));
+            editor.updateLocalLine(localIdx, modified);
+            editor.textRender.modifiedLines.put(editor.cursor.cursorLine, modified);
+            if (editor.codeFold.isCodeFoldingEnabled) {
+              if (editor.containsBracketChars(removed)) {
+                editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
+              }
+              editor.codeFold.adjustFoldRangeForLineEdit(editor.cursor.cursorLine, s, -(e - s), (e - s));
+            }
+            editor.computeWidthForLine(editor.cursor.cursorLine, modified);
+            if (oldWidth != null && oldWidth >= editor.textRender.currentMaxWindowLineWidth)
+              editor.fileIO.recalculateMaxLineWidthAsync();
+            editor.invalidateLineGlobal(editor.cursor.cursorLine);
+
+            EditOp op = new EditOp();
+            op.startLine = beforeLine;
+            op.startChar = beforeChar;
+            op.endLine = beforeLine;
+            op.endChar = beforeChar + (e - s);
+            op.removedText = removed;
+            op.insertedText = "";
+            op.insertedEndLine = beforeLine;
+            op.insertedEndChar = beforeChar;
+            op.cursorLineBefore = beforeLine;
+            op.cursorCharBefore = beforeChar;
+            op.cursorLineAfter = editor.cursor.cursorLine;
+            op.cursorCharAfter = editor.cursor.cursorChar;
+            op.timestamp = System.currentTimeMillis();
+            recordEdit(op);
+            editor.binaryRender.adjustBinaryTokenSpansForEdit(editor.cursor.cursorLine, s, -(e - s), (e - s));
+            return;
+          }
+        }
         if (atLineEnd) {
           android.graphics.Paint p = editor.textRender.getPaintForChar(editor.cursor.cursorLine, editor.cursor.cursorChar, base);
           editor.charAnimation.startDeleteAnimation(editor.cursor.cursorLine, editor.cursor.cursorChar, removed, p);
@@ -1280,6 +1375,9 @@ public class EditOperators {
         if (oldWidth != null && oldWidth >= editor.textRender.currentMaxWindowLineWidth)
           editor.fileIO.recalculateMaxLineWidthAsync();
         editor.invalidateLineGlobal(editor.cursor.cursorLine);
+        if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
+          editor.binaryRender.adjustBinaryTokenSpansForEdit(editor.cursor.cursorLine, editor.cursor.cursorChar, -1, 1);
+        }
 
         EditOp op = new EditOp();
         op.startLine = beforeLine;
@@ -1369,6 +1467,9 @@ public class EditOperators {
       String modified = base.substring(0, pos) + text + base.substring(pos);
       editor.updateLocalLine(localIdx, modified);
       editor.textRender.modifiedLines.put(editor.cursor.cursorLine, modified);
+      if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
+        editor.binaryRender.adjustBinaryTokenSpansForEdit(editor.cursor.cursorLine, pos, text.length(), 0);
+      }
       editor.invalidateHighlightCacheForLine(editor.cursor.cursorLine);
       if (editor.codeFold.isCodeFoldingEnabled) {
         if (editor.containsBracketChars(text)) {

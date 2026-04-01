@@ -13,15 +13,16 @@ public class CursorAnimation {
 
   // Animation configuration
   public boolean isCursorAnimationEnabled = true;
-  public float cursorAnimNormalTauMs = 80f;
-  public float cursorAnimFastTauMs = 35f;
-  public long cursorAnimFastThresholdMs = 85;
+  public long cursorAnimDurationMs = 140;
 
   // Animation state
   public int lastCursorAnimLine = -1;
   public int lastCursorAnimChar = -1;
   public long lastCursorMoveUptime = 0L;
   public long cursorAnimLastFrameUptime = 0L;
+  public long cursorAnimStartUptime = 0L;
+  public float cursorAnimStartX = 0f;
+  public float cursorAnimStartY = 0f;
   public float cursorAnimX = 0f;
   public float cursorAnimY = 0f;
   public float cursorAnimTargetX = 0f;
@@ -30,6 +31,8 @@ public class CursorAnimation {
   public float cursorDrawY = 0f;
   public boolean cursorAnimValid = false;
   public boolean cursorAnimRunning = false;
+  public float lastScrollX = Float.NaN;
+  public float lastScrollY = Float.NaN;
 
   // Reference to parent editor
   private final SodiumEditor editor;
@@ -72,9 +75,12 @@ public class CursorAnimation {
    * @param fastThresholdMs Threshold for detecting fast movement (ms)
    */
   public void setAnimationParameters(float normalTauMs, float fastTauMs, long fastThresholdMs) {
-    this.cursorAnimNormalTauMs = normalTauMs;
-    this.cursorAnimFastTauMs = fastTauMs;
-    this.cursorAnimFastThresholdMs = fastThresholdMs;
+    // Deprecated in time-based animation mode.
+  }
+
+  public void setAnimationDurationMs(long durationMs) {
+    long d = Math.max(60L, Math.min(300L, durationMs));
+    cursorAnimDurationMs = d;
   }
 
   /**
@@ -96,25 +102,29 @@ public class CursorAnimation {
       return;
     }
 
-    boolean cursorMoved = (editor.cursor.cursorLine != lastCursorAnimLine || 
+    boolean cursorMoved = (editor.cursor.cursorLine != lastCursorAnimLine ||
                            editor.cursor.cursorChar != lastCursorAnimChar);
+    boolean scrollChanged =
+        (Float.isNaN(lastScrollX) || Float.isNaN(lastScrollY))
+            || editor.scroll.scrollX != lastScrollX
+            || editor.scroll.scrollY != lastScrollY;
     if (cursorMoved) {
       lastCursorAnimLine = editor.cursor.cursorLine;
       lastCursorAnimChar = editor.cursor.cursorChar;
       lastCursorMoveUptime = SystemClock.uptimeMillis();
-    } else if (Math.abs(targetX - cursorAnimTargetX) > 0.5f
-        || Math.abs(targetY - cursorAnimTargetY) > 0.5f) {
-      // Layout/zoom changed while caret stayed; snap to the new target.
-      editor.removeCallbacks(cursorAnimStep);
-      cursorAnimRunning = false;
-      cursorAnimX = targetX;
-      cursorAnimY = targetY;
-      cursorAnimTargetX = targetX;
-      cursorAnimTargetY = targetY;
-      cursorAnimValid = true;
-      cursorDrawX = targetX;
-      cursorDrawY = targetY;
-      return;
+      if (cursorAnimValid) {
+        cursorAnimX = cursorDrawX;
+        cursorAnimY = cursorDrawY;
+      }
+      if (SodiumEditor.DEBUG_RENDER_LOGS) {
+        editor.logRender(
+            "cursorAnimMove",
+            "cursorAnim move line=" + lastCursorAnimLine
+                + " ch=" + lastCursorAnimChar
+                + " targetX=" + targetX
+                + " targetY=" + targetY,
+            120);
+      }
     }
 
     if (!cursorAnimValid) {
@@ -123,15 +133,7 @@ public class CursorAnimation {
       cursorAnimValid = true;
     }
 
-    cursorAnimTargetX = targetX;
-    cursorAnimTargetY = targetY;
-
-    float dx = cursorAnimTargetX - cursorAnimX;
-    float dy = cursorAnimTargetY - cursorAnimY;
-    float distance = (float) Math.hypot(dx, dy);
-
-    // If distance is too large, snap to target
-    if (distance > editor.textRender.lineHeight * 6f) {
+    if (!cursorMoved && scrollChanged) {
       editor.removeCallbacks(cursorAnimStep);
       cursorAnimRunning = false;
       cursorAnimX = targetX;
@@ -140,13 +142,34 @@ public class CursorAnimation {
       cursorAnimTargetY = targetY;
       cursorDrawX = targetX;
       cursorDrawY = targetY;
+      lastScrollX = editor.scroll.scrollX;
+      lastScrollY = editor.scroll.scrollY;
       return;
     }
 
+    cursorAnimTargetX = targetX;
+    cursorAnimTargetY = targetY;
+    lastScrollX = editor.scroll.scrollX;
+    lastScrollY = editor.scroll.scrollY;
+
+    float dx = cursorAnimTargetX - cursorAnimX;
+    float dy = cursorAnimTargetY - cursorAnimY;
+    float distance = (float) Math.hypot(dx, dy);
+
     // Start animation if not running and there's distance to cover
     if (!cursorAnimRunning && distance > 0.5f) {
+      cursorAnimStartX = cursorAnimX;
+      cursorAnimStartY = cursorAnimY;
+      cursorAnimStartUptime = SystemClock.uptimeMillis();
       cursorAnimLastFrameUptime = 0L;
       cursorAnimRunning = true;
+      if (SodiumEditor.DEBUG_RENDER_LOGS) {
+        editor.logRender(
+            "cursorAnimStart",
+            "cursorAnim start dist=" + distance
+                + " dur=" + cursorAnimDurationMs,
+            120);
+      }
       editor.postOnAnimation(cursorAnimStep);
     }
 
@@ -231,38 +254,27 @@ public class CursorAnimation {
       }
       
       long now = SystemClock.uptimeMillis();
-      if (cursorAnimLastFrameUptime == 0L) cursorAnimLastFrameUptime = now;
-      long dtMs = Math.max(1, now - cursorAnimLastFrameUptime);
-      cursorAnimLastFrameUptime = now;
-
-      float dx = cursorAnimTargetX - cursorAnimX;
-      float dy = cursorAnimTargetY - cursorAnimY;
-      float dist = (float) Math.hypot(dx, dy);
-      
-      if (dist <= 0.5f) {
-        cursorAnimX = cursorAnimTargetX;
-        cursorAnimY = cursorAnimTargetY;
-        cursorDrawX = cursorAnimX;
-        cursorDrawY = cursorAnimY;
-        cursorAnimRunning = false;
-        editor.invalidateCursorArea();
-        return;
-      }
-
-      long moveDelta =
-          (lastCursorMoveUptime == 0L) ? Long.MAX_VALUE : (now - lastCursorMoveUptime);
-      float tau =
-          (moveDelta <= cursorAnimFastThresholdMs)
-              ? cursorAnimFastTauMs
-              : cursorAnimNormalTauMs;
-      float alpha = 1f - (float) Math.exp(-dtMs / Math.max(1f, tau));
-      
-      cursorAnimX += dx * alpha;
-      cursorAnimY += dy * alpha;
+      if (cursorAnimStartUptime == 0L) cursorAnimStartUptime = now;
+      long elapsed = Math.max(0L, now - cursorAnimStartUptime);
+      float t = Math.min(1f, (float) elapsed / (float) Math.max(1L, cursorAnimDurationMs));
+      // Smoothstep easing
+      float eased = t * t * (3f - 2f * t);
+      cursorAnimX = cursorAnimStartX + (cursorAnimTargetX - cursorAnimStartX) * eased;
+      cursorAnimY = cursorAnimStartY + (cursorAnimTargetY - cursorAnimStartY) * eased;
       cursorDrawX = cursorAnimX;
       cursorDrawY = cursorAnimY;
       editor.invalidateCursorArea();
-      editor.postOnAnimation(this);
+      if (t >= 1f) {
+        cursorAnimRunning = false;
+        if (SodiumEditor.DEBUG_RENDER_LOGS) {
+          editor.logRender(
+              "cursorAnimEnd",
+              "cursorAnim end x=" + cursorAnimX + " y=" + cursorAnimY,
+              120);
+        }
+      } else {
+        editor.postOnAnimation(this);
+      }
     }
   }
 }
