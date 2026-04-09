@@ -49,29 +49,30 @@ public class OnLongPress {
     if (ln == null) ln = editor.getLineTextForRender(line);
     int cursorLine = line;
     int charIndex = Math.max(0, Math.min(target.ch, ln.length()));
+    float xLocal = editor.viewToTextX(e.getX());
+    if (editor.wordWrap.isWordWrapEnabled) {
+      int[] starts = editor.wordWrap.getWrapStartsForLine(line, ln);
+      int seg =
+          editor.wordWrap.getWrapSegmentIndexForChar(
+              starts, Math.max(0, Math.min(target.ch, ln.length())));
+      int segStart = editor.wordWrap.getWrapSegmentStart(starts, seg);
+      xLocal = xLocal + editor.measureTextWithVisualSpaces(ln, 0, segStart, editor.textRender.paint);
+    }
 
     if (editor.codeFold.isCodeFoldingEnabled) {
       com.yn.sodiumeditor.core.CodeFold.FoldRange range = editor.codeFold.getFoldRangeAtStart(line);
       if (range != null && range.collapsed) {
         float[] bounds = new float[2];
         if (editor.codeFold.getFoldPlaceholderBounds(line, ln, bounds)) {
-          float xLocal = editor.viewToTextX(e.getX());
-          float x;
-          if (editor.wordWrap.isWordWrapEnabled) {
-            int[] starts = editor.wordWrap.getWrapStartsForLine(line, ln);
-            int seg =
-                editor.wordWrap.getWrapSegmentIndexForChar(
-                    starts, Math.max(0, Math.min(target.ch, ln.length())));
-            int segStart = editor.wordWrap.getWrapSegmentStart(starts, seg);
-            x = xLocal + editor.measureTextWithVisualSpaces(ln, 0, segStart, editor.textRender.paint);
-          } else {
-            x = xLocal;
-          }
+          float x = xLocal;
           float xStart = bounds[0];
           float placeholderWidth =
               Math.max(0f, editor.textRender.paint.measureText(com.yn.sodiumeditor.core.CodeFold.FOLD_PLACEHOLDER_TEXT));
           float closeStart = xStart + placeholderWidth;
           String endLineText = editor.getLineTextForRender(range.endLine);
+          if (endLineText == null || endLineText.isEmpty()) {
+            endLineText = editor.codeFold.utils.getEndLineTextForFold(range);
+          }
           float closeWidth = editor.textRender.paint.measureText(String.valueOf(range.closeChar));
           int closeIdx = editor.codeFold.resolveCloseCharIndex(range, endLineText);
           int suffixStart =
@@ -94,8 +95,58 @@ public class OnLongPress {
             cursorLine = range.endLine;
             charIndex = Math.max(suffixStart, Math.min(idx, endLineText.length()));
           }
+
+          float renderedWidth = xStart + placeholderWidth;
+          if (!range.isIndentFold) {
+            String closeText = range.isBlockComment ? "*/" : String.valueOf(range.closeChar);
+            float closeW = editor.textRender.paint.measureText(closeText);
+            renderedWidth += closeW;
+            if (endLineText != null && suffixStart >= 0 && suffixStart < endLineText.length()) {
+              renderedWidth +=
+                  editor.measureHighlightedSegmentWidth(
+                      endLineText, range.endLine, suffixStart, endLineText.length());
+            }
+          }
+
+          if (xLocal > renderedWidth) {
+            if (range.isIndentFold) {
+              cursorLine = range.startLine;
+              charIndex = ln.length();
+            } else {
+              cursorLine = range.endLine;
+              charIndex = (endLineText != null) ? endLineText.length() : 0;
+            }
+            editor.selection.hasSelection = false;
+            editor.selection.isSelectAllActive = false;
+            editor.selection.isEntireFileSelected = false;
+            editor.selection.selecting = false;
+            editor.cursor.cursorLine = cursorLine;
+            editor.cursor.cursorChar = charIndex;
+            editor.popup.hidePopup();
+            editor.caret.resetBlink();
+            editor.invalidate();
+            editor.showKeyboard();
+            editor.restartInput();
+            return;
+          }
         }
       }
+    }
+
+    float textWidth = editor.measureTextWithVisualSpaces(ln, 0, ln.length(), editor.textRender.paint);
+    if (xLocal > textWidth) {
+      editor.selection.hasSelection = false;
+      editor.selection.isSelectAllActive = false;
+      editor.selection.isEntireFileSelected = false;
+      editor.selection.selecting = false;
+      editor.cursor.cursorLine = line;
+      editor.cursor.cursorChar = ln.length();
+      editor.popup.hidePopup();
+      editor.caret.resetBlink();
+      editor.invalidate();
+      editor.showKeyboard();
+      editor.restartInput();
+      return;
     }
 
     // Set cursor position

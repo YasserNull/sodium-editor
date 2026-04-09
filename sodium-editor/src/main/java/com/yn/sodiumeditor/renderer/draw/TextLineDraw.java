@@ -1,0 +1,294 @@
+package com.yn.sodiumeditor.renderer.draw;
+
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import androidx.annotation.Nullable;
+import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.renderer.TextRender;
+import java.util.List;
+
+/**
+ * TextLineDraw handles all text line drawing operations for SodiumEditor.
+ * This includes:
+ * - Drawing text segments with fade effects
+ * - Drawing text with visual spaces
+ * - Drawing underlines with fade effects
+ * - Drawing delete animations
+ */
+public class TextLineDraw {
+
+    private final SodiumEditor editor;
+
+    public TextLineDraw(SodiumEditor editor) {
+        this.editor = editor;
+    }
+
+    // ========================================================================
+    // Text Drawing with Visual Spaces and Fade Effects
+    // ========================================================================
+
+    /**
+     * Draw text segment with fade effect
+     */
+    public float drawTextSegmentWithFade(
+            Canvas canvas, String line, int start, int end, float x, float y,
+            Paint segmentPaint, int fadeStart, int fadeEnd, float fadeAlpha) {
+        if (start >= end) return 0f;
+        boolean hasFade = fadeStart >= 0 && fadeEnd > fadeStart && fadeAlpha < 1f;
+        if (hasFade
+                && !editor.binaryRender.isBinarySafeRenderingEnabled()
+                && com.yn.sodiumeditor.utils.TextArabicUtils.containsArabicScript(line, start, end)) {
+            int spaceScale = editor.getVisualSpaceScale();
+            if (spaceScale > 1 || line.indexOf('\t', start) >= 0) {
+                return drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, segmentPaint, 1f);
+            }
+            canvas.drawText(line, start, end, x, y, segmentPaint);
+            return segmentPaint.measureText(line, start, end);
+        }
+        final int spaceScale = editor.getVisualSpaceScale();
+        if (spaceScale > 1) {
+            if (!hasFade || end <= fadeStart || start >= fadeEnd) {
+                return drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, segmentPaint, 1f);
+            }
+
+            float currentX = x;
+
+            int beforeEnd = Math.min(end, fadeStart);
+            if (start < beforeEnd) {
+                currentX += drawTextSegmentWithVisualSpaces(
+                        canvas, line, start, beforeEnd, currentX, y, segmentPaint, 1f);
+            }
+
+            int fadeSegStart = Math.max(start, fadeStart);
+            int fadeSegEnd = Math.min(end, fadeEnd);
+            if (fadeSegStart < fadeSegEnd) {
+                currentX += drawTextSegmentWithVisualSpaces(
+                        canvas, line, fadeSegStart, fadeSegEnd, currentX, y, segmentPaint, fadeAlpha);
+            }
+
+            int afterStart = Math.max(start, fadeEnd);
+            if (afterStart < end) {
+                currentX += drawTextSegmentWithVisualSpaces(
+                        canvas, line, afterStart, end, currentX, y, segmentPaint, 1f);
+            }
+
+            return currentX - x;
+        }
+        if (!hasFade || end <= fadeStart || start >= fadeEnd) {
+            canvas.drawText(line, start, end, x, y, segmentPaint);
+            return segmentPaint.measureText(line, start, end);
+        }
+
+        float currentX = x;
+
+        int beforeEnd = Math.min(end, fadeStart);
+        if (start < beforeEnd) {
+            canvas.drawText(line, start, beforeEnd, currentX, y, segmentPaint);
+            currentX += segmentPaint.measureText(line, start, beforeEnd);
+        }
+
+        int fadeSegStart = Math.max(start, fadeStart);
+        int fadeSegEnd = Math.min(end, fadeEnd);
+        if (fadeSegStart < fadeSegEnd) {
+            editor.charAnimation.charAnimTmpPaint.set(segmentPaint);
+            int baseAlpha = segmentPaint.getAlpha();
+            editor.charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))));
+            canvas.drawText(line, fadeSegStart, fadeSegEnd, currentX, y, editor.charAnimation.charAnimTmpPaint);
+            currentX += segmentPaint.measureText(line, fadeSegStart, fadeSegEnd);
+        }
+
+        int afterStart = Math.max(start, fadeEnd);
+        if (afterStart < end) {
+            canvas.drawText(line, afterStart, end, currentX, y, segmentPaint);
+            currentX += segmentPaint.measureText(line, afterStart, end);
+        }
+
+        return currentX - x;
+    }
+
+    /**
+     * Draw text segment with fade and underlines
+     */
+    public float drawTextSegmentWithFadeAndUnderlines(
+            Canvas canvas, String line, int start, int end, float x, float y,
+            Paint segmentPaint, int fadeStart, int fadeEnd, float fadeAlpha,
+            @Nullable List<TextRender.UnderlineSpan> underlines, float lineTop, float lineBottom) {
+        if (start >= end) return 0f;
+        boolean anyUnderliningActive = editor.urlUnderline.isUrlUnderliningActive()
+                || editor.pathUnderline.isPathUnderliningActive();
+        if (underlines == null || underlines.isEmpty() || !anyUnderliningActive) {
+            return drawTextSegmentWithFade(
+                    canvas, line, start, end, x, y, segmentPaint, fadeStart, fadeEnd, fadeAlpha);
+        }
+
+        float currentX = x;
+        int pos = start;
+
+        for (TextRender.UnderlineSpan span : underlines) {
+            if (span.end <= pos) continue;
+            if (span.start >= end) break;
+
+            int plainEnd = Math.min(end, Math.max(pos, span.start));
+            if (pos < plainEnd) {
+                currentX += drawTextSegmentWithFade(
+                        canvas, line, pos, plainEnd, currentX, y, segmentPaint,
+                        fadeStart, fadeEnd, fadeAlpha);
+                pos = plainEnd;
+            }
+
+            int underlineStart = Math.max(pos, span.start);
+            int underlineEnd = Math.min(end, span.end);
+            if (underlineStart < underlineEnd) {
+                float underlineXStart = currentX;
+                currentX += drawTextSegmentWithFade(
+                        canvas, line, underlineStart, underlineEnd, currentX, y, segmentPaint,
+                        fadeStart, fadeEnd, fadeAlpha);
+                drawUnderlineSegmentWithFade(
+                        canvas, line, underlineStart, underlineEnd, underlineXStart, y,
+                        lineTop, lineBottom, segmentPaint, fadeStart, fadeEnd, fadeAlpha, span.isPath);
+                pos = underlineEnd;
+            }
+        }
+
+        if (pos < end) {
+            currentX += drawTextSegmentWithFade(
+                    canvas, line, pos, end, currentX, y, segmentPaint, fadeStart, fadeEnd, fadeAlpha);
+        }
+
+        return currentX - x;
+    }
+
+    /**
+     * Draw underline segment with fade
+     */
+    public void drawUnderlineSegmentWithFade(
+            Canvas canvas, String line, int start, int end, float x, float baselineY,
+            float lineTop, float lineBottom, Paint textPaint,
+            int fadeStart, int fadeEnd, float fadeAlpha, boolean isPath) {
+        if (start >= end) return;
+
+        Paint.FontMetrics fm = TextRender.TL_FONT_METRICS.get();
+        textPaint.getFontMetrics(fm);
+        float underlineY = baselineY + (fm.descent * 0.5f);
+        underlineY = Math.max(lineTop + 1f, Math.min(underlineY, lineBottom - 2f));
+
+        float thickness = Math.max(1f, textPaint.getTextSize() / 18f);
+        thickness = Math.min(thickness, Math.max(1f, (lineBottom - lineTop) / 8f));
+
+        Paint tmpPaintToUse = isPath ? editor.pathUnderline.getPathUnderlinePaint() : editor.urlUnderline.urlUnderlineTmpPaint;
+        tmpPaintToUse.set(textPaint);
+        tmpPaintToUse.setStyle(Paint.Style.STROKE);
+        tmpPaintToUse.setStrokeWidth(thickness);
+        tmpPaintToUse.setUnderlineText(false);
+
+        boolean hasFade = fadeStart >= 0 && fadeEnd > fadeStart && fadeAlpha < 1f;
+        if (!hasFade || end <= fadeStart || start >= fadeEnd) {
+            float w = editor.measureTextWithVisualSpaces(line, start, end, textPaint);
+            if (w > 0f) canvas.drawLine(x, underlineY, x + w, underlineY, tmpPaintToUse);
+            return;
+        }
+
+        float currentX = x;
+        int baseAlpha = textPaint.getAlpha();
+
+        int beforeEnd = Math.min(end, fadeStart);
+        if (start < beforeEnd) {
+            tmpPaintToUse.setAlpha(baseAlpha);
+            float w = editor.measureTextWithVisualSpaces(line, start, beforeEnd, textPaint);
+            if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, tmpPaintToUse);
+            currentX += w;
+        }
+
+        int fadeSegStart = Math.max(start, fadeStart);
+        int fadeSegEnd = Math.min(end, fadeEnd);
+        if (fadeSegStart < fadeSegEnd) {
+            tmpPaintToUse.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))));
+            float w = editor.measureTextWithVisualSpaces(line, fadeSegStart, fadeSegEnd, textPaint);
+            if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, tmpPaintToUse);
+            currentX += w;
+        }
+
+        int afterStart = Math.max(start, fadeEnd);
+        if (afterStart < end) {
+            tmpPaintToUse.setAlpha(baseAlpha);
+            float w = editor.measureTextWithVisualSpaces(line, afterStart, end, textPaint);
+            if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, tmpPaintToUse);
+        }
+    }
+
+    /**
+     * Draw text segment with visual spaces
+     */
+    public float drawTextSegmentWithVisualSpaces(
+          Canvas canvas,
+          String line,
+          int start,
+          int end,
+          float x,
+          float y,
+          Paint segmentPaint,
+          float alphaMultiplier) {
+        if (start >= end) return 0f;
+
+        Paint drawPaint = segmentPaint;
+        if (alphaMultiplier < 1f) {
+          editor.charAnimation.charAnimTmpPaint.set(segmentPaint);
+          int baseAlpha = segmentPaint.getAlpha();
+          editor.charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, alphaMultiplier))));
+          drawPaint = editor.charAnimation.charAnimTmpPaint;
+        }
+
+        int len = end - start;
+        if (editor.textRender.measureWidthBuffer == null || editor.textRender.measureWidthBuffer.length < len) {
+          editor.textRender.measureWidthBuffer = new float[len];
+        }
+        segmentPaint.getTextWidths(line, start, end, editor.textRender.measureWidthBuffer);
+
+        float currentX = x;
+        int runStart = start;
+        float runX = currentX;
+
+        for (int i = 0; i < len; i++) {
+          int charIndex = start + i;
+          char c = line.charAt(charIndex);
+          float adv = editor.getCharAdvanceWidth(c, editor.textRender.measureWidthBuffer[i], segmentPaint);
+          boolean isVirtualSpace = (c == ' ' || c == '\t');
+          if (isVirtualSpace) {
+            if (runStart < charIndex) {
+              canvas.drawText(line, runStart, charIndex, runX, y, drawPaint);
+            }
+            currentX += adv;
+            runStart = charIndex + 1;
+            runX = currentX;
+          } else {
+            currentX += adv;
+          }
+        }
+
+        if (runStart < end) {
+          canvas.drawText(line, runStart, end, runX, y, drawPaint);
+        }
+        return currentX - x;
+    }
+
+    /**
+     * Draw delete animation for segment
+     */
+    public void drawDeleteAnimationForSegment(Canvas canvas, String line, int globalLine, int segStart, int segEnd, float y) {
+        if (!editor.charAnimation.isCharAnimationEnabled) return;
+        if (globalLine != editor.charAnimation.delAnimLine
+                || editor.charAnimation.delAnimText == null
+                || editor.charAnimation.delAnimText.isEmpty()
+                || editor.charAnimation.delAnimAlpha <= 0f) return;
+        if (line == null) line = "";
+        int at = Math.max(0, Math.min(editor.charAnimation.delAnimAtChar, line.length()));
+        if (at < segStart || at > segEnd) return;
+        float x = editor.measureTextWithVisualSpaces(line, segStart, at, editor.textRender.paint);
+        Paint ghostPaint = (editor.charAnimation.delAnimPaint != null) ? editor.charAnimation.delAnimPaint : editor.textRender.paint;
+        editor.charAnimation.charAnimTmpPaint.set(ghostPaint);
+        editor.charAnimation.charAnimTmpPaint.setUnderlineText(false);
+        int baseAlpha = ghostPaint.getAlpha();
+        editor.charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, editor.charAnimation.delAnimAlpha))));
+        canvas.drawText(editor.charAnimation.delAnimText, x, y, editor.charAnimation.charAnimTmpPaint);
+    }
+}

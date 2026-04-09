@@ -521,11 +521,17 @@ public class Ime {
       String newLine = base.substring(0, start) + textSeq + base.substring(end);
       editor.updateLocalLine(local, newLine);
       editor.textRender.modifiedLines.put(composingLine, newLine);
+      editor.wordWrap.onLineContentChanged(composingLine, newLine);
+      editor.clearStreamedLineInfo(composingLine);
+      editor.invalidateHighlightCacheForLine(composingLine);
+      editor.lineNumber.invalidateLineNumberCache();
       composingLength = textSeq.length();
       editor.cursor.cursorLine = composingLine;
       editor.cursor.cursorChar = composingOffset + composingLength;
       editor.computeWidthForLine(composingLine, newLine);
       editor.recalculateMaxLineWidth();
+      editor.invalidateLineGlobal(composingLine);
+      editor.keepCursorVisibleHorizontally();
       editor.invalidate();
     }
     editor.autoCompletion.updateSuggestion();

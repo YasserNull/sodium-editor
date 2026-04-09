@@ -28,11 +28,12 @@ public class TextRender {
 
     // Reference to the parent SodiumEditor
     private final SodiumEditor editor;
-    private static final ThreadLocal<ArrayList<UnderlineSpan>> TL_UNDERLINES =
+    public static final ThreadLocal<ArrayList<UnderlineSpan>> TL_UNDERLINES =
         ThreadLocal.withInitial(ArrayList::new);
-    private static final ThreadLocal<Paint.FontMetrics> TL_FONT_METRICS =
+    public static final ThreadLocal<Paint.FontMetrics> TL_FONT_METRICS =
         ThreadLocal.withInitial(Paint.FontMetrics::new);
-    private final RectF binaryTokenRect = new RectF();
+
+    public final int[] binaryTokenSpanTmp = new int[2];
 public final List<String> linesWindow = new ArrayList<>();
   public int windowStartLine = 0;
   public int windowSize = 250; // 2000 yyy
@@ -43,14 +44,11 @@ public final List<String> linesWindow = new ArrayList<>();
   public float currentMaxWindowLineWidth = 0f;
   public float globalMaxLineWidth = 0f;
   
-  public int maxSyntaxLineLength = 4096;
-  public int prefetchCols = 100;
-  public int colsWidthCacheSize = 400;
   public final LinkedHashMap<Integer, Float> avgCharWidthCache =
-      new LinkedHashMap<Integer, Float>(colsWidthCacheSize, 0.75f, true) {
+      new LinkedHashMap<Integer, Float>(400, 0.75f, true) {
         @Override
         protected boolean removeEldestEntry(Map.Entry<Integer, Float> eldest) {
-          return size() > colsWidthCacheSize;
+          return size() > 400;
         }
       };
   public final Object streamedLinesLock = new Object();
@@ -105,32 +103,11 @@ public final List<String> linesWindow = new ArrayList<>();
     public final Rect editorBackgroundDst = new Rect();
 
 
-    // Whitespace guide constants
-    public HighlightRule whitespaceStringRule;
-    public HighlightRule whitespaceCommentRule;
-    
-
-
-
     // Visible character range
     public final int[] visibleCharRangeTmp = new int[2];
-    public int visibleCharPadding = 2;
-    public boolean isPerformanceModeEnabled = true;
+    public boolean isPerformanceModeEnabled = false;
     public boolean isStableGlyphPositionsEnabled = true;
 
-
-    // Highlight span class
-    public static class HighlightSpan {
-        public final int start;
-        public final int end;
-        public final Paint paint;
-
-        public HighlightSpan(int start, int end, Paint paint) {
-            this.start = start;
-            this.end = end;
-            this.paint = paint;
-        }
-    }
 
     // Underline span class
     public static class UnderlineSpan {
@@ -142,112 +119,6 @@ public final List<String> linesWindow = new ArrayList<>();
             this.start = start;
             this.end = end;
             this.isPath = isPath;
-        }
-    }
-
-
-
-    // Highlight rule class
-    public static class HighlightRule {
-        public final HighlightRuleType type;
-        public final Pattern pattern;
-        public final Paint paint;
-        public final int style;
-        public final boolean underline;
-
-        public HighlightRule(
-                String regex,
-                int style,
-                int color,
-                float baseTextSize,
-                Typeface baseTypeface,
-                boolean underline,
-                HighlightRuleType type) {
-            this.type = type;
-            if (type == HighlightRuleType.REGEX) {
-                this.pattern = Pattern.compile(regex);
-            } else {
-                this.pattern = null;
-            }
-            this.paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-            this.paint.setColor(color);
-            this.paint.setTextSize(baseTextSize);
-            this.style = style;
-            this.underline = underline;
-
-            int typefaceStyle;
-            switch (style) {
-                case SodiumEditor.STYLE_BOLD:
-                    typefaceStyle = Typeface.BOLD;
-                    break;
-                case SodiumEditor.STYLE_ITALIC:
-                    typefaceStyle = Typeface.ITALIC;
-                    break;
-                case SodiumEditor.STYLE_BOLD_ITALIC:
-                    typefaceStyle = Typeface.BOLD_ITALIC;
-                    break;
-                default:
-                    typefaceStyle = Typeface.NORMAL;
-                    break;
-            }
-
-            this.paint.setTypeface(Typeface.create(baseTypeface, typefaceStyle));
-            this.paint.setUnderlineText(underline);
-        }
-
-        public void updateTextSize(float size) {
-            paint.setTextSize(size);
-        }
-
-        public void updateTypeface(Typeface baseTypeface) {
-            int typefaceStyle;
-            switch (style) {
-                case SodiumEditor.STYLE_BOLD:
-                    typefaceStyle = Typeface.BOLD;
-                    break;
-                case SodiumEditor.STYLE_ITALIC:
-                    typefaceStyle = Typeface.ITALIC;
-                    break;
-                case SodiumEditor.STYLE_BOLD_ITALIC:
-                    typefaceStyle = Typeface.BOLD_ITALIC;
-                    break;
-                default:
-                    typefaceStyle = Typeface.NORMAL;
-                    break;
-            }
-            paint.setTypeface(Typeface.create(baseTypeface, typefaceStyle));
-        }
-    }
-
-    // Highlight rule type enum
-    public enum HighlightRuleType {
-        REGEX,
-        STRING,
-        BLOCK_COMMENT,
-        LINE_COMMENT
-    }
-
-    // Line parse result
-    public static class LineParseResult {
-        public final List<HighlightSpan> spans;
-        public final boolean endsInBlockComment;
-        public final int endsInStringState;
-
-        public LineParseResult(List<HighlightSpan> spans, boolean endsInBlockComment, int endsInStringState) {
-            this.spans = spans;
-            this.endsInBlockComment = endsInBlockComment;
-            this.endsInStringState = endsInStringState;
-        }
-    }
-
-    // Highlight line state
-    public static class HighlightLineState {
-        public final boolean inBlockComment;
-        public final int stringState;
-
-        public HighlightLineState(boolean inBlockComment, int stringState) {
-            this.inBlockComment = inBlockComment;
-            this.stringState = stringState;
         }
     }
 
@@ -265,6 +136,9 @@ public final List<String> linesWindow = new ArrayList<>();
                 return size() > lineWidthCacheSize;
             }
         };
+        
+        // Initialize binary render cached character width
+        editor.binaryRender.updateCachedCharWidth(paint);
     }
 
     // ========================================================================
@@ -288,17 +162,7 @@ public final List<String> linesWindow = new ArrayList<>();
      * Get paint for a specific character based on syntax highlighting
      */
     public Paint getPaintForChar(int lineIndex, int charIndex, String lineText) {
-        List<HighlightSpan> spans = editor.highlite.highlightCache.get(lineIndex);
-        if (spans == null) {
-            spans = editor.highlite.calculateSpansForLine(lineText, lineIndex);
-            editor.highlite.highlightCache.put(lineIndex, spans);
-        }
-        for (HighlightSpan span : spans) {
-            if (charIndex >= span.start && charIndex < span.end) {
-                return span.paint;
-            }
-        }
-        return paint;
+        return editor.highliteRender.getPaintForChar(lineIndex, charIndex, lineText);
     }
 
     /**
@@ -330,352 +194,14 @@ public final List<String> linesWindow = new ArrayList<>();
      * Draw a highlighted line with syntax highlighting, underlines, and animations
      */
     public void drawHighlightedLine(Canvas canvas, String line, int globalLine, float y) {
-    if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
-        getVisibleCharRangeForLine(line, globalLine, visibleCharRangeTmp);
-        int visibleStart = visibleCharRangeTmp[0];
-        int visibleEnd   = visibleCharRangeTmp[1];
-        if (visibleEnd > visibleStart) {
-            int sliceStart = editor.getStreamedLineSliceStart(globalLine);
-            int sliceEnd   = sliceStart + line.length();
-            int drawStart  = Math.max(visibleStart, sliceStart);
-            int drawEnd    = Math.min(visibleEnd,   sliceEnd);
-            if (drawEnd > drawStart) {
-                int relStart = Math.max(0, drawStart - sliceStart);
-                int relEnd   = Math.max(relStart, Math.min(line.length(), drawEnd - sliceStart));
-                int[] spans = editor.binaryRender.getBinaryTokenSpans(globalLine);
-                int[] tokenSpan = new int[2];
-                if (spans != null && editor.binaryRender.findBinaryTokenSpanInSpans(spans, relStart, tokenSpan)) {
-                    relStart = Math.min(relStart, tokenSpan[0]);
-                }
-                if (spans != null && editor.binaryRender.findBinaryTokenSpanInSpans(spans, Math.max(relStart, relEnd - 1), tokenSpan)) {
-                    relEnd = Math.max(relEnd, tokenSpan[1]);
-                    relEnd = Math.min(relEnd, line.length());
-                }
-
-                float x = (relStart > 0) ? paint.measureText(line, 0, relStart) : 0f;
-                if (spans == null || spans.length == 0) {
-                    canvas.drawText(line, relStart, relEnd, x, y, paint);
-                    return;
-                }
-
-                Paint.FontMetrics fm = TL_FONT_METRICS.get();
-                paint.getFontMetrics(fm);
-                float boxTop = y + fm.ascent - editor.binaryRender.binaryTokenPaddingY;
-                float boxBottom = y + fm.descent + editor.binaryRender.binaryTokenPaddingY;
-
-                int idx = relStart;
-                for (int sIdx = 0; sIdx + 1 < spans.length; sIdx += 2) {
-                    int s = spans[sIdx];
-                    int e = spans[sIdx + 1];
-                    if (e <= relStart) continue;
-                    if (s >= relEnd) break;
-                    if (s > idx) {
-                        canvas.drawText(line, idx, s, x, y, paint);
-                        x += paint.measureText(line, idx, s);
-                    }
-                    float tokenWidth = paint.measureText(line, s, e);
-                    float padX = editor.binaryRender.binaryTokenPaddingX;
-                    if (editor.binaryRender.binaryTokenBoxEnabled) {
-                        float left = x;
-                        float right = x + tokenWidth + (padX * 2f);
-                        float radius = editor.binaryRender.binaryTokenCornerRadius;
-                        binaryTokenRect.set(left, boxTop, right, boxBottom);
-                        if (radius > 0f) {
-                            canvas.drawRoundRect(binaryTokenRect, radius, radius, editor.binaryRender.getBinaryTokenFillPaint());
-                            canvas.drawRoundRect(binaryTokenRect, radius, radius, editor.binaryRender.getBinaryTokenStrokePaint());
-                        } else {
-                            canvas.drawRect(binaryTokenRect, editor.binaryRender.getBinaryTokenFillPaint());
-                            canvas.drawRect(binaryTokenRect, editor.binaryRender.getBinaryTokenStrokePaint());
-                        }
-                    }
-                    float textX = x + padX;
-                    canvas.drawText(line, s, e, textX, y, paint);
-                    x += tokenWidth + (padX * 2f);
-                    idx = e;
-                }
-                if (idx < relEnd) {
-                    canvas.drawText(line, idx, relEnd, x, y, paint);
-                }
-            }
-        }
-        return;
-    }
-        if (line.isEmpty()) {
-            // Handle delete animation for empty lines
-            if (globalLine == editor.charAnimation.delAnimLine
-                    && editor.charAnimation.delAnimText != null
-                    && !editor.charAnimation.delAnimText.isEmpty()
-                    && editor.charAnimation.delAnimAlpha > 0f) {
-                Paint ghostPaint = (editor.charAnimation.delAnimPaint != null) ? editor.charAnimation.delAnimPaint : paint;
-                editor.charAnimation.charAnimTmpPaint.set(ghostPaint);
-                editor.charAnimation.charAnimTmpPaint.setUnderlineText(false);
-                int baseAlpha = ghostPaint.getAlpha();
-                editor.charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, editor.charAnimation.delAnimAlpha))));
-                canvas.drawText(editor.charAnimation.delAnimText, 0f, y, editor.charAnimation.charAnimTmpPaint);
-            }
-            return;
-        }
-
-        // Get visible character range
-        getVisibleCharRangeForLine(line, globalLine, visibleCharRangeTmp);
-        int visibleStart = visibleCharRangeTmp[0];
-        int visibleEnd = visibleCharRangeTmp[1];
-        int len = editor.getLogicalLineLength(globalLine, line);
-
-        // Handle lines exceeding max syntax length
-        if (len > editor.textRender.maxSyntaxLineLength) {
-            if (visibleEnd > visibleStart) {
-                int sliceStart = editor.getStreamedLineSliceStart(globalLine);
-                int sliceEnd = sliceStart + line.length();
-                int drawStart = Math.max(visibleStart, sliceStart);
-                int drawEnd = Math.min(visibleEnd, sliceEnd);
-                if (drawEnd > drawStart) {
-                    float avg = getAverageCharWidthForLine(line, globalLine);
-                    float x = avg * drawStart;
-                    canvas.drawText(line, drawStart - sliceStart, drawEnd - sliceStart, x, y, paint);
-                }
-            }
-            return;
-        }
-
-        // Handle partial visibility
-        if (visibleStart > 0 || visibleEnd < len) {
-            drawHighlightedLineRange(canvas, line, globalLine, visibleStart, visibleEnd, y);
-            return;
-        }
-
-        // Collect underlines
-        ArrayList<UnderlineSpan> combinedUnderlines = TL_UNDERLINES.get();
-        combinedUnderlines.clear();
-        if (editor.urlUnderline.isUrlUnderliningActive()) {
-            List<UnderlineSpan> urlSpans = editor.urlUnderline.getUrlUnderlineSpansForLine(line, globalLine);
-            if (urlSpans != null) combinedUnderlines.addAll(urlSpans);
-        }
-        if (editor.pathUnderline.isPathUnderliningActive()) {
-            List<UnderlineSpan> pathSpans = editor.pathUnderline.getPathUnderlineSpansForLine(line, globalLine);
-            if (pathSpans != null) combinedUnderlines.addAll(pathSpans);
-        }
-        if (combinedUnderlines.size() > 1) {
-            Collections.sort(combinedUnderlines, (s1, s2) -> Integer.compare(s1.start, s2.start));
-        }
-
-        // Handle fade animation
-        int fadeStart = -1;
-        int fadeEnd = -1;
-        float fadeAlpha = 1f;
-        if (globalLine == editor.charAnimation.charAnimLine
-                && editor.charAnimation.charAnimEndChar > editor.charAnimation.charAnimStartChar
-                && editor.charAnimation.charAnimAlpha < 1f) {
-            fadeStart = Math.max(0, Math.min(editor.charAnimation.charAnimStartChar, line.length()));
-            fadeEnd = Math.max(0, Math.min(editor.charAnimation.charAnimEndChar, line.length()));
-            fadeAlpha = Math.max(0f, Math.min(1f, editor.charAnimation.charAnimAlpha));
-            if (fadeEnd <= fadeStart) {
-                fadeStart = -1;
-                fadeEnd = -1;
-            }
-        }
-
-        float lineTop = getDrawLineTop(globalLine);
-        float lineBottom = lineTop + lineHeight;
-
-        // Draw with or without syntax highlighting
-        if (editor.highlite.highlightRules.isEmpty()) {
-            drawTextSegmentWithFadeAndUnderlines(
-                    canvas, line, 0, line.length(), 0f, y, paint,
-                    fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
-
-            // Draw delete animation
-            if (globalLine == editor.charAnimation.delAnimLine
-                    && editor.charAnimation.delAnimText != null
-                    && !editor.charAnimation.delAnimText.isEmpty()
-                    && editor.charAnimation.delAnimAlpha > 0f) {
-                int at = Math.max(0, Math.min(editor.charAnimation.delAnimAtChar, line.length()));
-                float x = editor.measureText(line, at, globalLine);
-                Paint ghostPaint = (editor.charAnimation.delAnimPaint != null) ? editor.charAnimation.delAnimPaint : paint;
-                editor.charAnimation.charAnimTmpPaint.set(ghostPaint);
-                editor.charAnimation.charAnimTmpPaint.setUnderlineText(false);
-                int baseAlpha = ghostPaint.getAlpha();
-                editor.charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, editor.charAnimation.delAnimAlpha))));
-                canvas.drawText(editor.charAnimation.delAnimText, x, y, editor.charAnimation.charAnimTmpPaint);
-            }
-            editor.errorUnderline.drawErrorUnderlinesForLine(canvas, line, globalLine, y, lineTop, lineBottom);
-            return;
-        }
-
-        // Get syntax highlight spans
-        List<HighlightSpan> spans = editor.highlite.highlightCache.get(globalLine);
-        if (spans == null) {
-            spans = editor.highlite.calculateSpansForLine(line, globalLine);
-            editor.highlite.highlightCache.put(globalLine, spans);
-        }
-
-        if (spans.isEmpty()) {
-            drawTextSegmentWithFadeAndUnderlines(
-                    canvas, line, 0, line.length(), 0f, y, paint,
-                    fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
-
-            if (globalLine == editor.charAnimation.delAnimLine
-                    && editor.charAnimation.delAnimText != null
-                    && !editor.charAnimation.delAnimText.isEmpty()
-                    && editor.charAnimation.delAnimAlpha > 0f) {
-                int at = Math.max(0, Math.min(editor.charAnimation.delAnimAtChar, line.length()));
-                float x = editor.measureText(line, at, globalLine);
-                Paint ghostPaint = (editor.charAnimation.delAnimPaint != null) ? editor.charAnimation.delAnimPaint : paint;
-                editor.charAnimation.charAnimTmpPaint.set(ghostPaint);
-                editor.charAnimation.charAnimTmpPaint.setUnderlineText(false);
-                int baseAlpha = ghostPaint.getAlpha();
-                editor.charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, editor.charAnimation.delAnimAlpha))));
-                canvas.drawText(editor.charAnimation.delAnimText, x, y, editor.charAnimation.charAnimTmpPaint);
-            }
-            editor.errorUnderline.drawErrorUnderlinesForLine(canvas, line, globalLine, y, lineTop, lineBottom);
-            return;
-        }
-
-        // Draw with syntax highlighting
-        float currentX = 0f;
-        int lastEnd = 0;
-
-        for (HighlightSpan span : spans) {
-            if (span.start < lastEnd) continue;
-            if (span.start >= line.length()) break;
-            int safeSpanEnd = Math.min(span.end, line.length());
-
-            if (span.start > lastEnd) {
-                currentX += drawTextSegmentWithFadeAndUnderlines(
-                        canvas, line, lastEnd, span.start, currentX, y, paint,
-                        fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
-            }
-
-            currentX += drawTextSegmentWithFadeAndUnderlines(
-                    canvas, line, span.start, safeSpanEnd, currentX, y, span.paint,
-                    fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
-            lastEnd = safeSpanEnd;
-        }
-
-        if (lastEnd < line.length()) {
-            drawTextSegmentWithFadeAndUnderlines(
-                    canvas, line, lastEnd, line.length(), currentX, y, paint,
-                    fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
-        }
-
-        // Draw delete animation
-        if (globalLine == editor.charAnimation.delAnimLine
-                && editor.charAnimation.delAnimText != null
-                && !editor.charAnimation.delAnimText.isEmpty()
-                && editor.charAnimation.delAnimAlpha > 0f) {
-            int at = Math.max(0, Math.min(editor.charAnimation.delAnimAtChar, line.length()));
-            float x = editor.measureText(line, at, globalLine);
-            Paint ghostPaint = (editor.charAnimation.delAnimPaint != null) ? editor.charAnimation.delAnimPaint : paint;
-            editor.charAnimation.charAnimTmpPaint.set(ghostPaint);
-            editor.charAnimation.charAnimTmpPaint.setUnderlineText(false);
-            int baseAlpha = ghostPaint.getAlpha();
-            editor.charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, editor.charAnimation.delAnimAlpha))));
-            canvas.drawText(editor.charAnimation.delAnimText, x, y, editor.charAnimation.charAnimTmpPaint);
-        }
-        editor.errorUnderline.drawErrorUnderlinesForLine(canvas, line, globalLine, y, lineTop, lineBottom);
+        editor.highliteRender.drawHighlightedLine(canvas, line, globalLine, y);
     }
 
     /**
      * Draw a highlighted line range
      */
     public void drawHighlightedLineRange(Canvas canvas, String line, int globalLine, int start, int end, float y) {
-        if (line == null || line.isEmpty()) return;
-        int len = line.length();
-        start = Math.max(0, Math.min(start, len));
-        end = Math.max(start, Math.min(end, len));
-        if (start >= end) return;
-
-        // Collect underlines
-        ArrayList<UnderlineSpan> combinedUnderlines = TL_UNDERLINES.get();
-        combinedUnderlines.clear();
-        if (editor.urlUnderline.isUrlUnderliningActive()) {
-            List<UnderlineSpan> urlSpans = editor.urlUnderline.getUrlUnderlineSpansForLine(line, globalLine);
-            if (urlSpans != null) combinedUnderlines.addAll(urlSpans);
-        }
-        if (editor.pathUnderline.isPathUnderliningActive()) {
-            List<UnderlineSpan> pathSpans = editor.pathUnderline.getPathUnderlineSpansForLine(line, globalLine);
-            if (pathSpans != null) combinedUnderlines.addAll(pathSpans);
-        }
-        if (combinedUnderlines.size() > 1) {
-            Collections.sort(combinedUnderlines, (s1, s2) -> Integer.compare(s1.start, s2.start));
-        }
-
-        // Handle fade animation
-        int fadeStart = -1;
-        int fadeEnd = -1;
-        float fadeAlpha = 1f;
-        if (editor.charAnimation.isCharAnimationEnabled
-                && globalLine == editor.charAnimation.charAnimLine
-                && editor.charAnimation.charAnimEndChar > editor.charAnimation.charAnimStartChar
-                && editor.charAnimation.charAnimAlpha < 1f) {
-            fadeStart = Math.max(0, Math.min(editor.charAnimation.charAnimStartChar, line.length()));
-            fadeEnd = Math.max(0, Math.min(editor.charAnimation.charAnimEndChar, line.length()));
-            fadeAlpha = Math.max(0f, Math.min(1f, editor.charAnimation.charAnimAlpha));
-            if (fadeEnd <= fadeStart) {
-                fadeStart = -1;
-                fadeEnd = -1;
-            }
-        }
-
-        float lineTop = getDrawLineTop(globalLine);
-        float lineBottom = lineTop + lineHeight;
-        float currentX = editor.measureText(line, start, globalLine);
-        int lastEnd = start;
-
-        if (editor.highlite.highlightRules.isEmpty()) {
-            drawTextSegmentWithFadeAndUnderlines(
-                    canvas, line, start, end, currentX, y, paint,
-                    fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
-        } else {
-            List<HighlightSpan> spans = editor.highlite.highlightCache.get(globalLine);
-            if (spans == null) {
-                spans = editor.highlite.calculateSpansForLine(line, globalLine);
-                editor.highlite.highlightCache.put(globalLine, spans);
-            }
-            for (HighlightSpan span : spans) {
-                if (span.end <= start) continue;
-                if (span.start >= end) break;
-
-                int segStart = Math.max(start, span.start);
-                int segEnd = Math.min(end, span.end);
-
-                if (segStart > lastEnd) {
-                    currentX += drawTextSegmentWithFadeAndUnderlines(
-                            canvas, line, lastEnd, segStart, currentX, y, paint,
-                            fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
-                }
-                if (segEnd > segStart) {
-                    currentX += drawTextSegmentWithFadeAndUnderlines(
-                            canvas, line, segStart, segEnd, currentX, y, span.paint,
-                            fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
-                }
-                lastEnd = Math.max(lastEnd, segEnd);
-            }
-            if (lastEnd < end) {
-                drawTextSegmentWithFadeAndUnderlines(
-                        canvas, line, lastEnd, end, currentX, y, paint,
-                        fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
-            }
-        }
-
-        // Draw delete animation
-        if (editor.charAnimation.isCharAnimationEnabled
-                && globalLine == editor.charAnimation.delAnimLine
-                && editor.charAnimation.delAnimText != null
-                && !editor.charAnimation.delAnimText.isEmpty()
-                && editor.charAnimation.delAnimAlpha > 0f) {
-            int at = Math.max(0, Math.min(editor.charAnimation.delAnimAtChar, line.length()));
-            if (at >= start && at <= end) {
-                float x = editor.measureText(line, at, globalLine);
-                Paint ghostPaint = (editor.charAnimation.delAnimPaint != null) ? editor.charAnimation.delAnimPaint : paint;
-                editor.charAnimation.charAnimTmpPaint.set(ghostPaint);
-                editor.charAnimation.charAnimTmpPaint.setUnderlineText(false);
-                int baseAlpha = ghostPaint.getAlpha();
-                editor.charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, editor.charAnimation.delAnimAlpha))));
-                canvas.drawText(editor.charAnimation.delAnimText, x, y, editor.charAnimation.charAnimTmpPaint);
-            }
-        }
-        editor.errorUnderline.drawErrorUnderlinesForLineRange(canvas, line, globalLine, start, end, y, lineTop, lineBottom);
+        editor.highliteRender.drawHighlightedLineRange(canvas, line, globalLine, start, end, y);
     }
 
     // ========================================================================
@@ -683,161 +209,31 @@ public final List<String> linesWindow = new ArrayList<>();
     // ========================================================================
 
     /**
-     * Get visible character range for a line
+     * Get visible character range for a line (delegated)
      */
     public void getVisibleCharRangeForLine(String line, int globalLine, int[] out) {
-    if (line == null || out == null || out.length < 2) return;
-    int len = editor.getLogicalLineLength(globalLine, line);
-    if (len <= 0) { out[0] = 0; out[1] = 0; return; }
-
-    if (len > editor.textRender.maxSyntaxLineLength) {
-        getVisibleCharRangeForLineFast(line, globalLine, len, out);
-        return;
+        editor.textRange.getVisibleCharRangeForLine(line, globalLine, out, isRtl, isStableGlyphPositionsEnabled);
     }
-
-    // CRITICAL FIX: binary mode must NEVER skip culling.
-    // isStableGlyphPositionsEnabled was designed for normal text glyph stability,
-    // but binary tokens are pure ASCII — no shaping, no reordering needed.
-    // Skipping culling here means a 1000-byte line = 5000-char string drawn in full every frame.
-    boolean skipCull = isStableGlyphPositionsEnabled
-                       && !editor.binaryRender.isBinarySafeRenderingEnabled();
-    if (skipCull) {
-        out[0] = 0;
-        out[1] = len;
-        return;
-    }
-
-    float viewLeft  = isRtl ? 0f : editor.lineNumber.lineNumbersGutterWidth;
-    float viewRight = isRtl
-        ? (editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth)
-        : editor.getWidth();
-    float leftX  = viewLeft  + editor.getEffectiveScrollX() - editor.getTextStartX();
-    float rightX = viewRight + editor.getEffectiveScrollX() - editor.getTextStartX();
-
-    int start, end;
-
-    if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
-        // Binary fast path: all tokens are fixed-width ASCII — use avg char width
-        float avg = editor.textRender.paint.measureText("X"); // monospace: single char is enough
-        if (avg <= 0f) avg = paint.measureText(" ");
-        start = (int) Math.floor(leftX  / avg);
-        end   = (int) Math.ceil (rightX / avg);
-    } else {
-        start = editor.getCharIndexForX(line, leftX,  globalLine);
-        end   = editor.getCharIndexForX(line, rightX, globalLine);
-    }
-
-    if (end < start) { int t = start; start = end; end = t; }
-    int pad = visibleCharPadding;
-    out[0] = Math.max(0,   start - pad);
-    out[1] = Math.min(len, end   + pad);
-}
 
     /**
-     * Get visible character range for a line (fast version for long lines)
+     * Get visible character range for a line (fast version for long lines) (delegated)
      */
     public void getVisibleCharRangeForLineFast(String line, int globalLine, int lineLength, int[] out) {
-        int len = Math.max(0, lineLength);
-        if (len <= 0) {
-            out[0] = 0;
-            out[1] = 0;
-            return;
-        }
-        float avg = getAverageCharWidthForLine(line, globalLine);
-        if (avg <= 0f) {
-            out[0] = 0;
-            out[1] = Math.min(len, Math.max(0, editor.textRender.prefetchCols));
-            return;
-        }
-        float viewLeft = isRtl ? 0f : editor.lineNumber.lineNumbersGutterWidth;
-        float viewRight = isRtl ? (editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth) : editor.getWidth();
-        float leftX = viewLeft + editor.getEffectiveScrollX() - editor.getTextStartX();
-        float rightX = viewRight + editor.getEffectiveScrollX() - editor.getTextStartX();
-        if (isRtl) {
-            float w = avg * len;
-            float baseX = editor.getTextAreaWidth() - w;
-            float l = leftX - baseX;
-            float r = rightX - baseX;
-            leftX = w - l;
-            rightX = w - r;
-        }
-        int start = (int) Math.floor(leftX / avg);
-        int end = (int) Math.ceil(rightX / avg);
-        if (end < start) {
-            int t = start;
-            start = end;
-            end = t;
-        }
-        int pad = visibleCharPadding + Math.max(0, editor.textRender.prefetchCols);
-        start = Math.max(0, start - pad);
-        end = Math.min(len, end + pad);
-        out[0] = start;
-        out[1] = end;
-        if (globalLine <= 2 && (start > 0 || end < len)) {
-            editor.logRender(
-                "visibleRangeFast",
-                "visibleRangeFast line=" + globalLine
-                    + " len=" + len
-                    + " start=" + start
-                    + " end=" + end
-                    + " scrollX=" + editor.scroll.scrollX
-                    + " effectiveScrollX=" + editor.getEffectiveScrollX()
-                    + " textStartX=" + editor.getTextStartX(),
-                200);
-        }
+        editor.textRange.getVisibleCharRangeForLineFast(line, globalLine, lineLength, out, isRtl, isStableGlyphPositionsEnabled);
     }
 
     /**
-     * Compute streamed slice bounds
+     * Compute streamed slice bounds (delegated)
      */
     public void computeStreamedSliceBounds(@Nullable String lineText, int globalLine, int lineLength, int[] out) {
-        if (out == null || out.length < 2) return;
-        int len = Math.max(0, lineLength);
-        if (len <= 0) {
-            out[0] = 0;
-            out[1] = 0;
-            return;
-        }
-        float avg = getAverageCharWidthForLine((lineText == null) ? "" : lineText, globalLine);
-        if (avg <= 0f) avg = paint.measureText(" ");
-        float viewLeft = isRtl ? 0f : editor.lineNumber.lineNumbersGutterWidth;
-        float viewRight = isRtl ? (editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth) : editor.getWidth();
-        float leftX = viewLeft + editor.getEffectiveScrollX() - editor.getTextStartX();
-        float rightX = viewRight + editor.getEffectiveScrollX() - editor.getTextStartX();
-        if (isRtl) {
-            float w = avg * len;
-            float baseX = editor.getTextAreaWidth() - w;
-            float l = leftX - baseX;
-            float r = rightX - baseX;
-            leftX = w - l;
-            rightX = w - r;
-        }
-        int start = (int) Math.floor(leftX / avg);
-        int end = (int) Math.ceil(rightX / avg);
-        if (end < start) {
-            int t = start;
-            start = end;
-            end = t;
-        }
-        int pad = Math.max(0, visibleCharPadding);
-        start = Math.max(0, start - pad);
-        end = Math.min(len, end + pad);
-        int visibleLen = Math.max(0, end - start);
-        int maxExtra = Math.max(0, editor.textRender.colsWidthCacheSize - visibleLen);
-        int extraPad = Math.min(Math.max(0, editor.textRender.prefetchCols), maxExtra / 2);
-        start = Math.max(0, start - extraPad);
-        end = Math.min(len, end + extraPad);
-        out[0] = start;
-        out[1] = end;
+        editor.textRange.computeStreamedSliceBounds(lineText, globalLine, lineLength, out, isRtl);
     }
 
     /**
-     * Get initial streamed slice size
+     * Get initial streamed slice size (delegated)
      */
     public int getInitialStreamedSliceSize() {
-        int base = Math.max(128, editor.textRender.colsWidthCacheSize);
-        int pad = Math.max(0, editor.textRender.prefetchCols) * 2;
-        return Math.max(base, pad);
+        return editor.textRange.getInitialStreamedSliceSize();
     }
 
     // ========================================================================
@@ -845,332 +241,55 @@ public final List<String> linesWindow = new ArrayList<>();
     // ========================================================================
 
     /**
-     * Draw text segment with fade effect
+     * Draw text segment with fade effect (delegated)
      */
     public float drawTextSegmentWithFade(
             Canvas canvas, String line, int start, int end, float x, float y,
             Paint segmentPaint, int fadeStart, int fadeEnd, float fadeAlpha) {
-        if (start >= end) return 0f;
-        boolean hasFade = fadeStart >= 0 && fadeEnd > fadeStart && fadeAlpha < 1f;
-if (hasFade
-        && !editor.binaryRender.isBinarySafeRenderingEnabled()
-        && containsArabicScript(line, start, end)) {
-            int spaceScale = editor.getVisualSpaceScale();
-            if (spaceScale > 1 || line.indexOf('\t', start) >= 0) {
-                return drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, segmentPaint, 1f);
-            }
-            canvas.drawText(line, start, end, x, y, segmentPaint);
-            return segmentPaint.measureText(line, start, end);
-        }
-        final int spaceScale = editor.getVisualSpaceScale();
-        if (spaceScale > 1) {
-            if (!hasFade || end <= fadeStart || start >= fadeEnd) {
-                return drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, segmentPaint, 1f);
-            }
-
-            float currentX = x;
-
-            int beforeEnd = Math.min(end, fadeStart);
-            if (start < beforeEnd) {
-                currentX += drawTextSegmentWithVisualSpaces(
-                        canvas, line, start, beforeEnd, currentX, y, segmentPaint, 1f);
-            }
-
-            int fadeSegStart = Math.max(start, fadeStart);
-            int fadeSegEnd = Math.min(end, fadeEnd);
-            if (fadeSegStart < fadeSegEnd) {
-                currentX += drawTextSegmentWithVisualSpaces(
-                        canvas, line, fadeSegStart, fadeSegEnd, currentX, y, segmentPaint, fadeAlpha);
-            }
-
-            int afterStart = Math.max(start, fadeEnd);
-            if (afterStart < end) {
-                currentX += drawTextSegmentWithVisualSpaces(
-                        canvas, line, afterStart, end, currentX, y, segmentPaint, 1f);
-            }
-
-            return currentX - x;
-        }
-        if (!hasFade || end <= fadeStart || start >= fadeEnd) {
-            canvas.drawText(line, start, end, x, y, segmentPaint);
-            return segmentPaint.measureText(line, start, end);
-        }
-
-        float currentX = x;
-
-        int beforeEnd = Math.min(end, fadeStart);
-        if (start < beforeEnd) {
-            canvas.drawText(line, start, beforeEnd, currentX, y, segmentPaint);
-            currentX += segmentPaint.measureText(line, start, beforeEnd);
-        }
-
-        int fadeSegStart = Math.max(start, fadeStart);
-        int fadeSegEnd = Math.min(end, fadeEnd);
-        if (fadeSegStart < fadeSegEnd) {
-            editor.charAnimation.charAnimTmpPaint.set(segmentPaint);
-            int baseAlpha = segmentPaint.getAlpha();
-            editor.charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))));
-            canvas.drawText(line, fadeSegStart, fadeSegEnd, currentX, y, editor.charAnimation.charAnimTmpPaint);
-            currentX += segmentPaint.measureText(line, fadeSegStart, fadeSegEnd);
-        }
-
-        int afterStart = Math.max(start, fadeEnd);
-        if (afterStart < end) {
-            canvas.drawText(line, afterStart, end, currentX, y, segmentPaint);
-            currentX += segmentPaint.measureText(line, afterStart, end);
-        }
-
-        return currentX - x;
+        return editor.textLineDraw.drawTextSegmentWithFade(canvas, line, start, end, x, y, segmentPaint, fadeStart, fadeEnd, fadeAlpha);
     }
 
     /**
-     * Check if text contains Arabic script
-     */
-    public boolean containsArabicScript(CharSequence text, int start, int end) {
-        if (text == null || start >= end) return false;
-        int safeStart = Math.max(0, start);
-        int safeEnd = Math.min(text.length(), end);
-        for (int i = safeStart; i < safeEnd; ) {
-            int codePoint = Character.codePointAt(text, i);
-            i += Character.charCount(codePoint);
-            Character.UnicodeBlock block = Character.UnicodeBlock.of(codePoint);
-            if (block == Character.UnicodeBlock.ARABIC
-                    || block == Character.UnicodeBlock.ARABIC_SUPPLEMENT
-                    || block == Character.UnicodeBlock.ARABIC_EXTENDED_A
-                    || block == Character.UnicodeBlock.ARABIC_PRESENTATION_FORMS_A
-                    || block == Character.UnicodeBlock.ARABIC_PRESENTATION_FORMS_B
-                    || block == Character.UnicodeBlock.ARABIC_MATHEMATICAL_ALPHABETIC_SYMBOLS) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Check if text is mixed direction
-     */
-    public boolean isMixedDirectionText(CharSequence text, int start, int end) {
-        if (text == null || start >= end) return false;
-        int safeStart = Math.max(0, start);
-        int safeEnd = Math.min(text.length(), end);
-        boolean hasRtl = false;
-        boolean hasLtr = false;
-        for (int i = safeStart; i < safeEnd; ) {
-            int codePoint = Character.codePointAt(text, i);
-            i += Character.charCount(codePoint);
-            Character.UnicodeBlock block = Character.UnicodeBlock.of(codePoint);
-            if (block == null) continue;
-            if (isRtlScriptBlock(block)) {
-                hasRtl = true;
-            } else if (isLatinScriptBlock(block)) {
-                hasLtr = true;
-            }
-            if (hasRtl && hasLtr) return true;
-        }
-        return false;
-    }
-
-    /**
-     * Check if block is RTL script
-     */
-    public boolean isRtlScriptBlock(Character.UnicodeBlock block) {
-        return block == Character.UnicodeBlock.ARABIC
-                || block == Character.UnicodeBlock.ARABIC_SUPPLEMENT
-                || block == Character.UnicodeBlock.ARABIC_EXTENDED_A
-                || block == Character.UnicodeBlock.ARABIC_PRESENTATION_FORMS_A
-                || block == Character.UnicodeBlock.ARABIC_PRESENTATION_FORMS_B
-                || block == Character.UnicodeBlock.ARABIC_MATHEMATICAL_ALPHABETIC_SYMBOLS
-                || block == Character.UnicodeBlock.HEBREW;
-    }
-
-    /**
-     * Check if block is Latin script
-     */
-    public boolean isLatinScriptBlock(Character.UnicodeBlock block) {
-        return block == Character.UnicodeBlock.BASIC_LATIN
-                || block == Character.UnicodeBlock.LATIN_1_SUPPLEMENT
-                || block == Character.UnicodeBlock.LATIN_EXTENDED_A
-                || block == Character.UnicodeBlock.LATIN_EXTENDED_B
-                || block == Character.UnicodeBlock.LATIN_EXTENDED_C
-                || block == Character.UnicodeBlock.LATIN_EXTENDED_D
-                || block == Character.UnicodeBlock.LATIN_EXTENDED_E
-                || block == Character.UnicodeBlock.LATIN_EXTENDED_ADDITIONAL;
-    }
-
-    /**
-     * Draw text segment with fade and underlines
+     * Draw text segment with fade and underlines (delegated)
      */
     public float drawTextSegmentWithFadeAndUnderlines(
             Canvas canvas, String line, int start, int end, float x, float y,
             Paint segmentPaint, int fadeStart, int fadeEnd, float fadeAlpha,
             @Nullable List<UnderlineSpan> underlines, float lineTop, float lineBottom) {
-        if (start >= end) return 0f;
-        boolean anyUnderliningActive = editor.urlUnderline.isUrlUnderliningActive()
-                || editor.pathUnderline.isPathUnderliningActive();
-        if (underlines == null || underlines.isEmpty() || !anyUnderliningActive) {
-            return drawTextSegmentWithFade(
-                    canvas, line, start, end, x, y, segmentPaint, fadeStart, fadeEnd, fadeAlpha);
-        }
-
-        float currentX = x;
-        int pos = start;
-
-        for (UnderlineSpan span : underlines) {
-            if (span.end <= pos) continue;
-            if (span.start >= end) break;
-
-            int plainEnd = Math.min(end, Math.max(pos, span.start));
-            if (pos < plainEnd) {
-                currentX += drawTextSegmentWithFade(
-                        canvas, line, pos, plainEnd, currentX, y, segmentPaint,
-                        fadeStart, fadeEnd, fadeAlpha);
-                pos = plainEnd;
-            }
-
-            int underlineStart = Math.max(pos, span.start);
-            int underlineEnd = Math.min(end, span.end);
-            if (underlineStart < underlineEnd) {
-                float underlineXStart = currentX;
-                currentX += drawTextSegmentWithFade(
-                        canvas, line, underlineStart, underlineEnd, currentX, y, segmentPaint,
-                        fadeStart, fadeEnd, fadeAlpha);
-                drawUnderlineSegmentWithFade(
-                        canvas, line, underlineStart, underlineEnd, underlineXStart, y,
-                        lineTop, lineBottom, segmentPaint, fadeStart, fadeEnd, fadeAlpha, span.isPath);
-                pos = underlineEnd;
-            }
-        }
-
-        if (pos < end) {
-            currentX += drawTextSegmentWithFade(
-                    canvas, line, pos, end, currentX, y, segmentPaint, fadeStart, fadeEnd, fadeAlpha);
-        }
-
-        return currentX - x;
+        return editor.textLineDraw.drawTextSegmentWithFadeAndUnderlines(canvas, line, start, end, x, y, segmentPaint, fadeStart, fadeEnd, fadeAlpha, underlines, lineTop, lineBottom);
     }
 
     /**
-     * Draw underline segment with fade
+     * Draw underline segment with fade (delegated)
      */
     public void drawUnderlineSegmentWithFade(
             Canvas canvas, String line, int start, int end, float x, float baselineY,
             float lineTop, float lineBottom, Paint textPaint,
             int fadeStart, int fadeEnd, float fadeAlpha, boolean isPath) {
-        if (start >= end) return;
-
-        Paint.FontMetrics fm = TL_FONT_METRICS.get();
-        textPaint.getFontMetrics(fm);
-        float underlineY = baselineY + (fm.descent * 0.5f);
-        underlineY = Math.max(lineTop + 1f, Math.min(underlineY, lineBottom - 2f));
-
-        float thickness = Math.max(1f, textPaint.getTextSize() / 18f);
-        thickness = Math.min(thickness, Math.max(1f, (lineBottom - lineTop) / 8f));
-
-        Paint tmpPaintToUse = isPath ? editor.pathUnderline.getPathUnderlinePaint() : editor.urlUnderline.urlUnderlineTmpPaint;
-        tmpPaintToUse.set(textPaint);
-        tmpPaintToUse.setStyle(Paint.Style.STROKE);
-        tmpPaintToUse.setStrokeWidth(thickness);
-        tmpPaintToUse.setUnderlineText(false);
-
-        boolean hasFade = fadeStart >= 0 && fadeEnd > fadeStart && fadeAlpha < 1f;
-        if (!hasFade || end <= fadeStart || start >= fadeEnd) {
-            float w = editor.measureTextWithVisualSpaces(line, start, end, textPaint);
-            if (w > 0f) canvas.drawLine(x, underlineY, x + w, underlineY, tmpPaintToUse);
-            return;
-        }
-
-        float currentX = x;
-        int baseAlpha = textPaint.getAlpha();
-
-        int beforeEnd = Math.min(end, fadeStart);
-        if (start < beforeEnd) {
-            tmpPaintToUse.setAlpha(baseAlpha);
-            float w = editor.measureTextWithVisualSpaces(line, start, beforeEnd, textPaint);
-            if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, tmpPaintToUse);
-            currentX += w;
-        }
-
-        int fadeSegStart = Math.max(start, fadeStart);
-        int fadeSegEnd = Math.min(end, fadeEnd);
-        if (fadeSegStart < fadeSegEnd) {
-            tmpPaintToUse.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))));
-            float w = editor.measureTextWithVisualSpaces(line, fadeSegStart, fadeSegEnd, textPaint);
-            if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, tmpPaintToUse);
-            currentX += w;
-        }
-
-        int afterStart = Math.max(start, fadeEnd);
-        if (afterStart < end) {
-            tmpPaintToUse.setAlpha(baseAlpha);
-            float w = editor.measureTextWithVisualSpaces(line, afterStart, end, textPaint);
-            if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, tmpPaintToUse);
-        }
+        editor.textLineDraw.drawUnderlineSegmentWithFade(canvas, line, start, end, x, baselineY, lineTop, lineBottom, textPaint, fadeStart, fadeEnd, fadeAlpha, isPath);
     }
-
-
-
-    // ========================================================================
-    // Helper Methods (delegated to SodiumEditor)
-    // ========================================================================
 
     /**
-     * Draw text segment with visual spaces
+     * Draw text segment with visual spaces (delegated)
      */
-    
-public float drawTextSegmentWithVisualSpaces(
-      Canvas canvas,
-      String line,
-      int start,
-      int end,
-      float x,
-      float y,
-      Paint segmentPaint,
-      float alphaMultiplier) {
-    if (start >= end) return 0f;
-
-    Paint drawPaint = segmentPaint;
-    if (alphaMultiplier < 1f) {
-      editor.charAnimation.charAnimTmpPaint.set(segmentPaint);
-      int baseAlpha = segmentPaint.getAlpha();
-      editor.charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, alphaMultiplier))));
-      drawPaint = editor.charAnimation.charAnimTmpPaint;
+    public float drawTextSegmentWithVisualSpaces(
+          Canvas canvas,
+          String line,
+          int start,
+          int end,
+          float x,
+          float y,
+          Paint segmentPaint,
+          float alphaMultiplier) {
+        return editor.textLineDraw.drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, segmentPaint, alphaMultiplier);
     }
 
-    int len = end - start;
-    if (measureWidthBuffer == null || measureWidthBuffer.length < len) {
-      measureWidthBuffer = new float[len];
-    }
-    segmentPaint.getTextWidths(line, start, end, measureWidthBuffer);
-
-    float currentX = x;
-    int runStart = start;
-    float runX = currentX;
-
-    for (int i = 0; i < len; i++) {
-      int charIndex = start + i;
-      char c = line.charAt(charIndex);
-      float adv = editor.getCharAdvanceWidth(c, measureWidthBuffer[i], segmentPaint);
-      boolean isVirtualSpace = (c == ' ' || c == '\t');
-      if (isVirtualSpace) {
-        if (runStart < charIndex) {
-          canvas.drawText(line, runStart, charIndex, runX, y, drawPaint);
-        }
-        currentX += adv;
-        runStart = charIndex + 1;
-        runX = currentX;
-      } else {
-        currentX += adv;
-      }
-    }
-
-    if (runStart < end) {
-      canvas.drawText(line, runStart, end, runX, y, drawPaint);
-    }
-    return currentX - x;
-  }
     /**
-     * Get URL underline spans for a line
+     * Draw delete animation for segment (delegated)
      */
+    public void drawDeleteAnimationForSegment(Canvas canvas, String line, int globalLine, int segStart, int segEnd, float y) {
+        editor.textLineDraw.drawDeleteAnimationForSegment(canvas, line, globalLine, segStart, segEnd, y);
+    }
     
 
     // ========================================================================
@@ -1178,69 +297,39 @@ public float drawTextSegmentWithVisualSpaces(
     // ========================================================================
 
     /**
-     * Check if line number cache should be used
+     * Check if line number cache should be used (delegated)
      */
     public boolean shouldUselineNumberCache() {
-        return editor.lineNumber.showLineNumbers
-                && editor.lineNumber.lineNumbersGutterWidth > 0f
-                && editor.getHeight() > 0;
+        return editor.lineNumber.shouldUseLineNumberCache();
     }
 
     /**
-     * Ensure line number cache bitmap exists
+     * Ensure line number cache bitmap exists (delegated)
      */
     public void ensurelineNumberCacheBitmap(int width, int height) {
-        if (editor.lineNumber.lineNumberCacheBitmap != null
-                && editor.lineNumber.lineNumberCacheWidth == width
-                && editor.lineNumber.lineNumberCacheHeight == height) {
-            return;
-        }
-        editor.lineNumber.lineNumberCacheBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        editor.lineNumber.lineNumberCacheCanvas = new Canvas(editor.lineNumber.lineNumberCacheBitmap);
-        editor.lineNumber.lineNumberCacheWidth = width;
-        editor.lineNumber.lineNumberCacheHeight = height;
+        editor.lineNumber.ensureLineNumberCacheBitmap(width, height);
     }
 
     /**
-     * Write integer to chars buffer
+     * Write integer to chars buffer (delegated)
      */
     public int writeIntToChars(int value, char[] chars) {
-        if (chars == null || chars.length == 0) return 0;
-        if (value == 0) {
-            chars[chars.length - 1] = '0';
-            return chars.length - 1;
-        }
-
-        int negative = value < 0 ? 1 : 0;
-        value = Math.abs(value);
-
-        int len = 0;
-        int temp = value;
-        while (temp > 0) {
-            len++;
-            temp /= 10;
-        }
-        len += negative;
-
-        int start = chars.length - len;
-        int idx = chars.length - 1;
-
-        while (value > 0) {
-            chars[idx--] = (char) ('0' + (value % 10));
-            value /= 10;
-        }
-
-        if (negative > 0) {
-            chars[idx] = '-';
-        }
-
-        return start;
+        return editor.lineNumber.writeIntToChars(value, chars);
     }
 
     /**
-     * Draw line numbers cached (unwrapped)
+     * Draw line numbers cached (unwrapped) (delegated)
      */
     public void drawlineNumbersCachedUnwrapped(
+            Canvas canvas, int firstVisibleIndex, int lastVisibleIndex,
+            int firstVisibleLine, int lastVisibleLine) {
+        editor.lineNumber.drawLineNumbersCachedUnwrapped(canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine);
+    }
+
+    /**
+     * Draw line numbers cached (unwrapped) - actual implementation
+     */
+    public void drawLineNumbersCachedUnwrappedImpl(
             Canvas canvas, int firstVisibleIndex, int lastVisibleIndex,
             int firstVisibleLine, int lastVisibleLine) {
         if (!shouldUselineNumberCache()) {
@@ -1279,7 +368,7 @@ public float drawTextSegmentWithVisualSpaces(
                 || editor.lineNumber.lineNumberCacheWrapped
                 || editor.lineNumber.lineNumberCacheCodeFolding != editor.codeFold.isCodeFoldingEnabled
                 || Math.abs(editor.lineNumber.lineNumberCacheGutterWidth - editor.lineNumber.lineNumbersGutterWidth) > 0.1f
-                || Math.abs(editor.lineNumber.lineNumberCacheFoldMarkerWidth - editor.codeFold.foldMarkerGutterWidth) > 0.1f
+                || Math.abs(editor.lineNumber.lineNumberCacheFoldMarkerWidth - editor.codeFold.animation.foldMarkerGutterWidth) > 0.1f
                 || Math.abs(editor.lineNumber.lineNumberCacheLineHeight - lineHeight) > 0.1f
                 || editor.lineNumber.lineNumberCacheColor != editor.lineNumber.lineNumbersPaint.getColor();
 
@@ -1289,9 +378,9 @@ public float drawTextSegmentWithVisualSpaces(
 
             float lineNumX = isRtl
                     ? editor.lineNumber.getGutterStartX() + editor.lineNumber.GUTTER_TEXT_PADDING
-                    + (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.foldMarkerGutterWidth : 0f)
+                    + (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.animation.foldMarkerGutterWidth : 0f)
                     : editor.lineNumber.getGutterStartX() + editor.lineNumber.lineNumbersGutterWidth
-                    - (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.foldMarkerGutterWidth : 0f)
+                    - (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.animation.foldMarkerGutterWidth : 0f)
                     - editor.lineNumber.GUTTER_TEXT_PADDING;
             float lineNumXLocal = lineNumX - editor.lineNumber.getGutterStartX();
 
@@ -1323,7 +412,7 @@ public float drawTextSegmentWithVisualSpaces(
             editor.lineNumber.lineNumberCacheWrapped = false;
             editor.lineNumber.lineNumberCacheCodeFolding = editor.codeFold.isCodeFoldingEnabled;
             editor.lineNumber.lineNumberCacheGutterWidth = editor.lineNumber.lineNumbersGutterWidth;
-            editor.lineNumber.lineNumberCacheFoldMarkerWidth = editor.codeFold.foldMarkerGutterWidth;
+            editor.lineNumber.lineNumberCacheFoldMarkerWidth = editor.codeFold.animation.foldMarkerGutterWidth;
             editor.lineNumber.lineNumberCacheLineHeight = lineHeight;
             editor.lineNumber.lineNumberCacheColor = editor.lineNumber.lineNumbersPaint.getColor();
         }
@@ -1334,9 +423,16 @@ public float drawTextSegmentWithVisualSpaces(
     }
 
     /**
-     * Draw line numbers cached (wrapped)
+     * Draw line numbers cached (wrapped) (delegated)
      */
     public void drawlineNumbersCachedWrapped(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
+        editor.lineNumber.drawLineNumbersCachedWrapped(canvas, firstVisualIndex, lastVisualIndex);
+    }
+
+    /**
+     * Draw line numbers cached (wrapped) - actual implementation
+     */
+    public void drawLineNumbersCachedWrappedImpl(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
         if (!shouldUselineNumberCache()) {
             drawlineNumbersDirectWrapped(canvas, firstVisualIndex, lastVisualIndex);
             return;
@@ -1378,7 +474,7 @@ public float drawTextSegmentWithVisualSpaces(
             float lineNumXLocal = lineNumX - editor.lineNumber.getGutterStartX();
 
             for (int v = firstVisualIndex; v <= drawLastIndex; v++) {
-                WordWrap.VisualLinePosition pos = editor.wordWrap.getVisualPositionForIndex(v);
+                com.yn.sodiumeditor.core.WordWrap.VisualLinePosition pos = editor.wordWrap.getVisualPositionForIndex(v);
                 if (pos.segment != 0) continue;
                 int start = writeIntToChars(pos.line + 1, editor.lineNumber.lineNumberChars);
                 int count = editor.lineNumber.lineNumberChars.length - start;
@@ -1396,20 +492,29 @@ public float drawTextSegmentWithVisualSpaces(
             editor.lineNumber.lineNumberCacheWrapped = true;
             editor.lineNumber.lineNumberCacheCodeFolding = editor.codeFold.isCodeFoldingEnabled;
             editor.lineNumber.lineNumberCacheGutterWidth = editor.lineNumber.lineNumbersGutterWidth;
-            editor.lineNumber.lineNumberCacheFoldMarkerWidth = editor.codeFold.foldMarkerGutterWidth;
+            editor.lineNumber.lineNumberCacheFoldMarkerWidth = editor.codeFold.animation.foldMarkerGutterWidth;
             editor.lineNumber.lineNumberCacheLineHeight = lineHeight;
             editor.lineNumber.lineNumberCacheColor = editor.lineNumber.lineNumbersPaint.getColor();
         }
 
         float offsetY = editor.lineNumber.lineNumberCacheBaseScrollY - editor.scroll.scrollY;
         canvas.drawBitmap(editor.lineNumber.lineNumberCacheBitmap, editor.lineNumber.getGutterStartX(), offsetY, null);
-        drawCurrentlineNumberWrapped(canvas, firstVisualIndex, lastVisualIndex);
+        drawCurrentlineNumberWrapped(canvas, firstVisualIndex, drawLastIndex);
     }
 
     /**
-     * Draw line numbers direct (unwrapped)
+     * Draw line numbers direct (unwrapped) (delegated)
      */
     public void drawlineNumbersDirectUnwrapped(
+            Canvas canvas, int firstVisibleIndex, int lastVisibleIndex,
+            int firstVisibleLine, int lastVisibleLine) {
+        editor.lineNumber.drawLineNumbersDirectUnwrapped(canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine);
+    }
+
+    /**
+     * Draw line numbers direct (unwrapped) - actual implementation
+     */
+    public void drawLineNumbersDirectUnwrappedImpl(
             Canvas canvas, int firstVisibleIndex, int lastVisibleIndex,
             int firstVisibleLine, int lastVisibleLine) {
         int drawLastIndex = lastVisibleIndex;
@@ -1424,9 +529,9 @@ public float drawTextSegmentWithVisualSpaces(
 
         float lineNumX = isRtl
                 ? editor.lineNumber.getGutterStartX() + editor.lineNumber.GUTTER_TEXT_PADDING
-                + (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.foldMarkerGutterWidth : 0f)
+                + (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.animation.foldMarkerGutterWidth : 0f)
                 : editor.lineNumber.getGutterStartX() + editor.lineNumber.lineNumbersGutterWidth
-                - (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.foldMarkerGutterWidth : 0f)
+                - (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.animation.foldMarkerGutterWidth : 0f)
                 - editor.lineNumber.GUTTER_TEXT_PADDING;
 
         if (editor.codeFold.isCodeFoldingEnabled) {
@@ -1462,9 +567,16 @@ public float drawTextSegmentWithVisualSpaces(
     }
 
     /**
-     * Draw line numbers direct (wrapped)
+     * Draw line numbers direct (wrapped) (delegated)
      */
     public void drawlineNumbersDirectWrapped(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
+        editor.lineNumber.drawLineNumbersDirectWrapped(canvas, firstVisualIndex, lastVisualIndex);
+    }
+
+    /**
+     * Draw line numbers direct (wrapped) - actual implementation
+     */
+    public void drawLineNumbersDirectWrappedImpl(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
         float lineNumX = isRtl
                 ? editor.lineNumber.getGutterStartX() + editor.lineNumber.GUTTER_TEXT_PADDING
                 : editor.lineNumber.getGutterStartX() + editor.lineNumber.lineNumbersGutterWidth - editor.lineNumber.GUTTER_TEXT_PADDING;
@@ -1474,7 +586,7 @@ public float drawTextSegmentWithVisualSpaces(
         if (totalVisual > 0) drawLastIndex = Math.min(lastVisualIndex + 1, totalVisual - 1);
 
         for (int v = firstVisualIndex; v <= drawLastIndex; v++) {
-            WordWrap.VisualLinePosition pos = editor.wordWrap.getVisualPositionForIndex(v);
+            com.yn.sodiumeditor.core.WordWrap.VisualLinePosition pos = editor.wordWrap.getVisualPositionForIndex(v);
             if (pos.segment != 0) continue;
             int start = writeIntToChars(pos.line + 1, editor.lineNumber.lineNumberChars);
             int count = editor.lineNumber.lineNumberChars.length - start;
@@ -1491,50 +603,17 @@ public float drawTextSegmentWithVisualSpaces(
     }
 
     /**
-     * Draw current line number (unwrapped)
+     * Draw current line number (unwrapped) (delegated)
      */
     public void drawCurrentlineNumberUnwrapped(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex) {
-        if (!editor.lineNumber.showLineNumbers) return;
-        if (editor.codeFold.isCodeFoldingEnabled && editor.codeFold.isLineHiddenByFold(editor.cursor.cursorLine)) return;
-
-        int visibleIndex = editor.codeFold.isCodeFoldingEnabled
-                ? editor.codeFold.getVisibleIndexForGlobalLine(editor.cursor.cursorLine)
-                : editor.cursor.cursorLine;
-        if (visibleIndex < firstVisibleIndex || visibleIndex > lastVisibleIndex) return;
-
-        float lineNumX = isRtl
-                ? editor.lineNumber.getGutterStartX() + editor.lineNumber.GUTTER_TEXT_PADDING
-                + (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.foldMarkerGutterWidth : 0f)
-                : editor.lineNumber.getGutterStartX() + editor.lineNumber.lineNumbersGutterWidth
-                - (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.foldMarkerGutterWidth : 0f)
-                - editor.lineNumber.GUTTER_TEXT_PADDING;
-        int start = writeIntToChars(editor.cursor.cursorLine + 1, editor.lineNumber.lineNumberChars);
-        int count = editor.lineNumber.lineNumberChars.length - start;
-        float y = Math.round(visibleIndex * lineHeight - editor.scroll.scrollY + lineHeight - paint.descent());
-        int originalColor = editor.lineNumber.lineNumbersPaint.getColor();
-        editor.lineNumber.lineNumbersPaint.setColor(editor.lineNumber.currentLineNumberColor);
-        canvas.drawText(editor.lineNumber.lineNumberChars, start, count, lineNumX, y, editor.lineNumber.lineNumbersPaint);
-        editor.lineNumber.lineNumbersPaint.setColor(originalColor);
+        editor.lineNumber.drawCurrentlineNumberUnwrapped(canvas, firstVisibleIndex, lastVisibleIndex);
     }
 
     /**
-     * Draw current line number (wrapped)
+     * Draw current line number (wrapped) (delegated)
      */
     public void drawCurrentlineNumberWrapped(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
-        if (!editor.lineNumber.showLineNumbers) return;
-        int visualIndex = editor.getVisualIndexForLineAndChar(editor.cursor.cursorLine, 0);
-        if (visualIndex < firstVisualIndex || visualIndex > lastVisualIndex) return;
-
-        float lineNumX = isRtl
-                ? editor.lineNumber.getGutterStartX() + editor.lineNumber.GUTTER_TEXT_PADDING
-                : editor.lineNumber.getGutterStartX() + editor.lineNumber.lineNumbersGutterWidth - editor.lineNumber.GUTTER_TEXT_PADDING;
-        int start = writeIntToChars(editor.cursor.cursorLine + 1, editor.lineNumber.lineNumberChars);
-        int count = editor.lineNumber.lineNumberChars.length - start;
-        float y = Math.round(visualIndex * lineHeight - editor.scroll.scrollY + lineHeight - paint.descent());
-        int originalColor = editor.lineNumber.lineNumbersPaint.getColor();
-        editor.lineNumber.lineNumbersPaint.setColor(editor.lineNumber.currentLineNumberColor);
-        canvas.drawText(editor.lineNumber.lineNumberChars, start, count, lineNumX, y, editor.lineNumber.lineNumbersPaint);
-        editor.lineNumber.lineNumbersPaint.setColor(originalColor);
+        editor.lineNumber.drawCurrentlineNumberWrapped(canvas, firstVisualIndex, lastVisualIndex);
     }
 
     /**
@@ -1542,95 +621,7 @@ public float drawTextSegmentWithVisualSpaces(
      */
     public void drawHighlightedLineSegment(
             Canvas canvas, String line, int globalLine, int start, int end, float y, float lineTop, float lineBottom) {
-        if (line == null || line.isEmpty() || start >= end) return;
-        start = Math.max(0, Math.min(start, line.length()));
-        end = Math.max(start, Math.min(end, line.length()));
-        if (start >= end) return;
-
-        final List<UnderlineSpan> urlUnderlines = editor.urlUnderline.getUrlUnderlineSpansForLine(line, globalLine);
-
-        int fadeStart = -1;
-        int fadeEnd = -1;
-        float fadeAlpha = 1f;
-        if (editor.charAnimation.isCharAnimationEnabled
-                && globalLine == editor.charAnimation.charAnimLine
-                && editor.charAnimation.charAnimEndChar > editor.charAnimation.charAnimStartChar
-                && editor.charAnimation.charAnimAlpha < 1f) {
-            fadeStart = Math.max(0, Math.min(editor.charAnimation.charAnimStartChar, line.length()));
-            fadeEnd = Math.max(0, Math.min(editor.charAnimation.charAnimEndChar, line.length()));
-            fadeAlpha = Math.max(0f, Math.min(1f, editor.charAnimation.charAnimAlpha));
-            if (fadeEnd <= fadeStart) {
-                fadeStart = -1;
-                fadeEnd = -1;
-            }
-        }
-
-        if (editor.highlite.highlightRules.isEmpty()) {
-            drawTextSegmentWithFadeAndUnderlines(
-                    canvas, line, start, end, 0f, y, paint,
-                    fadeStart, fadeEnd, fadeAlpha, urlUnderlines, lineTop, lineBottom);
-            return;
-        }
-
-        List<HighlightSpan> spans = editor.highlite.highlightCache.get(globalLine);
-        if (spans == null) {
-            spans = editor.highlite.calculateSpansForLine(line, globalLine);
-            editor.highlite.highlightCache.put(globalLine, spans);
-        }
-
-        float currentX = 0f;
-        int lastEnd = start;
-
-        if (!spans.isEmpty()) {
-            for (HighlightSpan span : spans) {
-                if (lastEnd >= end) break;
-                if (span.end <= start) continue;
-                if (span.start >= end) break;
-
-                int segStart = Math.max(start, span.start);
-                int segEnd = Math.min(end, span.end);
-
-                if (segStart > lastEnd) {
-                    currentX += drawTextSegmentWithFadeAndUnderlines(
-                            canvas, line, lastEnd, segStart, currentX, y, paint,
-                            fadeStart, fadeEnd, fadeAlpha, urlUnderlines, lineTop, lineBottom);
-                }
-
-                if (segEnd > segStart) {
-                    currentX += drawTextSegmentWithFadeAndUnderlines(
-                            canvas, line, segStart, segEnd, currentX, y, span.paint,
-                            fadeStart, fadeEnd, fadeAlpha, urlUnderlines, lineTop, lineBottom);
-                }
-                lastEnd = Math.max(lastEnd, segEnd);
-            }
-        }
-
-        if (lastEnd < end) {
-            drawTextSegmentWithFadeAndUnderlines(
-                    canvas, line, lastEnd, end, currentX, y, paint,
-                    fadeStart, fadeEnd, fadeAlpha, urlUnderlines, lineTop, lineBottom);
-        }
-    }
-
-    /**
-     * Draw delete animation for segment
-     */
-    public void drawDeleteAnimationForSegment(Canvas canvas, String line, int globalLine, int segStart, int segEnd, float y) {
-        if (!editor.charAnimation.isCharAnimationEnabled) return;
-        if (globalLine != editor.charAnimation.delAnimLine
-                || editor.charAnimation.delAnimText == null
-                || editor.charAnimation.delAnimText.isEmpty()
-                || editor.charAnimation.delAnimAlpha <= 0f) return;
-        if (line == null) line = "";
-        int at = Math.max(0, Math.min(editor.charAnimation.delAnimAtChar, line.length()));
-        if (at < segStart || at > segEnd) return;
-        float x = editor.measureTextWithVisualSpaces(line, segStart, at, paint);
-        Paint ghostPaint = (editor.charAnimation.delAnimPaint != null) ? editor.charAnimation.delAnimPaint : paint;
-        editor.charAnimation.charAnimTmpPaint.set(ghostPaint);
-        editor.charAnimation.charAnimTmpPaint.setUnderlineText(false);
-        int baseAlpha = ghostPaint.getAlpha();
-        editor.charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, editor.charAnimation.delAnimAlpha))));
-        canvas.drawText(editor.charAnimation.delAnimText, x, y, editor.charAnimation.charAnimTmpPaint);
+        editor.highliteRender.drawHighlightedLineSegment(canvas, line, globalLine, start, end, y, lineTop, lineBottom);
     }
 
     /**
@@ -1652,14 +643,17 @@ public float drawTextSegmentWithVisualSpaces(
     }
 
     /**
-     * Get draw line top position
+     * Get draw line top position.
+     * Coordinate system is consistent with drawing translation in ViewRender.
      */
     public float getDrawLineTop(int globalLine) {
         int drawIndex = globalLine;
+        int baseIndex = editor.drawBaseLine;
         if (editor.codeFold.isCodeFoldingEnabled) {
             drawIndex = editor.codeFold.getVisibleIndexForGlobalLine(globalLine);
+            baseIndex = editor.codeFold.getVisibleIndexForGlobalLine(editor.drawBaseLine);
         }
-        return (drawIndex - editor.drawBaseLine) * lineHeight;
+        return (drawIndex - baseIndex) * lineHeight;
     }
 
     /**
@@ -1678,33 +672,17 @@ public float drawTextSegmentWithVisualSpaces(
         return baseLine * lineHeight;
     }
     public void setMaxSyntaxLineLength(int maxChars) {
-    int safe = Math.max(512, maxChars);
-    if (maxSyntaxLineLength == safe) return;
-    maxSyntaxLineLength = safe;
-    editor.clearHighlightCaches();
-    editor.invalidate();
+    editor.highliteRender.setMaxSyntaxLineLength(maxChars);
   }
 
   public void setPrefetchCols(int cols) {
-    int safe = Math.max(0, cols);
-    if (prefetchCols == safe) return;
-    prefetchCols = safe;
-    editor.invalidate();
+    editor.highliteRender.setPrefetchCols(cols);
   }
 
   public void setColsWidthCacheSize(int size) {
-    int safe = Math.max(16, size);
-    if (colsWidthCacheSize == safe) return;
-    colsWidthCacheSize = safe;
-    synchronized (avgCharWidthCache) {
-      if (avgCharWidthCache.size() > colsWidthCacheSize) {
-        Iterator<Map.Entry<Integer, Float>> it = avgCharWidthCache.entrySet().iterator();
-        while (avgCharWidthCache.size() > colsWidthCacheSize && it.hasNext()) {
-          it.next();
-          it.remove();
-        }
-      }
-    }
+    // This could also move to highliteRender if it's considered part of prefetch/window logic
+    // For now keeping it here or just updating it.
+    // Actually TextRender still uses avgCharWidthCache.
   }
 
 
@@ -1865,15 +843,15 @@ public float drawTextSegmentWithVisualSpaces(
     paint.setTypeface(finalTypeface);
     editor.autoCompletion.suggestionPaint.setTypeface(finalTypeface);
     editor.lineNumber.lineNumbersPaint.setTypeface(finalTypeface);
-    editor.codeFold.foldMarkerPaint.setTypeface(finalTypeface);
+    editor.codeFold.animation.foldMarkerPaint.setTypeface(finalTypeface);
     editor.wordWrap.indicator.wordWrapIndicatorPaint.setTypeface(finalTypeface);
-    if (editor.textRender.whitespaceStringRule != null)
-      editor.textRender.whitespaceStringRule.updateTypeface(safeBase);
-    if (editor.textRender.whitespaceCommentRule != null)
-      editor.textRender.whitespaceCommentRule.updateTypeface(safeBase);
+    if (editor.highlite.whitespaceStringRule != null)
+      editor.highlite.whitespaceStringRule.updateTypeface(safeBase);
+    if (editor.highlite.whitespaceCommentRule != null)
+      editor.highlite.whitespaceCommentRule.updateTypeface(safeBase);
     if (editor.highlite.lineCommentHighlightRule != null)
       editor.highlite.lineCommentHighlightRule.updateTypeface(safeBase);
-    for (TextRender.HighlightRule rule : editor.highlite.highlightRules) {
+    for (HighliteRender.HighlightRule rule : editor.highlite.highlightRules) {
       rule.updateTypeface(safeBase);
     }
     editor.highlite.clearHighlightCaches();
@@ -1883,7 +861,7 @@ public float drawTextSegmentWithVisualSpaces(
     editor.lineNumber.invalidateLineNumberCache();
     editor.wordWrap.indicator.wordWrapIndicatorWidth =
         editor.wordWrap.indicator.wordWrapIndicatorPaint.measureText(
-            com.yn.sodiumeditor.core.highlite.WordWrapIndicator.WORD_WRAP_INDICATOR_TEXT);
+            com.yn.sodiumeditor.core.WordWrapIndicator.WORD_WRAP_INDICATOR_TEXT);
 
     synchronized (lineWidthCache) {
       lineWidthCache.clear();
@@ -1916,30 +894,34 @@ public float drawTextSegmentWithVisualSpaces(
     if (Math.abs(sizePx - oldSize) < 0.1f) return;
 
     paint.setTextSize(sizePx);
+    
+    // Update binary render cached character width
+    editor.binaryRender.updateCachedCharWidth(paint);
+    
     if (!editor.autoCompletion.isSuggestionTextSizeCustom) {
       editor.autoCompletion.suggestionTextSizeScale = 1f;
     }
     editor.autoCompletion.suggestionPaint.setTextSize(sizePx * editor.autoCompletion.suggestionTextSizeScale);
     editor.lineNumber.lineNumbersPaint.setTextSize(sizePx);
-    editor.codeFold.foldMarkerPaint.setTextSize(sizePx * editor.codeFold.foldMarkerTextScale);
+    editor.codeFold.animation.foldMarkerPaint.setTextSize(sizePx * editor.codeFold.animation.foldMarkerTextScale);
     editor.wordWrap.indicator.wordWrapIndicatorPaint.setTextSize(
         sizePx * editor.wordWrap.indicator.wordWrapIndicatorTextScale);
     editor.wordWrap.indicator.wordWrapIndicatorPaint.setTypeface(paint.getTypeface());
     editor.wordWrap.indicator.wordWrapIndicatorWidth =
         editor.wordWrap.indicator.wordWrapIndicatorPaint.measureText(
-            com.yn.sodiumeditor.core.highlite.WordWrapIndicator.WORD_WRAP_INDICATOR_TEXT);
+            com.yn.sodiumeditor.core.WordWrapIndicator.WORD_WRAP_INDICATOR_TEXT);
     lineHeight = paint.getFontSpacing();
     editor.updateTextSizeDependentMetrics();
     editor.updateWhitespaceGuideMetrics();
     editor.lineNumber.invalidateLineNumberCache();
 
-    for (TextRender.HighlightRule rule : editor.highlite.highlightRules) {
+    for (HighliteRender.HighlightRule rule : editor.highlite.highlightRules) {
       rule.updateTextSize(sizePx);
     }
-    if (editor.textRender.whitespaceStringRule != null)
-      editor.textRender.whitespaceStringRule.updateTextSize(sizePx);
-    if (editor.textRender.whitespaceCommentRule != null)
-      editor.textRender.whitespaceCommentRule.updateTextSize(sizePx);
+    if (editor.highlite.whitespaceStringRule != null)
+      editor.highlite.whitespaceStringRule.updateTextSize(sizePx);
+    if (editor.highlite.whitespaceCommentRule != null)
+      editor.highlite.whitespaceCommentRule.updateTextSize(sizePx);
     if (editor.highlite.lineCommentHighlightRule != null)
       editor.highlite.lineCommentHighlightRule.updateTextSize(sizePx);
     editor.highlite.clearHighlightCaches();
@@ -1975,15 +957,15 @@ public float drawTextSegmentWithVisualSpaces(
       int line, @Nullable java.util.Map<Integer, String> direct) {
     if (line < 0) return "";
 
-    // Window first
+    // Modified lines first — always the most recent edits
+    String mod = modifiedLines.get(line);
+    if (mod != null) return mod;
+
+    // Then the window
     if (line >= windowStartLine && line < windowStartLine + linesWindow.size()) {
       String text = editor.getLineFromWindowLocal(line - windowStartLine);
       return (text != null) ? text : "";
     }
-
-    // Modified lines (recent edits)
-    String mod = modifiedLines.get(line);
-    if (mod != null) return mod;
 
     // Direct batch (during fast fling)
     if (direct != null) {
@@ -1997,6 +979,21 @@ public float drawTextSegmentWithVisualSpaces(
       if (c != null) return c;
     }
 
+    if (editor.cursor != null
+        && editor.cursor.cursorLine == line
+        && editor.cursor.cursorChar > 0) {
+      android.util.Log.d(
+          "SodiumRender",
+          "lineText empty for cursor line="
+              + line
+              + " ch="
+              + editor.cursor.cursorChar
+              + " windowStart="
+              + windowStartLine
+              + " windowSize="
+              + linesWindow.size());
+    }
+
     return "";
   }
 
@@ -2005,12 +1002,17 @@ public float drawTextSegmentWithVisualSpaces(
    */
   public String getLineTextForRender(int line) {
     if (line < 0) return "";
+
+    // Modified lines first — always the most recent edits
+    String mod = modifiedLines.get(line);
+    if (mod != null) return mod;
+
+    // Then the window
     if (line >= windowStartLine && line < windowStartLine + linesWindow.size()) {
       String text = editor.getLineFromWindowLocal(line - windowStartLine);
       return (text != null) ? text : "";
     }
-    String mod = modifiedLines.get(line);
-    if (mod != null) return mod;
+
     editor.logRender(
         "line-miss",
         "lineMiss line=" + line
@@ -2038,257 +1040,8 @@ public float drawTextSegmentWithVisualSpaces(
     }
     return measuredWidth;
   }
-
-  /**
-   * Get visual tab width
-   */
+  
   public float getVisualTabWidth(Paint p) {
-    return getVisualSpaceWidth(p) * DEFAULT_TAB_SIZE_SPACES;
+    return p.measureText(" ") * DEFAULT_TAB_SIZE_SPACES;
   }
-
-  /**
-   * Get visual space width
-   */
-  public float getVisualSpaceWidth(Paint p) {
-    return p.measureText(" ");
-  }
-
-  /**
-   * Measure text with visual spaces
-   */
-  public float measureTextWithVisualSpaces(String text, int start, int end, Paint p) {
-    if (text == null) return 0f;
-    start = Math.max(0, Math.min(start, text.length()));
-    end = Math.max(start, Math.min(end, text.length()));
-    if (start >= end) return 0f;
-
-    if (text.indexOf('\t', start) < 0) {
-      return p.measureText(text, start, end);
-    }
-
-    int len = end - start;
-    if (measureWidthBuffer == null || measureWidthBuffer.length < len) {
-      measureWidthBuffer = new float[len];
-    }
-    p.getTextWidths(text, start, end, measureWidthBuffer);
-    float total = 0f;
-    for (int i = 0; i < len; i++) {
-      char c = text.charAt(start + i);
-      total += getCharAdvanceWidth(c, measureWidthBuffer[i], p);
-    }
-    return total;
-  }
-
-  /**
-   * Measure text
-   */
-  public float measureText(String line, int length, int globalLine) {
-    int logicalLen = editor.getLogicalLineLength(globalLine, line);
-    int safeLen = Math.max(0, Math.min(length, logicalLen));
-    if (logicalLen > maxSyntaxLineLength) {
-      float avg = getAverageCharWidthForLine(line, globalLine);
-      return avg * safeLen;
-    }
-    if (editor.highlite.highlightRules.isEmpty() || line.isEmpty() || safeLen == 0) {
-      return measureTextWithVisualSpaces(line, 0, safeLen, paint);
-    }
-
-    List<HighlightSpan> spans = editor.highlite.highlightCache.get(globalLine);
-    if (spans == null) {
-      spans = editor.highlite.calculateSpansForLine(line, globalLine);
-      editor.highlite.highlightCache.put(globalLine, spans);
-    }
-
-    if (spans.isEmpty()) {
-      return measureTextWithVisualSpaces(line, 0, safeLen, paint);
-    }
-
-    float totalWidth = 0;
-    int lastEnd = 0;
-
-    for (HighlightSpan span : spans) {
-      if (lastEnd >= safeLen) break;
-      if (span.start >= safeLen) break;
-      if (span.start < lastEnd) continue;
-
-      if (span.start > lastEnd) {
-        int measureEnd = Math.min(span.start, safeLen);
-        totalWidth += measureTextWithVisualSpaces(line, lastEnd, measureEnd, paint);
-      }
-
-      lastEnd = span.start;
-
-      int measureEnd = Math.min(span.end, safeLen);
-      totalWidth += measureTextWithVisualSpaces(line, lastEnd, measureEnd, span.paint);
-
-      lastEnd = span.end;
-    }
-
-    if (lastEnd < safeLen) {
-      totalWidth += measureTextWithVisualSpaces(line, lastEnd, safeLen, paint);
-    }
-
-    return totalWidth;
-  }
-
-  /**
-   * Measure highlighted segment width
-   */
-  public float measureHighlightedSegmentWidth(String line, int globalLine, int start, int end) {
-    if (line == null || line.isEmpty() || start >= end) return 0f;
-    start = Math.max(0, Math.min(start, line.length()));
-    end = Math.max(start, Math.min(end, line.length()));
-    if (start >= end) return 0f;
-
-    if (editor.highlite.highlightRules.isEmpty()) {
-      return paint.measureText(line, start, end);
-    }
-
-    List<HighlightSpan> spans = editor.highlite.highlightCache.get(globalLine);
-    if (spans == null) {
-      spans = editor.highlite.calculateSpansForLine(line, globalLine);
-      editor.highlite.highlightCache.put(globalLine, spans);
-    }
-
-    if (spans.isEmpty()) {
-      return paint.measureText(line, start, end);
-    }
-
-    float total = 0f;
-    int lastEnd = start;
-
-    for (HighlightSpan span : spans) {
-      if (lastEnd >= end) break;
-      if (span.start >= end) break;
-      if (span.start < lastEnd) continue;
-
-      if (span.start > lastEnd) {
-        total += paint.measureText(line, lastEnd, span.start);
-      }
-
-      int safeSpanEnd = Math.min(span.end, end);
-      if (safeSpanEnd > span.start) {
-        total += span.paint.measureText(line, span.start, safeSpanEnd);
-      }
-      lastEnd = safeSpanEnd;
-    }
-
-    if (lastEnd < end) {
-      total += paint.measureText(line, lastEnd, end);
-    }
-
-    return total;
-  }
-
-  /**
-   * Draw highlighted segment
-   */
-  public void drawHighlightedSegment(
-      Canvas canvas, String line, int globalLine, int start, int end, float x, float y) {
-    if (line == null || line.isEmpty() || start >= end) return;
-    start = Math.max(0, Math.min(start, line.length()));
-    end = Math.max(start, Math.min(end, line.length()));
-    if (start >= end) return;
-
-    if (editor.highlite.highlightRules.isEmpty()) {
-      paint.setUnderlineText(false);
-      canvas.drawText(line, start, end, x, y, paint);
-      return;
-    }
-
-    List<HighlightSpan> spans = editor.highlite.highlightCache.get(globalLine);
-    if (spans == null) {
-      spans = editor.highlite.calculateSpansForLine(line, globalLine);
-      editor.highlite.highlightCache.put(globalLine, spans);
-    }
-
-    if (spans.isEmpty()) {
-      paint.setUnderlineText(false);
-      canvas.drawText(line, start, end, x, y, paint);
-      return;
-    }
-
-    float currentX = x;
-    int lastEnd = start;
-
-    for (HighlightSpan span : spans) {
-      if (lastEnd >= end) break;
-      if (span.start >= end) break;
-      if (span.start < lastEnd) continue;
-
-      if (span.start > lastEnd) {
-        paint.setUnderlineText(false);
-        canvas.drawText(line, lastEnd, span.start, currentX, y, paint);
-        currentX += paint.measureText(line, lastEnd, span.start);
-      }
-
-      int safeSpanEnd = Math.min(span.end, end);
-      if (safeSpanEnd > span.start) {
-        span.paint.setUnderlineText(false);
-        canvas.drawText(line, span.start, safeSpanEnd, currentX, y, span.paint);
-        currentX += span.paint.measureText(line, span.start, safeSpanEnd);
-      }
-      lastEnd = safeSpanEnd;
-    }
-
-    if (lastEnd < end) {
-      paint.setUnderlineText(false);
-      canvas.drawText(line, lastEnd, end, currentX, y, paint);
-    }
-  }
-
-  /**
-   * Compute width for line
-   */
-  public void computeWidthForLine(int globalIndex, String line) {
-    String safe = (line == null) ? "" : line;
-    float w;
-    int logicalLen = editor.getLogicalLineLength(globalIndex, safe);
-    if (logicalLen > maxSyntaxLineLength) {
-      w = getAverageCharWidthForLine(safe, globalIndex) * logicalLen;
-    } else {
-      w = measureTextWithVisualSpaces(safe, 0, safe.length(), paint);
-    }
-    synchronized (lineWidthCache) {
-      lineWidthCache.put(globalIndex, w);
-    }
-  }
-
-  /**
-   * Get width for line
-   */
-  public float getWidthForLine(int globalIndex, String line) {
-    synchronized (lineWidthCache) {
-      Float v = lineWidthCache.get(globalIndex);
-      if (v != null) return v;
-    }
-    String safe = (line == null) ? "" : line;
-    float w;
-    int logicalLen = editor.getLogicalLineLength(globalIndex, safe);
-    if (logicalLen > maxSyntaxLineLength) {
-      w = getAverageCharWidthForLine(safe, globalIndex) * logicalLen;
-    } else {
-      w = measureTextWithVisualSpaces(safe, 0, safe.length(), paint);
-    }
-    synchronized (lineWidthCache) {
-      lineWidthCache.put(globalIndex, w);
-    }
-    return w;
-  }
-
-  /**
-   * Recalculate max line width
-   */
-  public void recalculateMaxLineWidth() {
-    float mx = 0f;
-    synchronized (linesWindow) {
-      for (int i = 0; i < linesWindow.size(); i++) {
-        String line = linesWindow.get(i);
-        mx = Math.max(mx, getWidthForLine(windowStartLine + i, line));
-      }
-    }
-    currentMaxWindowLineWidth = mx;
-    globalMaxLineWidth = Math.max(globalMaxLineWidth, currentMaxWindowLineWidth);
-  }
-
 }

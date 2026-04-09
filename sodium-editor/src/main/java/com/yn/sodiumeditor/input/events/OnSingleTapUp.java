@@ -74,6 +74,9 @@ public class OnSingleTapUp {
       CodeFold.FoldRange range = editor.codeFold.getFoldRangeAtStart(line);
       if (range != null && range.collapsed) {
         String endLineText = editor.getLineTextForRender(range.endLine);
+        if (endLineText == null || endLineText.isEmpty()) {
+          endLineText = editor.codeFold.utils.getEndLineTextForFold(range);
+        }
         float[] bounds = new float[2];
         if (editor.codeFold.getFoldPlaceholderBounds(line, ln, bounds)) {
           float xStart =
@@ -89,6 +92,9 @@ public class OnSingleTapUp {
           float closeStart = xStart + placeholderWidth;
           float closeWidth = editor.textRender.paint.measureText(String.valueOf(range.closeChar));
           int closeIdx = editor.codeFold.resolveCloseCharIndex(range, endLineText);
+          if (closeIdx < 0 && range.closeCharIndex >= 0) {
+            closeIdx = range.closeCharIndex;
+          }
           int suffixStart =
               range.isBlockComment ? (closeIdx >= 0 ? closeIdx + 2 : -1)
                   : (closeIdx >= 0 ? closeIdx + 1 : -1);
@@ -98,7 +104,13 @@ public class OnSingleTapUp {
             editor.cursor.cursorChar = Math.max(0, range.openCharIndex);
           } else if (x <= closeStart + closeWidth || suffixStart < 0 || endLineText == null) {
             editor.cursor.cursorLine = range.endLine;
-            editor.cursor.cursorChar = (closeIdx >= 0) ? (closeIdx + 1) : 0;
+            if (closeIdx >= 0) {
+              editor.cursor.cursorChar = closeIdx + 1;
+            } else if (endLineText != null) {
+              editor.cursor.cursorChar = endLineText.length();
+            } else {
+              editor.cursor.cursorChar = 0;
+            }
           } else {
             float xSuffix = Math.max(0f, x - (closeStart + closeWidth));
             int idx =

@@ -13,7 +13,7 @@ import android.view.inputmethod.InputMethodManager;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.CodeFold;
 import com.yn.sodiumeditor.io.EditOperators;
-import com.yn.sodiumeditor.core.selection.Popup;
+import com.yn.sodiumeditor.core.Popup;
 /**
  * OnTouch handles all touch event logic for SodiumEditor.
  * This includes:
@@ -147,20 +147,27 @@ public class OnTouch {
           editor.scroll.cancelFlingStopAnimation();
         }
 
-        // FIX: Use getTextStartX() to correctly calculate touch coordinates relative to the text
-        // area.
-        float gx = ex + editor.getEffectiveScrollX() - editor.getTextStartX();
-        float gy = ey + editor.scroll.scrollY - editor.textRender.getHitTestBaseY();
-        if (editor.selection.hasSelection && editor.selectionHandles.leftHandleRect.contains(gx, gy)) {
+        // Update handle positions before hit testing (handles are in screen coordinates)
+        if (editor.selection.hasSelection) {
+            editor.selectionHandles.updateHandlesPosition();
+        }
+        editor.cursorHandle.updateCursorHandlePosition();
+
+        // Use screen coordinates for handle hit testing (handles are positioned in screen space)
+        if (editor.selection.hasSelection && editor.selectionHandles.hitTestLeft(ex, ey)) {
           editor.selectionHandles.draggingHandle = 1;
           return true;
-        } else if (editor.selection.hasSelection && editor.selectionHandles.rightHandleRect.contains(gx, gy)) {
+        } else if (editor.selection.hasSelection && editor.selectionHandles.hitTestRight(ex, ey)) {
           editor.selectionHandles.draggingHandle = 2;
           return true;
-        } else if (editor.isFocused() && !editor.selection.hasSelection && editor.cursorHandle.cursorHandleRect.contains(gx, gy)) {
+        } else if (editor.isFocused() && !editor.selection.hasSelection && editor.cursorHandle.hitTest(ex, ey)) {
           editor.selectionHandles.draggingHandle = 3;
           return true;
         }
+
+        // For non-handle touches, use text-relative coordinates
+        float gx = ex + editor.getEffectiveScrollX() - editor.getTextStartX();
+        float gy = ey + editor.scroll.scrollY - editor.textRender.getHitTestBaseY();
 
         editor.scroll.gestureDetector.onTouchEvent(event);
         return true;
@@ -265,7 +272,11 @@ public class OnTouch {
 
         if (editor.selectionHandles.draggingHandle != 0) {
           updateHandlePosition(ex, ey);
-          if (editor.selectionHandles.draggingHandle == 1 || editor.selectionHandles.draggingHandle == 2) editor.popup.showPopupAtSelection();
+          
+          // Show popup when dragging selection handles
+          if (editor.selectionHandles.draggingHandle == 1 || editor.selectionHandles.draggingHandle == 2) {
+            editor.popup.showPopupAtSelection();
+          }
 
           float scrollMargin = editor.textRender.lineHeight * 2f;
           float scrollSpeed = Math.max(4f, editor.textRender.lineHeight * 0.35f);

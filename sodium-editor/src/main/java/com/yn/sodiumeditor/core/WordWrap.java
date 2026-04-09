@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.core;
+package com.yn.sodiumeditor.core; 
 import com.yn.sodiumeditor.SodiumEditor;
 import android.graphics.Paint;
 import android.os.Handler;
@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import com.yn.sodiumeditor.io.EditOperators;
-import com.yn.sodiumeditor.core.highlite.WordWrapIndicator;
+import com.yn.sodiumeditor.core.WordWrapIndicator;
 import com.yn.sodiumeditor.renderer.TextRender;
 /**
  * Manages word wrap functionality for the SodiumEditor.
@@ -1072,6 +1072,14 @@ public class WordWrap {
       x = w - x;
     }
     if (x <= 0f) return start;
+    if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
+      int[] spans = editor.binaryRender.getBinaryTokenSpans(globalLine);
+      if (spans != null && spans.length > 0) {
+        float padX = editor.binaryRender.binaryCaretNotationEnabled ? 0f : editor.binaryRender.binaryTokenPaddingX;
+        return editor.binaryRender.getCharIndexForXBinary(
+            text, start, end, x, editor.textRender.paint, spans, padX);
+      }
+    }
     int len = end - start;
     if (len <= 0) return start;
     if (editor.getVisualSpaceScale() == 1) {
@@ -1226,7 +1234,20 @@ public class WordWrap {
     String text = editor.getLineTextForRender(safeLine);
     int[] starts = getWrapStartsForLine(safeLine, text);
     int seg = getWrapSegmentIndexForChar(starts, Math.max(0, Math.min(ch, text.length())));
-    return wrapLinePrefix[safeLine] + seg;
+    int visualIndex = wrapLinePrefix[safeLine] + seg;
+    
+    // When code folding is enabled, we need to adjust the visual index to account
+    // for folded lines that come before this line
+    if (editor.codeFold.isCodeFoldingEnabled) {
+      // Get the base visible index for this global line
+      int baseVisibleIndex = editor.codeFold.getVisibleIndexForGlobalLine(line);
+      // Calculate the offset within the line (in terms of wrap segments)
+      int wrapOffset = visualIndex - wrapLinePrefix[safeLine];
+      // The final visual index is the base visible index plus the wrap offset
+      visualIndex = baseVisibleIndex + wrapOffset;
+    }
+    
+    return visualIndex;
   }
 
   /**
