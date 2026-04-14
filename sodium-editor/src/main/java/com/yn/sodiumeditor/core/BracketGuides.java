@@ -20,14 +20,14 @@ public class BracketGuides {
   private final SodiumEditor editor;
 
   // Bracket guides state
-  public boolean isBracketGuidesEnabled = true;
+  public boolean isBracketGuidesEnabled = false;
   public final Paint bracketGuidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public float bracketGuideStrokeWidth = 4f;
   public float baseBracketGuideStrokeWidth = bracketGuideStrokeWidth;
   public float baseBracketGuideTextSizePx = 0f;
 
   // Option: continue drawing guides when lines go off-screen (uses fallback cache)
-  public boolean drawGuidesForOffScreenLines = true;
+  public boolean drawGuidesForOffScreenLines = false;
 
   // Performance options
   public boolean skipGuidesDuringFastScroll = false;
@@ -129,7 +129,7 @@ public class BracketGuides {
     float sizePx = editor.textRender.paint.getTextSize();
     bracketGuideStrokeWidth = Math.max(
         1f,
-        editor.scaleByTextSize(baseBracketGuideStrokeWidth, baseBracketGuideTextSizePx, sizePx));
+        editor.view.scaleByTextSize(baseBracketGuideStrokeWidth, baseBracketGuideTextSizePx, sizePx));
     bracketGuidePaint.setStrokeWidth(bracketGuideStrokeWidth);
   }
 
@@ -504,40 +504,31 @@ public class BracketGuides {
       return;
     }
 
-    // Fallback: draw line-by-line using main cache or fallback cache or synchronous calculation
-    BracketGuideState prevState = null;
+    // Fallback: draw line-by-line using main cache or fallback cache only.
+    // No synchronous calculation — if a line is not cached, skip it this frame.
+    // The async builder will populate the cache shortly.
     int linesDrawn = 0;
+    int linesCount = editor.getLinesCount();
     for (int line = visibleStart; line <= visibleEnd; line++) {
-      if (line < 0 || line >= editor.getLinesCount()) continue;
+      if (line < 0 || line >= linesCount) continue;
 
-      // Try main cache
+      // Try main cache first
       List<BracketGuideToken> tokens = mainCache.getTokensForLine(line);
       if (tokens == null) {
         // Try fallback cache
         tokens = fallbackCache.getTokensForLine(line);
       }
 
+      if (tokens == null || tokens.isEmpty()) {
+        // No cache available — skip this frame for this line.
+        continue;
+      }
+
       String lineText = scanner.getLineTextForGuideScan(line, null, null);
       if (lineText == null) lineText = "";
 
-      if (tokens != null && !tokens.isEmpty()) {
-        draw.drawBracketGuidesForLine(canvas, lineText, line, tokens);
-        linesDrawn++;
-      } else {
-        // No cache available - calculate synchronously
-        // Start with fresh state at first visible line
-        if (prevState == null) {
-          prevState = new BracketGuideState(editor.highlite.isBlockCommentsEnabled, 0);
-        }
-        // Draw tokens from state BEFORE processing this line
-        tokens = BracketGuideScanner.getGuideTokensFromStack(prevState.stack);
-        if (tokens != null && !tokens.isEmpty()) {
-          draw.drawBracketGuidesForLine(canvas, lineText, line, tokens);
-          linesDrawn++;
-        }
-        // Update state for next line (process this line's brackets)
-        prevState = calculateBracketGuideStateForLine(lineText, line, prevState);
-      }
+      draw.drawBracketGuidesForLine(canvas, lineText, line, tokens);
+      linesDrawn++;
     }
     if (SodiumEditor.DEBUG_RENDER_LOGS && linesDrawn > 0) {
       android.util.Log.d("BracketGuides", "drew bracket guides for " + linesDrawn + " lines (visibleStart=" + visibleStart + ", visibleEnd=" + visibleEnd + ")");

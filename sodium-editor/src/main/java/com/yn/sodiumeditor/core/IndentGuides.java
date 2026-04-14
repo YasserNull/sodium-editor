@@ -82,7 +82,7 @@ public class IndentGuides {
     float sizePx = editor.textRender.paint.getTextSize();
     indentGuideStrokeWidth = Math.max(
         1f,
-        editor.scaleByTextSize(baseIndentGuideStrokeWidth, baseIndentGuideTextSizePx, sizePx));
+        editor.view.scaleByTextSize(baseIndentGuideStrokeWidth, baseIndentGuideTextSizePx, sizePx));
     indentGuidePaint.setStrokeWidth(indentGuideStrokeWidth);
   }
 

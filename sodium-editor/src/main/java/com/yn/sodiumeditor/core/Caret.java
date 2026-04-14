@@ -40,7 +40,7 @@ public class Caret {
       public void run() {
         if (editor.isFocused() && !editor.selection.hasSelection) {
           isCursorVisible = !isCursorVisible;
-          editor.invalidateCursorArea();
+          editor.cursor.invalidateCursorArea();
           mainHandler.postDelayed(this, caretBlinkPeriodMs);
         }
       }
@@ -75,6 +75,24 @@ public class Caret {
   }
 
   /**
+   * Get caret X position relative to document start (no scroll)
+   */
+  public float getCaretDocumentX() {
+    String lineText = editor.textRender.getLineTextForRender(cursor.cursorLine);
+    if (lineText == null) return 0f;
+    int safeChar = Math.max(0, Math.min(cursor.cursorChar, lineText.length()));
+    return editor.measureTextWithVisualSpaces(lineText, 0, safeChar, editor.textRender.paint);
+  }
+
+  /**
+   * Get caret Y position relative to document start (no scroll)
+   */
+  public float getCaretDocumentY() {
+    int visualLine = editor.wordWrap.getVisualIndexForLineAndChar(cursor.cursorLine, cursor.cursorChar);
+    return visualLine * editor.textRender.lineHeight;
+  }
+
+  /**
    * Draw caret on canvas
    */
   public void drawCaret(Canvas canvas) {
@@ -86,25 +104,27 @@ public class Caret {
       return;
     }
 
-    // Use animated position if animation is running, otherwise use actual position
-    float x, y;
-    if (editor.cursorAnimation.cursorAnimRunning) {
-      x = editor.cursorAnimation.cursorDrawX;
-      y = editor.cursorAnimation.cursorDrawY;
+    // Use animated Document position if available
+    float docX, docY;
+    if (editor.cursorAnimation.cursorAnimValid && !Float.isNaN(editor.cursorAnimation.cursorDrawX)) {
+      docX = editor.cursorAnimation.cursorDrawX;
+      docY = editor.cursorAnimation.cursorDrawY;
     } else {
-      x = getCaretX();
-      y = getCaretY();
+      docX = getCaretDocumentX();
+      docY = getCaretDocumentY();
     }
+    
+    // Convert Document coordinates to Screen coordinates for drawing
+    float x = editor.getTextStartX() + docX - editor.scroll.scrollX;
+    float y = docY - editor.scroll.scrollY;
+    
     float height = editor.textRender.lineHeight;
-
-    // Use caretWidth from settings, ensure minimum width for visibility
     float width = Math.max(2f, caretWidth);
     
     Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     paint.setColor(caretColor);
     paint.setStyle(Paint.Style.FILL);
 
-    // Draw caret rectangle with proper positioning
     RectF caretRect = new RectF(x - width / 2, y, x + width / 2, y + height);
     canvas.drawRect(caretRect, paint);
   }
@@ -121,7 +141,7 @@ public class Caret {
       return getFoldedCaretX(collapsed, false);
     }
 
-    String lineText = editor.getLineTextForRender(cursor.cursorLine);
+    String lineText = editor.textRender.getLineTextForRender(cursor.cursorLine);
     if (lineText == null) return editor.getTextStartX();
 
     int safeChar = Math.max(0, Math.min(cursor.cursorChar, lineText.length()));
@@ -139,12 +159,12 @@ public class Caret {
       if (collapsed != null) {
         visualLine = editor.codeFold.getVisibleIndexForGlobalLine(collapsed.startLine);
       } else if (editor.wordWrap.isWordWrapEnabled) {
-        visualLine = editor.getVisualIndexForLineAndChar(cursor.cursorLine, cursor.cursorChar);
+        visualLine = editor.wordWrap.getVisualIndexForLineAndChar(cursor.cursorLine, cursor.cursorChar);
       } else {
         visualLine = editor.codeFold.getVisibleIndexForGlobalLine(cursor.cursorLine);
       }
     } else if (editor.wordWrap.isWordWrapEnabled) {
-      visualLine = editor.getVisualIndexForLineAndChar(cursor.cursorLine, cursor.cursorChar);
+      visualLine = editor.wordWrap.getVisualIndexForLineAndChar(cursor.cursorLine, cursor.cursorChar);
     }
     return (visualLine * editor.textRender.lineHeight) - editor.scroll.scrollY;
   }
@@ -161,7 +181,7 @@ public class Caret {
       return getFoldedCaretX(collapsed, true);
     }
 
-    String lineText = editor.getLineTextForRender(cursor.cursorLine);
+    String lineText = editor.textRender.getLineTextForRender(cursor.cursorLine);
     if (lineText == null) return 0f;
 
     int safeChar = Math.max(0, Math.min(cursor.cursorChar, lineText.length()));
@@ -178,18 +198,18 @@ public class Caret {
       if (collapsed != null) {
         visualLine = editor.codeFold.getVisibleIndexForGlobalLine(collapsed.startLine);
       } else if (editor.wordWrap.isWordWrapEnabled) {
-        visualLine = editor.getVisualIndexForLineAndChar(cursor.cursorLine, cursor.cursorChar);
+        visualLine = editor.wordWrap.getVisualIndexForLineAndChar(cursor.cursorLine, cursor.cursorChar);
       } else {
         visualLine = editor.codeFold.getVisibleIndexForGlobalLine(cursor.cursorLine);
       }
     } else if (editor.wordWrap.isWordWrapEnabled) {
-      visualLine = editor.getVisualIndexForLineAndChar(cursor.cursorLine, cursor.cursorChar);
+      visualLine = editor.wordWrap.getVisualIndexForLineAndChar(cursor.cursorLine, cursor.cursorChar);
     }
     return (visualLine - editor.drawBaseLine) * editor.textRender.lineHeight;
   }
 
   private float getFoldedCaretX(CodeFold.FoldRange range, boolean canvasSpace) {
-    String startLineText = editor.getLineTextForRender(range.startLine);
+    String startLineText = editor.textRender.getLineTextForRender(range.startLine);
     if (startLineText == null) startLineText = "";
 
     int prefixEnd;
@@ -201,7 +221,7 @@ public class Caret {
       prefixEnd = Math.min(range.openCharIndex + 1, startLineText.length());
     }
 
-    float xStart = editor.measureHighlightedSegmentWidth(startLineText, range.startLine, 0, prefixEnd);
+    float xStart = editor.highlite.measureHighlightedSegmentWidth(startLineText, range.startLine, 0, prefixEnd);
     float placeholderWidth =
         Math.max(0f, editor.textRender.paint.measureText(CodeFold.FOLD_PLACEHOLDER_TEXT));
     float xAfter = xStart + placeholderWidth;
@@ -214,7 +234,7 @@ public class Caret {
     String closeText = range.isBlockComment ? "*/" : String.valueOf(range.closeChar);
     float closeWidth = editor.textRender.paint.measureText(closeText);
 
-    String endLineText = editor.getLineTextForRender(range.endLine);
+    String endLineText = editor.textRender.getLineTextForRender(range.endLine);
     if (endLineText == null || endLineText.isEmpty()) {
       endLineText = editor.codeFold.utils.getEndLineTextForFold(range);
     }
@@ -229,7 +249,7 @@ public class Caret {
     if (endLineText != null && suffixStart >= 0 && cursor.cursorChar > suffixStart) {
       int safeChar = Math.max(suffixStart, Math.min(cursor.cursorChar, endLineText.length()));
       float suffixWidth =
-          editor.measureHighlightedSegmentWidth(endLineText, range.endLine, suffixStart, safeChar);
+          editor.highlite.measureHighlightedSegmentWidth(endLineText, range.endLine, suffixStart, safeChar);
       x += suffixWidth;
     }
 
@@ -286,4 +306,47 @@ public class Caret {
   public boolean isAnimating() {
     return editor.cursorAnimation.cursorAnimRunning;
   }
+  public float getCaretXForLine(String line, int globalLine, int charIndex) {
+    float x;
+    if (editor.binaryRender.isBinarySafeRenderingEnabled() && !editor.textRender.isRtl) {
+      int[] spans = editor.binaryRender.getBinaryTokenSpans(globalLine);
+      if (spans != null && spans.length > 0) {
+        float padX = editor.binaryRender.binaryCaretNotationEnabled ? 0f : editor.binaryRender.binaryTokenPaddingX;
+        x = editor.binaryRender.getXForCharBinary(line, charIndex, editor.textRender.paint, spans, padX);
+      } else {
+        x = editor.measureText(line, charIndex, globalLine);
+      }
+    } else {
+      x = editor.measureText(line, charIndex, globalLine);
+    }
+    if (!editor.textRender.isRtl) return x;
+    int logicalLen = editor.getLogicalLineLength(globalLine, line);
+    float w = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, logicalLen);
+    float baseX = editor.getRtlLineBaseX(line, globalLine);
+    return baseX + (w - x);
+  }
+
+  public float getCaretXForSegment(
+      String line, int globalLine, int segStart, int segEnd, int charIndex) {
+    float xRel;
+    if (editor.binaryRender.isBinarySafeRenderingEnabled() && !editor.textRender.isRtl) {
+      int[] spans = editor.binaryRender.getBinaryTokenSpans(globalLine);
+      if (spans != null && spans.length > 0) {
+        float padX = editor.binaryRender.binaryCaretNotationEnabled ? 0f : editor.binaryRender.binaryTokenPaddingX;
+        float x1 = editor.binaryRender.getXForCharBinary(line, segStart, editor.textRender.paint, spans, padX);
+        float x2 = editor.binaryRender.getXForCharBinary(line, charIndex, editor.textRender.paint, spans, padX);
+        xRel = Math.max(0f, x2 - x1);
+      } else {
+        xRel = editor.measureTextWithVisualSpaces(line, segStart, charIndex, editor.textRender.paint);
+      }
+    } else {
+      xRel = editor.measureTextWithVisualSpaces(line, segStart, charIndex, editor.textRender.paint);
+    }
+    if (!editor.textRender.isRtl) return xRel;
+    float w = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, segStart, segEnd);
+    float baseX = editor.getRtlSegmentBaseX(line, globalLine, segStart, segEnd);
+    return baseX + (w - xRel);
+  }
+  
 }
+

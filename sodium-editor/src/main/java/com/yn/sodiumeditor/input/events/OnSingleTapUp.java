@@ -4,6 +4,7 @@ import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.CodeFold;
 import com.yn.sodiumeditor.io.EditOperators;
+import com.yn.sodiumeditor.io.EditOp;
 
 /**
  * OnSingleTapUp handles onSingleTapUp() gesture event for SodiumEditor.
@@ -30,7 +31,7 @@ public class OnSingleTapUp {
     }
     if (editor.codeFold.isCodeFoldingEnabled && editor.lineNumber.isInLineNumberGutter(e.getX())) {
       float gy = e.getY() + editor.scroll.scrollY;
-      int line = editor.getGlobalLineForY(gy);
+      int line = editor.wordWrap.getGlobalLineForY(gy);
       if (editor.codeFold.toggleFoldAtLine(line)) {
         editor.codeFold.startFoldMarkerRipple(line);
         editor.popup.hidePopup();
@@ -42,12 +43,12 @@ public class OnSingleTapUp {
     int visibleIndex = Math.max(0, (int) (y / editor.textRender.lineHeight));
     int totalVisible =
         editor.wordWrap.isWordWrapEnabled ? editor.wordWrap.getTotalVisualLineCount() : editor.codeFold.getVisibleLineCount();
-    EditOperators.CursorTarget target = editor.getCursorTargetForPosition(e.getX(), e.getY(), null);
+    EditOp.CursorTarget target = editor.wordWrap.getCursorTargetForPosition(e.getX(), e.getY(), null);
     int line = target.line;
 
     if (editor.codeFold.isCodeFoldingEnabled) {
-      String ln = editor.getLineTextForRender(line);
-      float xLocal = editor.viewToTextX(e.getX());
+      String ln = editor.textRender.getLineTextForRender(line);
+      float xLocal = editor.scroll.viewToTextX(e.getX());
       float x;
       if (editor.wordWrap.isWordWrapEnabled) {
         int[] starts = editor.wordWrap.getWrapStartsForLine(line, ln);
@@ -59,7 +60,7 @@ public class OnSingleTapUp {
       } else {
         x = xLocal;
       }
-      if (editor.isFoldPlaceholderHit(line, ln, x)) {
+      if (editor.codeFold.isFoldPlaceholderHit(line, ln, x)) {
         float[] bounds = new float[2];
         if (editor.codeFold.getFoldPlaceholderBounds(line, ln, bounds)) {
           editor.codeFold.startFoldPlaceholderRipple(line, bounds[0], bounds[1]);
@@ -73,14 +74,14 @@ public class OnSingleTapUp {
       }
       CodeFold.FoldRange range = editor.codeFold.getFoldRangeAtStart(line);
       if (range != null && range.collapsed) {
-        String endLineText = editor.getLineTextForRender(range.endLine);
+        String endLineText = editor.textRender.getLineTextForRender(range.endLine);
         if (endLineText == null || endLineText.isEmpty()) {
           endLineText = editor.codeFold.utils.getEndLineTextForFold(range);
         }
         float[] bounds = new float[2];
         if (editor.codeFold.getFoldPlaceholderBounds(line, ln, bounds)) {
           float xStart =
-              editor.measureHighlightedSegmentWidth(
+              editor.highlite.measureHighlightedSegmentWidth(
                   ln,
                   line,
                   0,
@@ -100,35 +101,32 @@ public class OnSingleTapUp {
                   : (closeIdx >= 0 ? closeIdx + 1 : -1);
 
           if (x <= xStart) {
-            editor.cursor.cursorLine = line;
-            editor.cursor.cursorChar = Math.max(0, range.openCharIndex);
+            editor.cursor.setCursorPosition(line, Math.max(0, range.openCharIndex));
           } else if (x <= closeStart + closeWidth || suffixStart < 0 || endLineText == null) {
-            editor.cursor.cursorLine = range.endLine;
+            int targetChar = 0;
             if (closeIdx >= 0) {
-              editor.cursor.cursorChar = closeIdx + 1;
+              targetChar = closeIdx + 1;
             } else if (endLineText != null) {
-              editor.cursor.cursorChar = endLineText.length();
-            } else {
-              editor.cursor.cursorChar = 0;
+              targetChar = endLineText.length();
             }
+            editor.cursor.setCursorPosition(range.endLine, targetChar);
           } else {
             float xSuffix = Math.max(0f, x - (closeStart + closeWidth));
             int idx =
-                editor.getCharIndexForXInRange(
+                editor.wordWrap.getCharIndexForXInRange(
                     endLineText,
                     range.endLine,
                     suffixStart,
                     endLineText.length(),
                     xSuffix);
-            editor.cursor.cursorLine = range.endLine;
-            editor.cursor.cursorChar = Math.max(suffixStart, Math.min(idx, endLineText.length()));
+            editor.cursor.setCursorPosition(range.endLine, Math.max(suffixStart, Math.min(idx, endLineText.length())));
           }
 
           editor.popup.hidePopup();
           editor.invalidate();
           editor.caret.resetBlink();
           editor.showKeyboard();
-          editor.restartInput();
+          editor.view.restartInput();
           editor.autoCompletion.updateSuggestion();
           return true;
         }
@@ -143,9 +141,8 @@ public class OnSingleTapUp {
       }
     } else {
       editor.fileIO.ensureLineInWindow(line, true);
-      String ln = editor.getLineTextForRender(line);
-      editor.cursor.cursorLine = line;
-      editor.cursor.cursorChar = Math.max(0, Math.min(target.ch, ln.length()));
+      String ln = editor.textRender.getLineTextForRender(line);
+      editor.cursor.setCursorPosition(line, Math.max(0, Math.min(target.ch, ln.length())));
     }
 
     editor.popup.hidePopup();
@@ -153,7 +150,7 @@ public class OnSingleTapUp {
     editor.invalidate();
     editor.caret.resetBlink();
     editor.showKeyboard();
-    editor.restartInput();
+    editor.view.restartInput();
     editor.autoCompletion.updateSuggestion();
     return true;
   }

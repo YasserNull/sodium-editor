@@ -31,7 +31,7 @@ public class CodeFoldUtils {
             String mod = editor.textRender.modifiedLines.get(range.endLine);
             if (mod != null) return mod;
         }
-        String text = editor.getLineTextForRender(range.endLine);
+        String text = editor.textRender.getLineTextForRender(range.endLine);
         if (text != null) {
             if (text.length() > 0) {
                 return text;
@@ -318,7 +318,7 @@ public class CodeFoldUtils {
         } else {
             prefixEnd = Math.min(range.openCharIndex + 1, line.length());
         }
-        float xStart = editor.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
+        float xStart = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
         float placeholderWidth = Math.max(0f, editor.textRender.paint.measureText(CodeFold.FOLD_PLACEHOLDER_TEXT));
         float left = xStart;
         float right = xStart + placeholderWidth;
@@ -344,7 +344,7 @@ public class CodeFoldUtils {
         } else {
             prefixEnd = Math.min(range.openCharIndex + 1, line.length());
         }
-        float xStart = editor.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
+        float xStart = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
         float placeholderWidth = Math.max(0f, editor.textRender.paint.measureText(CodeFold.FOLD_PLACEHOLDER_TEXT));
         outBounds[0] = xStart;
         outBounds[1] = xStart + placeholderWidth;

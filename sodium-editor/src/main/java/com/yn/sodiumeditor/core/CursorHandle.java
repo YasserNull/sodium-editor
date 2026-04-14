@@ -36,13 +36,25 @@ public class CursorHandle {
    * Update cursor handle position
    */
   public void updateCursorHandlePosition() {
-    float caretX = caret.getCaretX();
-    float caretY = caret.getCaretY();
+    float docX, docY;
+    // Use animated Document position if available
+    if (editor.cursorAnimation.cursorAnimValid && !Float.isNaN(editor.cursorAnimation.cursorDrawX)) {
+      docX = editor.cursorAnimation.cursorDrawX;
+      docY = editor.cursorAnimation.cursorDrawY;
+    } else {
+      docX = caret.getCaretDocumentX();
+      docY = caret.getCaretDocumentY();
+    }
+    
+    // Convert Document coordinates to Screen coordinates
+    float x = editor.getTextStartX() + docX - editor.scroll.scrollX;
+    float y = docY - editor.scroll.scrollY;
+    
     float lineHeight = editor.textRender.lineHeight;
     
-    // Position handle below the cursor line, centered on caret X
-    float handleLeft = caretX - cursorHandleWidth / 2;
-    float handleTop = caretY + lineHeight;
+    // Position handle below the cursor line, centered on x
+    float handleLeft = x - cursorHandleWidth / 2;
+    float handleTop = y + lineHeight;
 
     cursorHandleRect.set(
         handleLeft,

@@ -26,6 +26,7 @@ public class CodeFoldAnimation {
     public int foldMarkerPendingColor = 0xFFFFA000;
     public final Paint foldPlaceholderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     public final Paint foldMarkerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    public final Paint foldMarkerPendingPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     public final Paint foldRipplePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     // Fold ripple animation
@@ -49,8 +50,10 @@ public class CodeFoldAnimation {
         foldPlaceholderPaint.setStyle(Paint.Style.FILL);
         foldMarkerPaint.setColor(foldMarkerColor);
         foldMarkerPaint.setTextAlign(editor.textRender.isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
-        foldMarkerTextScale = 1f;
         foldMarkerPaint.setTextSize(editor.textRender.paint.getTextSize());
+        foldMarkerPendingPaint.setColor(foldMarkerPendingColor);
+        foldMarkerPendingPaint.setTextAlign(editor.textRender.isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
+        foldMarkerPendingPaint.setTextSize(editor.textRender.paint.getTextSize());
         foldRipplePaint.setStyle(Paint.Style.FILL);
     }
 
@@ -148,6 +151,7 @@ public class CodeFoldAnimation {
      */
     public void updateTextSize(float sizePx) {
         foldMarkerPaint.setTextSize(sizePx * foldMarkerTextScale);
+        foldMarkerPendingPaint.setTextSize(sizePx * foldMarkerTextScale);
     }
 
     /**
@@ -160,5 +164,6 @@ public class CodeFoldAnimation {
         }
         android.graphics.Typeface finalTypeface = android.graphics.Typeface.create(typeface, typefaceStyle);
         foldMarkerPaint.setTypeface(finalTypeface);
+        foldMarkerPendingPaint.setTypeface(finalTypeface);
     }
 }

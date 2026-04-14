@@ -1,79 +1,109 @@
 package com.yn.sodiumeditor.renderer.animation;
 
-import android.animation.ValueAnimator;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.RectF;
+import android.os.Handler;
+import android.os.Looper;
 import com.yn.sodiumeditor.SodiumEditor;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * LoadingCircleAnimation handles the rotation animation for the loading circle.
- * This includes:
- * - Rotation value tracking
- * - Start/stop rotation animation
- * - Animation state queries
+ * Handles the rendering and animation logic for the loading circle.
  */
 public class LoadingCircleAnimation {
-
-    public static final long ROTATION_ANIM_DURATION_MS = 1000;
-
     private final SodiumEditor editor;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
-    // Rotation state
-    public float loadingCircleRotation = 0f;
-    public ValueAnimator rotationAnimator;
+    public final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    public final RectF rect = new RectF();
+
+    public boolean showLoadingCircle = false;
+    public float radius = 40f;
+    public int color = 0xFF3F51B5;
+    public float strokeWidth = 8f;
+    public float rotation = 0f;
+
+    private boolean isAnimating = false;
+    private final Runnable animationRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!isAnimating) return;
+            rotation = (rotation + 8f) % 360f;
+            editor.invalidate();
+            mainHandler.postDelayed(this, 16);
+        }
+    };
+
+    public boolean showLoadingOnFileOpen = true;
+    public boolean isInitialFileOpenLoading = false;
+    public int initialFileOpenToken = 0;
+    public int maxWidthRecalcToken = 0;
+    public static final int LARGE_EDIT_LINES = 8000;
+    public final AtomicInteger largeEditUiToken = new AtomicInteger(0);
+
+    private final Runnable largeEditUiWatchdog = () -> endLargeEditUi(false);
 
     public LoadingCircleAnimation(SodiumEditor editor) {
         this.editor = editor;
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeCap(Paint.Cap.ROUND);
     }
 
-    /**
-     * Start rotation animation.
-     */
     public void startRotation() {
-        if (rotationAnimator == null) {
-            rotationAnimator = ValueAnimator.ofFloat(0f, 360f);
-            rotationAnimator.setDuration(ROTATION_ANIM_DURATION_MS);
-            rotationAnimator.setRepeatCount(ValueAnimator.INFINITE);
-            rotationAnimator.addUpdateListener(
-                animation -> {
-                    loadingCircleRotation = (float) animation.getAnimatedValue();
-                    editor.invalidate();
-                });
-        }
-        if (!rotationAnimator.isRunning()) {
-            rotationAnimator.start();
-        }
+        if (isAnimating) return;
+        isAnimating = true;
+        mainHandler.post(animationRunnable);
     }
 
-    /**
-     * Stop rotation animation.
-     */
     public void stopRotation() {
-        if (rotationAnimator != null && rotationAnimator.isRunning()) {
-            rotationAnimator.cancel();
-        }
-        loadingCircleRotation = 0f;
+        isAnimating = false;
+        mainHandler.removeCallbacks(animationRunnable);
     }
 
-    /**
-     * Check if the animation is currently running.
-     */
-    public boolean isAnimating() {
-        return rotationAnimator != null && rotationAnimator.isRunning();
+    public void draw(Canvas canvas) {
+        if (!showLoadingCircle) return;
+
+        float cx = canvas.getWidth() * 0.5f;
+        float cy = canvas.getHeight() * 0.5f;
+
+        paint.setColor(color);
+        paint.setStrokeWidth(strokeWidth);
+
+        canvas.save();
+        canvas.rotate(rotation, cx, cy);
+        rect.set(cx - radius, cy - radius, cx + radius, cy + radius);
+        canvas.drawArc(rect, 0, 270, false, paint);
+        canvas.restore();
     }
 
-    /**
-     * Get the current rotation angle in degrees.
-     */
-    public float getRotation() {
-        return loadingCircleRotation;
+    public void beginLargeEditUiIfNeeded(boolean enable, int sL, int eL, boolean isSelectAllLike) {
+        if (!enable) return;
+        int span = Math.abs(eL - sL) + 1;
+        if (!isSelectAllLike && span < LARGE_EDIT_LINES) return;
+
+        largeEditUiToken.incrementAndGet();
+        editor.view.setDisable(true);
+        showLoadingCircle = true;
+        startRotation();
+
+        editor.caret.mainHandler.removeCallbacks(largeEditUiWatchdog);
+        editor.caret.mainHandler.postDelayed(largeEditUiWatchdog, 1500);
     }
 
-    /**
-     * Cancel animation and cleanup.
-     */
+    public void endLargeEditUi(boolean invalidate) {
+        largeEditUiToken.incrementAndGet();
+        editor.caret.mainHandler.removeCallbacks(largeEditUiWatchdog);
+        editor.view.setDisable(false);
+        showLoadingCircle = false;
+        stopRotation();
+        if (invalidate) editor.invalidate();
+    }
+
     public void cancel() {
         stopRotation();
-        if (rotationAnimator != null) {
-            rotationAnimator = null;
-        }
+        editor.caret.mainHandler.removeCallbacks(largeEditUiWatchdog);
     }
+
+    public boolean isAnimating() { return isAnimating; }
 }

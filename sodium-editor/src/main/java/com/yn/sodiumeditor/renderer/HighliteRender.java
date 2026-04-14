@@ -536,7 +536,7 @@ public class HighliteRender {
         int safe = Math.max(512, maxChars);
         if (maxSyntaxLineLength == safe) return;
         maxSyntaxLineLength = safe;
-        editor.clearHighlightCaches();
+        editor.highlite.clearHighlightCaches();
         editor.invalidate();
     }
 
@@ -545,5 +545,14 @@ public class HighliteRender {
         if (prefetchCols == safe) return;
         prefetchCols = safe;
         editor.invalidate();
+    }
+
+    public List<HighlightSpan> getHighlightSpansForLine(String line, int lineIndex) {
+        List<HighlightSpan> spans = editor.highlite.highlightCache.get(lineIndex);
+        if (spans == null) {
+            spans = editor.highlite.calculateSpansForLine(line, lineIndex);
+            editor.highlite.highlightCache.put(lineIndex, spans);
+        }
+        return spans;
     }
 }

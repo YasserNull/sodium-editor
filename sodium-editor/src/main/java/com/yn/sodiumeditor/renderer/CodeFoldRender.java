@@ -46,26 +46,22 @@ public class CodeFoldRender {
                 - editor.lineNumber.gutterSeparatorWidth
                 - editor.codeFold.animation.foldMarkerEdgePadding);
 
+        Paint normalPaint = editor.codeFold.animation.foldMarkerPaint;
+        Paint pendingPaint = editor.codeFold.animation.foldMarkerPendingPaint;
+
         for (int v = firstVisibleIndex; v <= lastVisibleIndex; v++) {
             int line = editor.codeFold.mapVisibleIndexToGlobal(v);
-            int baseColor = editor.codeFold.animation.foldMarkerPaint.getColor();
-            if (editor.codeFold.pendingFoldComputations.containsKey(line)) {
-                editor.codeFold.animation.foldMarkerPaint.setColor(editor.codeFold.animation.foldMarkerPendingColor);
-            } else {
-                editor.codeFold.animation.foldMarkerPaint.setColor(editor.codeFold.animation.foldMarkerColor);
-            }
-            String marker = editor.codeFold.getFoldMarkerForLine(line, editor.getLineTextForRender(line));
+            Paint p = editor.codeFold.pendingFoldComputations.containsKey(line) ? pendingPaint : normalPaint;
+            String marker = editor.codeFold.getFoldMarkerForLine(line, editor.textRender.getLineTextForRender(line));
             if (marker == null) continue;
             float y = Math.round(v * editor.textRender.lineHeight - editor.scroll.scrollY + editor.textRender.lineHeight - editor.textRender.paint.descent());
             if (line == editor.codeFold.animation.foldRippleLine && editor.codeFold.animation.foldRippleAlpha > 0f) {
-                int base = editor.codeFold.animation.foldMarkerPaint.getColor();
                 int alpha = Math.min(255, Math.max(0, (int) (255f * editor.codeFold.animation.foldRippleAlpha)));
-                editor.codeFold.animation.foldRipplePaint.setColor((base & 0x00FFFFFF) | (alpha << 24));
+                editor.codeFold.animation.foldRipplePaint.setColor((normalPaint.getColor() & 0x00FFFFFF) | (alpha << 24));
                 float centerY = Math.round(v * editor.textRender.lineHeight - editor.scroll.scrollY + editor.textRender.lineHeight * 0.5f);
                 canvas.drawCircle(markerX, centerY, editor.codeFold.animation.foldRippleRadius, editor.codeFold.animation.foldRipplePaint);
             }
-            canvas.drawText(marker, markerX, y, editor.codeFold.animation.foldMarkerPaint);
-            editor.codeFold.animation.foldMarkerPaint.setColor(baseColor);
+            canvas.drawText(marker, markerX, y, p);
         }
         long dt = android.os.SystemClock.uptimeMillis() - startMs;
         if (dt > 8 && editor.DEBUG_RENDER_LOGS) {
@@ -103,13 +99,13 @@ public class CodeFoldRender {
         float y = lineTop + editor.textRender.lineHeight - editor.textRender.paint.descent();
 
         // Draw prefix (the part before the fold)
-        editor.drawHighlightedSegment(canvas, line, globalLine, 0, prefixEnd, 0f, y);
+        editor.highlite.drawHighlightedSegment(canvas, line, globalLine, 0, prefixEnd, 0f, y);
 
         // Draw placeholder button
         String placeholderText = CodeFold.FOLD_PLACEHOLDER_TEXT;
         editor.textRender.paint.getTextBounds(placeholderText, 0, placeholderText.length(), editor.textRender.textBounds);
         float placeholderWidth = Math.max(0f, editor.textRender.paint.measureText(placeholderText));
-        float xStart = editor.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
+        float xStart = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
         float padY = editor.codeFold.animation.foldPlaceholderPadY;
         float placeholderLeft = xStart;
         float placeholderTop = lineTop + padY;
@@ -135,7 +131,7 @@ public class CodeFoldRender {
         // Draw suffix (closing bracket or */)
         float xAfter = placeholderLeft + placeholderWidth;
         if (range.isBlockComment) {
-            Paint commentPaint = (editor.blockCommentHighlightRule != null) ? editor.blockCommentHighlightRule.paint : editor.textRender.paint;
+            Paint commentPaint = (editor.highlite.blockCommentHighlightRule != null) ? editor.highlite.blockCommentHighlightRule.paint : editor.textRender.paint;
             commentPaint.setUnderlineText(false);
             String close = "*/";
             canvas.drawText(close, xAfter, y, commentPaint);
@@ -150,7 +146,7 @@ public class CodeFoldRender {
                     int suffixStart = Math.min(endLineText.length(), closeIdx + 2);
                     if (suffixStart < endLineText.length()) {
                         float sx = xAfter + closeWidth;
-                        editor.drawHighlightedSegment(canvas, endLineText, range.endLine, suffixStart, endLineText.length(), sx, y);
+                        editor.highlite.drawHighlightedSegment(canvas, endLineText, range.endLine, suffixStart, endLineText.length(), sx, y);
                     }
                 }
             }
@@ -186,7 +182,7 @@ public class CodeFoldRender {
                     int suffixStart = Math.min(endLineText.length(), closeIdx + 1);
                     if (suffixStart < endLineText.length()) {
                         float sx = xAfter + closeWidth;
-                        editor.drawHighlightedSegment(canvas, endLineText, range.endLine, suffixStart, endLineText.length(), sx, y);
+                        editor.highlite.drawHighlightedSegment(canvas, endLineText, range.endLine, suffixStart, endLineText.length(), sx, y);
                     }
                 }
             }
@@ -253,18 +249,37 @@ public class CodeFoldRender {
                 if (globalLine >= selStartLine && globalLine <= selEndLine) {
                     float lineTop = editor.textRender.getDrawLineTop(globalLine);
                     float lineBottom = lineTop + editor.textRender.lineHeight;
-                    
+
                     int startChar = (globalLine == selStartLine) ? selStartChar : 0;
                     int endChar = (globalLine == selEndLine) ? selEndChar : line.length();
-                    
+
                     float startX = editor.measureTextWithVisualSpaces(line, 0, startChar, editor.textRender.paint);
                     float endX = editor.measureTextWithVisualSpaces(line, 0, endChar, editor.textRender.paint);
-                    
+
                     float textStartX = editor.getTextStartX() - editor.lineNumber.lineNumbersGutterWidth;
-                    editor.selection.selectionHighlightRect.set(
-                        textStartX + startX, lineTop,
-                        textStartX + endX, lineBottom);
-                    canvas.drawRect(editor.selection.selectionHighlightRect, selPaint);
+                    float left = textStartX + startX;
+                    float top = lineTop;
+                    float right = textStartX + endX;
+                    float bottom = lineBottom;
+
+                    // Determine which corners should be rounded based on selection boundaries
+                    boolean isFirstLine = (globalLine == selStartLine);
+                    boolean isLastLine = (globalLine == selEndLine);
+                    boolean isSingleLine = (selStartLine == selEndLine);
+
+                    if (isSingleLine) {
+                        editor.onTouch.drawSelectionSegment(canvas, left, top, right, bottom,
+                            true, true, true, true, selPaint);
+                    } else if (isFirstLine) {
+                        editor.onTouch.drawSelectionSegment(canvas, left, top, right, bottom,
+                            true, true, false, false, selPaint);
+                    } else if (isLastLine) {
+                        editor.onTouch.drawSelectionSegment(canvas, left, top, right, bottom,
+                            false, false, true, true, selPaint);
+                    } else {
+                        editor.onTouch.drawSelectionSegment(canvas, left, top, right, bottom,
+                            false, false, false, false, selPaint);
+                    }
                 }
             }
 
@@ -275,7 +290,7 @@ public class CodeFoldRender {
             if (lineBaseX != 0f) canvas.translate(lineBaseX, 0f);
 
             // Draw color code backgrounds underneath the text
-            editor.viewRenderer.drawColorCodeBackgrounds(canvas, line, globalLine);
+            editor.viewRender.drawColorCodeBackgrounds(canvas, line, globalLine);
 
             if (isFoldStart) {
                 CodeFold.FoldRange range = editor.codeFold.foldRanges.get(globalLine);
@@ -293,11 +308,18 @@ public class CodeFoldRender {
                     }
                     // Then: update state for THIS line
                     bracketState = editor.bracketGuides.calculateBracketGuideStateForLine(line, globalLine, bracketState);
-                    // If collapsed, advance state through hidden lines so next visible line is correct.
+                    // If collapsed, use cached bracket state or compute once and cache
                     if (isCollapsed && range.endLine > globalLine) {
-                        for (int ln = globalLine + 1; ln <= range.endLine; ln++) {
-                            String lnText = getLineTextForRenderWithDirect(ln, directLines);
-                            bracketState = editor.bracketGuides.calculateBracketGuideStateForLine(lnText, ln, bracketState);
+                        com.yn.sodiumeditor.core.BracketGuideState cachedState = editor.codeFold.cachedBracketStateAfterFold.get(range.startLine);
+                        if (cachedState != null) {
+                            bracketState = cachedState;
+                        } else {
+                            // Compute once and cache
+                            for (int ln = globalLine + 1; ln <= range.endLine; ln++) {
+                                String lnText = getLineTextForRenderWithDirect(ln, directLines);
+                                bracketState = editor.bracketGuides.calculateBracketGuideStateForLine(lnText, ln, bracketState);
+                            }
+                            editor.codeFold.cachedBracketStateAfterFold.put(range.startLine, bracketState.cloneState());
                         }
                     }
                 }
@@ -313,7 +335,7 @@ public class CodeFoldRender {
 
             float lineTop = Math.round(editor.textRender.getDrawLineTop(globalLine));
             float lineBottom = Math.round(editor.textRender.getDrawLineBottom(globalLine));
-            editor.viewRenderer.drawSearchHighlightsForLine(canvas, line, globalLine, lineTop, lineBottom);
+            editor.viewRender.drawSearchHighlightsForLine(canvas, line, globalLine, lineTop, lineBottom);
             editor.textRender.drawHighlightedLine(canvas, line, globalLine, y);
             if (drawDecorations) {
                 editor.textRender.drawWhitespaceGuidesForLine(canvas, line, globalLine, y);
@@ -355,12 +377,9 @@ public class CodeFoldRender {
      */
     private String getLineTextForRenderWithDirect(int globalLine, HashMap<Integer, String> directLines) {
         // Always honor modified lines (including empty strings) over cached/file data.
-        synchronized (editor.textRender.modifiedLines) {
-            if (editor.textRender.modifiedLines.containsKey(globalLine)) {
-                String mod = editor.textRender.modifiedLines.get(globalLine);
-                return mod != null ? mod : "";
-            }
-        }
+        // No synchronized needed — render thread is single-threaded for reads.
+        String mod = editor.textRender.modifiedLines.get(globalLine);
+        if (mod != null) return mod;
 
         if (directLines != null) {
             String cached = directLines.get(globalLine);
@@ -368,7 +387,7 @@ public class CodeFoldRender {
         }
 
         // Try standard lookup
-        String text = editor.getLineTextForRender(globalLine);
+        String text = editor.textRender.getLineTextForRender(globalLine);
         if (text != null && !text.isEmpty()) {
             return text;
         }
@@ -381,10 +400,8 @@ public class CodeFoldRender {
         }
 
         // Try direct line cache (only for off-window lines)
-        synchronized (editor.fileIO.directLineCache) {
-            String cached = editor.fileIO.directLineCache.get(globalLine);
-            if (cached != null) return cached;
-        }
+        String cached = editor.fileIO.directLineCache.get(globalLine);
+        if (cached != null) return cached;
 
         // If this is the end line of a collapsed fold, load it from file
         if (editor.codeFold.isCodeFoldingEnabled) {
@@ -410,7 +427,7 @@ public class CodeFoldRender {
      * Measure highlighted segment width.
      */
     private float measureHighlightedSegmentWidth(String line, int globalLine, int start, int end) {
-        return editor.measureHighlightedSegmentWidth(line, globalLine, start, end);
+        return editor.highlite.measureHighlightedSegmentWidth(line, globalLine, start, end);
     }
 
     /**

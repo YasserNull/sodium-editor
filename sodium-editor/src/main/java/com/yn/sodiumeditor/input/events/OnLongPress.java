@@ -3,6 +3,7 @@ package com.yn.sodiumeditor.input.events;
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.io.EditOperators;
+import com.yn.sodiumeditor.io.EditOp;
 
 /**
  * OnLongPress handles onLongPress() gesture event for SodiumEditor.
@@ -31,25 +32,23 @@ public class OnLongPress {
       }
     }
 
-    if (editor.movedSinceDown) return;
-
     if (editor.lineNumber.lineNumberSelectionEnabled && editor.lineNumber.isInLineNumberGutter(e.getX())) {
       float y = e.getY() + editor.scroll.scrollY;
-      int line = editor.getGlobalLineForY(y);
+      int line = editor.wordWrap.getGlobalLineForY(y);
       editor.lineNumber.beginLineNumberSelection(line);
       return;
     }
 
     // Position calculation
-    EditOperators.CursorTarget target = editor.getCursorTargetForPosition(e.getX(), e.getY(), null);
+    EditOp.CursorTarget target = editor.wordWrap.getCursorTargetForPosition(e.getX(), e.getY(), null);
     int line = target.line;
     editor.fileIO.ensureLineInWindow(line, true); // Make sure line data is available
 
     String ln = editor.getLineFromWindowLocal(line - editor.textRender.windowStartLine);
-    if (ln == null) ln = editor.getLineTextForRender(line);
+    if (ln == null) ln = editor.textRender.getLineTextForRender(line);
     int cursorLine = line;
     int charIndex = Math.max(0, Math.min(target.ch, ln.length()));
-    float xLocal = editor.viewToTextX(e.getX());
+    float xLocal = editor.scroll.viewToTextX(e.getX());
     if (editor.wordWrap.isWordWrapEnabled) {
       int[] starts = editor.wordWrap.getWrapStartsForLine(line, ln);
       int seg =
@@ -69,7 +68,7 @@ public class OnLongPress {
           float placeholderWidth =
               Math.max(0f, editor.textRender.paint.measureText(com.yn.sodiumeditor.core.CodeFold.FOLD_PLACEHOLDER_TEXT));
           float closeStart = xStart + placeholderWidth;
-          String endLineText = editor.getLineTextForRender(range.endLine);
+          String endLineText = editor.textRender.getLineTextForRender(range.endLine);
           if (endLineText == null || endLineText.isEmpty()) {
             endLineText = editor.codeFold.utils.getEndLineTextForFold(range);
           }
@@ -86,7 +85,7 @@ public class OnLongPress {
           } else {
             float xSuffix = Math.max(0f, x - (closeStart + closeWidth));
             int idx =
-                editor.getCharIndexForXInRange(
+                editor.wordWrap.getCharIndexForXInRange(
                     endLineText,
                     range.endLine,
                     suffixStart,
@@ -103,7 +102,7 @@ public class OnLongPress {
             renderedWidth += closeW;
             if (endLineText != null && suffixStart >= 0 && suffixStart < endLineText.length()) {
               renderedWidth +=
-                  editor.measureHighlightedSegmentWidth(
+                  editor.highlite.measureHighlightedSegmentWidth(
                       endLineText, range.endLine, suffixStart, endLineText.length());
             }
           }
@@ -126,7 +125,7 @@ public class OnLongPress {
             editor.caret.resetBlink();
             editor.invalidate();
             editor.showKeyboard();
-            editor.restartInput();
+            editor.view.restartInput();
             return;
           }
         }
@@ -135,38 +134,77 @@ public class OnLongPress {
 
     float textWidth = editor.measureTextWithVisualSpaces(ln, 0, ln.length(), editor.textRender.paint);
     if (xLocal > textWidth) {
-      editor.selection.hasSelection = false;
-      editor.selection.isSelectAllActive = false;
-      editor.selection.isEntireFileSelected = false;
-      editor.selection.selecting = false;
-      editor.cursor.cursorLine = line;
-      editor.cursor.cursorChar = ln.length();
-      editor.popup.hidePopup();
+      // Correctly clear selection and sync state
+      editor.selection.clearSelection();
+      
+      editor.cursor.setCursorPosition(line, charIndex);
+      
+      // Record anchor point so finger movement can start selection from here
+      editor.selection.beginLongPressSelection(line, charIndex);
+      editor.selection.state.longPressFreeForm = false; // Require movement threshold
+      editor.selection.syncFromState();
+      
+      // Show minimal popup (Paste/Select All)
+      editor.popup.showMinimalPopupAtCursor();
+      
       editor.caret.resetBlink();
       editor.invalidate();
       editor.showKeyboard();
-      editor.restartInput();
+      editor.view.restartInput();
       return;
     }
 
     // Set cursor position
-    editor.cursor.cursorLine = cursorLine;
-    editor.cursor.cursorChar = charIndex;
+    editor.cursor.setCursorPosition(cursorLine, charIndex);
 
-    // Try smart selection, but show minimal popup even if it fails (e.g., empty line)
-    boolean hasSelection = editor.selection.applySmartDoubleTapSelection(line, charIndex, ln);
+    // Check if the long press is directly on a character (not on whitespace)
+    boolean isOnText = false;
+    if (ln != null && charIndex < ln.length()) {
+      char c = ln.charAt(charIndex);
+      isOnText = !Character.isWhitespace(c);
+    }
+
+    boolean isInsideSelection = editor.selection.isPositionInsideSelection(line, charIndex);
+
+    // Only try smart selection if pressing directly on text OR inside an existing selection,
+    // AND the finger hasn't moved yet.
+    boolean smartSelected = false;
+    if ((isOnText || isInsideSelection) && !editor.movedSinceDown) {
+      smartSelected = editor.selection.applySmartDoubleTapSelection(line, charIndex, ln);
+    }
+
+    // Always begin long press selection tracking so finger movement extends selection
+    // The long press anchor is set to the touch point for free-form selection
     editor.selection.beginLongPressSelection(line, charIndex);
-    
-    if (hasSelection) {
+
+    // If smart selection was active, the selection is already set to the word/quote/bracket
+    if (smartSelected) {
+      editor.selection.state.longPressFreeForm = false; // Normal range selection cycle
+      editor.selection.syncFromState();
       editor.popup.showPopupAtSelection();
     } else {
-      // No selection (empty line or smart selection failed), show minimal popup with Select All and Paste
-      editor.popup.showMinimalPopupAtCursor();
+      // If long pressed on existing selection but no smart cycle was found (e.g. at end of cycle)
+      // and we haven't moved yet, just show the popup.
+      if (isInsideSelection && !editor.movedSinceDown) {
+        editor.selection.state.longPressFreeForm = false;
+        editor.selection.syncFromState();
+        editor.popup.showPopupAtSelection();
+      } else {
+        // No smart selection and not a stationary click on selection: start fresh drag selection
+        // Clear any previous selection so long press drag starts fresh
+        editor.selection.state.longPressFreeForm = true; // Drag selection
+        editor.selection.syncFromState();
+        editor.selection.hasSelection = false;
+        editor.selection.selecting = true;
+        // Show minimal popup with Paste and Select All options
+        editor.popup.showMinimalPopupAtCursor();
+      }
     }
+
     editor.caret.resetBlink();
     editor.invalidate();
     editor.showKeyboard();
-    editor.restartInput();
+    editor.view.restartInput();
   }
 
   /**

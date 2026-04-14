@@ -75,7 +75,7 @@ public class BracketMatchManager {
     float sizePx = editor.textRender.paint.getTextSize();
     bracketMatchStrokeWidth = Math.max(
         1f,
-        editor.scaleByTextSize(baseBracketMatchStrokeWidth, baseBracketMatchTextSizePx, sizePx));
+        editor.view.scaleByTextSize(baseBracketMatchStrokeWidth, baseBracketMatchTextSizePx, sizePx));
     bracketMatchPaint.setStrokeWidth(bracketMatchStrokeWidth);
   }
 
@@ -134,7 +134,7 @@ public class BracketMatchManager {
       return null;
     }
 
-    String cursorLineText = editor.getLineTextForRenderWithDirect(editor.cursor.cursorLine, directLines);
+    String cursorLineText = editor.textRender.getLineTextForRenderWithDirect(editor.cursor.cursorLine, directLines);
     if (cursorLineText == null) {
       if (editor.DEBUG_RENDER_LOGS) {
         android.util.Log.d("BracketMatch", "findBracketMatchInVisible: cursor line text is null");
@@ -180,7 +180,7 @@ public class BracketMatchManager {
     ArrayDeque<SodiumEditor.BracketToken> stack = new ArrayDeque<>();
 
     for (int line = firstVisibleLine; line <= lastVisibleLine; line++) {
-      String text = editor.getLineTextForRenderWithDirect(line, directLines);
+      String text = editor.textRender.getLineTextForRenderWithDirect(line, directLines);
       if (text == null) text = "";
       int len = text.length();
       int i = 0;
@@ -190,7 +190,7 @@ public class BracketMatchManager {
         if (inLineComment) break;
 
         if (inBlockComment) {
-          int end = SodiumEditor.findBlockCommentEnd(text, i);
+          int end = Highlite.findBlockCommentEnd(text, i);
           int endPos = (end < 0) ? len : end + 2;
           if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
           if (end < 0) break;
@@ -200,7 +200,7 @@ public class BracketMatchManager {
         }
 
         if (stringState != 0) {
-          SodiumEditor.StringEndResult endResult = editor.findStringEndForState(text, i, stringState);
+          SodiumEditor.StringEndResult endResult = editor.highlite.findStringEndForState(text, i, stringState);
           int endPos = endResult.found ? endResult.endIndex : len;
           if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
           if (!endResult.found) break;
@@ -220,7 +220,7 @@ public class BracketMatchManager {
             && text.charAt(i) == '/'
             && text.charAt(i + 1) == '*'
             && !Highlite.isTokenEscaped(text, i)) {
-          int end = SodiumEditor.findBlockCommentEnd(text, i + 2);
+          int end = Highlite.findBlockCommentEnd(text, i + 2);
           int endPos = (end < 0) ? len : end + 2;
           if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < endPos) return null;
           if (end < 0) {
@@ -332,7 +332,7 @@ public class BracketMatchManager {
   }
 
   private SodiumEditor.BracketMatch findBracketMatchInRange(int startLine, int endLine) {
-    String cursorLineText = editor.getLineTextForRender(editor.cursor.cursorLine);
+    String cursorLineText = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
     if (cursorLineText == null) return null;
 
     int targetIndex = -1;
@@ -360,7 +360,7 @@ public class BracketMatchManager {
 
     ArrayDeque<SodiumEditor.BracketToken> stack = new ArrayDeque<>();
     for (int line = startLine; line <= endLine; line++) {
-      String text = editor.getLineTextForRender(line);
+      String text = editor.textRender.getLineTextForRender(line);
       if (text == null) text = "";
       int len = text.length();
       int i = 0;
@@ -369,13 +369,13 @@ public class BracketMatchManager {
       while (i < len) {
         if (inLineComment) break;
         if (inBlockComment) {
-          int end = SodiumEditor.findBlockCommentEnd(text, i);
+          int end = Highlite.findBlockCommentEnd(text, i);
           if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < (end < 0 ? len : end + 2)) return null;
           if (end < 0) break;
           i = end + 2; inBlockComment = false; continue;
         }
         if (stringState != 0) {
-          SodiumEditor.StringEndResult endResult = editor.findStringEndForState(text, i, stringState);
+          SodiumEditor.StringEndResult endResult = editor.highlite.findStringEndForState(text, i, stringState);
           if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < (endResult.found ? endResult.endIndex : len)) return null;
           if (!endResult.found) break;
           i = endResult.endIndex; stringState = 0; continue;
@@ -385,7 +385,7 @@ public class BracketMatchManager {
           break;
         }
         if (editor.highlite.isBlockCommentsEnabled && i + 1 < len && text.charAt(i) == '/' && text.charAt(i + 1) == '*' && !Highlite.isTokenEscaped(text, i)) {
-          int end = SodiumEditor.findBlockCommentEnd(text, i + 2);
+          int end = Highlite.findBlockCommentEnd(text, i + 2);
           if (line == editor.cursor.cursorLine && targetIndex >= i && targetIndex < (end < 0 ? len : end + 2)) return null;
           if (end < 0) { inBlockComment = true; break; }
           i = end + 2; continue;
@@ -495,8 +495,8 @@ public class BracketMatchManager {
       float top, int index) {
     if (index < 0 || index >= line.length()) return;
 
-    float left = editor.getCaretXForSegment(line, globalLine, segStart, segEnd, index);
-    float right = editor.getCaretXForSegment(line, globalLine, segStart, segEnd, index + 1);
+    float left = editor.caret.getCaretXForSegment(line, globalLine, segStart, segEnd, index);
+    float right = editor.caret.getCaretXForSegment(line, globalLine, segStart, segEnd, index + 1);
     
     // Adjust for RTL where getCaretXForSegment includes segBaseX
     if (editor.textRender.isRtl) {

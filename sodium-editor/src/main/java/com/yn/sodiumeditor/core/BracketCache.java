@@ -10,9 +10,8 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import android.util.SparseArray;
 
 /**
  * Caches bracket and quote positions for fast fold detection and bracket matching.
@@ -105,8 +104,8 @@ public class BracketCache {
     }
 
     private final SodiumEditor editor;
-    private final Map<Integer, LineBracketInfo> lineCache = new HashMap<>();
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final SparseArray<LineBracketInfo> lineCache = new SparseArray<>();
+    private final android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     
     private volatile boolean isScanning = false;
     private volatile int scanToken = 0;
@@ -131,7 +130,7 @@ public class BracketCache {
             long startMs = android.os.SystemClock.uptimeMillis();
             if (myToken != scanToken) return;
 
-            Map<Integer, LineBracketInfo> newCache = new HashMap<>();
+            SparseArray<LineBracketInfo> newCache = new SparseArray<>();
             
             // Read sequentially using BufferedReader for speed
             if (editor.fileIO.sourceFile != null && editor.fileIO.sourceFile.exists()) {
@@ -157,10 +156,10 @@ public class BracketCache {
                 }
             }
 
-            if (myToken == scanToken && !newCache.isEmpty()) {
+            if (myToken == scanToken && newCache.size() > 0) {
                 // Rebuild folds in background, not on UI thread
                 rebuildFoldRangesInBg(newCache);
-                
+
                 final int finalVersion = cacheVersion;
                 editor.caret.mainHandler.post(() -> {
                     long dt = android.os.SystemClock.uptimeMillis() - startMs;
@@ -169,7 +168,9 @@ public class BracketCache {
                     }
                     if (scanToken == myToken) {
                         lineCache.clear();
-                        lineCache.putAll(newCache);
+                        for (int i = 0; i < newCache.size(); i++) {
+                            lineCache.put(newCache.keyAt(i), newCache.valueAt(i));
+                        }
                         isScanning = false;
                         editor.invalidate();
                     }
@@ -183,17 +184,18 @@ public class BracketCache {
     /**
      * Rebuild fold ranges in background thread using efficient O(N) stack-based matching.
      */
-    private void rebuildFoldRangesInBg(Map<Integer, LineBracketInfo> cache) {
+    private void rebuildFoldRangesInBg(SparseArray<LineBracketInfo> cache) {
         editor.codeFold.foldRanges.clear();
-        
+
         // Use stacks for each bracket type to match them in a single pass
         java.util.ArrayDeque<BracketPosition> curlyStack = new java.util.ArrayDeque<>();
         java.util.ArrayDeque<BracketPosition> parenStack = new java.util.ArrayDeque<>();
         java.util.ArrayDeque<BracketPosition> squareStack = new java.util.ArrayDeque<>();
-        
+
         int totalLines = cache.size();
-        for (int lineNum = 0; lineNum < totalLines; lineNum++) {
-            LineBracketInfo info = cache.get(lineNum);
+        for (int i = 0; i < totalLines; i++) {
+            int lineNum = cache.keyAt(i);
+            LineBracketInfo info = cache.valueAt(i);
             if (info == null) continue;
             
             for (BracketPosition bp : info.brackets) {
@@ -395,7 +397,7 @@ public class BracketCache {
         
         // Fallback to window buffer
         if (line == null) {
-            line = editor.getLineTextForRender(lineNum);
+            line = editor.textRender.getLineTextForRender(lineNum);
         }
         if (line == null) line = "";
 

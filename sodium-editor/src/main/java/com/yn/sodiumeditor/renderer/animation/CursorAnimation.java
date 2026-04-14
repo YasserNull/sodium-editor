@@ -4,12 +4,16 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.view.View;
+import android.view.animation.PathInterpolator;
 import com.yn.sodiumeditor.SodiumEditor;
 /**
  * Manages cursor movement animation for SodiumEditor.
  * Handles smooth interpolation of cursor position when moving between locations.
  */
 public class CursorAnimation {
+
+  // Interpolator matching CurrentLineHighlightAnimation (Material Ease Out)
+  private final PathInterpolator smoothInterpolator = new PathInterpolator(0.4f, 0f, 0.2f, 1f);
 
   // Animation configuration
   public boolean isCursorAnimationEnabled = true;
@@ -102,95 +106,59 @@ public class CursorAnimation {
       return;
     }
 
-    boolean cursorMoved = (editor.cursor.cursorLine != lastCursorAnimLine ||
-                           editor.cursor.cursorChar != lastCursorAnimChar);
-    boolean scrollChanged =
-        (Float.isNaN(lastScrollX) || Float.isNaN(lastScrollY))
-            || editor.scroll.scrollX != lastScrollX
-            || editor.scroll.scrollY != lastScrollY;
-    if (cursorMoved) {
-      lastCursorAnimLine = editor.cursor.cursorLine;
-      lastCursorAnimChar = editor.cursor.cursorChar;
-      lastCursorMoveUptime = SystemClock.uptimeMillis();
-      
-      // Always capture current drawn position as animation start
-      if (cursorAnimValid && cursorAnimRunning) {
-        // If animation is running, start from current interpolated position
-        cursorAnimStartX = cursorDrawX;
-        cursorAnimStartY = cursorDrawY;
-      } else {
-        // First time or invalid state, start from target
-        cursorAnimStartX = targetX;
-        cursorAnimStartY = targetY;
-      }
-      cursorAnimX = cursorAnimStartX;
-      cursorAnimY = cursorAnimStartY;
-      cursorAnimValid = true;
-      
-      if (SodiumEditor.DEBUG_RENDER_LOGS) {
-        editor.logRender(
-            "cursorAnimMove",
-            "cursorAnim move line=" + lastCursorAnimLine
-                + " ch=" + lastCursorAnimChar
-                + " targetX=" + targetX
-                + " targetY=" + targetY,
-            120);
-      }
-    }
-
-    if (!cursorAnimValid) {
+    long now = SystemClock.uptimeMillis();
+    boolean targetChanged = (targetX != cursorAnimTargetX || targetY != cursorAnimTargetY);
+    
+    // Initial setup if state is invalid
+    if (!cursorAnimValid || Float.isNaN(cursorDrawX)) {
       cursorAnimX = targetX;
       cursorAnimY = targetY;
       cursorAnimStartX = targetX;
       cursorAnimStartY = targetY;
-      cursorAnimValid = true;
-    }
-
-    if (!cursorMoved && scrollChanged) {
-      editor.removeCallbacks(cursorAnimStep);
-      cursorAnimRunning = false;
-      cursorAnimX = targetX;
-      cursorAnimY = targetY;
       cursorAnimTargetX = targetX;
       cursorAnimTargetY = targetY;
       cursorDrawX = targetX;
       cursorDrawY = targetY;
-      lastScrollX = editor.scroll.scrollX;
-      lastScrollY = editor.scroll.scrollY;
+      cursorAnimValid = true;
+      cursorAnimRunning = false;
       return;
     }
 
-    cursorAnimTargetX = targetX;
-    cursorAnimTargetY = targetY;
+    if (targetChanged) {
+      // Smooth Redirection: Always restart from current visual position with a fresh timer.
+      // This eliminates lag and ensures the cursor always heads towards the LATEST target smoothly.
+      cursorAnimStartX = cursorDrawX;
+      cursorAnimStartY = cursorDrawY;
+      cursorAnimStartUptime = now;
+      
+      cursorAnimTargetX = targetX;
+      cursorAnimTargetY = targetY;
+      lastCursorAnimLine = editor.cursor.cursorLine;
+      lastCursorAnimChar = editor.cursor.cursorChar;
+
+      if (SodiumEditor.DEBUG_RENDER_LOGS) {
+        editor.logRender("cursorAnimInit", "Redirect (Doc Space). Target: (" + targetX + "," + targetY + ")", 0);
+      }
+
+      if (!cursorAnimRunning) {
+        cursorAnimRunning = true;
+        editor.postOnAnimation(cursorAnimStep);
+      }
+    }
+
+    // Keep track of scroll but Document Space doesn't need compensation
     lastScrollX = editor.scroll.scrollX;
     lastScrollY = editor.scroll.scrollY;
 
-    float dx = cursorAnimTargetX - cursorAnimX;
-    float dy = cursorAnimTargetY - cursorAnimY;
-    float distance = (float) Math.hypot(dx, dy);
-
-    // Start animation if not running and there's distance to cover
-    if (!cursorAnimRunning && distance > 0.5f) {
-      cursorAnimStartUptime = SystemClock.uptimeMillis();
-      cursorAnimLastFrameUptime = 0L;
-      cursorAnimRunning = true;
-      if (SodiumEditor.DEBUG_RENDER_LOGS) {
-        editor.logRender(
-            "cursorAnimStart",
-            "cursorAnim start dist=" + distance
-                + " dur=" + cursorAnimDurationMs,
-            120);
-      }
-      editor.postOnAnimation(cursorAnimStep);
-    } else if (distance <= 0.5f) {
-      // No distance, snap to target
-      cursorDrawX = targetX;
-      cursorDrawY = targetY;
+    // Small distance check to snap and stop animation
+    float finalDist = (float) Math.hypot(cursorAnimTargetX - cursorDrawX, cursorAnimTargetY - cursorDrawY);
+    if (cursorAnimRunning && finalDist < 0.05f) {
+      cursorAnimX = cursorAnimTargetX;
+      cursorAnimY = cursorAnimTargetY;
+      cursorDrawX = cursorAnimX;
+      cursorDrawY = cursorAnimY;
       cursorAnimRunning = false;
     }
-
-    cursorDrawX = cursorAnimX;
-    cursorDrawY = cursorAnimY;
   }
 
   /**
@@ -273,13 +241,15 @@ public class CursorAnimation {
       if (cursorAnimStartUptime == 0L) cursorAnimStartUptime = now;
       long elapsed = Math.max(0L, now - cursorAnimStartUptime);
       float t = Math.min(1f, (float) elapsed / (float) Math.max(1L, cursorAnimDurationMs));
-      // Faster ease-out animation
-      float eased = 1f - (1f - t) * (1f - t);
+      
+      // Use the same PathInterpolator as CurrentLineHighlight for sync
+      float eased = smoothInterpolator.getInterpolation(t);
+      
       cursorAnimX = cursorAnimStartX + (cursorAnimTargetX - cursorAnimStartX) * eased;
       cursorAnimY = cursorAnimStartY + (cursorAnimTargetY - cursorAnimStartY) * eased;
       cursorDrawX = cursorAnimX;
       cursorDrawY = cursorAnimY;
-      editor.invalidateCursorArea();
+      editor.cursor.invalidateCursorArea();
       if (t >= 1f) {
         cursorAnimRunning = false;
         if (SodiumEditor.DEBUG_RENDER_LOGS) {

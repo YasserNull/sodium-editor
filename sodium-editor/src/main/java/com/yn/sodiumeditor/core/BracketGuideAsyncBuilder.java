@@ -30,35 +30,9 @@ public class BracketGuideAsyncBuilder {
   }
 
   /**
-   * Builds line order array with visible lines first for prioritized rendering.
-   */
-  private int[] buildPrioritizedLineOrder(int startLine, int endLine, int visibleStart, int visibleEnd) {
-    int totalLines = endLine - startLine + 1;
-    int[] buildOrder = new int[totalLines];
-    int idx = 0;
-
-    // First: Add visible lines (prioritized)
-    int visibleStartClamped = Math.max(startLine, Math.min(visibleStart, endLine));
-    int visibleEndClamped = Math.max(startLine, Math.min(visibleEnd, endLine));
-    for (int line = visibleStartClamped; line <= visibleEndClamped && idx < totalLines; line++) {
-      buildOrder[idx++] = line;
-    }
-
-    // Second: Add lines before visible range (top to bottom)
-    for (int line = startLine; line < visibleStartClamped && idx < totalLines; line++) {
-      buildOrder[idx++] = line;
-    }
-
-    // Third: Add lines after visible range (top to bottom)
-    for (int line = visibleEndClamped + 1; line <= endLine && idx < totalLines; line++) {
-      buildOrder[idx++] = line;
-    }
-
-    return buildOrder;
-  }
-
-  /**
    * Builds the bracket guide cache asynchronously.
+   * Builds sequentially (correct state propagation) with a partial UI update
+   * after visible lines are ready, then completes the rest.
    */
   public void buildCacheAsync(
       int startLine, int endLine, int visibleStart, int visibleEnd, int v, int cfg, long startTime, @Nullable java.util.Map<Integer, String> directLines) {
@@ -67,8 +41,9 @@ public class BracketGuideAsyncBuilder {
     BracketGuideState stateAtStart = null;
     java.util.ArrayList<List<BracketGuideToken>> tokensWindow = new java.util.ArrayList<>();
     java.util.ArrayList<BracketGuideState> statesWindow = new java.util.ArrayList<>();
-    tokensWindow.ensureCapacity(endLine - startLine + 1);
-    statesWindow.ensureCapacity(endLine - startLine + 1);
+    int totalLines = endLine - startLine + 1;
+    tokensWindow.ensureCapacity(totalLines);
+    statesWindow.ensureCapacity(totalLines);
     int stickyColumn = -1;
     boolean stickyActive = false;
 
@@ -127,19 +102,17 @@ public class BracketGuideAsyncBuilder {
         }
       }
 
-      // PRIORITY BUILD: First build visible lines for faster perceived rendering
-      int[] buildOrder = buildPrioritizedLineOrder(startLine, endLine, visibleStart, visibleEnd);
-
       // Pre-allocate arrays
-      for (int i = 0; i <= endLine - startLine; i++) {
+      for (int i = 0; i < totalLines; i++) {
         tokensWindow.add(null);
         statesWindow.add(null);
       }
 
-      // Build lines in prioritized order
-      for (int buildIdx = 0; buildIdx < buildOrder.length; buildIdx++) {
-        int line = buildOrder[buildIdx];
+      // SEQUENTIAL BUILD: correct state propagation
+      int clampedVisibleEnd = Math.min(visibleEnd, endLine);
+      boolean partialUpdatePosted = false;
 
+      for (int line = startLine; line <= endLine; line++) {
         // Check if edit version changed during build - abort if so
         if (editor.editOperators.editVersion.get() != v || bracketGuides.getBracketGuideCacheConfigHash() != cfg) {
           checkpoint.bracketGuideCheckpointStep = originalCheckpointStep;
@@ -152,8 +125,39 @@ public class BracketGuideAsyncBuilder {
         List<BracketGuideToken> tokens = bracketGuides.updateBracketGuideStateForLine(text, line, state);
         int arrayIdx = line - startLine;
         tokensWindow.set(arrayIdx, tokens);
-        statesWindow.set(arrayIdx, BracketGuides.copyState(state));
+        // Skip state copy during async build — states are never read from cache
+        // (getBracketGuideStateForLine is unused in the render path).
+        // This eliminates N BracketGuideState allocations per build.
+        statesWindow.set(arrayIdx, null);
         if (line == startLine) stateAtStart = BracketGuides.copyState(state);
+
+        // After visible range is built, post a partial update immediately
+        if (!partialUpdatePosted && line >= clampedVisibleEnd) {
+          partialUpdatePosted = true;
+          final int partialEnd = line;
+          final java.util.ArrayList<List<BracketGuideToken>> partialTokens = new java.util.ArrayList<>(tokensWindow.subList(0, partialEnd - startLine + 1));
+          // States are null — no copy needed
+          final java.util.ArrayList<BracketGuideState> partialStates = new java.util.ArrayList<>(partialTokens.size());
+          for (int s = 0; s < partialTokens.size(); s++) partialStates.add(null);
+          final BracketGuideState partialStateAtStart = (stateAtStart != null) ? BracketGuides.copyState(stateAtStart) : null;
+          final BracketGuideState partialStateBeforeStart = BracketGuides.copyState(stateBeforeStart);
+          final BracketGuideState partialState = BracketGuides.copyState(state);
+
+          editor.post(() -> {
+            mainCache.swapCachePartial(
+                partialTokens,
+                partialStates,
+                startLine,
+                partialEnd,
+                v,
+                cfg,
+                partialStateAtStart,
+                partialState,
+                partialStateBeforeStart,
+                fallbackCache);
+            editor.invalidate();
+          });
+        }
       }
 
       // Restore original checkpoint step
@@ -162,15 +166,20 @@ public class BracketGuideAsyncBuilder {
       // Ignore exception
     }
 
-    BracketGuideState finalStateAtStart = (stateAtStart != null) ? stateAtStart : BracketGuides.copyState(state);
+    // Final full cache swap on UI thread
+    // States are null — no copy needed
+    BracketGuideState finalStateAtStart = (stateAtStart != null) ? BracketGuides.copyState(stateAtStart) : BracketGuides.copyState(state);
     BracketGuideState finalState = BracketGuides.copyState(state);
-    BracketGuideState finalStateBeforeStart = stateBeforeStart;
+    BracketGuideState finalStateBeforeStart = BracketGuides.copyState(stateBeforeStart);
 
-    // Double buffering: swap caches atomically on UI thread
+    // Build null states list to match tokens size
+    java.util.ArrayList<BracketGuideState> nullStates = new java.util.ArrayList<>(tokensWindow.size());
+    for (int s = 0; s < tokensWindow.size(); s++) nullStates.add(null);
+
     editor.post(() -> {
       mainCache.swapCache(
           tokensWindow,
-          statesWindow,
+          nullStates,
           startLine,
           endLine,
           v,

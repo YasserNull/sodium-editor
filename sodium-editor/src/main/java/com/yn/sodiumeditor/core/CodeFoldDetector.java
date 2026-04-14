@@ -12,6 +12,11 @@ public class CodeFoldDetector {
 
     private final SodiumEditor editor;
 
+    // Reusable bracket stack — avoids per-call ArrayList allocation
+    private final char[] bracketStack = new char[64];
+    private final int[] bracketStackIdx = new int[64];
+    private int bracketStackTop = 0;
+
     public CodeFoldDetector(SodiumEditor editor) {
         this.editor = editor;
     }
@@ -27,7 +32,7 @@ public class CodeFoldDetector {
         if (!editor.codeFold.isCodeFoldingEnabled) return null;
         if (line < 0) return null;
 
-        String ln = editor.getLineTextForRender(line);
+        String ln = editor.textRender.getLineTextForRender(line);
         if (ln == null) ln = "";
 
         RandomAccessFile raf = null;
@@ -166,8 +171,7 @@ public class CodeFoldDetector {
         boolean inLineComment = false;
         boolean inBlockComment = false;
         char quoteChar = 0;
-        ArrayList<Character> stack = new ArrayList<>();
-        ArrayList<Integer> stackIdx = new ArrayList<>();
+        bracketStackTop = 0;
 
         while (i < len) {
             if (inLineComment) break;
@@ -225,16 +229,18 @@ public class CodeFoldDetector {
 
             if (!editor.highlite.isEscaped(line, i)) {
                 if (c == '{' || c == '(' || c == '[') {
-                    stack.add(c);
-                    stackIdx.add(i);
+                    if (bracketStackTop < bracketStack.length) {
+                        bracketStack[bracketStackTop] = c;
+                        bracketStackIdx[bracketStackTop] = i;
+                        bracketStackTop++;
+                    }
                 } else if (c == '}' || c == ')' || c == ']') {
-                    if (!stack.isEmpty()) {
-                        char open = stack.get(stack.size() - 1);
+                    if (bracketStackTop > 0) {
+                        char open = bracketStack[bracketStackTop - 1];
                         if ((open == '{' && c == '}')
                                 || (open == '(' && c == ')')
                                 || (open == '[' && c == ']')) {
-                            stack.remove(stack.size() - 1);
-                            stackIdx.remove(stackIdx.size() - 1);
+                            bracketStackTop--;
                         }
                     }
                 }
@@ -242,9 +248,9 @@ public class CodeFoldDetector {
             i++;
         }
 
-        if (!stack.isEmpty()) {
-            int idx = stackIdx.get(stackIdx.size() - 1);
-            return new FoldToken(idx, false, stack.get(stack.size() - 1));
+        if (bracketStackTop > 0) {
+            int idx = bracketStackIdx[bracketStackTop - 1];
+            return new FoldToken(idx, false, bracketStack[bracketStackTop - 1]);
         }
         return null;
     }

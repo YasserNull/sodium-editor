@@ -21,6 +21,17 @@ public class CodeFold {
     public final ArrayList<int[]> foldIntervals = new ArrayList<>();
     public boolean foldIntervalsDirty = true;
 
+    // Fold marker visibility cache — avoids per-frame full parse of each visible line
+    private final android.util.SparseArray<Byte> foldMarkerVisibilityCache = new android.util.SparseArray<>();
+
+    // Visible-to-global line lookup — O(1) instead of O(intervals) per call
+    // visibleToGlobalLookup[vi] = globalLine
+    private int[] visibleToGlobalLookup = new int[0];
+    private int visibleToGlobalLookupVersion = -1;
+
+    // Cached bracket state after each collapsed fold range — avoids per-frame re-scan of hidden lines
+    public final java.util.HashMap<Integer, com.yn.sodiumeditor.core.BracketGuideState> cachedBracketStateAfterFold = new java.util.HashMap<>();
+
     // Delegate classes
     public final CodeFoldDetector detector;
     public final com.yn.sodiumeditor.renderer.animation.CodeFoldAnimation animation;
@@ -43,7 +54,7 @@ public class CodeFold {
      * Enable or disable code folding.
      */
     public void setCodeFoldingEnabled(boolean enabled) {
-        if (this.isCodeFoldingEnabled == enabled) return;
+        if (this.isCodeFoldingEnabled == enabled || editor.lineNumber.showLineNumbers) return;
         this.isCodeFoldingEnabled = enabled;
         if (!enabled) {
             foldRanges.clear();
@@ -53,7 +64,7 @@ public class CodeFold {
             animation.foldMarkerPaint.setTextSize(editor.textRender.paint.getTextSize());
         }
         foldIntervalsDirty = true;
-        editor.updateTextSizeDependentMetrics();
+        editor.recalculateMaxLineWidth();
         if (isCodeFoldingEnabled) editor.invalidate();
     }
 
@@ -191,45 +202,31 @@ public class CodeFold {
     private long lastMapLogMs = 0L;
 
     /**
-     * Map a visible index to a global line number.
+     * Map a visible index to a global line number. O(1) via lookup array.
      */
     public int mapVisibleIndexToGlobal(int visibleIndex) {
         if (!isCodeFoldingEnabled) return visibleIndex;
 
-        // Rebuild fold intervals if they are marked as dirty.
         rebuildFoldIntervalsIfNeeded();
 
-        // Calculate the total number of lines in the document.
+        int vi = Math.max(0, visibleIndex);
+        if (visibleToGlobalLookupVersion == lastVersionForTotalLines && vi < visibleToGlobalLookup.length) {
+            return visibleToGlobalLookup[vi];
+        }
+
+        // Fallback: walk intervals (should rarely happen)
         int totalLines = getFoldAwareTotalLines();
-        // Get the total number of lines that are currently visible (not hidden by folds).
         int visibleTotal = getVisibleLineCount();
-
-        // Clamp the input visibleIndex to ensure it's within the valid range of visible lines.
-        int clampedVisibleIndex = Math.max(0, Math.min(visibleIndex, Math.max(0, visibleTotal - 1)));
-
-        // Initialize the global line number with the clamped visible index.
-        int globalLine = clampedVisibleIndex;
-
-        // Iterate through all the collapsed fold intervals.
-        // Each interval represents a range of HIDDEN lines: [firstHiddenLine, lastHiddenLine].
+        int globalLine = Math.max(0, Math.min(vi, Math.max(0, visibleTotal - 1)));
         for (int[] interval : foldIntervals) {
             int firstHiddenLine = interval[0];
             int lastHiddenLine = interval[1];
             int hiddenLineCount = lastHiddenLine - firstHiddenLine + 1;
-
-            // If the current globalLine has reached or passed the start of this hidden interval,
-            // we need to skip over the hidden lines.
             if (globalLine >= firstHiddenLine) {
                 globalLine += hiddenLineCount;
             }
         }
-
-        // Finally, clamp the calculated globalLine to ensure it's within the actual document bounds.
-        int result = Math.max(0, Math.min(globalLine, totalLines - 1));
-        if (editor.DEBUG_RENDER_LOGS) {
-            Log.d("CodeFold", "map visible=" + visibleIndex + " to global=" + result);
-        }
-        return result;
+        return Math.max(0, Math.min(globalLine, totalLines - 1));
     }
 
     /**
@@ -255,9 +252,31 @@ public class CodeFold {
         FoldRange range = foldRanges.get(line);
         if (range != null) return range.collapsed ? ">" : "v";
         if (lineText == null) return null;
+
+        // Check visibility cache
+        Byte cached = foldMarkerVisibilityCache.get(line);
+        if (cached != null) {
+            return cached == 1 ? "v" : null;
+        }
+
         boolean isIndentCandidate = editor.isIndentationBlocksEnabled && isIndentFoldCandidate(lineText);
-        if (!isIndentCandidate && !detector.shouldShowFoldMarkerFromLine(lineText)) return null;
-        return "v";
+        boolean shows = isIndentCandidate || detector.shouldShowFoldMarkerFromLine(lineText);
+        foldMarkerVisibilityCache.put(line, (byte) (shows ? 1 : 0));
+        return shows ? "v" : null;
+    }
+
+    /**
+     * Invalidate fold marker visibility cache for a specific line.
+     */
+    public void invalidateFoldMarkerVisibilityCache(int line) {
+        foldMarkerVisibilityCache.remove(line);
+    }
+
+    /**
+     * Clear all fold marker visibility cache.
+     */
+    public void clearFoldMarkerVisibilityCache() {
+        foldMarkerVisibilityCache.clear();
     }
 
     /**
@@ -295,6 +314,7 @@ public class CodeFold {
         foldIntervals.clear();
         if (!isCodeFoldingEnabled || foldRanges.isEmpty()) {
             editor.lineNumber.invalidateLineNumberCache();
+            visibleToGlobalLookupVersion = -1;
             return;
         }
 
@@ -315,7 +335,10 @@ public class CodeFold {
             if (end < start) continue;
             foldIntervals.add(new int[] {start, end});
         }
-        if (foldIntervals.isEmpty()) return;
+        if (foldIntervals.isEmpty()) {
+            visibleToGlobalLookupVersion = -1;
+            return;
+        }
 
         Collections.sort(foldIntervals, (a, b) -> Integer.compare(a[0], b[0]));
         int write = 0;
@@ -331,6 +354,39 @@ public class CodeFold {
         }
         foldIntervals.set(write++, cur);
         while (foldIntervals.size() > write) foldIntervals.remove(foldIntervals.size() - 1);
+
+        // Build visibleToGlobalLookup: walk global lines, skip hidden, assign visible indices
+        int totalLines = getFoldAwareTotalLines();
+        int visibleCount = getVisibleLineCount();
+        if (visibleToGlobalLookup.length < visibleCount) {
+            visibleToGlobalLookup = new int[visibleCount + 64];
+        }
+        int vi = 0;
+        int intervalIdx = 0;
+        for (int gi = 0; gi < totalLines && vi < visibleCount; gi++) {
+            // Skip if this global line is hidden by any fold interval
+            boolean hidden = false;
+            while (intervalIdx < foldIntervals.size()) {
+                int[] interval = foldIntervals.get(intervalIdx);
+                if (gi < interval[0]) break; // past this interval
+                if (gi <= interval[1]) {
+                    hidden = true;
+                    break;
+                }
+                intervalIdx++;
+            }
+            if (!hidden) {
+                visibleToGlobalLookup[vi] = gi;
+                vi++;
+            }
+        }
+        // Fill remaining with identity
+        while (vi < visibleCount) {
+            visibleToGlobalLookup[vi] = vi;
+            vi++;
+        }
+        visibleToGlobalLookupVersion = lastVersionForTotalLines;
+
         long dt = SystemClock.uptimeMillis() - startMs;
         if (dt > 8 && editor.DEBUG_RENDER_LOGS) {
             Log.d("SodiumRender", "foldIntervals rebuild dtMs=" + dt + " ranges=" + foldRanges.size());
@@ -358,7 +414,10 @@ public class CodeFold {
         cachedVisibleLineCount = -1;
         cachedVisibleLineCountVersion = -1;
         cachedFileLineCount = -1;
-        
+        foldMarkerVisibilityCache.clear();
+        visibleToGlobalLookupVersion = -1;
+        cachedBracketStateAfterFold.clear();
+
         // Invalidate line number cache since fold state changed
         editor.lineNumber.invalidateLineNumberCache();
     }
@@ -445,6 +504,7 @@ public class CodeFold {
             return range.startLine < line && range.endLine > line;
         });
 
+        foldMarkerVisibilityCache.remove(line);
         invalidateFoldCaches();
     }
 

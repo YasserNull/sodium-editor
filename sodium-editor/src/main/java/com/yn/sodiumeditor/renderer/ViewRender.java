@@ -114,7 +114,7 @@ public class ViewRender {
 
     canvas.save();
     canvas.clipRect(editor.lineNumber.lineNumbersGutterWidth, 0, editor.getWidth(), editor.getHeight());
-    canvas.translate(editor.lineNumber.lineNumbersGutterWidth - editor.getEffectiveScrollX(), translateY);
+    canvas.translate(editor.lineNumber.lineNumbersGutterWidth - editor.scroll.getEffectiveScrollX(), translateY);
     
     boolean shouldLog = editor.DEBUG_RENDER_LOGS && (frameCounter++ % 120 == 0);
     if (shouldLog) {
@@ -132,15 +132,14 @@ public class ViewRender {
         }
     }
     
-    // Draw overlays - using correct method names from search
     if (editor.selection.hasSelection) {
         editor.selectionHandles.drawHandles(canvas);
-        // Draw popup
-        if (editor.popup.showPopup && editor.popup.popupAlpha > 0f) {
-            editor.popup.drawPopup(canvas);
-        }
     }
-  }
+
+    // Draw popup if it's supposed to be shown, even if no selection
+    if (editor.popup.showPopup && editor.popup.popupAlpha > 0f) {
+        editor.popup.drawPopup(canvas);
+    }  }
 
   private void drawTextContent(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex,
                                 int firstVisibleLine, int lastVisibleLine, boolean drawDecorations, boolean drawBracketGuides, boolean shouldLog) {
@@ -206,10 +205,10 @@ public class ViewRender {
 
           // Canvas is already translated, so use relative coordinates
           float textStartX = editor.getTextStartX() - editor.lineNumber.lineNumbersGutterWidth;
-          
+
           for (int i = firstVisibleLine; i <= lastVisibleLine; i++) {
               if (i >= selStartLine && i <= selEndLine) {
-                  String line = editor.getLineTextForRenderWithDirect(i, directLines);
+                  String line = editor.textRender.getLineTextForRenderWithDirect(i, directLines);
                   if (line != null) {
                       float lineTop = editor.textRender.getDrawLineTop(i);
                       float lineBottom = lineTop + editor.textRender.lineHeight;
@@ -220,21 +219,45 @@ public class ViewRender {
                       float startX = editor.measureTextWithVisualSpaces(line, 0, startChar, editor.textRender.paint);
                       float endX = editor.measureTextWithVisualSpaces(line, 0, endChar, editor.textRender.paint);
 
-                      editor.selection.selectionHighlightRect.set(
-                          textStartX + startX, lineTop,
-                          textStartX + endX, lineBottom);
-                      canvas.drawRect(editor.selection.selectionHighlightRect, selPaint);
+                      float left = textStartX + startX;
+                      float top = lineTop;
+                      float right = textStartX + endX;
+                      float bottom = lineBottom;
+
+                      // Determine which corners should be rounded based on selection boundaries
+                      boolean isFirstLine = (i == selStartLine);
+                      boolean isLastLine = (i == selEndLine);
+                      boolean isSingleLine = (selStartLine == selEndLine);
+
+                      if (isSingleLine) {
+                          // Single line selection: round all corners
+                          editor.onTouch.drawSelectionSegment(canvas, left, top, right, bottom,
+                              true, true, true, true, selPaint);
+                      } else if (isFirstLine) {
+                          // First line of multi-line selection: round top corners only
+                          editor.onTouch.drawSelectionSegment(canvas, left, top, right, bottom,
+                              true, true, false, false, selPaint);
+                      } else if (isLastLine) {
+                          // Last line of multi-line selection: round bottom corners only
+                          editor.onTouch.drawSelectionSegment(canvas, left, top, right, bottom,
+                              false, false, true, true, selPaint);
+                      } else {
+                          // Middle lines: no rounded corners
+                          editor.onTouch.drawSelectionSegment(canvas, left, top, right, bottom,
+                              false, false, false, false, selPaint);
+                      }
                   }
               }
           }
       }
       
       for (int i = firstVisibleLine; i <= lastVisibleLine; i++) {
-          String line = editor.getLineTextForRenderWithDirect(i, directLines);
+          String line = editor.textRender.getLineTextForRenderWithDirect(i, directLines);
           if ((line == null || line.isEmpty())
               && editor.cursor != null
               && editor.cursor.cursorLine == i
-              && editor.cursor.cursorChar > 0) {
+              && editor.cursor.cursorChar > 0
+              && com.yn.sodiumeditor.SodiumEditor.DEBUG_RENDER_LOGS) {
               android.util.Log.d(
                   "SodiumRender",
                   "draw empty line at cursor line="
@@ -258,9 +281,10 @@ public class ViewRender {
               editor.bracketMatchManager.drawBracketMatchForLine(canvas, line, i, bracketMatchResult);
           }
       }
-      
-      // Draw bracket guides for visible range (batch rendering for unfolded mode)
-      if (editor.bracketGuides.isBracketGuidesEnabled && drawDecorations && drawBracketGuides) {
+
+      // Bracket guides are drawn per-line inside drawFoldedContent when code folding is enabled.
+      // Only draw batch bracket guides when code folding is NOT enabled.
+      if (!editor.codeFold.isCodeFoldingEnabled && editor.bracketGuides.isBracketGuidesEnabled && drawDecorations && drawBracketGuides) {
           editor.bracketGuides.drawBracketGuidesForVisibleRange(canvas, firstVisibleLine, lastVisibleLine);
       }
     }

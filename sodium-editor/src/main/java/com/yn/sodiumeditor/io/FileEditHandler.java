@@ -1,0 +1,267 @@
+package com.yn.sodiumeditor.io;
+
+import android.util.Log;
+import androidx.annotation.Nullable;
+import com.yn.sodiumeditor.SodiumEditor;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+
+/**
+ * Handles asynchronous and blocking file rewrite operations.
+ */
+public class FileEditHandler {
+    private final SodiumEditor editor;
+    private final EditOperators operators;
+
+    public FileEditHandler(SodiumEditor editor, EditOperators operators) {
+        this.editor = editor;
+        this.operators = operators;
+    }
+
+    public void applyPendingEditsToFileAsync(@Nullable Runnable onComplete) {
+        if (editor.fileIO.sourceFile == null) {
+            if (onComplete != null) editor.post(onComplete);
+            return;
+        }
+        if (editor.ime.hasComposing) {
+            editor.ime.commitComposing(true);
+        }
+        final ArrayList<EditOp> ops = new ArrayList<>();
+        synchronized (operators.history.pendingEdits) {
+            ops.addAll(operators.history.pendingEdits);
+            operators.history.pendingEdits.clear();
+            operators.history.pendingRedo.clear();
+        }
+        if (ops.isEmpty()) {
+            if (onComplete != null) editor.post(onComplete);
+            return;
+        }
+        editor.fileIO.ioHandler.post(() -> {
+            boolean ok = true;
+            for (EditOp op : ops) {
+                if (!rewriteReplaceRangeBlocking(
+                        editor.fileIO.sourceFile, op.startLine, op.startChar, op.endLine, op.endChar, op.insertedText)) {
+                    ok = false;
+                    break;
+                }
+            }
+            final boolean success = ok;
+            editor.post(() -> {
+                if (!success) {
+                    operators.history.pendingEdits.addAll(ops);
+                } else {
+                    synchronized (editor.textRender.modifiedLines) {
+                        editor.textRender.modifiedLines.clear();
+                    }
+                    operators.lineCountDelta = 0;
+                    editor.lineNumber.invalidateLineNumberCache();
+                    editor.requestLayout();
+                    editor.invalidate();
+                }
+                if (onComplete != null) onComplete.run();
+            });
+        });
+    }
+
+    public boolean rewriteReplaceRangeBlocking(
+            File inFile, int sL, int sC, int eL, int eC, @Nullable String insertText) {
+        if (inFile == null || !inFile.exists()) return false;
+        try {
+            EditOp.RangeBytes range = operators.locator.computeByteRangeFastOrScan(inFile, sL, sC, eL, eC);
+            if (range == null) return false;
+            byte[] insertBytes = (insertText == null) ? new byte[0] : insertText.getBytes(StandardCharsets.UTF_8);
+            final int BUF_SIZE = 1024 * 1024;
+
+            try (RandomAccessFile raf = new RandomAccessFile(inFile, "rw");
+                 FileChannel ch = raf.getChannel()) {
+
+                long fileLen = ch.size();
+                long startByte = Math.max(0, Math.min(range.startByte, fileLen));
+                long endByte = Math.max(0, Math.min(range.endByte, fileLen));
+                if (endByte < startByte) {
+                    long t = startByte;
+                    startByte = endByte;
+                    endByte = t;
+                }
+
+                long removeLen = endByte - startByte;
+                long diff = (long) insertBytes.length - removeLen;
+
+                if (diff > 0) {
+                    raf.setLength(fileLen + diff);
+                    ByteBuffer buf = ByteBuffer.allocate(BUF_SIZE);
+                    for (long pos = fileLen; pos > endByte; ) {
+                        long readPos = Math.max(endByte, pos - BUF_SIZE);
+                        int size = (int) (pos - readPos);
+                        buf.clear();
+                        buf.limit(size);
+                        ch.read(buf, readPos);
+                        buf.flip();
+                        ch.write(buf, readPos + diff);
+                        pos = readPos;
+                    }
+                } else if (diff < 0) {
+                    ByteBuffer buf = ByteBuffer.allocate(BUF_SIZE);
+                    for (long pos = endByte; pos < fileLen; ) {
+                        int size = (int) Math.min(BUF_SIZE, fileLen - pos);
+                        buf.clear();
+                        buf.limit(size);
+                        ch.read(buf, pos);
+                        buf.flip();
+                        ch.write(buf, pos + diff);
+                        pos += size;
+                    }
+                    raf.setLength(fileLen + diff);
+                }
+
+                if (insertBytes.length > 0) {
+                    ch.write(ByteBuffer.wrap(insertBytes), startByte);
+                }
+                ch.force(true);
+            }
+
+            editor.fileIO.sourceFile = inFile;
+            synchronized (editor.fileIO.lineOffsetsLock) {
+                editor.fileIO.lineOffsets = new long[0];
+            }
+            editor.fileIO.isIndexReady = false;
+            editor.fileIO.isIndexBuilding = false;
+            editor.fileIO.ioHandler.post(editor.fileIO::buildFileIndex);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public void rewriteReplaceRangeAsync(
+            int opToken,
+            File inFile,
+            int sL,
+            int sC,
+            int eL,
+            int eC,
+            String insertText,
+            EditOp.CursorTarget target,
+            boolean finishLargeEditUi) {
+        editor.fileIO.ioHandler.post(() -> {
+            try {
+                if (inFile == null || !inFile.exists()) {
+                    editor.post(() -> {
+                        if (finishLargeEditUi) editor.loadingCircle.endLargeEditUi(true);
+                    });
+                    return;
+                }
+
+                EditOp.RangeBytes range = operators.locator.computeByteRangeFastOrScan(inFile, sL, sC, eL, eC);
+                if (range == null) {
+                    editor.post(() -> {
+                        if (finishLargeEditUi) editor.loadingCircle.endLargeEditUi(true);
+                    });
+                    return;
+                }
+
+                File outFile = File.createTempFile("popedit_", ".tmp", editor.getContext().getCacheDir());
+                byte[] insertBytes = (insertText == null) ? new byte[0] : insertText.getBytes(StandardCharsets.UTF_8);
+
+                try (RandomAccessFile rafIn = new RandomAccessFile(inFile, "r");
+                     FileChannel inCh = rafIn.getChannel();
+                     RandomAccessFile rafOut = new RandomAccessFile(outFile, "rw");
+                     FileChannel outCh = rafOut.getChannel()) {
+
+                    long fileLen = rafIn.length();
+                    long startByte = Math.max(0, Math.min(range.startByte, fileLen));
+                    long endByte = Math.max(0, Math.min(range.endByte, fileLen));
+                    if (endByte < startByte) {
+                        long t = startByte;
+                        startByte = endByte;
+                        endByte = t;
+                    }
+
+                    transferRange(inCh, outCh, 0, startByte);
+                    if (insertBytes.length > 0) {
+                        outCh.write(ByteBuffer.wrap(insertBytes));
+                    }
+                    transferRange(inCh, outCh, endByte, fileLen - endByte);
+                    outCh.force(true);
+                }
+
+                editor.post(() -> {
+                    if (opToken != operators.editVersion.get()) return;
+                    editor.fileIO.invalidatePendingIO();
+
+                    if (inFile != null) {
+                        try (FileInputStream fis = new FileInputStream(outFile);
+                             FileOutputStream fos = new FileOutputStream(inFile)) {
+                            byte[] buf = new byte[8192];
+                            int r;
+                            while ((r = fis.read(buf)) > 0) {
+                                fos.write(buf, 0, r);
+                            }
+                            fos.flush();
+                        } catch (Exception ignore) {
+                        }
+                        outFile.delete();
+                        editor.fileIO.sourceFile = inFile;
+                    } else {
+                        editor.fileIO.sourceFile = outFile;
+                    }
+                    
+                    synchronized (editor.textRender.modifiedLines) {
+                        editor.textRender.modifiedLines.clear();
+                    }
+                    synchronized (editor.textRender.lineWidthCache) {
+                        editor.textRender.lineWidthCache.clear();
+                    }
+                    operators.lineCountDelta = 0;
+
+                    synchronized (editor.fileIO.lineOffsetsLock) {
+                        editor.fileIO.lineOffsets = new long[0];
+                    }
+                    editor.fileIO.isIndexReady = false;
+                    editor.fileIO.ioHandler.post(editor.fileIO::buildFileIndex);
+                    
+                    editor.cursor.cursorLine = Math.max(0, target.line);
+                    editor.cursor.cursorChar = Math.max(0, target.ch);
+
+                    boolean cursorInsideWindow = (editor.cursor.cursorLine >= editor.textRender.windowStartLine
+                            && editor.cursor.cursorLine < editor.textRender.windowStartLine + editor.textRender.linesWindow.size());
+
+                    if (cursorInsideWindow) {
+                        editor.recalculateMaxLineWidth();
+                        editor.requestFocus();
+                        if (finishLargeEditUi) editor.loadingCircle.endLargeEditUi(false);
+                        editor.invalidate();
+                    } else {
+                        int targetStart = Math.max(0, editor.cursor.cursorLine - editor.textRender.prefetchLines);
+                        editor.fileIO.loadWindowAround(targetStart, () -> {
+                            if (finishLargeEditUi) editor.loadingCircle.endLargeEditUi(false);
+                            editor.invalidate();
+                        }, false);
+                    }
+                });
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                editor.post(() -> {
+                    if (finishLargeEditUi) editor.loadingCircle.endLargeEditUi(true);
+                });
+            }
+        });
+    }
+
+    private void transferRange(FileChannel inCh, FileChannel outCh, long position, long count) throws Exception {
+        long remaining = count;
+        long pos = position;
+        while (remaining > 0) {
+            long sent = inCh.transferTo(pos, remaining, outCh);
+            if (sent <= 0) break;
+            pos += sent;
+            remaining -= sent;
+        }
+    }
+}

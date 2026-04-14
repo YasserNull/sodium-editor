@@ -61,7 +61,7 @@ public class WordWrapIndicator {
    */
   public void setWordWrapIndicatorTextSize(float sizeSp) {
     if (sizeSp <= 0f) return;
-    float px = editor.spToPx(sizeSp);
+    float px = editor.view.spToPx(sizeSp);
     float base = editor.textRender.paint.getTextSize();
     if (base > 0f) {
       wordWrapIndicatorTextScale = px / base;

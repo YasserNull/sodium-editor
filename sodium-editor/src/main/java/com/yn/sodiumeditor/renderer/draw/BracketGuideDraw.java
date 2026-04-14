@@ -65,9 +65,9 @@ public class BracketGuideDraw {
    * Check if bracket guides can be drawn (cache is valid)
    */
   public boolean canDrawBracketGuides() {
-    // Can draw if main cache is valid OR fallback cache is valid OR span cache is valid
+    // Can draw if main cache is valid OR fallback cache has any entries OR span cache is valid
     boolean mainValid = (bracketGuides.mainCache.bracketGuideCacheStartLine >= 0 && bracketGuides.mainCache.bracketGuideCacheEndLine >= bracketGuides.mainCache.bracketGuideCacheStartLine);
-    boolean fallbackValid = (bracketGuides.fallbackCache.getStartLine() >= 0 && bracketGuides.fallbackCache.getEndLine() >= bracketGuides.fallbackCache.getStartLine());
+    boolean fallbackValid = bracketGuides.fallbackCache.containsLine(0) || bracketGuides.fallbackCache.getEditVersion() >= 0;
     boolean spanValid = bracketGuides.spanCache.canDraw();
     return mainValid || fallbackValid || spanValid;
   }

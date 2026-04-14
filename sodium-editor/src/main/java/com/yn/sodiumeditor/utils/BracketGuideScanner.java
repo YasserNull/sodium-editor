@@ -104,7 +104,7 @@ public class BracketGuideScanner {
       if (inLineComment) break;
 
       if (state.inBlockComment) {
-        int end = SodiumEditor.findBlockCommentEnd(line, i);
+        int end = Highlite.findBlockCommentEnd(line, i);
         if (end < 0) break;
         i = end + 2;
         state.inBlockComment = false;
@@ -112,7 +112,7 @@ public class BracketGuideScanner {
       }
 
       if (state.stringState != 0) {
-        SodiumEditor.StringEndResult endResult = editor.findStringEndForState(line, i, state.stringState);
+        SodiumEditor.StringEndResult endResult = editor.highlite.findStringEndForState(line, i, state.stringState);
         if (!endResult.found) {
           i = length;
           break;
@@ -132,7 +132,7 @@ public class BracketGuideScanner {
           && line.charAt(i) == '/'
           && line.charAt(i + 1) == '*'
           && !Highlite.isTokenEscaped(line, i)) {
-        int end = SodiumEditor.findBlockCommentEnd(line, i + 2);
+        int end = Highlite.findBlockCommentEnd(line, i + 2);
         if (end < 0) {
           state.inBlockComment = true;
           break;
@@ -205,7 +205,7 @@ public class BracketGuideScanner {
       if (inLineComment) break;
 
       if (state.inBlockComment) {
-        int end = SodiumEditor.findBlockCommentEnd(line, i);
+        int end = Highlite.findBlockCommentEnd(line, i);
         if (end < 0) break;
         i = end + 2;
         state.inBlockComment = false;
@@ -213,7 +213,7 @@ public class BracketGuideScanner {
       }
 
       if (state.stringState != 0) {
-        SodiumEditor.StringEndResult endResult = editor.findStringEndForState(line, i, state.stringState);
+        SodiumEditor.StringEndResult endResult = editor.highlite.findStringEndForState(line, i, state.stringState);
         if (!endResult.found) {
           i = length;
           break;
@@ -233,7 +233,7 @@ public class BracketGuideScanner {
           && line.charAt(i) == '/'
           && line.charAt(i + 1) == '*'
           && !Highlite.isTokenEscaped(line, i)) {
-        int end = SodiumEditor.findBlockCommentEnd(line, i + 2);
+        int end = Highlite.findBlockCommentEnd(line, i + 2);
         if (end < 0) {
           state.inBlockComment = true;
           break;

@@ -42,18 +42,20 @@ public class Layout {
      * Set the layout direction (RTL or LTR).
      * @param isRtl true for RTL, false for LTR
      */
-    public void setLayoutDirection(boolean isRtl) {
-        if (this.isRtl == isRtl) return;
-        this.isRtl = isRtl;
-
-        // Update paint alignments
-        editor.lineNumber.lineNumbersPaint.setTextAlign(isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
-        editor.codeFold.animation.foldMarkerPaint.setTextAlign(isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
-
-        // Trigger layout recalculation
-        editor.requestLayout();
-        editor.invalidate();
-    }
+    public void setLayoutDirection(boolean Direction) {
+    if (Direction == isRtl) return;
+    isRtl = Direction;
+    editor.lineNumber.lineNumbersPaint.setTextAlign(editor.textRender.isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
+    editor.codeFold.animation.foldMarkerPaint.setTextAlign(editor.textRender.isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
+    editor.lineNumber.invalidateLineNumberCache();
+    editor.requestLayout();
+    if (editor.wordWrap.isWordWrapEnabled) editor.wordWrap.invalidateWrapMetrics(true);
+    editor.scroll.maxScrollXForScroll = 0f;
+    editor.scroll.maxTextStartXForScroll = 0f;
+    editor.scroll.scrollX =0f;
+    editor.scroll.keepCursorVisibleHorizontally();
+    editor.invalidate();
+  }
 
     /**
      * Check if the current layout direction is RTL.
@@ -124,7 +126,7 @@ public class Layout {
     public float getRtlLineBaseX(String line, int globalLine) {
         if (!isRtl || line == null) return 0f;
         float totalWidth = editor.textRender.globalMaxLineWidth;
-        float lineWidth = editor.measureHighlightedSegmentWidth(line, globalLine, 0, editor.getLogicalLineLength(globalLine, line));
+        float lineWidth = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, editor.getLogicalLineLength(globalLine, line));
         return Math.max(0f, totalWidth - lineWidth);
     }
 
@@ -139,9 +141,9 @@ public class Layout {
      */
     public float getRtlSegmentBaseX(String line, int globalLine, int segStart, int segEnd) {
         if (!isRtl || line == null) return 0f;
-        float segWidth = editor.measureHighlightedSegmentWidth(line, globalLine, segStart, segEnd);
+        float segWidth = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, segStart, segEnd);
         float lineBaseX = getRtlLineBaseX(line, globalLine);
-        return lineBaseX + (editor.measureHighlightedSegmentWidth(line, globalLine, 0, segStart));
+        return lineBaseX + (editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, segStart));
     }
 
     /**
@@ -154,7 +156,7 @@ public class Layout {
     public float convertXToRtl(float x, String line, int globalLine) {
         if (!isRtl) return x;
         float baseX = getRtlLineBaseX(line, globalLine);
-        float lineWidth = editor.measureHighlightedSegmentWidth(line, globalLine, 0, editor.getLogicalLineLength(globalLine, line));
+        float lineWidth = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, editor.getLogicalLineLength(globalLine, line));
         return baseX + (lineWidth - x);
     }
 
@@ -168,7 +170,7 @@ public class Layout {
     public float convertXToLtr(float x, String line, int globalLine) {
         if (!isRtl) return x;
         float baseX = getRtlLineBaseX(line, globalLine);
-        float lineWidth = editor.measureHighlightedSegmentWidth(line, globalLine, 0, editor.getLogicalLineLength(globalLine, line));
+        float lineWidth = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, editor.getLogicalLineLength(globalLine, line));
         return lineWidth - (x - baseX);
     }
 

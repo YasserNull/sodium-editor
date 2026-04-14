@@ -1,65 +1,96 @@
 package com.yn.sodiumeditor.renderer.animation;
 
+import android.os.SystemClock;
+
 /**
  * SelectionHandlesAnimation handles the animation logic for selection handles.
- * This includes:
- * - Smooth handle position interpolation
- * - Animation enable/disable state
  */
 public class SelectionHandlesAnimation {
 
-    // Handle move animation state
-    public boolean handleMoveAnimationEnabled = true;
-    private float animLeftX = Float.NaN;
-    private float animLeftY = Float.NaN;
-    private float animRightX = Float.NaN;
-    private float animRightY = Float.NaN;
+    // Animation duration in ms
+    private static final long ANIM_DURATION = 120;
 
-    /**
-     * Get animated handle position with smooth interpolation.
-     * @param isLeft true for left handle, false for right handle
-     * @param targetX target X position
-     * @param targetY target Y position
-     * @return float array [x, y] with the animated position
-     */
+    public boolean handleMoveAnimationEnabled = true;
+    
+    private float leftStartX = Float.NaN, leftStartY = Float.NaN;
+    private float leftTargetX = Float.NaN, leftTargetY = Float.NaN;
+    private long leftStartTime = 0;
+    
+    private float rightStartX = Float.NaN, rightStartY = Float.NaN;
+    private float rightTargetX = Float.NaN, rightTargetY = Float.NaN;
+    private long rightStartTime = 0;
+
     public float[] getAnimatedHandlePosition(boolean isLeft, float targetX, float targetY) {
         if (!handleMoveAnimationEnabled) {
             return new float[] {targetX, targetY};
         }
-        float ax = isLeft ? animLeftX : animRightX;
-        float ay = isLeft ? animLeftY : animRightY;
-        if (Float.isNaN(ax) || Float.isNaN(ay)) {
-            ax = targetX;
-            ay = targetY;
-        } else {
-            float t = 0.35f;
-            ax = ax + (targetX - ax) * t;
-            ay = ay + (targetY - ay) * t;
+        
+        long now = SystemClock.uptimeMillis();
+        float curStartX = isLeft ? leftStartX : rightStartX;
+        float curTargetX = isLeft ? leftTargetX : rightTargetX;
+        float curTargetY = isLeft ? leftTargetY : rightTargetY;
+        long curStartTime = isLeft ? leftStartTime : rightStartTime;
+
+        if (Float.isNaN(curStartX) || curTargetX != targetX || curTargetY != targetY) {
+            // Target changed or first time
+            if (isLeft) {
+                leftStartX = Float.isNaN(animLeftX) ? targetX : animLeftX;
+                leftStartY = Float.isNaN(animLeftY) ? targetY : animLeftY;
+                leftTargetX = targetX;
+                leftTargetY = targetY;
+                leftStartTime = now;
+            } else {
+                rightStartX = Float.isNaN(animRightX) ? targetX : animRightX;
+                rightStartY = Float.isNaN(animRightY) ? targetY : animRightY;
+                rightTargetX = targetX;
+                rightTargetY = targetY;
+                rightStartTime = now;
+            }
+            curStartX = isLeft ? leftStartX : rightStartX;
+            curStartTime = now;
         }
+
+        float t = Math.min(1f, (float)(now - curStartTime) / ANIM_DURATION);
+        // Quadratic ease-out
+        float eased = 1f - (1f - t) * (1f - t);
+        
+        float ax, ay;
         if (isLeft) {
+            ax = leftStartX + (leftTargetX - leftStartX) * eased;
+            ay = leftStartY + (leftTargetY - leftStartY) * eased;
             animLeftX = ax;
             animLeftY = ay;
         } else {
+            ax = rightStartX + (rightTargetX - rightStartX) * eased;
+            ay = rightStartY + (rightTargetY - rightStartY) * eased;
             animRightX = ax;
             animRightY = ay;
         }
+        
         return new float[] {ax, ay};
     }
 
-    /**
-     * Enable or disable handle move animation.
-     */
+    private float animLeftX = Float.NaN, animLeftY = Float.NaN;
+    private float animRightX = Float.NaN, animRightY = Float.NaN;
+
     public void setHandleMoveAnimationEnabled(boolean enabled) {
         handleMoveAnimationEnabled = enabled;
     }
 
-    /**
-     * Reset animation state (e.g., when selection changes abruptly).
-     */
+    public boolean isAnimating() {
+        if (!handleMoveAnimationEnabled) return false;
+        long now = SystemClock.uptimeMillis();
+        boolean leftActive = !Float.isNaN(leftTargetX) && (now - leftStartTime < ANIM_DURATION);
+        boolean rightActive = !Float.isNaN(rightTargetX) && (now - rightStartTime < ANIM_DURATION);
+        return leftActive || rightActive;
+    }
+
     public void resetAnimationState() {
         animLeftX = Float.NaN;
         animLeftY = Float.NaN;
         animRightX = Float.NaN;
         animRightY = Float.NaN;
+        leftStartX = Float.NaN;
+        rightStartX = Float.NaN;
     }
 }

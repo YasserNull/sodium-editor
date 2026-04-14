@@ -1,19 +1,20 @@
 package com.yn.sodiumeditor.core;
 
+import android.util.SparseArray;
 import java.util.List;
 
 /**
  * Manages the fallback cache to prevent flickering during window changes.
+ * Uses SparseArray for efficient sparse storage without range tracking.
  */
 public class BracketGuideFallbackCache {
-  private int fallbackCacheStartLine = -1;
-  private int fallbackCacheEndLine = -1;
+  private final SparseArray<List<BracketGuideToken>> fallbackTokens = new SparseArray<>();
+  private final SparseArray<BracketGuideState> fallbackStates = new SparseArray<>();
   private int fallbackCacheEditVersion = -1;
-  private final java.util.ArrayList<List<BracketGuideToken>> fallbackTokens = new java.util.ArrayList<>();
-  private final java.util.ArrayList<BracketGuideState> fallbackStates = new java.util.ArrayList<>();
 
   /**
    * Merges the current main cache with the existing fallback cache.
+   * Directly puts main cache entries into SparseArray — no list creation, no loop over ranges.
    */
   public void mergeWithMainCache(
       java.util.ArrayList<List<BracketGuideToken>> mainTokens,
@@ -27,62 +28,24 @@ public class BracketGuideFallbackCache {
       return;
     }
 
-    int oldFallbackStart = fallbackCacheStartLine;
-    int oldFallbackEnd = fallbackCacheEndLine;
-
-    // Calculate union of ranges
-    int newFallbackStart = (oldFallbackStart < 0) ? mainStartLine : Math.min(oldFallbackStart, mainStartLine);
-    int newFallbackEnd = (oldFallbackEnd < 0) ? mainEndLine : Math.max(oldFallbackEnd, mainEndLine);
-
-    // Create merged token lists
-    java.util.ArrayList<List<BracketGuideToken>> mergedTokens = new java.util.ArrayList<>();
-    java.util.ArrayList<BracketGuideState> mergedStates = new java.util.ArrayList<>();
-
-    for (int line = newFallbackStart; line <= newFallbackEnd; line++) {
-      List<BracketGuideToken> token = null;
-      BracketGuideState state = null;
-
-      // Try main cache first
-      if (line >= mainStartLine && line <= mainEndLine) {
-        int mainIdx = line - mainStartLine;
-        if (mainIdx >= 0 && mainIdx < mainTokens.size()) {
-          token = mainTokens.get(mainIdx);
-        }
-        if (mainIdx >= 0 && mainIdx < mainStates.size()) {
-          state = mainStates.get(mainIdx);
-        }
+    // Put main cache entries directly into SparseArray by line number
+    for (int i = 0; i < mainTokens.size(); i++) {
+      int line = mainStartLine + i;
+      if (i < mainTokens.size()) {
+        fallbackTokens.put(line, mainTokens.get(i));
       }
-
-      // Then old fallback
-      if ((token == null || state == null) && oldFallbackStart >= 0 && line >= oldFallbackStart && line <= oldFallbackEnd) {
-        int fallbackIdx = line - oldFallbackStart;
-        if (fallbackIdx >= 0 && fallbackIdx < fallbackTokens.size()) {
-          token = fallbackTokens.get(fallbackIdx);
-        }
-        if (fallbackIdx >= 0 && fallbackIdx < fallbackStates.size()) {
-          state = fallbackStates.get(fallbackIdx);
-        }
+      if (i < mainStates.size()) {
+        fallbackStates.put(line, mainStates.get(i));
       }
-
-      mergedTokens.add(token);
-      mergedStates.add(state);
     }
 
-    fallbackCacheStartLine = newFallbackStart;
-    fallbackCacheEndLine = newFallbackEnd;
     fallbackCacheEditVersion = mainEditVersion;
-    fallbackTokens.clear();
-    fallbackTokens.addAll(mergedTokens);
-    fallbackStates.clear();
-    fallbackStates.addAll(mergedStates);
   }
 
   /**
    * Invalidates the fallback cache.
    */
   public void invalidate() {
-    fallbackCacheStartLine = -1;
-    fallbackCacheEndLine = -1;
     fallbackCacheEditVersion = -1;
     fallbackTokens.clear();
     fallbackStates.clear();
@@ -92,46 +55,27 @@ public class BracketGuideFallbackCache {
    * Gets tokens for a line from the fallback cache.
    */
   public List<BracketGuideToken> getTokensForLine(int globalLine) {
-    if (globalLine >= fallbackCacheStartLine && globalLine <= fallbackCacheEndLine) {
-      int idx = globalLine - fallbackCacheStartLine;
-      if (idx >= 0 && idx < fallbackTokens.size()) {
-        return fallbackTokens.get(idx);
-      }
-    }
-    return null;
+    return fallbackTokens.get(globalLine);
   }
 
   /**
    * Gets state for a line from the fallback cache.
    */
   public BracketGuideState getStateForLine(int globalLine) {
-    if (globalLine >= fallbackCacheStartLine && globalLine <= fallbackCacheEndLine) {
-      int idx = globalLine - fallbackCacheStartLine;
-      if (idx >= 0 && idx < fallbackStates.size()) {
-        return fallbackStates.get(idx);
-      }
-    }
-    return null;
+    return fallbackStates.get(globalLine);
   }
 
   /**
    * Checks if fallback cache contains a line.
    */
   public boolean containsLine(int globalLine) {
-    return globalLine >= fallbackCacheStartLine && globalLine <= fallbackCacheEndLine;
+    return fallbackTokens.get(globalLine) != null;
   }
 
   /**
-   * Gets the start line of the fallback cache.
+   * Gets the edit version of the fallback cache.
    */
-  public int getStartLine() {
-    return fallbackCacheStartLine;
-  }
-
-  /**
-   * Gets the end line of the fallback cache.
-   */
-  public int getEndLine() {
-    return fallbackCacheEndLine;
+  public int getEditVersion() {
+    return fallbackCacheEditVersion;
   }
 }

@@ -163,7 +163,7 @@ public class BinaryTokenConverter {
         return String.valueOf(c);
     }
 
-    public boolean needsEscaping(char c) { return c < 0x20 || c > 0x7E; }
+    public boolean needsEscaping(char c) { return c < 0x20 || c == 0x7F; }
 
     public int getDisplayWidth(char c, boolean binarySafeRenderingEnabled) {
         if (!binarySafeRenderingEnabled) return 1;

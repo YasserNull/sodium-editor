@@ -96,7 +96,7 @@ public class AutoBracketNewline {
     editor.cursor.cursorLine = targetLine;
     editor.cursor.cursorChar = targetChar;
     editor.caret.resetBlink();
-    editor.keepCursorVisibleHorizontally();
+    editor.scroll.keepCursorVisibleHorizontally();
     editor.invalidate();
     editor.autoCompletion.updateSuggestion();
   }
@@ -105,7 +105,7 @@ public class AutoBracketNewline {
    * Inserts newline after closing bracket with proper indentation.
    */
   private boolean insertNewlineAfterClosingBracket() {
-    String ln = editor.getLineTextForRender(editor.cursor.cursorLine);
+    String ln = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
     if (ln == null) ln = "";
     int safeChar = Math.max(0, Math.min(editor.cursor.cursorChar, ln.length()));
     String before = ln.substring(0, safeChar);
@@ -142,7 +142,7 @@ public class AutoBracketNewline {
    * Inserts newline with indentation block handling.
    */
   private void insertNewlineWithIndentationBlock() {
-    String ln = editor.getLineTextForRender(editor.cursor.cursorLine);
+    String ln = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
     if (ln == null) ln = "";
     int safeChar = Math.max(0, Math.min(editor.cursor.cursorChar, ln.length()));
     String before = ln.substring(0, safeChar);
@@ -164,7 +164,7 @@ public class AutoBracketNewline {
    * Gets the bracket pair type at cursor position.
    */
   public BracketPairType getCursorBracketPairType() {
-    String ln = editor.getLineTextForRender(editor.cursor.cursorLine);
+    String ln = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
     if (ln == null) return BracketPairType.NONE;
     if (editor.cursor.cursorChar <= 0 || editor.cursor.cursorChar >= ln.length()) return BracketPairType.NONE;
 

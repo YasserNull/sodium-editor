@@ -181,15 +181,12 @@ public class BinaryFileReader {
                     char c = charBuf.get();
 
                     if (!sliceDone && charIndex >= safeStart) {
-                        // Hot path: lookup table instead of method call
-                        if (binarySafeRenderingEnabled && (c < 0x20 || c > 0x7E)) {
+                        // Hot path: only escape actual control chars or DEL in binary mode.
+                        // International characters (above 0x7F) should be rendered normally.
+                        if (binarySafeRenderingEnabled && (c < 0x20 || c == 0x7F)) {
                             int b = c & 0xFF;
-                            if (!binaryHexTokensEnabled && b >= 0x80) {
-                                sb.append('.');
-                            } else {
-                                String[] BYTE_TOKEN = BinaryTokenConverter.BYTE_TOKEN;
-                                sb.append(b < BYTE_TOKEN.length ? BYTE_TOKEN[b] : tokenConverter.escapeControlChar(c));
-                            }
+                            String[] BYTE_TOKEN = BinaryTokenConverter.BYTE_TOKEN;
+                            sb.append(b < BYTE_TOKEN.length ? BYTE_TOKEN[b] : tokenConverter.escapeControlChar(c));
                         } else {
                             sb.append(c);
                         }

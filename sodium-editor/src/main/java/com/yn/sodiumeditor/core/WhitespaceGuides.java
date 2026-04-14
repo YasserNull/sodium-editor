@@ -20,7 +20,7 @@ public class WhitespaceGuides {
   private final SodiumEditor editor;
 
   // Whitespace guides state
-  public boolean isWhitespaceGuidesEnabled = true;
+  public boolean isWhitespaceGuidesEnabled = false;
   public final Paint whitespaceGuidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public final Paint whitespaceGuideDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public float whitespaceGuideSpaceWidth = 0f;
@@ -49,7 +49,7 @@ public class WhitespaceGuides {
 public void setWhitespaceGuidesEnabled(boolean enabled) {
     isWhitespaceGuidesEnabled = enabled;
     editor.bracketGuides.invalidateBracketGuideCache();
-    editor.invalidateHighlightEnsureRange();
+    editor.highlite.invalidateHighlightEnsureRange();
     synchronized (editor.textRender.lineWidthCache) {
       editor.textRender.lineWidthCache.clear();
     }
@@ -70,7 +70,7 @@ public void setWhitespaceGuidesEnabled(boolean enabled) {
     whitespaceGuideSpaceStep = safeStep;
     
     editor.bracketGuides.invalidateBracketGuideCache();
-    editor.invalidateHighlightEnsureRange();
+    editor.highlite.invalidateHighlightEnsureRange();
     synchronized (editor.textRender.lineWidthCache) {
       editor.textRender.lineWidthCache.clear();
     }
@@ -296,12 +296,12 @@ public void drawWhitespaceGuidesForRangeRtl(
     boolean hasSyntaxSpans = !syntaxSpans.isEmpty();
     editor.textRender.whitespaceDrawState.syntaxIndex = 0;
     boolean mirrorRtl = editor.textRender.isRtl && !com.yn.sodiumeditor.utils.TextArabicUtils.isMixedDirectionText(line, start, end);
-    float rtlWidth = mirrorRtl ? editor.measureHighlightedSegmentWidth(line, globalLine, start, end) : 0f;
+    float rtlWidth = mirrorRtl ? editor.highlite.measureHighlightedSegmentWidth(line, globalLine, start, end) : 0f;
 
     List<com.yn.sodiumeditor.renderer.HighliteRender.HighlightSpan> visualSpans = editor.highlite.highlightCache.get(globalLine);
     if (visualSpans == null) {
       visualSpans = editor.highlite.calculateSpansForLine(line, globalLine);
-      editor.highlightCache.put(globalLine, visualSpans);
+      editor.highlite.highlightCache.put(globalLine, visualSpans);
     }
 
     float currentX = 0f;

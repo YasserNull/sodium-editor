@@ -36,21 +36,28 @@ public class TextRender {
     public final int[] binaryTokenSpanTmp = new int[2];
 public final List<String> linesWindow = new ArrayList<>();
   public int windowStartLine = 0;
-  public int windowSize = 250; // 2000 yyy
-  public int prefetchLines = 150; // 1000 yyy
-    public final LinkedHashMap<Integer, String> modifiedLines = new LinkedHashMap<>();
-  public final LinkedHashMap<Integer, Float> lineWidthCache;
-  public int lineWidthCacheSize = 400; // 2000 yyy
+  public int windowSize = 100; // 2000 yyy
+  public int prefetchLines = 100; // 1000 yyy
+  public final java.util.LinkedHashMap<Integer, String> modifiedLines =
+      new java.util.LinkedHashMap<Integer, String>(1000, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<Integer, String> eldest) {
+          return size() > 1000;
+        }
+      };
+  public final android.util.SparseArray<Float> lineWidthCache = new android.util.SparseArray<>(400);
+  public int lineWidthCacheSize = 100; // 2000 yyy
   public float currentMaxWindowLineWidth = 0f;
   public float globalMaxLineWidth = 0f;
   
-  public final LinkedHashMap<Integer, Float> avgCharWidthCache =
-      new LinkedHashMap<Integer, Float>(400, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<Integer, Float> eldest) {
-          return size() > 400;
-        }
-      };
+  public final android.util.SparseArray<Float> avgCharWidthCache = new android.util.SparseArray<>(400);
+  
+  private float cachedSpaceWidth = -1f;
+  private float cachedTabWidth = -1f;
+  private int cachedBaseIndex = -1;
+  private float cachedBaseIndexResult = 0f;
+  private int lastFrameBaseLine = -1;
+
   public final Object streamedLinesLock = new Object();
   public final SparseIntArray streamedLineLengths = new SparseIntArray();
   public final SparseIntArray streamedLineSliceStarts = new SparseIntArray();
@@ -130,12 +137,6 @@ public final List<String> linesWindow = new ArrayList<>();
         this.paddingLeft = 0f;
         this.isRtl = false;
         this.textBounds = new Rect();
-        this.lineWidthCache = new LinkedHashMap<Integer, Float>(lineWidthCacheSize, 0.75f, true) {
-            @Override
-            protected boolean removeEldestEntry(Map.Entry<Integer, Float> eldest) {
-                return size() > lineWidthCacheSize;
-            }
-        };
         
         // Initialize binary render cached character width
         editor.binaryRender.updateCachedCharWidth(paint);
@@ -171,21 +172,18 @@ public final List<String> linesWindow = new ArrayList<>();
     public float getAverageCharWidthForLine(String line, int lineIndex) {
         if (line == null || line.isEmpty()) return paint.measureText(" ");
         if (lineIndex >= 0) {
-            synchronized (editor.textRender.avgCharWidthCache) {
-                Float cached = editor.textRender.avgCharWidthCache.get(lineIndex);
-                if (cached != null) return cached;
-            }
+            Float cached = avgCharWidthCache.get(lineIndex);
+            if (cached != null) return cached;
         }
         int sampleLen = Math.min(line.length(), 256);
         float w = (sampleLen > 0) ? paint.measureText(line, 0, sampleLen) : paint.measureText(" ");
         float avg = (sampleLen > 0) ? (w / sampleLen) : w;
         if (lineIndex >= 0) {
-            synchronized (editor.textRender.avgCharWidthCache) {
-                if (isStableGlyphPositionsEnabled && editor.textRender.avgCharWidthCache.containsKey(lineIndex)) {
-                    return editor.textRender.avgCharWidthCache.get(lineIndex);
-                }
-                editor.textRender.avgCharWidthCache.put(lineIndex, avg);
+            if (isStableGlyphPositionsEnabled && avgCharWidthCache.get(lineIndex) != null) {
+                return avgCharWidthCache.get(lineIndex);
             }
+            if (avgCharWidthCache.size() > 400) avgCharWidthCache.clear();
+            avgCharWidthCache.put(lineIndex, avg);
         }
         return avg;
     }
@@ -327,179 +325,10 @@ public final List<String> linesWindow = new ArrayList<>();
     }
 
     /**
-     * Draw line numbers cached (unwrapped) - actual implementation
-     */
-    public void drawLineNumbersCachedUnwrappedImpl(
-            Canvas canvas, int firstVisibleIndex, int lastVisibleIndex,
-            int firstVisibleLine, int lastVisibleLine) {
-        if (!shouldUselineNumberCache()) {
-            drawlineNumbersDirectUnwrapped(canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine);
-            return;
-        }
-
-        int drawLastIndex = lastVisibleIndex;
-        int drawLastLine = lastVisibleLine;
-        if (editor.codeFold.isCodeFoldingEnabled) {
-            int visibleCount = editor.codeFold.getVisibleLineCount();
-            if (visibleCount > 0) {
-                drawLastIndex = Math.min(lastVisibleIndex + 1, visibleCount - 1);
-            }
-        } else {
-            int total = editor.getLinesCount();
-            if (total > 0) {
-                drawLastLine = Math.min(lastVisibleLine + 1, total - 1);
-            }
-        }
-
-        int gutterWidth = Math.max(1, Math.round(editor.lineNumber.lineNumbersGutterWidth));
-        float padPx = lineHeight;
-        int height = editor.getHeight() + Math.round(padPx * 2f);
-        float baseScrollY = (float) Math.floor(editor.scroll.scrollY / lineHeight) * lineHeight - padPx;
-
-        boolean needsRebuild = editor.lineNumber.lineNumberCacheBitmap == null
-                || editor.lineNumber.lineNumberCacheWidth != gutterWidth
-                || editor.lineNumber.lineNumberCacheHeight != height
-                || editor.lineNumber.lineNumberCacheFirstIndex != firstVisibleIndex
-                || editor.lineNumber.lineNumberCacheLastIndex != drawLastIndex
-                || Math.abs(editor.lineNumber.lineNumberCacheBaseScrollY - baseScrollY) > 0.1f
-                || editor.lineNumber.lineNumberCacheTextSize != editor.lineNumber.lineNumbersPaint.getTextSize()
-                || editor.lineNumber.lineNumberCacheTypeface != editor.lineNumber.lineNumbersPaint.getTypeface()
-                || editor.lineNumber.lineNumberCacheRtl != isRtl
-                || editor.lineNumber.lineNumberCacheWrapped
-                || editor.lineNumber.lineNumberCacheCodeFolding != editor.codeFold.isCodeFoldingEnabled
-                || Math.abs(editor.lineNumber.lineNumberCacheGutterWidth - editor.lineNumber.lineNumbersGutterWidth) > 0.1f
-                || Math.abs(editor.lineNumber.lineNumberCacheFoldMarkerWidth - editor.codeFold.animation.foldMarkerGutterWidth) > 0.1f
-                || Math.abs(editor.lineNumber.lineNumberCacheLineHeight - lineHeight) > 0.1f
-                || editor.lineNumber.lineNumberCacheColor != editor.lineNumber.lineNumbersPaint.getColor();
-
-        if (needsRebuild) {
-            ensurelineNumberCacheBitmap(gutterWidth, height);
-            editor.lineNumber.lineNumberCacheBitmap.eraseColor(0);
-
-            float lineNumX = isRtl
-                    ? editor.lineNumber.getGutterStartX() + editor.lineNumber.GUTTER_TEXT_PADDING
-                    + (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.animation.foldMarkerGutterWidth : 0f)
-                    : editor.lineNumber.getGutterStartX() + editor.lineNumber.lineNumbersGutterWidth
-                    - (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.animation.foldMarkerGutterWidth : 0f)
-                    - editor.lineNumber.GUTTER_TEXT_PADDING;
-            float lineNumXLocal = lineNumX - editor.lineNumber.getGutterStartX();
-
-            if (editor.codeFold.isCodeFoldingEnabled) {
-                for (int v = firstVisibleIndex; v <= drawLastIndex; v++) {
-                    int i = editor.codeFold.mapVisibleIndexToGlobal(v);
-                    int start = writeIntToChars(i + 1, editor.lineNumber.lineNumberChars);
-                    int count = editor.lineNumber.lineNumberChars.length - start;
-                    float y = Math.round(v * lineHeight - baseScrollY + lineHeight - paint.descent());
-                    editor.lineNumber.lineNumberCacheCanvas.drawText(
-                            editor.lineNumber.lineNumberChars, start, count, lineNumXLocal, y, editor.lineNumber.lineNumbersPaint);
-                }
-            } else {
-                for (int i = firstVisibleLine; i <= drawLastLine; i++) {
-                    int start = writeIntToChars(i + 1, editor.lineNumber.lineNumberChars);
-                    int count = editor.lineNumber.lineNumberChars.length - start;
-                    float y = Math.round(i * lineHeight - baseScrollY + lineHeight - paint.descent());
-                    editor.lineNumber.lineNumberCacheCanvas.drawText(
-                            editor.lineNumber.lineNumberChars, start, count, lineNumXLocal, y, editor.lineNumber.lineNumbersPaint);
-                }
-            }
-
-            editor.lineNumber.lineNumberCacheFirstIndex = firstVisibleIndex;
-            editor.lineNumber.lineNumberCacheLastIndex = drawLastIndex;
-            editor.lineNumber.lineNumberCacheBaseScrollY = baseScrollY;
-            editor.lineNumber.lineNumberCacheTextSize = editor.lineNumber.lineNumbersPaint.getTextSize();
-            editor.lineNumber.lineNumberCacheTypeface = editor.lineNumber.lineNumbersPaint.getTypeface();
-            editor.lineNumber.lineNumberCacheRtl = isRtl;
-            editor.lineNumber.lineNumberCacheWrapped = false;
-            editor.lineNumber.lineNumberCacheCodeFolding = editor.codeFold.isCodeFoldingEnabled;
-            editor.lineNumber.lineNumberCacheGutterWidth = editor.lineNumber.lineNumbersGutterWidth;
-            editor.lineNumber.lineNumberCacheFoldMarkerWidth = editor.codeFold.animation.foldMarkerGutterWidth;
-            editor.lineNumber.lineNumberCacheLineHeight = lineHeight;
-            editor.lineNumber.lineNumberCacheColor = editor.lineNumber.lineNumbersPaint.getColor();
-        }
-
-        float offsetY = editor.lineNumber.lineNumberCacheBaseScrollY - editor.scroll.scrollY;
-        canvas.drawBitmap(editor.lineNumber.lineNumberCacheBitmap, editor.lineNumber.getGutterStartX(), offsetY, null);
-        drawCurrentlineNumberUnwrapped(canvas, firstVisibleIndex, lastVisibleIndex);
-    }
-
-    /**
      * Draw line numbers cached (wrapped) (delegated)
      */
     public void drawlineNumbersCachedWrapped(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
         editor.lineNumber.drawLineNumbersCachedWrapped(canvas, firstVisualIndex, lastVisualIndex);
-    }
-
-    /**
-     * Draw line numbers cached (wrapped) - actual implementation
-     */
-    public void drawLineNumbersCachedWrappedImpl(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
-        if (!shouldUselineNumberCache()) {
-            drawlineNumbersDirectWrapped(canvas, firstVisualIndex, lastVisualIndex);
-            return;
-        }
-
-        int drawLastIndex = lastVisualIndex;
-        int totalVisual = editor.wordWrap.getTotalVisualLineCount();
-        if (totalVisual > 0) {
-            drawLastIndex = Math.min(lastVisualIndex + 1, totalVisual - 1);
-        }
-
-        int gutterWidth = Math.max(1, Math.round(editor.lineNumber.lineNumbersGutterWidth));
-        float padPx = lineHeight;
-        int height = editor.getHeight() + Math.round(padPx * 2f);
-        float baseScrollY = (float) Math.floor(editor.scroll.scrollY / lineHeight) * lineHeight - padPx;
-
-        boolean needsRebuild = editor.lineNumber.lineNumberCacheBitmap == null
-                || editor.lineNumber.lineNumberCacheWidth != gutterWidth
-                || editor.lineNumber.lineNumberCacheHeight != height
-                || editor.lineNumber.lineNumberCacheFirstIndex != firstVisualIndex
-                || editor.lineNumber.lineNumberCacheLastIndex != drawLastIndex
-                || Math.abs(editor.lineNumber.lineNumberCacheBaseScrollY - baseScrollY) > 0.1f
-                || editor.lineNumber.lineNumberCacheTextSize != editor.lineNumber.lineNumbersPaint.getTextSize()
-                || editor.lineNumber.lineNumberCacheTypeface != editor.lineNumber.lineNumbersPaint.getTypeface()
-                || editor.lineNumber.lineNumberCacheRtl != isRtl
-                || !editor.lineNumber.lineNumberCacheWrapped
-                || editor.lineNumber.lineNumberCacheCodeFolding != editor.codeFold.isCodeFoldingEnabled
-                || Math.abs(editor.lineNumber.lineNumberCacheGutterWidth - editor.lineNumber.lineNumbersGutterWidth) > 0.1f
-                || Math.abs(editor.lineNumber.lineNumberCacheLineHeight - lineHeight) > 0.1f
-                || editor.lineNumber.lineNumberCacheColor != editor.lineNumber.lineNumbersPaint.getColor();
-
-        if (needsRebuild) {
-            ensurelineNumberCacheBitmap(gutterWidth, height);
-            editor.lineNumber.lineNumberCacheBitmap.eraseColor(0);
-
-            float lineNumX = isRtl
-                    ? editor.lineNumber.getGutterStartX() + editor.lineNumber.GUTTER_TEXT_PADDING
-                    : editor.lineNumber.getGutterStartX() + editor.lineNumber.lineNumbersGutterWidth - editor.lineNumber.GUTTER_TEXT_PADDING;
-            float lineNumXLocal = lineNumX - editor.lineNumber.getGutterStartX();
-
-            for (int v = firstVisualIndex; v <= drawLastIndex; v++) {
-                com.yn.sodiumeditor.core.WordWrap.VisualLinePosition pos = editor.wordWrap.getVisualPositionForIndex(v);
-                if (pos.segment != 0) continue;
-                int start = writeIntToChars(pos.line + 1, editor.lineNumber.lineNumberChars);
-                int count = editor.lineNumber.lineNumberChars.length - start;
-                float y = Math.round(v * lineHeight - baseScrollY + lineHeight - paint.descent());
-                editor.lineNumber.lineNumberCacheCanvas.drawText(
-                        editor.lineNumber.lineNumberChars, start, count, lineNumXLocal, y, editor.lineNumber.lineNumbersPaint);
-            }
-
-            editor.lineNumber.lineNumberCacheFirstIndex = firstVisualIndex;
-            editor.lineNumber.lineNumberCacheLastIndex = drawLastIndex;
-            editor.lineNumber.lineNumberCacheBaseScrollY = baseScrollY;
-            editor.lineNumber.lineNumberCacheTextSize = editor.lineNumber.lineNumbersPaint.getTextSize();
-            editor.lineNumber.lineNumberCacheTypeface = editor.lineNumber.lineNumbersPaint.getTypeface();
-            editor.lineNumber.lineNumberCacheRtl = isRtl;
-            editor.lineNumber.lineNumberCacheWrapped = true;
-            editor.lineNumber.lineNumberCacheCodeFolding = editor.codeFold.isCodeFoldingEnabled;
-            editor.lineNumber.lineNumberCacheGutterWidth = editor.lineNumber.lineNumbersGutterWidth;
-            editor.lineNumber.lineNumberCacheFoldMarkerWidth = editor.codeFold.animation.foldMarkerGutterWidth;
-            editor.lineNumber.lineNumberCacheLineHeight = lineHeight;
-            editor.lineNumber.lineNumberCacheColor = editor.lineNumber.lineNumbersPaint.getColor();
-        }
-
-        float offsetY = editor.lineNumber.lineNumberCacheBaseScrollY - editor.scroll.scrollY;
-        canvas.drawBitmap(editor.lineNumber.lineNumberCacheBitmap, editor.lineNumber.getGutterStartX(), offsetY, null);
-        drawCurrentlineNumberWrapped(canvas, firstVisualIndex, drawLastIndex);
     }
 
     /**
@@ -512,94 +341,10 @@ public final List<String> linesWindow = new ArrayList<>();
     }
 
     /**
-     * Draw line numbers direct (unwrapped) - actual implementation
-     */
-    public void drawLineNumbersDirectUnwrappedImpl(
-            Canvas canvas, int firstVisibleIndex, int lastVisibleIndex,
-            int firstVisibleLine, int lastVisibleLine) {
-        int drawLastIndex = lastVisibleIndex;
-        int drawLastLine = lastVisibleLine;
-        if (editor.codeFold.isCodeFoldingEnabled) {
-            int visibleCount = editor.codeFold.getVisibleLineCount();
-            if (visibleCount > 0) drawLastIndex = Math.min(lastVisibleIndex + 1, visibleCount - 1);
-        } else {
-            int total = editor.getLinesCount();
-            if (total > 0) drawLastLine = Math.min(lastVisibleLine + 1, total - 1);
-        }
-
-        float lineNumX = isRtl
-                ? editor.lineNumber.getGutterStartX() + editor.lineNumber.GUTTER_TEXT_PADDING
-                + (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.animation.foldMarkerGutterWidth : 0f)
-                : editor.lineNumber.getGutterStartX() + editor.lineNumber.lineNumbersGutterWidth
-                - (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.animation.foldMarkerGutterWidth : 0f)
-                - editor.lineNumber.GUTTER_TEXT_PADDING;
-
-        if (editor.codeFold.isCodeFoldingEnabled) {
-            for (int v = firstVisibleIndex; v <= drawLastIndex; v++) {
-                int i = editor.codeFold.mapVisibleIndexToGlobal(v);
-                int start = writeIntToChars(i + 1, editor.lineNumber.lineNumberChars);
-                int count = editor.lineNumber.lineNumberChars.length - start;
-                float y = Math.round(v * lineHeight - editor.scroll.scrollY + lineHeight - paint.descent());
-                if (i == editor.cursor.cursorLine) {
-                    int originalColor = editor.lineNumber.lineNumbersPaint.getColor();
-                    editor.lineNumber.lineNumbersPaint.setColor(editor.lineNumber.currentLineNumberColor);
-                    canvas.drawText(editor.lineNumber.lineNumberChars, start, count, lineNumX, y, editor.lineNumber.lineNumbersPaint);
-                    editor.lineNumber.lineNumbersPaint.setColor(originalColor);
-                } else {
-                    canvas.drawText(editor.lineNumber.lineNumberChars, start, count, lineNumX, y, editor.lineNumber.lineNumbersPaint);
-                }
-            }
-        } else {
-            for (int i = firstVisibleLine; i <= drawLastLine; i++) {
-                int start = writeIntToChars(i + 1, editor.lineNumber.lineNumberChars);
-                int count = editor.lineNumber.lineNumberChars.length - start;
-                float y = Math.round(i * lineHeight - editor.scroll.scrollY + lineHeight - paint.descent());
-                if (i == editor.cursor.cursorLine) {
-                    int originalColor = editor.lineNumber.lineNumbersPaint.getColor();
-                    editor.lineNumber.lineNumbersPaint.setColor(editor.lineNumber.currentLineNumberColor);
-                    canvas.drawText(editor.lineNumber.lineNumberChars, start, count, lineNumX, y, editor.lineNumber.lineNumbersPaint);
-                    editor.lineNumber.lineNumbersPaint.setColor(originalColor);
-                } else {
-                    canvas.drawText(editor.lineNumber.lineNumberChars, start, count, lineNumX, y, editor.lineNumber.lineNumbersPaint);
-                }
-            }
-        }
-    }
-
-    /**
      * Draw line numbers direct (wrapped) (delegated)
      */
     public void drawlineNumbersDirectWrapped(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
         editor.lineNumber.drawLineNumbersDirectWrapped(canvas, firstVisualIndex, lastVisualIndex);
-    }
-
-    /**
-     * Draw line numbers direct (wrapped) - actual implementation
-     */
-    public void drawLineNumbersDirectWrappedImpl(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
-        float lineNumX = isRtl
-                ? editor.lineNumber.getGutterStartX() + editor.lineNumber.GUTTER_TEXT_PADDING
-                : editor.lineNumber.getGutterStartX() + editor.lineNumber.lineNumbersGutterWidth - editor.lineNumber.GUTTER_TEXT_PADDING;
-
-        int drawLastIndex = lastVisualIndex;
-        int totalVisual = editor.wordWrap.getTotalVisualLineCount();
-        if (totalVisual > 0) drawLastIndex = Math.min(lastVisualIndex + 1, totalVisual - 1);
-
-        for (int v = firstVisualIndex; v <= drawLastIndex; v++) {
-            com.yn.sodiumeditor.core.WordWrap.VisualLinePosition pos = editor.wordWrap.getVisualPositionForIndex(v);
-            if (pos.segment != 0) continue;
-            int start = writeIntToChars(pos.line + 1, editor.lineNumber.lineNumberChars);
-            int count = editor.lineNumber.lineNumberChars.length - start;
-            float y = Math.round(v * lineHeight - editor.scroll.scrollY + lineHeight - paint.descent());
-            if (pos.line == editor.cursor.cursorLine) {
-                int originalColor = editor.lineNumber.lineNumbersPaint.getColor();
-                editor.lineNumber.lineNumbersPaint.setColor(editor.lineNumber.currentLineNumberColor);
-                canvas.drawText(editor.lineNumber.lineNumberChars, start, count, lineNumX, y, editor.lineNumber.lineNumbersPaint);
-                editor.lineNumber.lineNumbersPaint.setColor(originalColor);
-            } else {
-                canvas.drawText(editor.lineNumber.lineNumberChars, start, count, lineNumX, y, editor.lineNumber.lineNumbersPaint);
-            }
-        }
     }
 
     /**
@@ -648,12 +393,15 @@ public final List<String> linesWindow = new ArrayList<>();
      */
     public float getDrawLineTop(int globalLine) {
         int drawIndex = globalLine;
-        int baseIndex = editor.drawBaseLine;
         if (editor.codeFold.isCodeFoldingEnabled) {
             drawIndex = editor.codeFold.getVisibleIndexForGlobalLine(globalLine);
-            baseIndex = editor.codeFold.getVisibleIndexForGlobalLine(editor.drawBaseLine);
+            if (lastFrameBaseLine != editor.drawBaseLine) {
+                cachedBaseIndex = editor.codeFold.getVisibleIndexForGlobalLine(editor.drawBaseLine);
+                lastFrameBaseLine = editor.drawBaseLine;
+            }
+            return (drawIndex - cachedBaseIndex) * lineHeight;
         }
-        return (drawIndex - baseIndex) * lineHeight;
+        return (drawIndex - editor.drawBaseLine) * lineHeight;
     }
 
     /**
@@ -692,7 +440,7 @@ public final List<String> linesWindow = new ArrayList<>();
     if (safe < minWindow) safe = minWindow;
     if (windowSize == safe) return;
     windowSize = safe;
-    editor.invalidateHighlightEnsureRange();
+    editor.highlite.invalidateHighlightEnsureRange();
     editor.bracketGuides.invalidateBracketGuideCache();
     if (editor.wordWrap.isWordWrapEnabled) editor.wordWrap.invalidateWrapMetrics(true);
     editor.wordWrap.requestWrapPrefixRebuild();
@@ -705,7 +453,7 @@ public final List<String> linesWindow = new ArrayList<>();
     prefetchLines = safe;
     int minWindow = computeMinWindowSize();
     if (windowSize < minWindow) windowSize = minWindow;
-    editor.invalidateHighlightEnsureRange();
+    editor.highlite.invalidateHighlightEnsureRange();
     editor.bracketGuides.invalidateBracketGuideCache();
     if (editor.wordWrap.isWordWrapEnabled) editor.wordWrap.invalidateWrapMetrics(true);
     editor.wordWrap.requestWrapPrefixRebuild();
@@ -716,13 +464,11 @@ public final List<String> linesWindow = new ArrayList<>();
     int safe = Math.max(10, size);
     if (lineWidthCacheSize == safe) return;
     lineWidthCacheSize = safe;
-    synchronized (lineWidthCache) {
-      if (lineWidthCache.size() > lineWidthCacheSize) {
-        Iterator<Map.Entry<Integer, Float>> it = lineWidthCache.entrySet().iterator();
-        while (lineWidthCache.size() > lineWidthCacheSize && it.hasNext()) {
-          it.next();
-          it.remove();
-        }
+    if (lineWidthCache.size() > lineWidthCacheSize) {
+      int excess = lineWidthCache.size() - lineWidthCacheSize;
+      for (int i = lineWidthCache.size() - 1; i >= 0 && excess > 0; i--) {
+        lineWidthCache.removeAt(i);
+        excess--;
       }
     }
   }
@@ -735,7 +481,7 @@ public final List<String> linesWindow = new ArrayList<>();
     if (this.windowSize == safeWindow && this.prefetchLines == safePrefetch) return;
     this.windowSize = safeWindow;
     this.prefetchLines = safePrefetch;
-    editor.invalidateHighlightEnsureRange();
+    editor.highlite.invalidateHighlightEnsureRange();
     editor.bracketGuides.invalidateBracketGuideCache();
     if (editor.wordWrap.isWordWrapEnabled) editor.wordWrap.invalidateWrapMetrics(true);
     editor.wordWrap.requestWrapPrefixRebuild();
@@ -760,7 +506,7 @@ public final List<String> linesWindow = new ArrayList<>();
       editor.invalidate();
       return;
     }
-    int firstVisibleLine = Math.max(0, editor.getGlobalLineForY(editor.scroll.scrollY));
+    int firstVisibleLine = Math.max(0, editor.wordWrap.getGlobalLineForY(editor.scroll.scrollY));
     int targetStart = Math.max(0, firstVisibleLine - prefetchLines);
     editor.fileIO.loadWindowAround(targetStart, null, recalcWidthSync);
   }
@@ -845,27 +591,31 @@ public final List<String> linesWindow = new ArrayList<>();
     editor.lineNumber.lineNumbersPaint.setTypeface(finalTypeface);
     editor.codeFold.animation.foldMarkerPaint.setTypeface(finalTypeface);
     editor.wordWrap.indicator.wordWrapIndicatorPaint.setTypeface(finalTypeface);
-    if (editor.highlite.whitespaceStringRule != null)
-      editor.highlite.whitespaceStringRule.updateTypeface(safeBase);
-    if (editor.highlite.whitespaceCommentRule != null)
-      editor.highlite.whitespaceCommentRule.updateTypeface(safeBase);
-    if (editor.highlite.lineCommentHighlightRule != null)
-      editor.highlite.lineCommentHighlightRule.updateTypeface(safeBase);
+    if (editor.highlightRules.whitespaceStringRule != null)
+      editor.highlightRules.whitespaceStringRule.updateTypeface(safeBase);
+    if (editor.highlightRules.whitespaceCommentRule != null)
+      editor.highlightRules.whitespaceCommentRule.updateTypeface(safeBase);
+    if (editor.highlightRules.lineCommentHighlightRule != null)
+      editor.highlightRules.lineCommentHighlightRule.updateTypeface(safeBase);
     for (HighliteRender.HighlightRule rule : editor.highlite.highlightRules) {
       rule.updateTypeface(safeBase);
     }
     editor.highlite.clearHighlightCaches();
 
     lineHeight = paint.getFontSpacing();
-    editor.updateWhitespaceGuideMetrics();
+    editor.whitespaceGuides.updateMetrics();
     editor.lineNumber.invalidateLineNumberCache();
     editor.wordWrap.indicator.wordWrapIndicatorWidth =
         editor.wordWrap.indicator.wordWrapIndicatorPaint.measureText(
             com.yn.sodiumeditor.core.WordWrapIndicator.WORD_WRAP_INDICATOR_TEXT);
 
-    synchronized (lineWidthCache) {
-      lineWidthCache.clear();
-    }
+    cachedSpaceWidth = -1f;
+    cachedTabWidth = -1f;
+    cachedBaseIndex = -1;
+    lastFrameBaseLine = -1;
+    lineWidthCache.clear();
+    avgCharWidthCache.clear();
+    
     editor.textRender.currentMaxWindowLineWidth = 0f;
     editor.textRender.globalMaxLineWidth = 0f;
     editor.scroll.maxLineWidthForScroll = 0f;
@@ -911,24 +661,28 @@ public final List<String> linesWindow = new ArrayList<>();
         editor.wordWrap.indicator.wordWrapIndicatorPaint.measureText(
             com.yn.sodiumeditor.core.WordWrapIndicator.WORD_WRAP_INDICATOR_TEXT);
     lineHeight = paint.getFontSpacing();
-    editor.updateTextSizeDependentMetrics();
-    editor.updateWhitespaceGuideMetrics();
+    editor.recalculateMaxLineWidth();
+    editor.whitespaceGuides.updateMetrics();
     editor.lineNumber.invalidateLineNumberCache();
+
+    cachedSpaceWidth = -1f;
+    cachedTabWidth = -1f;
+    cachedBaseIndex = -1;
+    lastFrameBaseLine = -1;
+    lineWidthCache.clear();
+    avgCharWidthCache.clear();
 
     for (HighliteRender.HighlightRule rule : editor.highlite.highlightRules) {
       rule.updateTextSize(sizePx);
     }
-    if (editor.highlite.whitespaceStringRule != null)
-      editor.highlite.whitespaceStringRule.updateTextSize(sizePx);
-    if (editor.highlite.whitespaceCommentRule != null)
-      editor.highlite.whitespaceCommentRule.updateTextSize(sizePx);
-    if (editor.highlite.lineCommentHighlightRule != null)
-      editor.highlite.lineCommentHighlightRule.updateTextSize(sizePx);
+    if (editor.highlightRules.whitespaceStringRule != null)
+      editor.highlightRules.whitespaceStringRule.updateTextSize(sizePx);
+    if (editor.highlightRules.whitespaceCommentRule != null)
+      editor.highlightRules.whitespaceCommentRule.updateTextSize(sizePx);
+    if (editor.highlightRules.lineCommentHighlightRule != null)
+      editor.highlightRules.lineCommentHighlightRule.updateTextSize(sizePx);
     editor.highlite.clearHighlightCaches();
 
-    synchronized (lineWidthCache) {
-      lineWidthCache.clear();
-    }
     float scale = sizePx / oldSize;
     editor.textRender.currentMaxWindowLineWidth *= scale;
     editor.textRender.globalMaxLineWidth *= scale;
@@ -974,25 +728,8 @@ public final List<String> linesWindow = new ArrayList<>();
     }
 
     // Cache
-    synchronized (editor.fileIO.directLineCache) {
-      String c = editor.fileIO.directLineCache.get(line);
-      if (c != null) return c;
-    }
-
-    if (editor.cursor != null
-        && editor.cursor.cursorLine == line
-        && editor.cursor.cursorChar > 0) {
-      android.util.Log.d(
-          "SodiumRender",
-          "lineText empty for cursor line="
-              + line
-              + " ch="
-              + editor.cursor.cursorChar
-              + " windowStart="
-              + windowStartLine
-              + " windowSize="
-              + linesWindow.size());
-    }
+    String c = editor.fileIO.directLineCache.get(line);
+    if (c != null) return c;
 
     return "";
   }
@@ -1042,6 +779,9 @@ public final List<String> linesWindow = new ArrayList<>();
   }
   
   public float getVisualTabWidth(Paint p) {
-    return p.measureText(" ") * DEFAULT_TAB_SIZE_SPACES;
+    if (cachedTabWidth < 0f) {
+      cachedTabWidth = p.measureText(" ") * DEFAULT_TAB_SIZE_SPACES;
+    }
+    return cachedTabWidth;
   }
 }

@@ -207,7 +207,7 @@ public class AutoPathCompletion {
      * Get the current path fragment before the cursor.
      */
     public String getCurrentPathFragment() {
-        String line = editor.getLineTextForRender(editor.cursor.cursorLine);
+        String line = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
         if (editor.cursor.cursorChar == 0 || editor.cursor.cursorChar > line.length()) {
             return "";
         }
@@ -238,7 +238,7 @@ public class AutoPathCompletion {
             return;
         }
 
-        String line = editor.getLineTextForRender(editor.cursor.cursorLine);
+        String line = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
         if (line == null) {
             if (editor.autoCompletion != null) {
                 editor.autoCompletion.clearActiveSuggestion();
@@ -330,6 +330,6 @@ public class AutoPathCompletion {
         editor.editOperators.insertStringAtCursor(textToInsert);
         Log.d("AutoPathCompletion", "acceptPathCompletion: Text inserted.");
 
-        editor.restartInput();
+        editor.view.restartInput();
     }
 }

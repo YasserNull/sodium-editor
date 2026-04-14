@@ -35,8 +35,10 @@ public class SelectionState {
   public boolean isLineNumberSelecting = false;
   public int lineNumberSelectAnchorLine = -1;
   public boolean longPressSelecting = false;
+  public boolean longPressFreeForm = false;
   public int longPressAnchorLine = -1;
   public int longPressAnchorChar = -1;
+  public int longPressEndPointerId = -1;
 
   // Double tap selection state
   public int lastDoubleTapLine = -1;
@@ -97,6 +99,7 @@ public class SelectionState {
     longPressSelecting = false;
     longPressAnchorLine = -1;
     longPressAnchorChar = -1;
+    longPressEndPointerId = -1;
 
     // Sync with cursor
     selStartLine = editor.cursor.cursorLine;
@@ -280,11 +283,23 @@ public class SelectionState {
   }
 
   /**
+   * Update long press selection extending from current selection end
+   * Used when smart selection was active before long press drag
+   */
+  public void updateLongPressSelectionFromSelectionEnd(int line, int ch) {
+    if (!longPressSelecting) return;
+    // Use the current selection end as the anchor point for extension
+    setSelectionInternal(selStartLine, selStartChar, line, ch);
+    selecting = true;
+  }
+
+  /**
    * End long press selection
    */
   public void endLongPressSelection() {
     longPressSelecting = false;
     selecting = false;
+    longPressEndPointerId = -1;
   }
 
   /**
@@ -316,7 +331,7 @@ public class SelectionState {
    */
   public boolean isLineSelectable(int line) {
     editor.fileIO.ensureLineInWindow(line, true);
-    String ln = editor.getLineTextForRender(line);
+    String ln = editor.textRender.getLineTextForRender(line);
     return ln != null && ln.length() > 0;
   }
 
@@ -349,7 +364,7 @@ public class SelectionState {
     cursorLine = targetLine;
     if (cursorLine >= editor.textRender.windowStartLine
         && cursorLine < editor.textRender.windowStartLine + editor.textRender.linesWindow.size()) {
-      String lineText = editor.getLineTextForRender(cursorLine);
+      String lineText = editor.textRender.getLineTextForRender(cursorLine);
       this.editor.cursor.cursorChar = Math.max(0, Math.min(targetChar, lineText.length()));
     } else {
       this.editor.cursor.cursorChar = targetChar;

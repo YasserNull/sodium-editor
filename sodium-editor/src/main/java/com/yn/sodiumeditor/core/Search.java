@@ -269,7 +269,7 @@ public class Search {
           editor.fileIO.populateDirectLinesForRange(rangeStart, rangeEnd, direct);
         }
       }
-      String lineText = editor.getLineTextForRenderWithDirect(line, direct);
+      String lineText = editor.textRender.getLineTextForRenderWithDirect(line, direct);
       if (lineText == null) lineText = "";
       int from =
           (line == startLine) ? Math.max(0, Math.min(startCharExclusive, lineText.length())) : 0;
@@ -307,7 +307,7 @@ public class Search {
           editor.fileIO.populateDirectLinesForRange(rangeStart, rangeEnd, direct);
         }
       }
-      String lineText = editor.getLineTextForRenderWithDirect(line, direct);
+      String lineText = editor.textRender.getLineTextForRenderWithDirect(line, direct);
       if (lineText == null) lineText = "";
       int from =
           (line == startLine)
@@ -476,7 +476,7 @@ public class Search {
 
     editor.fileIO.ensureLineInWindow(match.line, true);
     editor.selection.setSelectionInternal(match.line, match.start, match.line, match.end);
-    editor.setCursorPositionNoClear(match.line, match.end);
+    editor.cursor.setCursorPositionNoClear(match.line, match.end);
     return true;
   }
 
@@ -504,7 +504,7 @@ public class Search {
 
     editor.fileIO.ensureLineInWindow(match.line, true);
     editor.selection.setSelectionInternal(match.line, match.start, match.line, match.end);
-    editor.setCursorPositionNoClear(match.line, match.end);
+    editor.cursor.setCursorPositionNoClear(match.line, match.end);
     return true;
   }
 
@@ -516,7 +516,7 @@ public class Search {
     if (atCursor != null) {
       editor.fileIO.ensureLineInWindow(atCursor.line, true);
       editor.selection.setSelectionInternal(atCursor.line, atCursor.start, atCursor.line, atCursor.end);
-      editor.setCursorPositionNoClear(atCursor.line, atCursor.end);
+      editor.cursor.setCursorPositionNoClear(atCursor.line, atCursor.end);
       return true;
     }
     return selectSearchMatchInclusive(true);
@@ -529,7 +529,7 @@ public class Search {
   public SearchMatch findSearchMatchAtCursor() {
     if (!isSearchActive()) return null;
     int line = Math.max(0, editor.cursor.cursorLine);
-    String lineText = editor.getLineTextForRender(line);
+    String lineText = editor.textRender.getLineTextForRender(line);
     if (lineText == null) lineText = "";
     if (lineText.isEmpty()) return null;
 

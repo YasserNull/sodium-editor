@@ -129,7 +129,7 @@ public class AutoCompletion {
         editor.editOperators.insertStringAtCursor(textToInsert);
         Log.d("AutoCompletion", "acceptAutoCompletion: Text inserted.");
 
-        editor.restartInput();
+        editor.view.restartInput();
     }
 
     /**
@@ -169,7 +169,7 @@ public class AutoCompletion {
      * Internal suggestion update logic.
      */
     public void updateSuggestionInternal() {
-        String line = editor.getLineTextForRender(editor.cursor.cursorLine);
+        String line = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
         if (line == null) {
             clearActiveSuggestion();
             return;
@@ -199,11 +199,7 @@ public class AutoCompletion {
         }
 
         // Prevent suggestions inside syntax highlighting
-        List<com.yn.sodiumeditor.renderer.HighliteRender.HighlightSpan> spans = editor.highlite.highlightCache.get(editor.cursor.cursorLine);
-        if (spans == null) {
-            spans = editor.highlite.calculateSpansForLine(line, editor.cursor.cursorLine);
-            editor.highlite.highlightCache.put(editor.cursor.cursorLine, spans);
-        }
+        List<com.yn.sodiumeditor.renderer.HighliteRender.HighlightSpan> spans = editor.highliteRender.getHighlightSpansForLine(line, editor.cursor.cursorLine);
         for (com.yn.sodiumeditor.renderer.HighliteRender.HighlightSpan span : spans) {
             if (editor.cursor.cursorChar > span.start && editor.cursor.cursorChar <= span.end) {
                 clearActiveSuggestion();
@@ -228,7 +224,7 @@ public class AutoCompletion {
      * Get the current word fragment before the cursor.
      */
     public String getCurrentWordFragment() {
-        String line = editor.getLineTextForRender(editor.cursor.cursorLine);
+        String line = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
         if (editor.cursor.cursorChar == 0 || editor.cursor.cursorChar > line.length()) {
             return "";
         }
@@ -244,7 +240,7 @@ public class AutoCompletion {
      */
     public void setSuggestionTextSize(float size) {
         isSuggestionTextSizeCustom = true;
-        float px = editor.spToPx(size);
+        float px = editor.view.spToPx(size);
         float base = editor.textRender.paint.getTextSize();
         if (base > 0f) {
             suggestionTextSizeScale = px / base;
@@ -334,7 +330,7 @@ public class AutoCompletion {
     canvas.drawText(activeSuggestion, suggestionStartX_canvas, textBaselineY, suggestionPaint);
 
     float suggestionTextWidth = suggestionPaint.measureText(activeSuggestion);
-    float left_view = suggestionStartX_canvas + editor.getTextStartX() - editor.getEffectiveScrollX();
+    float left_view = suggestionStartX_canvas + editor.getTextStartX() - editor.scroll.getEffectiveScrollX();
     float right_view = left_view + suggestionTextWidth;
     if (editor.textRender.isRtl) {
       float baseX = editor.getRtlLineBaseX(lineContent, globalLine);
@@ -362,7 +358,7 @@ public class AutoCompletion {
     canvas.drawText(activeSuggestion, suggestionStartX_canvas, textBaselineY, suggestionPaint);
 
     float suggestionTextWidth = suggestionPaint.measureText(activeSuggestion);
-    float left_view = suggestionStartX_canvas + editor.getTextStartX() - editor.getEffectiveScrollX();
+    float left_view = suggestionStartX_canvas + editor.getTextStartX() - editor.scroll.getEffectiveScrollX();
     float right_view = left_view + suggestionTextWidth;
     if (editor.textRender.isRtl) {
       float baseX = editor.getRtlSegmentBaseX(lineContent, globalLine, segStart, segEnd);

@@ -26,6 +26,13 @@ public float baseCursorWidthPx = cursorWidth;
   /**
    * Set cursor position
    */
+   public void setCursorWidth(float width) {
+    if (baseCursorWidthPx == width && baseCursorTextSizePx == editor.textRender.paint.getTextSize()) return;
+    baseCursorWidthPx = width;
+    baseCursorTextSizePx = editor.textRender.paint.getTextSize();
+    editor.recalculateMaxLineWidth();
+    editor.invalidate();
+  }
   public void setCursorPosition(int line, int col) {
     int targetLine = Math.max(0, line);
     int targetCol = Math.max(0, col);
@@ -38,7 +45,7 @@ public float baseCursorWidthPx = cursorWidth;
     }
     cursorLine = targetLine;
     if (cursorLine >= editor.textRender.windowStartLine && cursorLine < editor.textRender.windowStartLine + editor.textRender.linesWindow.size()) {
-      String lineText = editor.getLineTextForRender(cursorLine);
+      String lineText = editor.textRender.getLineTextForRender(cursorLine);
       cursorChar = Math.max(0, Math.min(targetCol, lineText.length()));
       if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
         cursorChar = editor.binaryRender.snapBinaryCursor(lineText, cursorChar, cursorLine);
@@ -47,9 +54,9 @@ public float baseCursorWidthPx = cursorWidth;
       cursorChar = targetCol;
     }
     editor.caret.resetBlink();
-    editor.keepCursorVisibleHorizontally();
+    editor.scroll.keepCursorVisibleHorizontally();
     // Trigger cursor animation
-    editor.invalidateCursorArea();
+    editor.cursor.invalidateCursorArea();
   }
 
   /**
@@ -79,7 +86,7 @@ public float baseCursorWidthPx = cursorWidth;
     
     cursorLine = Math.max(0, Math.min(cursorLine, totalLines - 1));
     
-    String lineText = editor.getLineTextForRender(cursorLine);
+    String lineText = editor.textRender.getLineTextForRender(cursorLine);
     if (lineText != null) {
       cursorChar = Math.max(0, Math.min(cursorChar, lineText.length()));
       if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
@@ -116,7 +123,7 @@ public float baseCursorWidthPx = cursorWidth;
    * Check if cursor is at end of line
    */
   public boolean isAtEndOfLine() {
-    String lineText = editor.getLineTextForRender(cursorLine);
+    String lineText = editor.textRender.getLineTextForRender(cursorLine);
     return lineText == null || cursorChar >= lineText.length();
   }
 
@@ -136,7 +143,7 @@ public float baseCursorWidthPx = cursorWidth;
     
     if (cursorLine < totalLines - 1) return false;
     
-    String lineText = editor.getLineTextForRender(cursorLine);
+    String lineText = editor.textRender.getLineTextForRender(cursorLine);
     return lineText == null || cursorChar >= lineText.length();
   }
 
@@ -166,7 +173,7 @@ public float baseCursorWidthPx = cursorWidth;
     } else if (editor.cursor.cursorChar > 0) {
       editor.cursor.cursorChar--;
       if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
-        String ln = editor.getLineTextForRender(editor.cursor.cursorLine);
+        String ln = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
         int[] span = new int[2];
         if (editor.binaryRender.findBinaryTokenSpanInSpans(
                 editor.binaryRender.getBinaryTokenSpans(editor.cursor.cursorLine),
@@ -178,7 +185,7 @@ public float baseCursorWidthPx = cursorWidth;
       skipForbiddenBracePositions(false);
     } else if (editor.cursor.cursorLine > 0) {
       editor.cursor.cursorLine--;
-      String ln = editor.getLineTextForRender(editor.cursor.cursorLine);
+      String ln = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
       editor.cursor.cursorChar = ln.length();
       skipForbiddenBracePositions(false);
     }
@@ -187,8 +194,8 @@ public float baseCursorWidthPx = cursorWidth;
     editor.selection.isSelectAllActive = false;
     editor.selection.isEntireFileSelected = false;
     editor.caret.resetBlink();
-    editor.invalidateCursorArea();
-    editor.keepCursorVisibleHorizontally();
+    editor.cursor.invalidateCursorArea();
+    editor.scroll.keepCursorVisibleHorizontally();
     editor.autoCompletion.updateSuggestion();
   }
 
@@ -210,7 +217,7 @@ public float baseCursorWidthPx = cursorWidth;
       editor.cursor.cursorLine = eL;
       editor.cursor.cursorChar = eC;
     } else {
-      String ln = editor.getLineTextForRender(editor.cursor.cursorLine);
+      String ln = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
       if (editor.cursor.cursorChar < ln.length()) {
         editor.cursor.cursorChar++;
         if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
@@ -237,8 +244,8 @@ public float baseCursorWidthPx = cursorWidth;
     editor.selection.isSelectAllActive = false;
     editor.selection.isEntireFileSelected = false;
     editor.caret.resetBlink();
-    editor.invalidateCursorArea();
-    editor.keepCursorVisibleHorizontally();
+    editor.cursor.invalidateCursorArea();
+    editor.scroll.keepCursorVisibleHorizontally();
     editor.autoCompletion.updateSuggestion();
   }
 
@@ -268,12 +275,12 @@ public float baseCursorWidthPx = cursorWidth;
         int targetLine = editor.codeFold.mapVisibleIndexToGlobal(targetVisible);
         editor.cursor.cursorLine = targetLine;
         editor.fileIO.ensureLineInWindow(targetLine, true);
-        String ln = editor.getLineTextForRender(targetLine);
+        String ln = editor.textRender.getLineTextForRender(targetLine);
         editor.cursor.cursorChar = Math.min(editor.cursor.cursorChar, ln.length());
       }
     } else if (editor.cursor.cursorLine > 0) {
       editor.cursor.cursorLine--;
-      String ln = editor.getLineTextForRender(editor.cursor.cursorLine);
+      String ln = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
       editor.cursor.cursorChar = Math.min(editor.cursor.cursorChar, ln.length());
     }
 
@@ -281,8 +288,8 @@ public float baseCursorWidthPx = cursorWidth;
     editor.selection.isSelectAllActive = false;
     editor.selection.isEntireFileSelected = false;
     editor.caret.resetBlink();
-    editor.invalidateCursorArea();
-    editor.keepCursorVisibleHorizontally();
+    editor.cursor.invalidateCursorArea();
+    editor.scroll.keepCursorVisibleHorizontally();
     editor.autoCompletion.updateSuggestion();
   }
 
@@ -312,7 +319,7 @@ public float baseCursorWidthPx = cursorWidth;
         int targetLine = editor.codeFold.mapVisibleIndexToGlobal(targetVisible);
         editor.cursor.cursorLine = targetLine;
         editor.fileIO.ensureLineInWindow(targetLine, true);
-        String ln = editor.getLineTextForRender(targetLine);
+        String ln = editor.textRender.getLineTextForRender(targetLine);
         editor.cursor.cursorChar = Math.min(editor.cursor.cursorChar, ln.length());
         skipForbiddenBracePositions(true);
       }
@@ -320,7 +327,7 @@ public float baseCursorWidthPx = cursorWidth;
       int next = editor.cursor.cursorLine + 1;
       if (!editor.fileIO.isEof || next < editor.textRender.windowStartLine + editor.textRender.linesWindow.size()) {
         editor.cursor.cursorLine = next;
-        String ln = editor.getLineTextForRender(editor.cursor.cursorLine);
+        String ln = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
         editor.cursor.cursorChar = Math.min(editor.cursor.cursorChar, ln.length());
         skipForbiddenBracePositions(true);
       }
@@ -330,8 +337,8 @@ public float baseCursorWidthPx = cursorWidth;
     editor.selection.isSelectAllActive = false;
     editor.selection.isEntireFileSelected = false;
     editor.caret.resetBlink();
-    editor.invalidateCursorArea();
-    editor.keepCursorVisibleHorizontally();
+    editor.cursor.invalidateCursorArea();
+    editor.scroll.keepCursorVisibleHorizontally();
     editor.autoCompletion.updateSuggestion();
   }
 
@@ -347,21 +354,21 @@ public float baseCursorWidthPx = cursorWidth;
     int targetCol = Math.max(0, col);
     cursorLine = targetLine;
     if (cursorLine >= editor.textRender.windowStartLine && cursorLine < editor.textRender.windowStartLine + editor.textRender.linesWindow.size()) {
-      String lineText = editor.getLineTextForRender(cursorLine);
+      String lineText = editor.textRender.getLineTextForRender(cursorLine);
       cursorChar = Math.max(0, Math.min(targetCol, lineText.length()));
     } else {
       cursorChar = targetCol;
     }
     editor.caret.resetBlink();
-    editor.keepCursorVisibleHorizontally();
+    editor.scroll.keepCursorVisibleHorizontally();
     // Trigger cursor animation
-    editor.invalidateCursorArea();
+    editor.cursor.invalidateCursorArea();
     editor.ime.updateImeSelection();
   }
 
   private void skipForbiddenBracePositions(boolean movingRight) {
     if (editor.binaryRender.isBinarySafeRenderingEnabled()) return;
-    String ln = editor.getLineTextForRender(editor.cursor.cursorLine);
+    String ln = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
     if (ln == null) return;
     int len = ln.length();
     if (len == 0) return;
@@ -394,13 +401,11 @@ public float baseCursorWidthPx = cursorWidth;
    * Invalidate cursor area for redraw
    */
   public void invalidateCursorArea() {
-    // Only update animation target when animation is not running
-    // (animation step updates cursorDrawX/Y directly during animation)
-    if (!editor.cursorAnimation.cursorAnimRunning) {
-      float targetX = editor.caret.getCaretX();
-      float targetY = editor.caret.getCaretY();
-      editor.cursorAnimation.updateCursorDrawPosition(targetX, targetY);
-    }
+    // Update animation target immediately regardless of current state
+    // The animation system now handles redirection internally.
+    float targetX = editor.caret.getCaretDocumentX();
+    float targetY = editor.caret.getCaretDocumentY();
+    editor.cursorAnimation.updateCursorDrawPosition(targetX, targetY);
     
     if (editor.wordWrap.isWordWrapEnabled) {
       editor.invalidate();

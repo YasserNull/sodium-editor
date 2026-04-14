@@ -3,6 +3,7 @@ package com.yn.sodiumeditor.input.events;
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.io.EditOperators;
+import com.yn.sodiumeditor.io.EditOp;
 
 /**
  * OnDoubleTap handles onDoubleTap() gesture event for SodiumEditor.
@@ -23,10 +24,10 @@ public class OnDoubleTap {
   public boolean onDoubleTap(MotionEvent e) {
     if (editor.autoCompletion.suggestionAcceptedThisTouch)
       return true; // Don't process if suggestion was accepted
-    EditOperators.CursorTarget target = editor.getCursorTargetForPosition(e.getX(), e.getY(), null);
+    EditOp.CursorTarget target = editor.wordWrap.getCursorTargetForPosition(e.getX(), e.getY(), null);
     int line = target.line;
     editor.fileIO.ensureLineInWindow(line, true);
-    String ln = editor.getLineTextForRender(line);
+    String ln = editor.textRender.getLineTextForRender(line);
     if (ln == null || ln.isEmpty()) {
       return onSingleTapUp.onSingleTapUp(e);
     }
@@ -45,7 +46,7 @@ public class OnDoubleTap {
     editor.caret.resetBlink();
     editor.invalidate();
     editor.showKeyboard();
-    editor.restartInput();
+    editor.view.restartInput();
     return true;
   }
 }

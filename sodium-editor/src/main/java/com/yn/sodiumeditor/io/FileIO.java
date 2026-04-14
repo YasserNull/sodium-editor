@@ -2,1505 +2,319 @@ package com.yn.sodiumeditor.io;
 
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.os.Looper;
-import android.util.SparseIntArray;
-
 import androidx.annotation.Nullable;
-
+import com.yn.sodiumeditor.SodiumEditor;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-import com.yn.sodiumeditor.SodiumEditor;
+
 /**
- * File I/O operations for SodiumEditor.
- * Handles file reading, writing, indexing, and window loading.
+ * Main facade for File I/O operations in SodiumEditor.
  */
 public class FileIO {
-
     private final SodiumEditor editor;
 
-    // IO thread and handler
+    // Sub-components
+    public final FileMetadata metadata;
+    public final FileIndexer indexer;
+    public final FileCache cache;
+    public final FileWindowLoader windowLoader;
+
+    // Infrastructure
     public final HandlerThread ioThread;
     public final Handler ioHandler;
-    public BufferedReader readerForFile = null;
+    public final AtomicInteger ioTaskVersion = new AtomicInteger(0);
+
+    // --- Core State Fields (Kept as fields for compatibility with other classes) ---
     public File sourceFile = null;
     public boolean isEof = false;
-    public final AtomicInteger ioTaskVersion = new AtomicInteger(0);
     public boolean isFileCleared = false;
-
-    // File charset
-    public Charset fileCharset = StandardCharsets.UTF_8;
-
-    // Index state
-    public final Object lineOffsetsLock = new Object();
-    public long[] lineOffsets = new long[0];
+    public BufferedReader readerForFile = null;
+    
+    public volatile boolean isWindowLoading = false;
     public volatile boolean isIndexReady = false;
     public volatile boolean isIndexBuilding = false;
-    public volatile boolean isIndexDisabled = false;
-    public volatile String indexDisabledPath = null;
-    public volatile long indexDisabledFileLength = -1L;
-    public static final long MAX_INDEX_BYTES_HARD = 64L * 1024 * 1024;
-
-    // Window loading state
-    public volatile boolean isWindowLoading = false;
-
-    // Direct read cache for fast fling rendering
-    public final LinkedHashMap<Integer, String> directLineCache =
-        new LinkedHashMap<Integer, String>(250, 0.75f, true) {
-          @Override
-          protected boolean removeEldestEntry(Map.Entry<Integer, String> eldest) {
-            // Increase cache size to 500 lines for code folding safety
-            int maxCacheSize = editor.codeFold.isCodeFoldingEnabled ? 500 : 250;
-            if (size() <= maxCacheSize) return false;
-
-            // CRITICAL: Protection for visible lines.
-            // Do not remove a line if it is currently visible on screen, 
-            // even if it was the least recently used in the cache.
-            int firstIdx = (int) (editor.scroll.scrollY / editor.textRender.lineHeight);
-            int lastIdx = firstIdx + (int) Math.ceil(editor.getHeight() / editor.textRender.lineHeight) + 5;
-
-            for (int v = firstIdx; v <= lastIdx; v++) {
-                int gl = editor.codeFold.mapVisibleIndexToGlobal(v);
-                if (eldest.getKey().equals(gl)) {
-                    return false; // Don't evict this line, it's visible!
-                }
-            }
-            return true;
-          }
-        };
+    public long[] lineOffsets = new long[0];
+    public final Object lineOffsetsLock = new Object();
+    public java.nio.charset.Charset fileCharset = java.nio.charset.StandardCharsets.UTF_8;
 
     // Binary file detection
     public boolean autoDetectBinaryFiles = true;
     public int binaryDetectionSampleSize = 8192;
     public double binaryDetectionThreshold = 0.3;
 
+    // Direct read cache
+    public final java.util.LinkedHashMap<Integer, String> directLineCache =
+        new java.util.LinkedHashMap<Integer, String>(250, 0.75f, true) {
+          @Override
+          protected boolean removeEldestEntry(java.util.Map.Entry<Integer, String> eldest) {
+            int maxCacheSize = editor.codeFold.isCodeFoldingEnabled ? 500 : 250;
+            if (size() <= maxCacheSize) return false;
+            int firstIdx = (int) (editor.scroll.scrollY / editor.textRender.lineHeight);
+            int lastIdx = firstIdx + (int) Math.ceil(editor.getHeight() / editor.textRender.lineHeight) + 5;
+            for (int v = firstIdx; v <= lastIdx; v++) {
+                if (eldest.getKey().equals(editor.codeFold.mapVisibleIndexToGlobal(v))) return false;
+            }
+            return true;
+          }
+        };
+    
+    // Indexing disabled tracking (moved from component to here for central access)
+    public volatile boolean isIndexDisabled = false;
+    public volatile String indexDisabledPath = null;
+    public volatile long indexDisabledFileLength = -1L;
+
     public FileIO(SodiumEditor editor) {
         this.editor = editor;
-        ioThread = new HandlerThread("SodiumEditor-IO");
-        ioThread.start();
-        ioHandler = new Handler(ioThread.getLooper());
+        this.ioThread = new HandlerThread("SodiumEditor-IO");
+        this.ioThread.start();
+        this.ioHandler = new Handler(ioThread.getLooper());
+
+        this.metadata = new FileMetadata(editor, this);
+        this.indexer = new FileIndexer(editor, this);
+        this.cache = new FileCache(editor, this);
+        this.windowLoader = new FileWindowLoader(editor, this);
     }
 
-    /**
-     * Detect if a file is binary by sampling the first N bytes.
-     * Returns true if the file appears to be binary.
-     */
-    public boolean isBinaryFile(File file) {
-        if (!autoDetectBinaryFiles || file == null || !file.exists()) return false;
-        
-        long fileSize = file.length();
-        if (fileSize == 0) return false;
-        
-        int sampleSize = (int) Math.min(binaryDetectionSampleSize, fileSize);
-        
-        try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
-            byte[] buffer = new byte[sampleSize];
-            int bytesRead = raf.read(buffer);
-            if (bytesRead <= 0) return false;
-            
-            int nonPrintableCount = 0;
-            int totalChars = 0;
-            
-            for (int i = 0; i < bytesRead; i++) {
-                byte b = buffer[i];
-                // Skip null bytes (common in some text formats)
-                if (b == 0) continue;
-                
-                totalChars++;
-                // Check for non-printable characters (excluding common whitespace)
-                if (b < 9 || (b > 13 && b < 32) || b == 127) {
-                    nonPrintableCount++;
-                }
-            }
-            
-            if (totalChars == 0) return false;
-            double nonPrintableRatio = (double) nonPrintableCount / totalChars;
-            return nonPrintableRatio > binaryDetectionThreshold;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    /**
-     * Check and load window around visible area.
-     */
-    public void checkAndLoadWindow() {
-        if (sourceFile == null || isFileCleared) return;
-        if (editor.getWidth() == 0 || editor.getHeight() == 0) return;
-        if (isWindowLoading) return;
-
-        int firstVisibleIndex = (int) (editor.scroll.scrollY / editor.textRender.lineHeight);
-        int lastVisibleIndex = firstVisibleIndex + (int) Math.ceil(editor.getHeight() / editor.textRender.lineHeight);
-        int firstVisibleLine;
-        int lastVisibleLine;
-        if (editor.wordWrap.isWordWrapEnabled) {
-            firstVisibleLine = editor.wordWrap.getVisualPositionForIndex(firstVisibleIndex).line;
-            lastVisibleLine = editor.wordWrap.getVisualPositionForIndex(lastVisibleIndex).line;
-        } else {
-            firstVisibleLine = editor.codeFold.mapVisibleIndexToGlobal(firstVisibleIndex);
-            lastVisibleLine = editor.codeFold.mapVisibleIndexToGlobal(lastVisibleIndex);
-        }
-        firstVisibleLine = Math.max(0, firstVisibleLine);
-        lastVisibleLine = Math.max(firstVisibleLine, lastVisibleLine);
-
-        // Optimization: If the first visible line starts a large collapsed fold,
-        // it is better to load the window around the lines AFTER the fold,
-        // because those lines fill the majority of the screen.
-        int loadTarget = firstVisibleLine;
-        if (editor.codeFold.isCodeFoldingEnabled) {
-            com.yn.sodiumeditor.core.CodeFold.FoldRange fr = editor.codeFold.getFoldRangeAtStart(firstVisibleLine);
-            if (fr != null && fr.collapsed && (fr.endLine - fr.startLine) > (editor.textRender.windowSize / 2)) {
-                // Centering around the line after the fold ensures we cover the visible lines following the placeholder.
-                loadTarget = fr.endLine + 1;
-            }
-        }
-
-        int winEnd;
-        synchronized (editor.textRender.linesWindow) {
-            winEnd = editor.textRender.windowStartLine + editor.textRender.linesWindow.size() - 1;
-        }
-
-        int topMargin = Math.max(0, editor.textRender.prefetchLines);
-        int bottomMargin = Math.max(0, editor.textRender.prefetchLines);
-
-        boolean needTop = editor.textRender.windowStartLine > 0 && loadTarget < editor.textRender.windowStartLine + topMargin;
-        boolean needBottom = !isEof && lastVisibleLine > winEnd - bottomMargin;
-        boolean outside = loadTarget < editor.textRender.windowStartLine || loadTarget > winEnd;
-
-        if (needTop || needBottom || outside) {
-            int targetStart = Math.max(0, loadTarget - editor.textRender.prefetchLines);
-            loadWindowAround(targetStart, null, false);
-        }
-    }
-
-    /**
-     * Load window around specified line.
-     */
-    
-
-    /**
-     * Load window around specified line with optional width recalculation.
-     */
-    public void loadWindowAround(int startLine, @Nullable Runnable onComplete, boolean recalculateWidthSync) {
-        if (isWindowLoading) return;
-        editor.loadingCircle.maxWidthRecalcToken++;
-        editor.logRender(
-                "loadWindowAround-start",
-                "loadWindowAround startLine=" + startLine
-                        + " isIndexReady=" + isIndexReady
-                        + " windowStart=" + editor.textRender.windowStartLine
-                        + " windowSize=" + editor.textRender.windowSize
-                        + " prefetch=" + editor.textRender.prefetchLines,
-                500);
-
-        if (isFileCleared) {
-            if (onComplete != null) {
-                editor.post(onComplete);
-            }
-            return;
-        }
-
-        if (sourceFile == null) {
-            if (onComplete != null) editor.post(onComplete);
-            return;
-        }
-
-        isWindowLoading = true;
-        final int taskVersion = ioTaskVersion.incrementAndGet();
-        final int requestedStart = Math.max(0, startLine);
-
-        ioHandler.post(() -> {
-            try {
-                if (taskVersion != ioTaskVersion.get()) {
-                    editor.post(() -> {
-                        isWindowLoading = false;
-                        checkAndLoadWindow();
-                    });
-                    return;
-                }
-
-                int actualStart = requestedStart;
-
-                if (isIndexReady) {
-                    synchronized (lineOffsetsLock) {
-                        if (lineOffsets.length > 0 && actualStart >= lineOffsets.length) {
-                            actualStart = Math.max(0, lineOffsets.length - 1);
-                        }
-                    }
-                }
-
-                loadWindowInternal(actualStart, taskVersion, onComplete, recalculateWidthSync);
-            } catch (Exception e) {
-                editor.post(() -> {
-                    isWindowLoading = false;
-                    if (onComplete != null) onComplete.run();
-                });
-            }
-        });
-    }
-
-    private void loadWindowInternal(int actualStart, int taskVersion, @Nullable Runnable onComplete, boolean recalculateWidthSync) {
-        List<String> newWin = new ArrayList<>();
-        SparseIntArray newStreamedLengths = new SparseIntArray();
-        SparseIntArray newStreamedSliceStarts = new SparseIntArray();
-        boolean fileEndsWithNewline = false;
-        boolean reachedEof = false;
-        boolean trailingEmptyFromIndex = false;
-        int debugLineLogs = 0;
-
-        if (isIndexReady) {
-            try (RandomAccessFile raf = new RandomAccessFile(sourceFile, "r")) {
-                long fileLen = raf.length();
-                editor.logRender(
-                        "loadWindowAround-io",
-                        "ioLoad indexReady start=" + actualStart + " fileLen=" + fileLen,
-                        500);
-                if (fileLen > 0) {
-                    raf.seek(fileLen - 1);
-                    fileEndsWithNewline = (raf.read() == '\n');
-                }
-                int limit = editor.textRender.windowSize + (editor.textRender.prefetchLines * 2);
-                int lineIndex = actualStart;
-                int maxLine;
-                synchronized (lineOffsetsLock) {
-                    maxLine = lineOffsets.length;
-                }
-                while (newWin.size() < limit) {
-                    if (lineIndex >= maxLine) {
-                        reachedEof = true;
-                        editor.logRender(
-                                "loadWindowAround-eof",
-                                "eof indexReady lineIndex=" + lineIndex + " maxLine=" + maxLine,
-                                500);
-                        break;
-                    }
-                    long lineStart;
-                    synchronized (lineOffsetsLock) {
-                        lineStart = lineOffsets[lineIndex];
-                    }
-                    long lineByteLen = getLineByteLengthFromIndex(raf, lineIndex, fileLen);
-                    int lineLen = (int) Math.min(Integer.MAX_VALUE, lineByteLen);
-                    if (debugLineLogs < 5) {
-                        editor.logRender(
-                                "loadWindowAround-line",
-                                "line idx=" + lineIndex
-                                        + " start=" + lineStart
-                                        + " bytes=" + lineByteLen
-                                        + " len=" + lineLen,
-                                0);
-                        debugLineLogs++;
-                    }
-                    if (editor.shouldStreamLineLength(lineLen)) {
-                        int sliceStart = 0;
-                        int sliceEnd = Math.max(1, Math.min(lineLen, editor.textRender.getInitialStreamedSliceSize()));
-                        if (editor.isSingleByteCharset()) {
-                            String slice;
-                            if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
-                                int len = Math.max(0, Math.min(lineLen, sliceEnd) - sliceStart);
-                                byte[] buf = new byte[len];
-                                if (len > 0) {
-                                    raf.seek(lineStart + sliceStart);
-                                    raf.readFully(buf);
-                                }
-                                slice = editor.binaryRender.bytesToControlVisibleAndCacheSpans(buf, buf.length, lineIndex);
-                            } else {
-                                slice = readLineSliceAtByte(raf, lineStart, lineByteLen, sliceStart, sliceEnd);
-                            }
-                            if (debugLineLogs < 5) {
-                                String preview = slice;
-                                if (preview.length() > 80) preview = preview.substring(0, 80);
-                                editor.logRender(
-                                        "loadWindowAround-lineText",
-                                        "lineText idx=" + lineIndex + " slice=\"" + preview + "\"",
-                                        0);
-                            }
-                            newWin.add(slice);
-                            newStreamedLengths.put(lineIndex, lineLen);
-                            newStreamedSliceStarts.put(lineIndex, sliceStart);
-                        } else {
-                            sliceEnd = Math.max(1, editor.textRender.getInitialStreamedSliceSize());
-                            SodiumEditor.StreamedCharSlice slice =
-                                    readLineSliceByChars(raf, lineStart, sliceStart, sliceEnd, true);
-                            if (debugLineLogs < 5) {
-                                String preview = slice.text;
-                                if (preview.length() > 80) preview = preview.substring(0, 80);
-                                editor.logRender(
-                                        "loadWindowAround-lineText",
-                                        "lineText idx=" + lineIndex + " slice=\"" + preview + "\"",
-                                        0);
-                            }
-                            newWin.add(slice.text);
-                            newStreamedLengths.put(lineIndex, slice.length);
-                            newStreamedSliceStarts.put(lineIndex, sliceStart);
-                        }
-                    } else {
-                        String ln;
-                        if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
-                            raf.seek(lineStart);
-                            byte[] buf = new byte[lineLen];
-                            if (lineLen > 0) raf.readFully(buf);
-                            ln = editor.binaryRender.bytesToControlVisibleAndCacheSpans(buf, buf.length, lineIndex);
-                        } else {
-                            ln = readLineUtf8AtByte(raf, lineStart);
-                        }
-                        if (debugLineLogs < 5) {
-                            String preview = ln;
-                            if (preview.length() > 80) preview = preview.substring(0, 80);
-                            editor.logRender(
-                                    "loadWindowAround-lineText",
-                                    "lineText idx=" + lineIndex + " text=\"" + preview + "\"",
-                                    0);
-                        }
-                        newWin.add(ln);
-                    }
-                    lineIndex++;
-                }
-                if (fileEndsWithNewline) {
-                    synchronized (lineOffsetsLock) {
-                        trailingEmptyFromIndex =
-                                lineOffsets.length > 0 && lineOffsets[lineOffsets.length - 1] == fileLen;
-                    }
-                }
-            } catch (Exception ignored) {
-            }
-        } else {
-            try (RandomAccessFile raf = new RandomAccessFile(sourceFile, "r")) {
-                long fileLen = raf.length();
-                editor.logRender(
-                        "loadWindowAround-io",
-                        "ioLoad noIndex start=" + actualStart + " fileLen=" + fileLen,
-                        500);
-                if (fileLen > 0) {
-                    raf.seek(fileLen - 1);
-                    fileEndsWithNewline = (raf.read() == '\n');
-                }
-                raf.seek(0);
-                int skipped = 0;
-                while (skipped < actualStart) {
-                    LineScanResult scan = scanLineLength(raf);
-                    if (scan.reachedEof) break;
-                    skipped++;
-                }
-                actualStart = skipped;
-
-                int limit = editor.textRender.windowSize + (editor.textRender.prefetchLines * 2);
-                int lineIndex = actualStart;
-                while (newWin.size() < limit) {
-                    long lineStart = raf.getFilePointer();
-                    if (lineStart >= fileLen) {
-                        reachedEof = true;
-                        editor.logRender(
-                                "loadWindowAround-eof",
-                                "eof noIndex lineIndex=" + lineIndex + " fileLen=" + fileLen,
-                                500);
-                        break;
-                    }
-                    LineScanResult scan = scanLineLength(raf);
-                    long afterPos = raf.getFilePointer();
-                    long lineByteLen = scan.length;
-                    int lineLen = (int) Math.min(Integer.MAX_VALUE, lineByteLen);
-                    if (debugLineLogs < 5) {
-                        editor.logRender(
-                                "loadWindowAround-line",
-                                "line idx=" + lineIndex
-                                        + " start=" + lineStart
-                                        + " after=" + afterPos
-                                        + " bytes=" + lineByteLen
-                                        + " len=" + lineLen
-                                        + " eof=" + scan.reachedEof,
-                                0);
-                        debugLineLogs++;
-                    }
-                    if (editor.shouldStreamLineLength(lineLen)) {
-                        int sliceStart = 0;
-                        int sliceEnd = Math.max(1, Math.min(lineLen, editor.textRender.getInitialStreamedSliceSize()));
-                        if (editor.isSingleByteCharset()) {
-                            String slice = readLineSliceAtByte(raf, lineStart, lineByteLen, sliceStart, sliceEnd);
-                            if (debugLineLogs < 5) {
-                                String preview = slice;
-                                if (preview.length() > 80) preview = preview.substring(0, 80);
-                                editor.logRender(
-                                        "loadWindowAround-lineText",
-                                        "lineText idx=" + lineIndex + " slice=\"" + preview + "\"",
-                                        0);
-                            }
-                            newWin.add(slice);
-                            newStreamedLengths.put(lineIndex, lineLen);
-                            newStreamedSliceStarts.put(lineIndex, sliceStart);
-                        } else {
-                            sliceEnd = Math.max(1, editor.textRender.getInitialStreamedSliceSize());
-                            SodiumEditor.StreamedCharSlice slice =
-                                    readLineSliceByChars(raf, lineStart, sliceStart, sliceEnd, true);
-                            if (debugLineLogs < 5) {
-                                String preview = slice.text;
-                                if (preview.length() > 80) preview = preview.substring(0, 80);
-                                editor.logRender(
-                                        "loadWindowAround-lineText",
-                                        "lineText idx=" + lineIndex + " slice=\"" + preview + "\"",
-                                        0);
-                            }
-                            newWin.add(slice.text);
-                            newStreamedLengths.put(lineIndex, slice.length);
-                            newStreamedSliceStarts.put(lineIndex, sliceStart);
-                        }
-                    } else {
-                        raf.seek(lineStart);
-                        byte[] buf = new byte[lineLen];
-                        if (lineLen > 0) raf.readFully(buf);
-                        String ln;
-                        if (lineLen > 0) {
-                            if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
-                                ln = editor.binaryRender.bytesToControlVisibleAndCacheSpans(buf, buf.length, lineIndex);
-                            } else {
-                                ln = new String(buf, fileCharset);
-                            }
-                        } else {
-                            ln = "";
-                        }
-                        if (debugLineLogs < 5) {
-                            String preview = ln;
-                            if (preview.length() > 80) preview = preview.substring(0, 80);
-                            editor.logRender(
-                                    "loadWindowAround-lineText",
-                                    "lineText idx=" + lineIndex + " text=\"" + preview + "\"",
-                                    0);
-                        }
-                        newWin.add(ln);
-                    }
-                    raf.seek(afterPos);
-                    if (scan.reachedEof) {
-                        reachedEof = true;
-                        editor.logRender(
-                                "loadWindowAround-eof",
-                                "eof scanReached lineIndex=" + lineIndex,
-                                500);
-                        break;
-                    }
-                    lineIndex++;
-                }
-            } catch (Exception ignored) {
-            }
-        }
-
-        if (newWin.isEmpty()) {
-            newWin.add("");
-            actualStart = 0;
-        }
-        if (reachedEof && fileEndsWithNewline && !trailingEmptyFromIndex) {
-            newWin.add("");
-        }
-
-        boolean eof = newWin.size() < editor.textRender.windowSize + (editor.textRender.prefetchLines * 2);
-
-        synchronized (editor.textRender.modifiedLines) {
-            for (int i = 0; i < newWin.size(); i++) {
-                int globalLineNum = actualStart + i;
-                if (editor.textRender.modifiedLines.containsKey(globalLineNum)) {
-                    String modifiedLine = editor.textRender.modifiedLines.get(globalLineNum);
-                    if (modifiedLine != null) newWin.set(i, modifiedLine);
-                    newStreamedLengths.delete(globalLineNum);
-                    newStreamedSliceStarts.delete(globalLineNum);
-                }
-            }
-        }
-
-        if (taskVersion != ioTaskVersion.get()) {
-            editor.post(() -> {
-                isWindowLoading = false;
-                checkAndLoadWindow();
-            });
-            return;
-        }
-
-        final int finalStart = actualStart;
-        final SparseIntArray finalStreamedLengths = newStreamedLengths;
-        final SparseIntArray finalStreamedSliceStarts = newStreamedSliceStarts;
-        editor.post(() -> {
-            isWindowLoading = false;
-            if (taskVersion != ioTaskVersion.get()) {
-                checkAndLoadWindow();
-                return;
-            }
-            synchronized (editor.textRender.linesWindow) {
-                editor.textRender.linesWindow.clear();
-                editor.textRender.linesWindow.addAll(newWin);
-                editor.textRender.windowStartLine = finalStart;
-                isEof = eof;
-                
-                // CRITICAL: Apply modifiedLines overrides to the new window.
-                // This ensures user edits persist even after window reload.
-                // For deleted lines (empty string), we keep them as empty to prevent ghost text.
-                synchronized (editor.textRender.modifiedLines) {
-                    for (Map.Entry<Integer, String> entry : editor.textRender.modifiedLines.entrySet()) {
-                        int line = entry.getKey();
-                        String text = entry.getValue();
-                        if (line >= finalStart && line < finalStart + newWin.size()) {
-                            int localIdx = line - finalStart;
-                            newWin.set(localIdx, text);
-                        }
-                    }
-                }
-            }
-            synchronized (editor.textRender.streamedLinesLock) {
-                editor.textRender.streamedLineLengths.clear();
-                editor.textRender.streamedLineSliceStarts.clear();
-                for (int i = 0; i < finalStreamedLengths.size(); i++) {
-                    int key = finalStreamedLengths.keyAt(i);
-                    editor.textRender.streamedLineLengths.put(key, finalStreamedLengths.valueAt(i));
-                    editor.textRender.streamedLineSliceStarts.put(key, finalStreamedSliceStarts.get(key, 0));
-                }
-            }
-            synchronized (editor.textRender.streamedLinesLockLinesLock) {
-                editor.textRender.streamedLinesLockLineLengths.clear();
-                editor.textRender.streamedLinesLockLineSliceStarts.clear();
-                for (int i = 0; i < finalStreamedLengths.size(); i++) {
-                    int key = finalStreamedLengths.keyAt(i);
-                    editor.textRender.streamedLinesLockLineLengths.put(key, finalStreamedLengths.valueAt(i));
-                    editor.textRender.streamedLinesLockLineSliceStarts.put(key, finalStreamedSliceStarts.get(key, 0));
-                }
-            }
-            editor.lineNumber.invalidateLineNumberCache();
-            editor.invalidateHighlightEnsureRange();
-            editor.bracketGuides.invalidateBracketGuideCache();
-            editor.logRender(
-                    "loadWindowAround-end",
-                    "windowLoaded start=" + finalStart
-                            + " size=" + editor.textRender.linesWindow.size()
-                            + " eof=" + isEof
-                            + " streamed=" + finalStreamedLengths.size(),
-                    500);
-            if (recalculateWidthSync) {
-                editor.recalculateMaxLineWidth();
-            } else {
-                synchronized (editor.textRender.lineWidthCache) {
-                    editor.textRender.lineWidthCache.clear();
-                }
-                editor.textRender.currentMaxWindowLineWidth = 0f;
-                editor.textRender.globalMaxLineWidth = 0f;
-                recalculateMaxLineWidthAsync();
-            }
-            if (editor.wordWrap.isWordWrapEnabled) {
-                if (editor.wordWrap.shouldSuppressWrapMetricsForFastSelectAll()) {
-                    editor.wordWrap.wrapMetricsReady = false;
-                } else {
-                    if (!editor.wordWrap.wrapMetricsReady || editor.wordWrap.wrapLineCounts == null || editor.wordWrap.wrapLinePrefix == null) {
-                        if (editor.getWidth() > 0) {
-                            editor.wordWrap.buildWrapMetricsForWindowSnapshot();
-                        }
-                    }
-                    editor.wordWrap.scheduleWrapMetricsSnapshotIfNeeded(Math.max(1, Math.round(editor.wordWrap.getWrapWidth())));
-                    editor.wordWrap.requestWrapPrefixRebuild();
-                }
-            }
-            editor.invalidate();
-            if (onComplete != null) onComplete.run();
-        });
-    }
-
-    /**
-     * Build file index for fast random access.
-     */
-    public void buildFileIndex() {
-        if (sourceFile == null || !sourceFile.exists()) {
-            isIndexReady = false;
-            isIndexBuilding = false;
-            return;
-        }
-        if (isIndexDisabled) {
-            String path = sourceFile.getAbsolutePath();
-            long len = sourceFile.length();
-            if (path.equals(indexDisabledPath) && len == indexDisabledFileLength) {
-                isIndexReady = false;
-                isIndexBuilding = false;
-                return;
-            }
-            isIndexDisabled = false;
-            indexDisabledPath = null;
-            indexDisabledFileLength = -1L;
-        }
-        isIndexBuilding = true;
-        final int taskVersion = ioTaskVersion.get();
-        ioHandler.post(() -> {
-            long[] offsets = buildIndexJava(sourceFile.getAbsolutePath());
-            if (taskVersion != ioTaskVersion.get()) {
-                isIndexBuilding = false;
-                return;
-            }
-            if (offsets != null) {
-                synchronized (lineOffsetsLock) {
-                    if (taskVersion == ioTaskVersion.get()) {
-                        lineOffsets = offsets;
-                        isIndexReady = true;
-                        editor.post(() -> {
-                            editor.requestLayout();
-                            int total;
-                            synchronized (lineOffsetsLock) {
-                                total = lineOffsets.length;
-                            }
-                            int expected = Math.min(
-                                    total,
-                                    editor.textRender.windowSize + (editor.textRender.prefetchLines * 2));
-                            int current;
-                            synchronized (editor.textRender.linesWindow) {
-                                current = editor.textRender.linesWindow.size();
-                            }
-                            editor.logRender(
-                                    "index-ready",
-                                    "indexReady total=" + total + " currentWindow=" + current + " expected=" + expected,
-                                    0);
-                            if (expected > 0 && current < expected && !isWindowLoading) {
-                                loadWindowAround(Math.max(0, editor.textRender.windowStartLine), null, false);
-                            }
-                        });
-                        if (editor.wordWrap.isWordWrapEnabled) editor.post(() -> editor.wordWrap.scheduleWrapMetricsBuild());
-                    }
-                }
-            } else {
-                synchronized (lineOffsetsLock) {
-                    isIndexReady = false;
-                }
-            }
-            isIndexBuilding = false;
-        });
-    }
-
-    /**
-     * Build index by scanning for newlines.
-     */
-    public long[] buildIndexJava(String filepath) {
-        long numNewlines = 0;
-        long fileLength = 0;
-
-        try (RandomAccessFile raf = new RandomAccessFile(filepath, "r")) {
-            fileLength = raf.length();
-            if (fileLength == 0) {
-                return new long[0];
-            }
-
-            byte[] buffer = new byte[8192];
-            long currentReadPos = 0;
-            while (currentReadPos < fileLength) {
-                raf.seek(currentReadPos);
-                int bytesRead = raf.read(buffer);
-                if (bytesRead == -1) break;
-
-                for (int i = 0; i < bytesRead; i++) {
-                    if (buffer[i] == '\n') {
-                        numNewlines++;
-                    }
-                }
-                currentReadPos += bytesRead;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
-
-        if (numNewlines >= Integer.MAX_VALUE - 1) {
-            isIndexDisabled = true;
-            indexDisabledPath = filepath;
-            indexDisabledFileLength = fileLength;
-            return null;
-        }
-        long lines = numNewlines + 1;
-        long bytesRequired = lines * (long) Long.BYTES;
-        long maxMemory = Runtime.getRuntime().maxMemory();
-        long maxIndexBytes = Math.min(MAX_INDEX_BYTES_HARD, Math.max(16L * 1024 * 1024, maxMemory / 6));
-        if (bytesRequired > maxIndexBytes) {
-            isIndexDisabled = true;
-            indexDisabledPath = filepath;
-            indexDisabledFileLength = fileLength;
-            return null;
-        }
-
-        long[] offsetsArray = new long[(int) lines];
-        int currentOffsetIndex = 0;
-
-        try (RandomAccessFile raf = new RandomAccessFile(filepath, "r")) {
-            offsetsArray[currentOffsetIndex++] = 0L;
-            long currentPos = 0;
-            byte[] buffer = new byte[8192];
-            while (currentPos < fileLength) {
-                raf.seek(currentPos);
-                int bytesRead = raf.read(buffer);
-                if (bytesRead == -1) break;
-
-                for (int i = 0; i < bytesRead; i++) {
-                    if (buffer[i] == '\n') {
-                        long nextStart = currentPos + i + 1;
-                        if (currentOffsetIndex < offsetsArray.length) {
-                            offsetsArray[currentOffsetIndex++] = nextStart;
-                        } else {
-                            break;
-                        }
-                    }
-                }
-                currentPos += bytesRead;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
-
-        return offsetsArray;
-    }
-
-    /**
-     * Read line at byte offset.
-     */
-    public String readLineUtf8AtByte(RandomAccessFile raf, long byteOffset) throws Exception {
-        raf.seek(byteOffset);
-        ByteArrayOutputStream baos = new ByteArrayOutputStream(128);
-        byte[] buf = new byte[1024];
-        boolean seenAny = false;
-
-        while (true) {
-            int n = raf.read(buf);
-            if (n <= 0) break;
-
-            int stop = -1;
-            for (int i = 0; i < n; i++) {
-                if (buf[i] == '\n') {
-                    stop = i;
-                    break;
-                }
-            }
-
-            if (stop >= 0) {
-                seenAny = true;
-                if (stop > 0 && buf[stop - 1] == '\r') {
-                    baos.write(buf, 0, stop - 1);
-                } else {
-                    baos.write(buf, 0, stop);
-                }
-                break;
-            } else {
-                seenAny = true;
-                baos.write(buf, 0, n);
-            }
-
-            if (baos.size() > 2_000_000) break;
-        }
-
-        if (!seenAny) return "";
-        if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
-            byte[] data = baos.toByteArray();
-            return editor.binaryRender.bytesToControlVisible(data, data.length);
-        }
-        return baos.toString(fileCharset.name());
-    }
-
-    /**
-     * Get line byte length from index.
-     */
+    // Compatibility methods for callers who might use them
+    public boolean isWindowLoading() { return isWindowLoading; }
+    public boolean isIndexReady() { return isIndexReady; }
+    public long[] getLineOffsets() { return lineOffsets; }
+    public Object getLineOffsetsLock() { return lineOffsetsLock; }
     public long getLineByteLengthFromIndex(RandomAccessFile raf, int line, long fileLen) throws Exception {
-        long start;
-        long end;
-        synchronized (lineOffsetsLock) {
-            if (line < 0 || line >= lineOffsets.length) return 0L;
-            start = lineOffsets[line];
-            end = (line + 1 < lineOffsets.length) ? lineOffsets[line + 1] : fileLen;
-        }
-        long len = Math.max(0L, end - start);
-        if (len <= 0L) return 0L;
-        if (line + 1 < lineOffsets.length) {
-            len -= 1L;
-            if (len > 0L) {
-                raf.seek(Math.max(start, end - 2));
-                int last = raf.read();
-                if (last == '\r') {
-                    len -= 1L;
-                }
+        return indexer.getLineByteLengthFromIndex(raf, line, fileLen);
+    }
+
+    // ==============================
+    // Public Operations
+    // ==============================
+
+    public void loadFromFile(File file) {
+        invalidatePendingIOForEdit();
+        isFileCleared = false;
+        sourceFile = file;
+        editor.selection.clearSelection();
+        editor.lineNumber.invalidateLineNumberCache();
+        
+        // Manual reset of wrap metrics
+        editor.wordWrap.wrapMetricsReady = false;
+        editor.wordWrap.wrapLineCounts = null;
+        editor.wordWrap.wrapLinePrefix = null;
+        editor.wordWrap.totalWrapVisualLines = 0;
+        editor.wordWrap.wrapPrefixValidUpToLine = -1;
+
+        final int token = ++editor.loadingCircle.initialFileOpenToken;
+        editor.loadingCircle.isInitialFileOpenLoading = true;
+        
+        resetStateForNewFile();
+        loadWindowAround(0, () -> finishInitialFileOpenWarmup(token), false);
+        
+        ioHandler.post(() -> {
+            if (metadata.isBinaryFile(file)) {
+                editor.post(() -> editor.binaryRender.setBinarySafeRenderingEnabled(true));
             }
-        }
-        return Math.max(0L, len);
+            indexer.buildFileIndex();
+            checkHeavyFeatures();
+        });
+        editor.requestLayout(); editor.invalidate();
     }
 
-    /**
-     * Read line slice at byte range.
-     */
+    public void clearContent() {
+        invalidatePendingIOForEdit();
+        sourceFile = null; isFileCleared = true;
+        editor.selection.clearSelection();
+        isIndexReady = false;
+        if (editor.codeFold.isCodeFoldingEnabled) editor.codeFold.clearAllFolds();
+        
+        // Manual reset of wrap metrics
+        editor.wordWrap.wrapMetricsReady = false;
+        editor.wordWrap.wrapLineCounts = null;
+        editor.wordWrap.wrapLinePrefix = null;
+        editor.wordWrap.totalWrapVisualLines = 0;
+        editor.wordWrap.wrapPrefixValidUpToLine = -1;
 
-
-
-    /**
-     * Read line slice by chars.
-     */
-    public SodiumEditor.StreamedCharSlice readLineSliceByChars(RandomAccessFile raf, long lineStart, int startChar, int endChar, boolean needTotalLength) throws Exception {
-        return editor.binaryRender.readLineSliceByChars(raf, lineStart, startChar, endChar, needTotalLength, fileCharset);
+        synchronized (editor.textRender.linesWindow) { editor.textRender.linesWindow.clear(); editor.textRender.linesWindow.add(""); }
+        synchronized (editor.textRender.modifiedLines) { editor.textRender.modifiedLines.clear(); }
+        editor.clearStreamedLineCaches();
+        editor.scroll.scrollY = 0; editor.scroll.scrollX = 0;
+        editor.recalculateMaxLineWidth(); editor.requestLayout(); editor.invalidate();
     }
 
-    /**
-     * Scan line length.
-     */
-    public static class LineScanResult {
-        public final long length;
-        public final boolean reachedEof;
+    // ==============================
+    // Bridge Methods
+    // ==============================
 
-        public LineScanResult(long length, boolean reachedEof) {
-            this.length = length;
-            this.reachedEof = reachedEof;
-        }
-    }
+    public void checkAndLoadWindow() { windowLoader.checkAndLoadWindow(); }
+    public void loadWindowAround(int sL, Runnable cb, boolean sync) { windowLoader.loadWindowAround(sL, cb, sync); }
+    public void buildFileIndex() { indexer.buildFileIndex(); }
+    public void populateDirectLinesForRange(int s, int e, Map<Integer, String> out) { cache.populateDirectLinesForRange(s, e, out); }
+    public String readRangeText(int sL, int sC, int eL, int eC) { return metadata.readRangeText(sourceFile, sL, sC, eL, eC); }
+    public void ensureLineInWindow(int gL, boolean block) { windowLoader.loadWindowAround(Math.max(0, gL - editor.textRender.prefetchLines), null, false); }
+    public void invalidatePendingIO() { ioTaskVersion.incrementAndGet(); ioHandler.removeCallbacksAndMessages(null); }
+    public void invalidatePendingIOForEdit() { invalidatePendingIO(); editor.highlite.clearHighlightCaches(); }
 
-    /**
-     * Scan line length from current position.
-     */
-    public LineScanResult scanLineLength(RandomAccessFile raf) throws IOException {
-        long start = raf.getFilePointer();
-        long len = 0;
-        boolean eof = false;
-        byte[] buf = new byte[1024];
-
-        while (true) {
-            int n = raf.read(buf);
-            if (n <= 0) {
-                eof = true;
-                break;
-            }
-            for (int i = 0; i < n; i++) {
-                if (buf[i] == '\n') {
-                    int lineLen = i;
-                    if (i > 0 && buf[i - 1] == '\r') lineLen -= 1;
-                    len += Math.max(0, lineLen);
-                    long newPos = start + (len + 1);
-                    raf.seek(newPos);
-                    return new LineScanResult(len, false);
-                }
-            }
-            len += n;
-        }
-        return new LineScanResult(len, eof);
-    }
-
-    /**
-     * Reopen reader at start.
-     */
     public BufferedReader reopenReaderAtStart() {
         try {
-            if (readerForFile != null) {
-                try {
-                    readerForFile.close();
-                } catch (Exception ignored) {
-                }
-                readerForFile = null;
-            }
+            if (readerForFile != null) { try { readerForFile.close(); } catch (Exception ignored) {} readerForFile = null; }
             if (sourceFile != null) {
                 readerForFile = new BufferedReader(new InputStreamReader(new FileInputStream(sourceFile), fileCharset));
                 return readerForFile;
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
         return null;
     }
 
-    /**
-     * Cancel and close reader.
-     */
     public void cancelAndCloseReader() {
         ioHandler.post(() -> {
-            try {
-                if (readerForFile != null) {
-                    readerForFile.close();
-                    readerForFile = null;
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            try { if (readerForFile != null) { readerForFile.close(); readerForFile = null; }
+            } catch (Exception e) { e.printStackTrace(); }
         });
     }
 
-    /**
-     * Invalidate pending IO.
-     */
-    public void invalidatePendingIO() {
-        ioTaskVersion.incrementAndGet();
-        ioHandler.removeCallbacksAndMessages(null);
-        editor.clearHighlightCaches();
-        if (editor.wordWrap.isWordWrapEnabled) editor.wordWrap.invalidateWrapMetrics();
-        if (editor.codeFold.isCodeFoldingEnabled) {
-            editor.codeFold.foldIntervalsDirty = true;
-        }
-    }
-
-    /**
-     * Read range text from file.
-     */
-    public String readRangeText(int sL, int sC, int eL, int eC) {
-        int startL = sL, startC = sC, endL = eL, endC = eC;
-        if (editor.editOperators.comparePos(startL, startC, endL, endC) > 0) {
-            int tL = startL, tC = startC;
-            startL = endL;
-            startC = endC;
-            endL = tL;
-            endC = tC;
-        }
-
-        if (startL >= editor.textRender.windowStartLine && endL < editor.textRender.windowStartLine + editor.textRender.linesWindow.size()) {
-            StringBuilder sb = new StringBuilder();
-            for (int line = startL; line <= endL; line++) {
-                String ln = editor.getLineFromWindowLocal(line - editor.textRender.windowStartLine);
-                if (ln == null) ln = "";
-                int from = (line == startL) ? Math.min(startC, ln.length()) : 0;
-                int to = (line == endL) ? Math.min(endC, ln.length()) : ln.length();
-                if (from < to) sb.append(ln, from, to);
-                if (line < endL) sb.append('\n');
-            }
-            return sb.toString();
-        }
-
-        if (sourceFile == null || !sourceFile.exists()) return "";
-        EditOperators.RangeBytes range = editor.editOperators.computeByteRangeFastOrScan(sourceFile, startL, startC, endL, endC);
-        if (range == null) return "";
-        try (RandomAccessFile raf = new RandomAccessFile(sourceFile, "r")) {
-            long len = raf.length();
-            long startByte = Math.max(0, Math.min(range.startByte, len));
-            long endByte = Math.max(0, Math.min(range.endByte, len));
-            if (endByte < startByte) {
-                long t = startByte;
-                startByte = endByte;
-                endByte = t;
-            }
-            int size = (int) Math.min(Integer.MAX_VALUE, endByte - startByte);
-            byte[] buf = new byte[size];
-            raf.seek(startByte);
-            raf.readFully(buf);
-            return new String(buf, fileCharset);
-        } catch (Exception ignore) {
-            return "";
-        }
-    }
-
-    /**
-     * Count total lines asynchronously.
-     */
     public void countTotalLines(LineCountCallback callback) {
         final int taskVersion = ioTaskVersion.get();
         ioHandler.post(() -> {
-            if (taskVersion != ioTaskVersion.get()) {
-                editor.post(() -> callback.onResult(-1));
-                return;
-            }
+            if (taskVersion != ioTaskVersion.get()) { editor.post(() -> callback.onResult(-1)); return; }
             if (isIndexReady && sourceFile != null) {
-                synchronized (lineOffsetsLock) {
-                    editor.post(() -> callback.onResult(lineOffsets.length));
-                }
+                synchronized (lineOffsetsLock) { editor.post(() -> callback.onResult(lineOffsets.length)); }
                 return;
             }
             int count = 0;
             if (sourceFile != null && sourceFile.exists()) {
                 try (FileInputStream is = new FileInputStream(sourceFile)) {
-                    byte[] buffer = new byte[8192];
-                    int len;
-                    boolean empty = true;
+                    byte[] buffer = new byte[8192]; int len; boolean empty = true;
                     while ((len = is.read(buffer)) != -1) {
                         empty = false;
                         for (int i = 0; i < len; i++) if (buffer[i] == '\n') count++;
                     }
                     if (!empty) count++;
-                } catch (Exception e) {
-                    count = -1;
-                }
+                } catch (Exception e) { count = -1; }
             }
             final int finalCount = count;
-            new Handler(Looper.getMainLooper()).post(() -> callback.onResult(finalCount));
+            editor.post(() -> callback.onResult(finalCount));
         });
     }
 
-    /**
-     * Line count callback interface.
-     */
-    public interface LineCountCallback {
-        void onResult(int count);
-    }
+    public interface LineCountCallback { void onResult(int count); }
 
-    /**
-     * Populate direct lines for range.
-     */
-    public void populateDirectLinesForRange(int startLine, int endLineInclusive, java.util.Map<Integer, String> out) {
-        if (out == null) return;
-        if (sourceFile == null || !sourceFile.exists()) return;
+    // ==============================
+    // Low-level IO (Used by components)
+    // ==============================
 
-        int start = Math.max(0, startLine);
-        int end = Math.max(start, endLineInclusive);
-
-        if (!isIndexReady) {
-            // Fallback: use sequential scan for a few lines if index is not ready.
-            // This is slow for deep lines but better than showing blank lines.
-            for (int l = start; l <= end; l++) {
-                if (out.containsKey(l)) continue;
-                String text = readLineByScanningFile(l);
-                if (text != null) {
-                    out.put(l, text);
-                    synchronized (directLineCache) {
-                        directLineCache.put(l, text);
-                    }
-                }
+    public String readLineUtf8AtByte(RandomAccessFile raf, long offset) throws Exception {
+        raf.seek(offset);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(128);
+        byte[] buf = new byte[1024];
+        while (true) {
+            int n = raf.read(buf);
+            if (n <= 0) break;
+            int stop = -1;
+            for (int i = 0; i < n; i++) if (buf[i] == '\n') { stop = i; break; }
+            if (stop >= 0) {
+                if (stop > 0 && buf[stop - 1] == '\r') baos.write(buf, 0, stop - 1);
+                else baos.write(buf, 0, stop);
+                break;
             }
-            return;
+            baos.write(buf, 0, n);
+            if (baos.size() > 2_000_000) break;
         }
-
-        int maxLine = -1;
-        synchronized (lineOffsetsLock) {
-            maxLine = lineOffsets.length - 1;
-        }
-        if (maxLine < 0) return;
-        if (start > maxLine) return;
-        if (end > maxLine) end = maxLine;
-
-        synchronized (directLineCache) {
-            for (int l = start; l <= end; l++) {
-                String c = directLineCache.get(l);
-                if (c != null) out.put(l, c);
-            }
-        }
-
-        int l = start;
-        while (l <= end) {
-            if (out.containsKey(l)) {
-                l++;
-                continue;
-            }
-
-            int segStart = l;
-            int segEnd = l;
-            while (segEnd + 1 <= end && !out.containsKey(segEnd + 1)) segEnd++;
-
-            try (RandomAccessFile raf = new RandomAccessFile(sourceFile, "r")) {
-                long fileLen = raf.length();
-                for (int cur = segStart; cur <= segEnd; cur++) {
-                    long lineStart;
-                    synchronized (lineOffsetsLock) {
-                        if (cur >= lineOffsets.length) break;
-                        lineStart = lineOffsets[cur];
-                    }
-                    long lineByteLen = getLineByteLengthFromIndex(raf, cur, fileLen);
-                    int lineLen = (int) Math.min(Integer.MAX_VALUE, lineByteLen);
-                    String ln;
-                    if (editor.shouldStreamLineLength(lineLen)) {
-                        editor.textRender.computeStreamedSliceBounds(null, cur, lineLen, editor.textRender.streamedSliceTmp);
-                        int sliceStart = editor.textRender.streamedSliceTmp[0];
-                        int sliceEnd = editor.textRender.streamedSliceTmp[1];
-                        if (editor.isSingleByteCharset()) {
-                            if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
-                                int len = Math.max(0, Math.min(lineLen, sliceEnd) - sliceStart);
-                                byte[] buf = new byte[len];
-                                if (len > 0) {
-                                    raf.seek(lineStart + sliceStart);
-                                    raf.readFully(buf);
-                                }
-                                ln = editor.binaryRender.bytesToControlVisibleAndCacheSpans(buf, buf.length, cur);
-                            } else {
-                                ln = readLineSliceAtByte(raf, lineStart, lineByteLen, sliceStart, sliceEnd);
-                            }
-                            editor.setStreamedLineInfo(cur, lineLen, sliceStart);
-                        } else {
-                            SodiumEditor.StreamedCharSlice slice =
-                                    readLineSliceByChars(raf, lineStart, sliceStart, sliceEnd, true);
-                            ln = slice.text;
-                            editor.setStreamedLineInfo(cur, slice.length, sliceStart);
-                        }
-                    } else {
-                        if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
-                            raf.seek(lineStart);
-                            byte[] buf = new byte[lineLen];
-                            if (lineLen > 0) raf.readFully(buf);
-                            ln = editor.binaryRender.bytesToControlVisibleAndCacheSpans(buf, buf.length, cur);
-                        } else {
-                            ln = readLineUtf8AtByte(raf, lineStart);
-                        }
-                    }
-                    out.put(cur, (ln == null) ? "" : ln);
-                }
-            } catch (Exception ignored) {
-            }
-
-            l = segEnd + 1;
-        }
-
-        synchronized (directLineCache) {
-            for (java.util.Map.Entry<Integer, String> e : out.entrySet()) {
-                if (e.getKey() >= start && e.getKey() <= end) {
-                    directLineCache.put(e.getKey(), (e.getValue() == null) ? "" : e.getValue());
-                }
-            }
-        }
+        byte[] data = baos.toByteArray();
+        return editor.binaryRender.isBinarySafeRenderingEnabled() ? editor.binaryRender.bytesToControlVisible(data, data.length) : new String(data, fileCharset);
     }
 
-    /**
-     * Read a line by scanning the file sequentially (fallback when index is not ready).
-     */
-    public String readLineByScanningFile(int targetLine) {
-        if (sourceFile == null || targetLine < 0) return null;
-        try (RandomAccessFile raf = new RandomAccessFile(sourceFile, "r")) {
-            raf.seek(0);
-            int currentLine = 0;
-            StringBuilder sb = new StringBuilder(256);
-            byte[] buffer = new byte[4096];
-            int bytesRead;
-
-            while ((bytesRead = raf.read(buffer)) != -1) {
-                for (int i = 0; i < bytesRead; i++) {
-                    byte b = buffer[i];
-                    if (b == '\n') {
-                        if (currentLine == targetLine) {
-                            return sb.toString();
-                        }
-                        currentLine++;
-                        sb.setLength(0);
-                    } else if (b != '\r') {
-                        sb.append((char) b);
-                    }
-                }
-                if (currentLine > targetLine) break;
-            }
-            if (currentLine == targetLine) {
-                return sb.toString();
-            }
-            return null;
-        } catch (Exception e) {
-            return null;
-        }
+    public String readLineSliceAtByte(RandomAccessFile raf, long lineStart, long lineByteLen, int startChar, int endChar) throws Exception {
+        int s = Math.max(0, Math.min(startChar, (int) Math.min(Integer.MAX_VALUE, lineByteLen)));
+        int e = Math.max(s, Math.min(endChar, (int) Math.min(Integer.MAX_VALUE, lineByteLen)));
+        int len = e - s; if (len <= 0) return "";
+        raf.seek(lineStart + s);
+        byte[] buf = new byte[len]; raf.readFully(buf);
+        return editor.binaryRender.isBinarySafeRenderingEnabled() ? editor.binaryRender.bytesToControlVisible(buf, buf.length) : new String(buf, fileCharset);
     }
 
-    /**
-     * Ensure line is in window.
-     */
-    public void ensureLineInWindow(int globalLine, boolean blockingIfAbsent) {
-        editor.autoCompletion.clearActiveSuggestion();
-        if (globalLine >= editor.textRender.windowStartLine && globalLine < editor.textRender.windowStartLine + editor.textRender.linesWindow.size()) return;
-        if (sourceFile != null) {
-            int targetStart = Math.max(0, globalLine - editor.textRender.prefetchLines);
-            loadWindowAround(targetStart, null, false);
-        }
+    public SodiumEditor.StreamedCharSlice readLineSliceByChars(RandomAccessFile raf, long lineStart, int sC, int eC, boolean needTotal) throws Exception {
+        return editor.binaryRender.readLineSliceByChars(raf, lineStart, sC, eC, needTotal, fileCharset);
     }
 
-    /**
-     * Invalidate pending IO for edit operations.
-     */
-    public void invalidatePendingIOForEdit() {
-        ioTaskVersion.incrementAndGet();
-        ioHandler.removeCallbacksAndMessages(null);
-        editor.clearHighlightCaches();
-        if (editor.codeFold.isCodeFoldingEnabled) {
-            editor.codeFold.foldIntervalsDirty = true;
-            editor.indentGuides.markIntervalsDirty();
-        }
-    }
-      public void loadFromFile(final File file) {
-    invalidatePendingIOForEdit();
-    isFileCleared = false;
-    editor.selection.isSelectAllActive = false;
-    editor.selection.isEntireFileSelected = false;
-    editor.lineNumber.invalidateLineNumberCache();
+    // ==============================
+    // Private Helpers
+    // ==============================
 
-    // Force clear wrap metrics for new file
-    editor.wordWrap.wrapMetricsReady = false;
-    editor.wordWrap.wrapLineCounts = null;
-    editor.wordWrap.wrapLinePrefix = null;
-    editor.wordWrap.totalWrapVisualLines = 0;
-    editor.wordWrap.wrapPrefixValidUpToLine = -1;
-
-    final int token = ++editor.loadingCircle.initialFileOpenToken;
-    editor.loadingCircle.isInitialFileOpenLoading = true;
-    if (editor.loadingCircle.showLoadingOnFileOpen) {
-      if (editor.loadingCircle.initialFileOpenShowSpinner != null) {
-        editor.caret.mainHandler.removeCallbacks(editor.loadingCircle.initialFileOpenShowSpinner);
-      }
-      editor.loadingCircle.initialFileOpenShowSpinner =
-          () -> {
-            if (!editor.loadingCircle.showLoadingOnFileOpen) return;
-            if (!editor.loadingCircle.isInitialFileOpenLoading) return;
-            if (token != editor.loadingCircle.initialFileOpenToken) return;
-            editor.setDisable(true);
-            editor.loadingCircle.showLoadingCircle(true);
-          };
-      editor.caret.mainHandler.postDelayed(editor.loadingCircle.initialFileOpenShowSpinner, 80);
+    private void resetStateForNewFile() {
+        editor.textRender.windowStartLine = 0;
+        synchronized (editor.textRender.linesWindow) { editor.textRender.linesWindow.clear(); }
+        synchronized (editor.textRender.modifiedLines) { editor.textRender.modifiedLines.clear(); }
+        synchronized (editor.textRender.lineWidthCache) { editor.textRender.lineWidthCache.clear(); }
+        synchronized (editor.textRender.avgCharWidthCache) { editor.textRender.avgCharWidthCache.clear(); }
+        synchronized (directLineCache) { directLineCache.clear(); }
+        
+        editor.textRender.currentMaxWindowLineWidth = 0f;
+        editor.textRender.globalMaxLineWidth = 0f;
+        editor.scroll.maxLineWidthForScroll = 0f;
+        
+        editor.clearStreamedLineCaches();
+        editor.cursor.setCursorPosition(0, 0);
+        editor.scroll.scrollY = 0; editor.scroll.scrollX = 0;
     }
 
-    sourceFile = file;
-    editor.logRender(
-            "loadFromFile",
-            "loadFromFile path=" + file.getAbsolutePath()
-                    + " size=" + file.length()
-                    + " windowSize=" + editor.textRender.windowSize
-                    + " prefetch=" + editor.textRender.prefetchLines,
-            0);
-    editor.textRender.windowStartLine = 0;
-    synchronized (editor.textRender.linesWindow) {
-      editor.textRender.linesWindow.clear();
-    }
-    synchronized (editor.textRender.modifiedLines) {
-      editor.textRender.modifiedLines.clear();
-    }
-    synchronized (editor.textRender.lineWidthCache) {
-      editor.textRender.lineWidthCache.clear();
-    }
-    editor.clearStreamedLineCaches();
-    editor.clearHighlightCaches();
-    editor.textRender.currentMaxWindowLineWidth = 0f;
-    editor.textRender.globalMaxLineWidth = 0f;
-    editor.scroll.maxLineWidthForScroll = 0f;
-    editor.scroll.maxTextStartXForScroll = 0f;
-    editor.scroll.maxScrollXForScroll = 0f;
-    synchronized (lineOffsetsLock) {
-      lineOffsets = new long[0];
-    }
-    isIndexReady = false;
-    isIndexDisabled = false;
-    indexDisabledPath = null;
-    indexDisabledFileLength = -1L;
-
-    editor.cursor.cursorLine = 0;
-    editor.cursor.cursorChar = 0;
-    isEof = false;
-    editor.scroll.abortAnimation();
-    editor.scroll.scrollY = 0f;
-    editor.scroll.scrollX = 0f;
-    editor.logRender(
-            "loadFromFile-scroll",
-            "loadFromFile scrollX=" + editor.scroll.scrollX + " scrollY=" + editor.scroll.scrollY,
-            0);
-    editor.editOperators.lineCountDelta = 0;
-
-    loadWindowAround(0, () -> finishInitialFileOpenWarmup(token), false);
-    ioHandler.post(() -> {
-      // Auto-detect binary files and enable binary render mode
-      boolean isBinary = isBinaryFile(file);
-      editor.post(() -> {
-        editor.binaryRender.setBinarySafeRenderingEnabled(isBinary);
-      });
-      
-      buildFileIndex();
-      editor.post(() -> {
-        int total;
-        synchronized (lineOffsetsLock) {
-          total = lineOffsets.length;
-        }
+    private void checkHeavyFeatures() {
+        int total; synchronized (lineOffsetsLock) { total = lineOffsets.length; }
         if (total > editor.heavyFeaturesThreshold) {
-          editor.bracketGuides.setBracketGuidesEnabled(false);
-          editor.indentGuides.setIndentGuidesEnabled(false);
-        } else {
-          editor.bracketCache.scanFileAsync();
+            editor.bracketGuides.setBracketGuidesEnabled(false);
+            editor.indentGuides.setIndentGuidesEnabled(false);
+        } else { editor.bracketCache.scanFileAsync(); }
+    }
+
+    private void finishInitialFileOpenWarmup(final int token) {
+        if (!editor.loadingCircle.isInitialFileOpenLoading || token != editor.loadingCircle.initialFileOpenToken) return;
+        editor.loadingCircle.isInitialFileOpenLoading = false;
+        editor.view.setDisable(false); editor.loadingCircle.showLoadingCircle(false);
+        editor.invalidate();
+    }
+
+    public void recalculateMaxLineWidthAsync() {
+        final int token = ++editor.loadingCircle.maxWidthRecalcToken;
+        final int start; final ArrayList<String> snapshot;
+        synchronized (editor.textRender.linesWindow) {
+            start = editor.textRender.windowStartLine;
+            snapshot = new ArrayList<>(editor.textRender.linesWindow);
         }
-      });
-    });
-    editor.requestLayout();
-    editor.invalidate();
-  }
-
-  public void finishInitialFileOpenWarmup(final int token) {
-    if (!editor.loadingCircle.isInitialFileOpenLoading) return;
-    if (token != editor.loadingCircle.initialFileOpenToken) return;
-    if (editor.getHeight() <= 0 || editor.textRender.lineHeight <= 0f) {
-      editor.caret.mainHandler.postDelayed(() -> finishInitialFileOpenWarmup(token), 16);
-      return;
-    }
-
-    int firstVisibleLine = Math.max(0, editor.getGlobalLineForY( editor.scroll.scrollY));
-    int viewHeight = editor.getHeight() - editor.keyboardHeight;
-    if (viewHeight <= 0) viewHeight = editor.getHeight();
-    int visibleLines = Math.max(1, (int) Math.ceil(viewHeight / editor.textRender.lineHeight) + 2);
-    int lastVisibleLine = firstVisibleLine + visibleLines;
-
-    editor.ensureHighlightCacheForVisibleRange(firstVisibleLine, lastVisibleLine, null);
-    
-    // Bracket cache disabled; no pre-scan needed.
-    finishFileOpen(token);
-  }
-
-  private void pollScanCompletion(final int token, int attempts) {
-    if (token != editor.loadingCircle.initialFileOpenToken) return;
-    if (attempts > 300) { // 5 seconds max
-      finishFileOpen(token);
-      return;
-    }
-    if (!editor.bracketCache.isScanning()) {
-      finishFileOpen(token);
-      return;
-    }
-    ioHandler.postDelayed(() ->pollScanCompletion(token, attempts + 1), 16);
-  }
-
-  private void finishFileOpen(final int token) {
-    if (token != editor.loadingCircle.initialFileOpenToken) return;
-    
-    editor.loadingCircle.isInitialFileOpenLoading = false;
-    if (editor.loadingCircle.initialFileOpenShowSpinner != null) {
-      editor.caret.mainHandler.removeCallbacks(editor.loadingCircle.initialFileOpenShowSpinner);
-      editor.loadingCircle.initialFileOpenShowSpinner = null;
-    }
-    editor.setDisable(false);
-    editor.loadingCircle.showLoadingCircle(false);
-    editor.invalidate();
-
-    java.util.ArrayList<Runnable> callbacks;
-    synchronized (editor.loadingCircle.initialLoadCallbacks) {
-      if (editor.loadingCircle.initialLoadCallbacks.isEmpty()) return;
-      callbacks = new java.util.ArrayList<>(editor.loadingCircle.initialLoadCallbacks);
-      editor.loadingCircle.initialLoadCallbacks.clear();
-    }
-    for (Runnable cb : callbacks) {
-      editor.post(cb);
-    }
-  }
-
-  public void runAfterInitialLoad(@Nullable Runnable action) {
-    if (action == null) return;
-    if (!editor.loadingCircle.isInitialFileOpenLoading) {
-      editor.post(action);
-      return;
-    }
-    synchronized (editor.loadingCircle.initialLoadCallbacks) {
-      editor.loadingCircle.initialLoadCallbacks.add(action);
-    }
-  }
-
-  public void recalculateMaxLineWidthAsync() {
-    final int token = ++editor.loadingCircle.maxWidthRecalcToken;
-    final int startLine;
-    final ArrayList<String> snapshot;
-    synchronized (editor.textRender.linesWindow) {
-      startLine = editor.textRender.windowStartLine;
-      snapshot = new ArrayList<>(editor.textRender.linesWindow);
-    }
-    if (snapshot.isEmpty()) return;
-
-    final int chunkSize = 120;
-    editor.post(
-        new Runnable() {
-          int index = 0;
-          float mx = 0f;
-
-          @Override
-          public void run() {
-            if (token != editor.loadingCircle.maxWidthRecalcToken) return;
-            int end = Math.min(snapshot.size(), index + chunkSize);
-            for (int i = index; i < end; i++) {
-              String line = snapshot.get(i);
-              if (line == null) line = "";
-              float w = editor.getWidthForLine(startLine + i, line);
-              synchronized (editor.textRender.lineWidthCache) {
-                editor.textRender.lineWidthCache.put(startLine + i, w);
-              }
-              if (w > mx) mx = w;
+        if (snapshot.isEmpty()) return;
+        editor.post(new Runnable() {
+            int idx = 0; float mx = 0f;
+            @Override public void run() {
+                if (token != editor.loadingCircle.maxWidthRecalcToken) return;
+                int end = Math.min(snapshot.size(), idx + 120);
+                for (int i = idx; i < end; i++) {
+                    float w = editor.getWidthForLine(start + i, snapshot.get(i));
+                    synchronized (editor.textRender.lineWidthCache) { editor.textRender.lineWidthCache.put(start + i, w); }
+                    if (w > mx) mx = w;
+                }
+                editor.textRender.currentMaxWindowLineWidth = mx;
+                editor.textRender.globalMaxLineWidth = Math.max(editor.textRender.globalMaxLineWidth, mx);
+                idx = end;
+                if (idx < snapshot.size()) editor.post(this);
+                else { editor.scroll.clampScrollX(); editor.invalidate(); }
             }
-            editor.textRender.currentMaxWindowLineWidth = mx;
-            editor.textRender.globalMaxLineWidth = Math.max(editor.textRender.globalMaxLineWidth, mx);
-            index = end;
-            if (index < snapshot.size()) {
-              editor.post(this);
-            } else {
-              editor.scroll.clampScrollX();
-              editor.invalidate();
-            }
-          }
         });
-  }
-
-  
-
-  public void clearContent() {
-    invalidatePendingIOForEdit();
-    sourceFile = null;
-    isFileCleared = true;
-    editor.selection.isSelectAllActive = false;
-    editor.selection.isEntireFileSelected = false;
-    isIndexReady = false;
-    isIndexDisabled = false;
-    indexDisabledPath = null;
-    indexDisabledFileLength = -1L;
-
-    // Clear folds
-    if (editor.codeFold.isCodeFoldingEnabled) {
-      editor.codeFold.clearAllFolds();
     }
 
-    // Force clear wrap metrics as content is being cleared
-    editor.wordWrap.wrapMetricsReady = false;
-    editor.wordWrap.wrapLineCounts = null;
-    editor.wordWrap.wrapLinePrefix = null;
-    editor.wordWrap.totalWrapVisualLines = 0;
-    editor.wordWrap.wrapPrefixValidUpToLine = -1;
-
-    synchronized (editor.textRender.linesWindow) {
-      editor.textRender.linesWindow.clear();
-      editor.textRender.linesWindow.add("");
+    public String getTextSnapshot() {
+        int total = editor.getLinesCount();
+        if (total <= 0) return "";
+        java.util.HashMap<Integer, String> direct = new java.util.HashMap<>();
+        if (isIndexReady && sourceFile != null) populateDirectLinesForRange(0, total - 1, direct);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < total; i++) {
+            String ln = editor.textRender.getLineTextForRenderWithDirect(i, direct);
+            sb.append(ln == null ? "" : ln);
+            if (i < total - 1) sb.append('\n');
+        }
+        return sb.toString();
     }
-    synchronized (editor.textRender.modifiedLines) {
-      editor.textRender.modifiedLines.clear();
-    }
-    synchronized (editor.textRender.lineWidthCache) {
-      editor.textRender.lineWidthCache.clear();
-    }
-    editor.clearStreamedLineCaches();
-    editor.clearHighlightCaches();
-    editor.textRender.currentMaxWindowLineWidth = 0f;
-    editor.textRender.globalMaxLineWidth = 0f;
-    editor.scroll.maxLineWidthForScroll = 0f;
-    editor.scroll.maxTextStartXForScroll = 0f;
-    editor.scroll.maxScrollXForScroll = 0f;
-
-    editor.cursor.cursorLine = 0;
-    editor.cursor.cursorChar = 0;
-    isEof = true;
-     editor.scroll.scrollY =0;
-    editor.scroll.scrollX =0;
-
-    editor.recalculateMaxLineWidth();
-    editor.requestLayout();
-    editor.invalidate();
-  }
-  public String readLineSliceAtByte(
-      RandomAccessFile raf, long lineStart, long lineByteLen, int startChar, int endChar)
-      throws Exception {
-    int safeStart = Math.max(0, Math.min(startChar, (int) Math.min(Integer.MAX_VALUE, lineByteLen)));
-    int safeEnd = Math.max(safeStart, Math.min(endChar, (int) Math.min(Integer.MAX_VALUE, lineByteLen)));
-    int len = safeEnd - safeStart;
-    if (len <= 0) return "";
-    long startByte = lineStart + safeStart;
-    raf.seek(startByte);
-    byte[] buf = new byte[len];
-    raf.readFully(buf);
-    if (editor.binaryRender.binarySafeRenderingEnabled) {
-      return editor.binaryRender.bytesToControlVisible(buf, buf.length);
-    }
-    return new String(buf, fileCharset);
-  }
-
-  // ========================================================================
-  // File Helper Methods
-  // ========================================================================
-
-  /**
-   * Get text snapshot of entire document
-   */
-  public String getTextSnapshot() {
-    int total = editor.getLinesCount();
-    if (total <= 0) return "";
-    java.util.HashMap<Integer, String> direct = new java.util.HashMap<>();
-    if (isIndexReady && sourceFile != null && sourceFile.exists()) {
-      populateDirectLinesForRange(0, total - 1, direct);
-    }
-    StringBuilder sb = new StringBuilder();
-    for (int i = 0; i < total; i++) {
-      String line = editor.getLineTextForRenderWithDirect(i, direct);
-      if (line == null) line = "";
-      sb.append(line);
-      if (i < total - 1) sb.append('\n');
-    }
-    return sb.toString();
-  }
-
 }

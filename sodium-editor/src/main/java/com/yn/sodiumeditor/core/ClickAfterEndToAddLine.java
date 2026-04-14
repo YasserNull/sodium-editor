@@ -54,14 +54,14 @@ public class ClickAfterEndToAddLine {
     // the text
     if (visibleIndex == totalVisible) {
       editor.cursor.cursorLine = lastLineIndex;
-      String lastLineText = editor.getLineTextForRender(editor.cursor.cursorLine);
+      String lastLineText = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
       editor.cursor.cursorChar = lastLineText.length();
       editor.editOperators.insertTextAtCursor("\n");
     } else {
       // If tapped further down, just move cursor to end of text without adding
       // lines
       editor.cursor.cursorLine = lastLineIndex;
-      String lastLineText = editor.getLineTextForRender(editor.cursor.cursorLine);
+      String lastLineText = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
       editor.cursor.cursorChar = lastLineText.length();
     }
 
@@ -74,7 +74,7 @@ public class ClickAfterEndToAddLine {
    */
   public void handleDefaultAfterEnd() {
     editor.cursor.cursorLine = editor.textRender.windowStartLine + editor.textRender.linesWindow.size() - 1;
-    String lastLineText = editor.getLineTextForRender(editor.cursor.cursorLine);
+    String lastLineText = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
     editor.cursor.cursorChar = lastLineText.length();
   }
 }

@@ -32,7 +32,7 @@ public class CurrentLineHighlightAnimation {
      */
     private float getTargetVisualIndex() {
         if (editor.wordWrap.isWordWrapEnabled) {
-            return editor.getVisualIndexForLineAndChar(editor.cursor.cursorLine, 0);
+            return editor.wordWrap.getVisualIndexForLineAndChar(editor.cursor.cursorLine, 0);
         } else if (editor.codeFold.isCodeFoldingEnabled) {
             return editor.codeFold.getVisibleIndexForGlobalLine(editor.cursor.cursorLine);
         } else {

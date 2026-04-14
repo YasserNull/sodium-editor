@@ -126,6 +126,9 @@ public class SelectionHandles {
     }
 
     updateHandlesPosition();
+    if (animation.isAnimating()) {
+        editor.invalidate();
+    }
 
     Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     paint.setColor(selectionHandleColor);
@@ -180,7 +183,7 @@ public class SelectionHandles {
    * Get character X position
    */
   public float getCharX(int line, int ch) {
-    String lineText = editor.getLineTextForRender(line);
+    String lineText = editor.textRender.getLineTextForRender(line);
     if (lineText == null) return editor.getTextStartX();
 
     int safeChar = Math.max(0, Math.min(ch, lineText.length()));
@@ -195,7 +198,7 @@ public class SelectionHandles {
   public float getLineY(int line) {
     int visualLine = line;
     if (editor.wordWrap.isWordWrapEnabled) {
-      visualLine = editor.getVisualIndexForLineAndChar(line, 0);
+      visualLine = editor.wordWrap.getVisualIndexForLineAndChar(line, 0);
     }
     return (visualLine * editor.textRender.lineHeight) - editor.scroll.scrollY;
   }

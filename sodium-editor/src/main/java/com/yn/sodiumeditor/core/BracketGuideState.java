@@ -13,4 +13,13 @@ public class BracketGuideState {
     this.inBlockComment = inBlockComment;
     this.stringState = stringState;
   }
+
+  /**
+   * Create a deep copy of this state.
+   */
+  public BracketGuideState cloneState() {
+    BracketGuideState copy = new BracketGuideState(inBlockComment, stringState);
+    copy.stack.addAll(this.stack);
+    return copy;
+  }
 }

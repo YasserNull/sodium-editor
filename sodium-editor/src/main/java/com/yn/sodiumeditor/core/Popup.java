@@ -308,7 +308,7 @@ public class Popup {
       if (!editor.isReadOnly) {
         actions.add(POPUP_ACTION_PASTE);
       }
-    } else {
+    } else if (editor.selection.hasSelection) {
       final boolean hideCopyCut = shouldHideCopyCutForSelection();
       actions.add(POPUP_ACTION_SELECT_ALL);
       if (!hideCopyCut) {
@@ -372,7 +372,7 @@ public class Popup {
 
     if (isMinimalPopup || !editor.selection.hasSelection) {
       // Anchor to cursor
-      String cursorLineText = editor.getLineTextForRender(editor.cursor.cursorLine);
+      String cursorLineText = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
       anchorX = editor.getViewXForLineChar(cursorLineText, editor.cursor.cursorLine, editor.cursor.cursorChar);
       anchorY_top = editor.getViewYTopForLineChar(editor.cursor.cursorLine, editor.cursor.cursorChar);
       anchorY_bottom = anchorY_top + editor.textRender.lineHeight;
@@ -384,12 +384,12 @@ public class Popup {
         nStartLine = editor.selection.selStartLine;
         nEndLine = editor.selection.selEndLine;
         nEndChar = editor.selection.selEndChar;
-        endLineText = editor.getLineTextForRender(nEndLine);
+        endLineText = editor.textRender.getLineTextForRender(nEndLine);
       } else {
         nStartLine = editor.selection.selEndLine;
         nEndLine = editor.selection.selStartLine;
         nEndChar = editor.selection.selStartChar;
-        endLineText = editor.getLineTextForRender(nEndLine);
+        endLineText = editor.textRender.getLineTextForRender(nEndLine);
       }
 
       anchorY_top = editor.getViewYTopForLineChar(nStartLine, 0);

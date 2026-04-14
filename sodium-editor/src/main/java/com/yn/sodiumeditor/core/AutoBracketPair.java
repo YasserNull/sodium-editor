@@ -30,7 +30,7 @@ public class AutoBracketPair {
     if (!isAutoPairingEnabled || text == null || text.length() != 1) return;
 
     char typedChar = text.charAt(0);
-    String ln = editor.getLineTextForRender(editor.cursor.cursorLine);
+    String ln = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
     if (ln == null) return;
     
     int pos = editor.cursor.cursorChar;
@@ -82,7 +82,7 @@ public class AutoBracketPair {
     if (c == '*') {
       // Check for /* comment start
       if (editor.cursor.cursorChar >= 2) {
-        String ln = editor.getLineTextForRender(editor.cursor.cursorLine);
+        String ln = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
         if (ln != null && ln.length() >= editor.cursor.cursorChar && 
             ln.charAt(editor.cursor.cursorChar - 2) == '/') {
           return "*/";

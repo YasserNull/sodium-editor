@@ -97,6 +97,92 @@ public class BracketGuideCache {
   }
 
   /**
+   * Partially swaps the cache with data for a subset of lines.
+   * Merges new partial data into existing cache without losing previously-built lines.
+   */
+  public void swapCachePartial(
+      java.util.ArrayList<List<BracketGuideToken>> newTokens,
+      java.util.ArrayList<BracketGuideState> newStates,
+      int startLine,
+      int endLine,
+      int editVersion,
+      int configHash,
+      BracketGuideState stateAtStart,
+      BracketGuideState stateAtEnd,
+      BracketGuideState stateBeforeStart,
+      BracketGuideFallbackCache fallbackCache) {
+
+    // If no existing cache, treat as full swap
+    if (bracketGuideCacheStartLine < 0 || bracketGuideCacheEndLine < bracketGuideCacheStartLine) {
+      swapCache(newTokens, newStates, startLine, endLine, editVersion, configHash,
+          stateAtStart, stateAtEnd, stateBeforeStart, fallbackCache);
+      return;
+    }
+
+    // Merge new partial data into existing cache
+    int mergedStart = Math.min(bracketGuideCacheStartLine, startLine);
+    int mergedEnd = Math.max(bracketGuideCacheEndLine, endLine);
+    int mergedSize = mergedEnd - mergedStart + 1;
+
+    java.util.ArrayList<List<BracketGuideToken>> mergedTokens = new java.util.ArrayList<>(mergedSize);
+    java.util.ArrayList<BracketGuideState> mergedStates = new java.util.ArrayList<>(mergedSize);
+
+    for (int i = 0; i < mergedSize; i++) {
+      int line = mergedStart + i;
+      List<BracketGuideToken> token = null;
+      BracketGuideState state = null;
+
+      // Try new partial data first
+      if (line >= startLine && line <= endLine) {
+        int newIdx = line - startLine;
+        if (newIdx >= 0 && newIdx < newTokens.size()) {
+          token = newTokens.get(newIdx);
+        }
+        if (newIdx >= 0 && newIdx < newStates.size()) {
+          state = newStates.get(newIdx);
+        }
+      }
+
+      // Fall back to existing cache
+      if (token == null && line >= bracketGuideCacheStartLine && line <= bracketGuideCacheEndLine) {
+        int oldIdx = line - bracketGuideCacheStartLine;
+        if (oldIdx >= 0 && oldIdx < bracketGuideTokensWindow.size()) {
+          token = bracketGuideTokensWindow.get(oldIdx);
+        }
+      }
+      if (state == null && line >= bracketGuideCacheStartLine && line <= bracketGuideCacheEndLine) {
+        int oldIdx = line - bracketGuideCacheStartLine;
+        if (oldIdx >= 0 && oldIdx < bracketGuideStatesWindow.size()) {
+          state = bracketGuideStatesWindow.get(oldIdx);
+        }
+      }
+
+      mergedTokens.add(token);
+      mergedStates.add(state);
+    }
+
+    // Save old cache to fallback
+    fallbackCache.mergeWithMainCache(
+        bracketGuideTokensWindow,
+        bracketGuideStatesWindow,
+        bracketGuideCacheStartLine,
+        bracketGuideCacheEndLine,
+        bracketGuideCacheEditVersion);
+
+    // Swap
+    bracketGuideTokensWindow = mergedTokens;
+    bracketGuideStatesWindow = mergedStates;
+    bracketGuideCacheStartLine = mergedStart;
+    bracketGuideCacheEndLine = mergedEnd;
+    bracketGuideCacheEditVersion = editVersion;
+    bracketGuideCacheConfigHash = configHash;
+    bracketGuideCacheStateAtStart = stateAtStart;
+    bracketGuideCacheStateAtEnd = stateAtEnd;
+    bracketGuideCacheStateBeforeStart = stateBeforeStart;
+    // Keep buildInProgress = true since more data is coming
+  }
+
+  /**
    * Gets tokens for a line from the main cache.
    */
   public List<BracketGuideToken> getTokensForLine(int globalLine) {

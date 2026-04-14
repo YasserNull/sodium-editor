@@ -48,7 +48,7 @@ public class BinaryRender {
         editor.scroll.maxLineWidthForScroll         = 0f;
         editor.scroll.maxTextStartXForScroll        = 0f;
         editor.scroll.maxScrollXForScroll           = 0f;
-        editor.invalidateHighlightEnsureRange();
+        editor.highlite.invalidateHighlightEnsureRange();
         editor.bracketGuides.invalidateBracketGuideCache();
         if (editor.wordWrap.isWordWrapEnabled)
             editor.wordWrap.invalidateWrapMetrics(true);
