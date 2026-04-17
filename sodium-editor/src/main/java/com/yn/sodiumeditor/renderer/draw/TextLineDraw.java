@@ -38,14 +38,14 @@ public class TextLineDraw {
         if (hasFade
                 && !editor.binaryRender.isBinarySafeRenderingEnabled()
                 && com.yn.sodiumeditor.utils.TextArabicUtils.containsArabicScript(line, start, end)) {
-            int spaceScale = editor.getVisualSpaceScale();
+            int spaceScale = editor.textRender.getVisualSpaceScale();
             if (spaceScale > 1 || line.indexOf('\t', start) >= 0) {
                 return drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, segmentPaint, 1f);
             }
             canvas.drawText(line, start, end, x, y, segmentPaint);
             return segmentPaint.measureText(line, start, end);
         }
-        final int spaceScale = editor.getVisualSpaceScale();
+        final int spaceScale = editor.textRender.getVisualSpaceScale();
         if (spaceScale > 1) {
             if (!hasFade || end <= fadeStart || start >= fadeEnd) {
                 return drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, segmentPaint, 1f);
@@ -183,7 +183,7 @@ public class TextLineDraw {
 
         boolean hasFade = fadeStart >= 0 && fadeEnd > fadeStart && fadeAlpha < 1f;
         if (!hasFade || end <= fadeStart || start >= fadeEnd) {
-            float w = editor.measureTextWithVisualSpaces(line, start, end, textPaint);
+            float w = editor.textRender.measureTextWithVisualSpaces(line, start, end, textPaint);
             if (w > 0f) canvas.drawLine(x, underlineY, x + w, underlineY, tmpPaintToUse);
             return;
         }
@@ -194,7 +194,7 @@ public class TextLineDraw {
         int beforeEnd = Math.min(end, fadeStart);
         if (start < beforeEnd) {
             tmpPaintToUse.setAlpha(baseAlpha);
-            float w = editor.measureTextWithVisualSpaces(line, start, beforeEnd, textPaint);
+            float w = editor.textRender.measureTextWithVisualSpaces(line, start, beforeEnd, textPaint);
             if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, tmpPaintToUse);
             currentX += w;
         }
@@ -203,7 +203,7 @@ public class TextLineDraw {
         int fadeSegEnd = Math.min(end, fadeEnd);
         if (fadeSegStart < fadeSegEnd) {
             tmpPaintToUse.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))));
-            float w = editor.measureTextWithVisualSpaces(line, fadeSegStart, fadeSegEnd, textPaint);
+            float w = editor.textRender.measureTextWithVisualSpaces(line, fadeSegStart, fadeSegEnd, textPaint);
             if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, tmpPaintToUse);
             currentX += w;
         }
@@ -211,7 +211,7 @@ public class TextLineDraw {
         int afterStart = Math.max(start, fadeEnd);
         if (afterStart < end) {
             tmpPaintToUse.setAlpha(baseAlpha);
-            float w = editor.measureTextWithVisualSpaces(line, afterStart, end, textPaint);
+            float w = editor.textRender.measureTextWithVisualSpaces(line, afterStart, end, textPaint);
             if (w > 0f) canvas.drawLine(currentX, underlineY, currentX + w, underlineY, tmpPaintToUse);
         }
     }
@@ -239,10 +239,10 @@ public class TextLineDraw {
         }
 
         int len = end - start;
-        if (editor.textRender.measureWidthBuffer == null || editor.textRender.measureWidthBuffer.length < len) {
-          editor.textRender.measureWidthBuffer = new float[len];
+        if (editor.view.measureWidthBuffer == null || editor.view.measureWidthBuffer.length < len) {
+          editor.view.measureWidthBuffer = new float[len];
         }
-        segmentPaint.getTextWidths(line, start, end, editor.textRender.measureWidthBuffer);
+        segmentPaint.getTextWidths(line, start, end, editor.view.measureWidthBuffer);
 
         float currentX = x;
         int runStart = start;
@@ -251,7 +251,7 @@ public class TextLineDraw {
         for (int i = 0; i < len; i++) {
           int charIndex = start + i;
           char c = line.charAt(charIndex);
-          float adv = editor.getCharAdvanceWidth(c, editor.textRender.measureWidthBuffer[i], segmentPaint);
+          float adv = editor.textRender.getCharAdvanceWidth(c, editor.view.measureWidthBuffer[i], segmentPaint);
           boolean isVirtualSpace = (c == ' ' || c == '\t');
           if (isVirtualSpace) {
             if (runStart < charIndex) {
@@ -283,7 +283,7 @@ public class TextLineDraw {
         if (line == null) line = "";
         int at = Math.max(0, Math.min(editor.charAnimation.delAnimAtChar, line.length()));
         if (at < segStart || at > segEnd) return;
-        float x = editor.measureTextWithVisualSpaces(line, segStart, at, editor.textRender.paint);
+        float x = editor.textRender.measureTextWithVisualSpaces(line, segStart, at, editor.textRender.paint);
         Paint ghostPaint = (editor.charAnimation.delAnimPaint != null) ? editor.charAnimation.delAnimPaint : editor.textRender.paint;
         editor.charAnimation.charAnimTmpPaint.set(ghostPaint);
         editor.charAnimation.charAnimTmpPaint.setUnderlineText(false);

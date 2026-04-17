@@ -104,10 +104,10 @@ public class ImeScanner {
 
     private String getLineTextForImeScan(int line, @Nullable RandomAccessFile raf) {
         if (line < 0) return "";
-        String mod = editor.textRender.modifiedLines.get(line);
+        String mod = editor.windowRender.modifiedLines.get(line);
         if (mod != null) return mod;
-        if (line >= editor.textRender.windowStartLine && line < editor.textRender.windowStartLine + editor.textRender.linesWindow.size()) {
-            String text = editor.getLineFromWindowLocal(line - editor.textRender.windowStartLine);
+        if (line >= editor.windowRender.windowStartLine && line < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) {
+            String text = editor.windowRender.getLineFromWindowLocal(line - editor.windowRender.windowStartLine);
             return (text != null) ? text : "";
         }
         if (raf != null && editor.fileIO.isIndexReady) {
@@ -126,7 +126,7 @@ public class ImeScanner {
     }
 
     private CursorTarget clampLineCharToDocument(int line, int ch, @Nullable RandomAccessFile raf) {
-        int total = editor.getLinesCount();
+        int total = editor.view.getLinesCount();
         if (total <= 0) return new CursorTarget(0, 0);
         int clampedLine = Math.max(0, Math.min(line, total - 1));
         String ln = getLineTextForImeScan(clampedLine, raf);
@@ -139,7 +139,7 @@ public class ImeScanner {
         CursorTarget base = clampLineCharToDocument(line, ch, raf);
         int curLine = base.line;
         int curChar = base.ch;
-        int totalLines = editor.getLinesCount();
+        int totalLines = editor.view.getLinesCount();
         if (totalLines <= 0) totalLines = 1;
         if (delta == 0) return base;
 

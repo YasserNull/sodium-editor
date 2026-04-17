@@ -2,7 +2,8 @@ package com.yn.sodiumeditor.renderer;
 
 import android.util.SparseArray;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.BinaryTokenConverter;
+import com.yn.sodiumeditor.core.StreamedCharSlice;
+import com.yn.sodiumeditor.core.binary.BinaryTokenConverter;
 import com.yn.sodiumeditor.io.BinaryFileReader;
 import com.yn.sodiumeditor.renderer.draw.BinaryLineDrawer;
 
@@ -40,11 +41,11 @@ public class BinaryRender {
     // ── Public API ─────────────────────────────────────────────────────────────
     public void setBinarySafeRenderingEnabled(boolean enabled) {
         binarySafeRenderingEnabled = enabled;
-        synchronized (editor.textRender.lineWidthCache) {
-            editor.textRender.lineWidthCache.clear();
+        synchronized (editor.windowRender.lineWidthCache) {
+            editor.windowRender.lineWidthCache.clear();
         }
-        editor.textRender.currentMaxWindowLineWidth = 0f;
-        editor.textRender.globalMaxLineWidth        = 0f;
+        editor.windowRender.currentMaxWindowLineWidth = 0f;
+        editor.windowRender.globalMaxLineWidth        = 0f;
         editor.scroll.maxLineWidthForScroll         = 0f;
         editor.scroll.maxTextStartXForScroll        = 0f;
         editor.scroll.maxScrollXForScroll           = 0f;
@@ -53,7 +54,7 @@ public class BinaryRender {
         if (editor.wordWrap.isWordWrapEnabled)
             editor.wordWrap.invalidateWrapMetrics(true);
         editor.wordWrap.requestWrapPrefixRebuild();
-        editor.textRender.reloadWindowAroundVisible(false);
+        editor.windowRender.reloadWindowAroundVisible(false);
         editor.invalidate();
     }
 
@@ -201,7 +202,7 @@ public class BinaryRender {
         return fileReader.readLineSliceAtByte(raf, lineStart, lineByteLen, startChar, endChar, fileCharset, binarySafeRenderingEnabled);
     }
 
-    public SodiumEditor.StreamedCharSlice readLineSliceByChars(
+    public StreamedCharSlice readLineSliceByChars(
         java.io.RandomAccessFile raf, long lineStart,
         int startChar, int endChar,
         boolean needTotalLength, java.nio.charset.Charset fileCharset) throws Exception {

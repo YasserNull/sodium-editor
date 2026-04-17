@@ -33,9 +33,9 @@ public class OnDown {
       editor.scroll.scrollY = editor.scroll.scroller.getCurrY();
       editor.scroll.scroller.abortAnimation();
     }
-    editor.downX = e.getX();
-    editor.downY = e.getY();
-    editor.movedSinceDown = false;
+    editor.onTouch.downX = e.getX();
+    editor.onTouch.downY = e.getY();
+    editor.onTouch.movedSinceDown = false;
     return true;
   }
 }

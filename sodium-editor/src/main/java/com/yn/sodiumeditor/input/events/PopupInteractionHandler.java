@@ -3,7 +3,7 @@ package com.yn.sodiumeditor.input.events;
 import android.graphics.RectF;
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.Popup;
+import com.yn.sodiumeditor.core.scroll.Popup;
 
 /**
  * Handles interactions with the popup menu for SodiumEditor.
@@ -52,7 +52,7 @@ public class PopupInteractionHandler {
             RectF r = editor.popup.getPopupRectForAction(actionForTap);
             
             if (editor.popup.showPopup && r.contains(ex, ey)) {
-                if (editor.isReadOnly && (actionForTap == Popup.POPUP_ACTION_CUT
+                if (editor.view.isReadOnly && (actionForTap == Popup.POPUP_ACTION_CUT
                         || actionForTap == Popup.POPUP_ACTION_PASTE
                         || actionForTap == Popup.POPUP_ACTION_DELETE)) {
                     editor.popup.hidePopup();

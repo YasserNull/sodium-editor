@@ -56,8 +56,8 @@ public class FileEditHandler {
                 if (!success) {
                     operators.history.pendingEdits.addAll(ops);
                 } else {
-                    synchronized (editor.textRender.modifiedLines) {
-                        editor.textRender.modifiedLines.clear();
+                    synchronized (editor.windowRender.modifiedLines) {
+                        editor.windowRender.modifiedLines.clear();
                     }
                     operators.lineCountDelta = 0;
                     editor.lineNumber.invalidateLineNumberCache();
@@ -212,11 +212,11 @@ public class FileEditHandler {
                         editor.fileIO.sourceFile = outFile;
                     }
                     
-                    synchronized (editor.textRender.modifiedLines) {
-                        editor.textRender.modifiedLines.clear();
+                    synchronized (editor.windowRender.modifiedLines) {
+                        editor.windowRender.modifiedLines.clear();
                     }
-                    synchronized (editor.textRender.lineWidthCache) {
-                        editor.textRender.lineWidthCache.clear();
+                    synchronized (editor.windowRender.lineWidthCache) {
+                        editor.windowRender.lineWidthCache.clear();
                     }
                     operators.lineCountDelta = 0;
 
@@ -229,16 +229,16 @@ public class FileEditHandler {
                     editor.cursor.cursorLine = Math.max(0, target.line);
                     editor.cursor.cursorChar = Math.max(0, target.ch);
 
-                    boolean cursorInsideWindow = (editor.cursor.cursorLine >= editor.textRender.windowStartLine
-                            && editor.cursor.cursorLine < editor.textRender.windowStartLine + editor.textRender.linesWindow.size());
+                    boolean cursorInsideWindow = (editor.cursor.cursorLine >= editor.windowRender.windowStartLine
+                            && editor.cursor.cursorLine < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size());
 
                     if (cursorInsideWindow) {
-                        editor.recalculateMaxLineWidth();
+                        editor.windowRender.recalculateMaxLineWidth();
                         editor.requestFocus();
                         if (finishLargeEditUi) editor.loadingCircle.endLargeEditUi(false);
                         editor.invalidate();
                     } else {
-                        int targetStart = Math.max(0, editor.cursor.cursorLine - editor.textRender.prefetchLines);
+                        int targetStart = Math.max(0, editor.cursor.cursorLine - editor.windowRender.prefetchLines);
                         editor.fileIO.loadWindowAround(targetStart, () -> {
                             if (finishLargeEditUi) editor.loadingCircle.endLargeEditUi(false);
                             editor.invalidate();

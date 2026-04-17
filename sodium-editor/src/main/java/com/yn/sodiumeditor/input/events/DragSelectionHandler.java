@@ -2,7 +2,7 @@ package com.yn.sodiumeditor.input.events;
 
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.CodeFold;
+import com.yn.sodiumeditor.core.fold.CodeFold;
 import com.yn.sodiumeditor.io.EditOp;
 
 /**
@@ -52,9 +52,9 @@ public class DragSelectionHandler {
                 moveY = event.getY(pointerIndex);
             } else {
                 if (!editor.selection.longPressFreeForm) {
-                    float dx = ex - editor.downX;
-                    float dy = ey - editor.downY;
-                    if (dx * dx + dy * dy > editor.touchSlop * editor.touchSlop * 4) {
+                    float dx = ex - editor.onTouch.downX;
+                    float dy = ey - editor.onTouch.downY;
+                    if (dx * dx + dy * dy > editor.onTouch.touchSlop * editor.onTouch.touchSlop * 4) {
                         editor.selection.state.longPressFreeForm = true;
                         editor.selection.syncFromState();
                         editor.selection.hasSelection = false;
@@ -71,7 +71,7 @@ public class DragSelectionHandler {
             EditOp.CursorTarget target = editor.wordWrap.getCursorTargetForPosition(moveX, moveY, null);
             int line = target.line;
             editor.fileIO.ensureLineInWindow(line, true);
-            String ln = editor.textRender.getLineTextForRender(line);
+            String ln = editor.windowRender.getLineTextForRender(line);
             int clamped = Math.max(0, Math.min(target.ch, (ln == null) ? 0 : ln.length()));
             
             // Code folding logic
@@ -99,10 +99,9 @@ public class DragSelectionHandler {
     }
 
     public void handleActionUpOrCancel() {
-        editor.caret.mainHandler.removeCallbacks(editor.autoScrollRunnable);
-        if (editor.selectionHandles.draggingHandle != 0) {
+        editor.caret.mainHandler.removeCallbacks(editor.scroll.autoScrollRunnable);        if (editor.selectionHandles.draggingHandle != 0) {
             if (editor.selectionHandles.draggingHandle == 3) {
-                updateHandlePosition(editor.lastTouchX, editor.lastTouchY);
+                updateHandlePosition(editor.onTouch.lastTouchX, editor.onTouch.lastTouchY);
                 editor.cursorAnimation.snapToPosition(editor.caret.getCaretDocumentX(), editor.caret.getCaretDocumentY());
             }
             if (editor.selectionHandles.draggingHandle == 1 || editor.selectionHandles.draggingHandle == 2) {
@@ -116,26 +115,26 @@ public class DragSelectionHandler {
     private void updateAutoScroll(float x, float y) {
         float scrollMargin = editor.textRender.lineHeight * 2f;
         float scrollSpeed = Math.max(4f, editor.textRender.lineHeight * 0.35f);
-        editor.autoScrollY = 0;
-        editor.autoScrollX = 0;
+        editor.scroll.autoScrollY = 0;
+        editor.scroll.autoScrollX = 0;
         
-        if (y < scrollMargin) editor.autoScrollY = -scrollSpeed;
-        else if (y > (editor.getHeight() - editor.keyboardHeight) - scrollMargin) editor.autoScrollY = scrollSpeed;
+        if (y < scrollMargin) editor.scroll.autoScrollY = -scrollSpeed;
+        else if (y > (editor.getHeight() - editor.view.keyboardHeight) - scrollMargin) editor.scroll.autoScrollY = scrollSpeed;
         
-        if (x < scrollMargin) editor.autoScrollX = -scrollSpeed;
-        else if (x > editor.getWidth() - scrollMargin) editor.autoScrollX = scrollSpeed;
+        if (x < scrollMargin) editor.scroll.autoScrollX = -scrollSpeed;
+        else if (x > editor.getWidth() - scrollMargin) editor.scroll.autoScrollX = scrollSpeed;
         
-        if (editor.textRender.isRtl && !editor.wordWrap.isWordWrapEnabled) editor.autoScrollX = -editor.autoScrollX;
+        if (editor.textRender.isRtl && !editor.wordWrap.isWordWrapEnabled) editor.scroll.autoScrollX = -editor.scroll.autoScrollX;
 
         if (editor.selectionHandles.draggingHandle != 0) {
-            if (editor.autoScrollX > 0 && editor.selectionHandles.lastDragAtLineEnd) editor.autoScrollX = 0;
-            if (editor.autoScrollX < 0 && editor.selectionHandles.lastDragAtLineStart) editor.autoScrollX = 0;
+            if (editor.scroll.autoScrollX > 0 && editor.selectionHandles.lastDragAtLineEnd) editor.scroll.autoScrollX = 0;
+            if (editor.scroll.autoScrollX < 0 && editor.selectionHandles.lastDragAtLineStart) editor.scroll.autoScrollX = 0;
         }
 
-        if (editor.autoScrollX != 0 || editor.autoScrollY != 0) {
-            editor.caret.mainHandler.post(editor.autoScrollRunnable);
+        if (editor.scroll.autoScrollX != 0 || editor.scroll.autoScrollY != 0) {
+            editor.caret.mainHandler.post(editor.scroll.autoScrollRunnable);
         } else {
-            editor.caret.mainHandler.removeCallbacks(editor.autoScrollRunnable);
+            editor.caret.mainHandler.removeCallbacks(editor.scroll.autoScrollRunnable);
         }
     }
 
@@ -150,12 +149,12 @@ public class DragSelectionHandler {
         int line = target.line;
 
         if (editor.fileIO.isEof) {
-            int lastValidLine = editor.textRender.windowStartLine + editor.textRender.linesWindow.size() - 1;
+            int lastValidLine = editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size() - 1;
             if (line > lastValidLine) line = lastValidLine;
         }
 
         editor.fileIO.ensureLineInWindow(line, true);
-        String ln = editor.textRender.getLineTextForRender(line);
+        String ln = editor.windowRender.getLineTextForRender(line);
         int clamped = Math.max(0, Math.min(target.ch, (ln == null) ? 0 : ln.length()));
 
         if (editor.codeFold.isCodeFoldingEnabled) {
@@ -167,7 +166,7 @@ public class DragSelectionHandler {
                     int[] starts = editor.wordWrap.getWrapStartsForLine(line, ln);
                     int seg = editor.wordWrap.getWrapSegmentIndexForChar(starts, Math.max(0, Math.min(clamped, ln.length())));
                     int segStart = editor.wordWrap.getWrapSegmentStart(starts, seg);
-                    x = xLocal + editor.measureTextWithVisualSpaces(ln, 0, segStart, editor.textRender.paint);
+                    x = xLocal + editor.textRender.measureTextWithVisualSpaces(ln, 0, segStart, editor.textRender.paint);
                 } else {
                     x = xLocal;
                 }
@@ -184,7 +183,7 @@ public class DragSelectionHandler {
                 float placeholderWidth = Math.max(0f, editor.textRender.paint.measureText(CodeFold.FOLD_PLACEHOLDER_TEXT));
                 float closeStart = xStart + placeholderWidth;
                 float closeWidth = range.isBlockComment ? editor.textRender.paint.measureText("*/") : editor.textRender.paint.measureText(String.valueOf(range.closeChar));
-                String endLineText = editor.textRender.getLineTextForRender(range.endLine);
+                String endLineText = editor.windowRender.getLineTextForRender(range.endLine);
                 int closeIdx = editor.codeFold.resolveCloseCharIndex(range, endLineText);
                 int suffixStart = range.isBlockComment ? (closeIdx >= 0 ? closeIdx + 2 : (endLineText != null ? endLineText.length() : 0)) : (closeIdx >= 0 ? closeIdx + 1 : (endLineText != null ? endLineText.length() : 0));
 
@@ -200,7 +199,7 @@ public class DragSelectionHandler {
                     line = range.endLine;
                     clamped = Math.max(suffixStart, Math.min(idx, endLineText.length()));
                 }
-                ln = editor.textRender.getLineTextForRender(line);
+                ln = editor.windowRender.getLineTextForRender(line);
                 clamped = Math.max(0, Math.min(clamped, (ln == null) ? 0 : ln.length()));
             }
         }
@@ -230,12 +229,12 @@ public class DragSelectionHandler {
                     int[] starts = editor.wordWrap.getWrapStartsForLine(line, ln);
                     int seg = editor.wordWrap.getWrapSegmentIndexForChar(starts, Math.max(0, Math.min(clamped, ln.length())));
                     int segStart = editor.wordWrap.getWrapSegmentStart(starts, seg);
-                    x = x + editor.measureTextWithVisualSpaces(ln, 0, segStart, editor.textRender.paint);
+                    x = x + editor.textRender.measureTextWithVisualSpaces(ln, 0, segStart, editor.textRender.paint);
                 }
                 float xStart = bounds[0];
                 float placeholderWidth = Math.max(0f, editor.textRender.paint.measureText(CodeFold.FOLD_PLACEHOLDER_TEXT));
                 float closeStart = xStart + placeholderWidth;
-                String endLineText = editor.textRender.getLineTextForRender(range.endLine);
+                String endLineText = editor.windowRender.getLineTextForRender(range.endLine);
                 float closeWidth = editor.textRender.paint.measureText(String.valueOf(range.closeChar));
                 int closeIdx = editor.codeFold.resolveCloseCharIndex(range, endLineText);
                 int suffixStart = range.isBlockComment ? (closeIdx >= 0 ? closeIdx + 2 : -1) : (closeIdx >= 0 ? closeIdx + 1 : -1);

@@ -2,8 +2,8 @@ package com.yn.sodiumeditor.renderer.draw;
 
 import android.graphics.Canvas;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.BracketGuideToken;
-import com.yn.sodiumeditor.core.BracketGuides;
+import com.yn.sodiumeditor.core.guides.bracket.BracketGuideToken;
+import com.yn.sodiumeditor.core.guides.bracket.BracketGuides;
 import java.util.List;
 
 /**
@@ -94,7 +94,7 @@ public class BracketGuideDraw {
    */
   public void drawBracketGuidesForLine(
       Canvas canvas, String line, int globalLine, List<BracketGuideToken> guideTokens) {
-    if (globalLine < 0 || globalLine >= editor.getLinesCount()) return;
+    if (globalLine < 0 || globalLine >= editor.view.getLinesCount()) return;
     if (!bracketGuides.isBracketGuidesEnabled || editor.isHeavyDrawSuppressed()) return;
 
     // For synchronous rendering, we rely on the passed tokens directly
@@ -112,7 +112,7 @@ public class BracketGuideDraw {
     editor.indentGuides.guideSeenXCount = 0;
     float top = editor.textRender.getDrawLineTop(globalLine);
     float bottom = top + editor.textRender.lineHeight;
-    int firstNonSpace = editor.getFirstNonSpaceIndex(line);
+    int firstNonSpace = com.yn.sodiumeditor.utils.TextUtils.getFirstNonSpaceIndex(line);
 
     // Only adjust to closing brace if we have window-cached tokens (representing state at start of line)
     boolean isClosingBraceLine = (firstNonSpace >= 0 && line.charAt(firstNonSpace) == '}');
@@ -148,7 +148,7 @@ public class BracketGuideDraw {
       }
       editor.indentGuides.guideSeenXBuffer[editor.indentGuides.guideSeenXCount++] = x;
 
-      if (!editor.isWhitespaceAtX(line, globalLine, x)) continue;
+      if (!editor.layout.isWhitespaceAtX(line, globalLine, x)) continue;
       canvas.drawLine(x, top, x, bottom, bracketGuides.bracketGuidePaint);
     }
   }
@@ -158,7 +158,7 @@ public class BracketGuideDraw {
    */
   public void drawBracketGuidesForLineFromStack(
       Canvas canvas, String line, int globalLine, java.util.ArrayDeque<BracketGuideToken> stack) {
-    if (globalLine < 0 || globalLine >= editor.getLinesCount()) return;
+    if (globalLine < 0 || globalLine >= editor.view.getLinesCount()) return;
     if (!bracketGuides.isBracketGuidesEnabled || editor.isHeavyDrawSuppressed()) return;
     if (stack == null || stack.isEmpty()) return;
 
@@ -171,7 +171,7 @@ public class BracketGuideDraw {
     editor.indentGuides.guideSeenXCount = 0;
     float top = editor.textRender.getDrawLineTop(globalLine);
     float bottom = top + editor.textRender.lineHeight;
-    int firstNonSpace = editor.getFirstNonSpaceIndex(line);
+    int firstNonSpace = com.yn.sodiumeditor.utils.TextUtils.getFirstNonSpaceIndex(line);
 
     boolean isClosingBraceLine = (firstNonSpace >= 0 && line.charAt(firstNonSpace) == '}');
     boolean adjustTopGuideToClosingBrace = (isClosingBraceLine && !stack.isEmpty());
@@ -204,7 +204,7 @@ public class BracketGuideDraw {
       }
       editor.indentGuides.guideSeenXBuffer[editor.indentGuides.guideSeenXCount++] = x;
 
-      if (!editor.isWhitespaceAtX(line, globalLine, x)) continue;
+      if (!editor.layout.isWhitespaceAtX(line, globalLine, x)) continue;
       canvas.drawLine(x, top, x, bottom, bracketGuides.bracketGuidePaint);
     }
   }
@@ -229,6 +229,6 @@ public class BracketGuideDraw {
    * Gets the guide X position at the START of the character (not center).
    */
   public float getGuideX(String line, int column, int globalLine) {
-    return editor.getGuideXForColumn(line, column, globalLine);
+    return editor.layout.getGuideXForColumn(line, column, globalLine);
   }
 }

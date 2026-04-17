@@ -2,7 +2,7 @@ package com.yn.sodiumeditor.renderer;
 
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.Highlite;
+import com.yn.sodiumeditor.core.highlight.Highlite;
 import com.yn.sodiumeditor.utils.HighlightUtils;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -47,7 +47,7 @@ public class HighlightCacheManager {
                 if (cInBlock == inBlock && cStrState == strState) continue;
             }
 
-            String line = editor.textRender.getLineTextForRenderWithDirect(i, directLines);
+            String line = editor.windowRender.getLineTextForRenderWithDirect(i, directLines);
             if (line == null) line = "";
 
             HighliteRender.HighlightLineState sState = getLineStateAtStart(i);
@@ -76,17 +76,17 @@ public class HighlightCacheManager {
     }
 
     public HighliteRender.HighlightLineState getLineStateAtStart(int globalLine) {
-        if (globalLine <= editor.textRender.windowStartLine) return new HighliteRender.HighlightLineState(false, 0);
+        if (globalLine <= editor.windowRender.windowStartLine) return new HighliteRender.HighlightLineState(false, 0);
         Boolean cBlock = blockCommentEndStateCache.get(globalLine - 1);
         Integer cStr = stringEndStateCache.get(globalLine - 1);
         if (cBlock != null && cStr != null) return new HighliteRender.HighlightLineState(cBlock, cStr);
 
         boolean inBlock = false; int strState = 0;
-        for (int line = editor.textRender.windowStartLine; line < globalLine; line++) {
+        for (int line = editor.windowRender.windowStartLine; line < globalLine; line++) {
             Boolean cb = blockCommentEndStateCache.get(line);
             Integer cs = stringEndStateCache.get(line);
             if (cb != null && cs != null) { inBlock = cb; strState = cs; continue; }
-            String txt = editor.textRender.getLineTextForRender(line);
+            String txt = editor.windowRender.getLineTextForRender(line);
             HighliteRender.LineParseResult res = highlite.parser.parseLineForSyntax(txt == null ? "" : txt, inBlock, strState, null, null, false);
             inBlock = res.endsInBlockComment; strState = res.endsInStringState;
             blockCommentEndStateCache.put(line, inBlock); stringEndStateCache.put(line, strState);

@@ -1,7 +1,7 @@
 package com.yn.sodiumeditor.utils;
 
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.SelectionTextRange;
+import com.yn.sodiumeditor.core.selection.SelectionTextRange;
 import androidx.annotation.Nullable;
 import java.util.ArrayList;
 

@@ -3,7 +3,7 @@ package com.yn.sodiumeditor.utils;
 import android.util.Log;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.CodeFold;
+import com.yn.sodiumeditor.core.fold.CodeFold;
 import java.io.RandomAccessFile;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -27,17 +27,17 @@ public class CodeFoldUtils {
      */
     public String getEndLineTextForFold(CodeFold.FoldRange range) {
         if (range == null) return null;
-        synchronized (editor.textRender.modifiedLines) {
-            String mod = editor.textRender.modifiedLines.get(range.endLine);
+        synchronized (editor.windowRender.modifiedLines) {
+            String mod = editor.windowRender.modifiedLines.get(range.endLine);
             if (mod != null) return mod;
         }
-        String text = editor.textRender.getLineTextForRender(range.endLine);
+        String text = editor.windowRender.getLineTextForRender(range.endLine);
         if (text != null) {
             if (text.length() > 0) {
                 return text;
             }
-            int winStart = editor.textRender.windowStartLine;
-            int winEnd = winStart + editor.textRender.linesWindow.size();
+            int winStart = editor.windowRender.windowStartLine;
+            int winEnd = winStart + editor.windowRender.linesWindow.size();
             if (range.endLine >= winStart && range.endLine < winEnd) {
                 return text;
             }

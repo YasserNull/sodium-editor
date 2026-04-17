@@ -9,7 +9,7 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.util.SparseIntArray;
 import androidx.annotation.Nullable;
-import com.yn.sodiumeditor.core.WordWrap;
+import com.yn.sodiumeditor.core.wordwrap.WordWrap;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -19,6 +19,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.core.StreamedCharSlice;
+import com.yn.sodiumeditor.core.StreamedSliceRequest;
+import com.yn.sodiumeditor.renderer.WindowRender;
 /**
  * TextRender handles all text rendering algorithms for SodiumEditor.
  * This includes drawing text, handling syntax highlighting, underlines,
@@ -34,23 +37,7 @@ public class TextRender {
         ThreadLocal.withInitial(Paint.FontMetrics::new);
 
     public final int[] binaryTokenSpanTmp = new int[2];
-public final List<String> linesWindow = new ArrayList<>();
-  public int windowStartLine = 0;
-  public int windowSize = 100; // 2000 yyy
-  public int prefetchLines = 100; // 1000 yyy
-  public final java.util.LinkedHashMap<Integer, String> modifiedLines =
-      new java.util.LinkedHashMap<Integer, String>(1000, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<Integer, String> eldest) {
-          return size() > 1000;
-        }
-      };
-  public final android.util.SparseArray<Float> lineWidthCache = new android.util.SparseArray<>(400);
-  public int lineWidthCacheSize = 100; // 2000 yyy
-  public float currentMaxWindowLineWidth = 0f;
-  public float globalMaxLineWidth = 0f;
-  
-  public final android.util.SparseArray<Float> avgCharWidthCache = new android.util.SparseArray<>(400);
+
   
   private float cachedSpaceWidth = -1f;
   private float cachedTabWidth = -1f;
@@ -58,18 +45,7 @@ public final List<String> linesWindow = new ArrayList<>();
   private float cachedBaseIndexResult = 0f;
   private int lastFrameBaseLine = -1;
 
-  public final Object streamedLinesLock = new Object();
-  public final SparseIntArray streamedLineLengths = new SparseIntArray();
-  public final SparseIntArray streamedLineSliceStarts = new SparseIntArray();
-  public boolean streamedSliceUpdatePending = false;
-  public int streamedSliceUpdateToken = 0;
-  public final int[] streamedSliceTmp = new int[2];
-  // Additional locks and arrays for streamed lines operations
-  public final Object streamedLinesLockLinesLock = new Object();
-  public final SparseIntArray streamedLinesLockLineLengths = new SparseIntArray();
-  public final SparseIntArray streamedLinesLockLineSliceStarts = new SparseIntArray();
-  public boolean streamedLinesLockSliceUpdatePending = false;
-  public int streamedLinesLockSliceUpdateToken = 0;
+
   
     // Paint and metrics (delegated from SodiumEditor)
     public final Paint paint;
@@ -84,37 +60,9 @@ public final List<String> linesWindow = new ArrayList<>();
     public static final float MIN_BOTTOM_VISIBLE_SPACE = 50f;
 
     // Whitespace drawing state
-    public float[] guideSeenXBuffer;
-
-    public float[] whitespaceWidthBuffer;
-    public float[] whitespaceDotBuffer;
-    public float[] measureWidthBuffer;
     public static final int DEFAULT_TAB_SIZE_SPACES = 4;
 
-    public static final class WhitespaceDrawState {
-        public int syntaxIndex;
-    }
-
-    public final WhitespaceDrawState whitespaceDrawState = new WhitespaceDrawState();
-
-    // Temporary maps for direct lines
-    public final java.util.HashMap<Integer, String> directLinesTmp = new java.util.HashMap<>();
-
-    // Fold marker path and scale
-    public final Path teardropPath = new Path();
-
-    // Editor background
-    public boolean hasEditorBackgroundColor = false;
-    public int editorBackgroundColor = 0x00000000;
-    @Nullable public Bitmap editorBackgroundBitmap = null;
-    public final Rect editorBackgroundDst = new Rect();
-
-
-    // Visible character range
     public final int[] visibleCharRangeTmp = new int[2];
-    public boolean isPerformanceModeEnabled = false;
-    public boolean isStableGlyphPositionsEnabled = true;
-
 
     // Underline span class
     public static class UnderlineSpan {
@@ -147,19 +95,6 @@ public final List<String> linesWindow = new ArrayList<>();
     // ========================================================================
 
     /**
-     * Draw the editor background (color or bitmap)
-     */
-    public void drawEditorBackground(Canvas canvas) {
-        if (hasEditorBackgroundColor) {
-            canvas.drawColor(editorBackgroundColor);
-        }
-        if (editorBackgroundBitmap != null && !editorBackgroundBitmap.isRecycled()) {
-            editorBackgroundDst.set(0, 0, editor.getWidth(), editor.getHeight());
-            canvas.drawBitmap(editorBackgroundBitmap, null, editorBackgroundDst, null);
-        }
-    }
-
-    /**
      * Get paint for a specific character based on syntax highlighting
      */
     public Paint getPaintForChar(int lineIndex, int charIndex, String lineText) {
@@ -172,18 +107,18 @@ public final List<String> linesWindow = new ArrayList<>();
     public float getAverageCharWidthForLine(String line, int lineIndex) {
         if (line == null || line.isEmpty()) return paint.measureText(" ");
         if (lineIndex >= 0) {
-            Float cached = avgCharWidthCache.get(lineIndex);
+            Float cached = editor.windowRender.avgCharWidthCache.get(lineIndex);
             if (cached != null) return cached;
         }
         int sampleLen = Math.min(line.length(), 256);
         float w = (sampleLen > 0) ? paint.measureText(line, 0, sampleLen) : paint.measureText(" ");
         float avg = (sampleLen > 0) ? (w / sampleLen) : w;
         if (lineIndex >= 0) {
-            if (isStableGlyphPositionsEnabled && avgCharWidthCache.get(lineIndex) != null) {
-                return avgCharWidthCache.get(lineIndex);
+            if (editor.view.isStableGlyphPositionsEnabled && editor.windowRender.avgCharWidthCache.get(lineIndex) != null) {
+                return editor.windowRender.avgCharWidthCache.get(lineIndex);
             }
-            if (avgCharWidthCache.size() > 400) avgCharWidthCache.clear();
-            avgCharWidthCache.put(lineIndex, avg);
+            if (editor.windowRender.avgCharWidthCache.size() > 400) editor.windowRender.avgCharWidthCache.clear();
+            editor.windowRender.avgCharWidthCache.put(lineIndex, avg);
         }
         return avg;
     }
@@ -210,14 +145,14 @@ public final List<String> linesWindow = new ArrayList<>();
      * Get visible character range for a line (delegated)
      */
     public void getVisibleCharRangeForLine(String line, int globalLine, int[] out) {
-        editor.textRange.getVisibleCharRangeForLine(line, globalLine, out, isRtl, isStableGlyphPositionsEnabled);
+        editor.textRange.getVisibleCharRangeForLine(line, globalLine, out, isRtl, editor.view.isStableGlyphPositionsEnabled);
     }
 
     /**
      * Get visible character range for a line (fast version for long lines) (delegated)
      */
     public void getVisibleCharRangeForLineFast(String line, int globalLine, int lineLength, int[] out) {
-        editor.textRange.getVisibleCharRangeForLineFast(line, globalLine, lineLength, out, isRtl, isStableGlyphPositionsEnabled);
+        editor.textRange.getVisibleCharRangeForLineFast(line, globalLine, lineLength, out, isRtl, editor.view.isStableGlyphPositionsEnabled);
     }
 
     /**
@@ -395,13 +330,13 @@ public final List<String> linesWindow = new ArrayList<>();
         int drawIndex = globalLine;
         if (editor.codeFold.isCodeFoldingEnabled) {
             drawIndex = editor.codeFold.getVisibleIndexForGlobalLine(globalLine);
-            if (lastFrameBaseLine != editor.drawBaseLine) {
-                cachedBaseIndex = editor.codeFold.getVisibleIndexForGlobalLine(editor.drawBaseLine);
-                lastFrameBaseLine = editor.drawBaseLine;
+            if (lastFrameBaseLine != editor.viewRender.drawBaseLine) {
+                cachedBaseIndex = editor.codeFold.getVisibleIndexForGlobalLine(editor.viewRender.drawBaseLine);
+                lastFrameBaseLine = editor.viewRender.drawBaseLine;
             }
             return (drawIndex - cachedBaseIndex) * lineHeight;
         }
-        return (drawIndex - editor.drawBaseLine) * lineHeight;
+        return (drawIndex - editor.viewRender.drawBaseLine) * lineHeight;
     }
 
     /**
@@ -434,82 +369,19 @@ public final List<String> linesWindow = new ArrayList<>();
   }
 
 
-  public void setWindowSize(int size) {
-    int safe = Math.max(10, size);
-    int minWindow = computeMinWindowSize();
-    if (safe < minWindow) safe = minWindow;
-    if (windowSize == safe) return;
-    windowSize = safe;
-    editor.highlite.invalidateHighlightEnsureRange();
-    editor.bracketGuides.invalidateBracketGuideCache();
-    if (editor.wordWrap.isWordWrapEnabled) editor.wordWrap.invalidateWrapMetrics(true);
-    editor.wordWrap.requestWrapPrefixRebuild();
-    reloadWindowAroundVisible(false);
-  }
 
-  public void setPrefetchLines(int lines) {
-    int safe = Math.max(0, lines);
-    if (prefetchLines == safe) return;
-    prefetchLines = safe;
-    int minWindow = computeMinWindowSize();
-    if (windowSize < minWindow) windowSize = minWindow;
-    editor.highlite.invalidateHighlightEnsureRange();
-    editor.bracketGuides.invalidateBracketGuideCache();
-    if (editor.wordWrap.isWordWrapEnabled) editor.wordWrap.invalidateWrapMetrics(true);
-    editor.wordWrap.requestWrapPrefixRebuild();
-    reloadWindowAroundVisible(false);
-  }
 
-  public void setLineWidthCacheSize(int size) {
-    int safe = Math.max(10, size);
-    if (lineWidthCacheSize == safe) return;
-    lineWidthCacheSize = safe;
-    if (lineWidthCache.size() > lineWidthCacheSize) {
-      int excess = lineWidthCache.size() - lineWidthCacheSize;
-      for (int i = lineWidthCache.size() - 1; i >= 0 && excess > 0; i--) {
-        lineWidthCache.removeAt(i);
-        excess--;
-      }
-    }
-  }
 
-  public void setRenderWindow(int windowSize, int prefetchLines) {
-    int safeWindow = Math.max(10, windowSize);
-    int safePrefetch = Math.max(0, prefetchLines);
-    int minWindow = computeMinWindowSizeForPrefetch(safePrefetch);
-    if (safeWindow < minWindow) safeWindow = minWindow;
-    if (this.windowSize == safeWindow && this.prefetchLines == safePrefetch) return;
-    this.windowSize = safeWindow;
-    this.prefetchLines = safePrefetch;
-    editor.highlite.invalidateHighlightEnsureRange();
-    editor.bracketGuides.invalidateBracketGuideCache();
-    if (editor.wordWrap.isWordWrapEnabled) editor.wordWrap.invalidateWrapMetrics(true);
-    editor.wordWrap.requestWrapPrefixRebuild();
-    reloadWindowAroundVisible(false);
-  }
 
-  public int computeMinWindowSize() {
-    return computeMinWindowSizeForPrefetch(prefetchLines);
-  }
 
-  public int computeMinWindowSizeForPrefetch(int prefetch) {
-    if (editor.textRender.lineHeight <= 0f || editor.getHeight() <= 0) return 10;
-    float effectiveHeight = editor.getHeight();
-    int visibleLines = Math.max(1, (int) Math.ceil(effectiveHeight / editor.textRender.lineHeight) + 2);
-    int minTotal = Math.max(visibleLines * 2, visibleLines + 6);
-    int minWindow = minTotal - (Math.max(0, prefetch) * 2);
-    return Math.max(10, minWindow);
-  }
 
-  public void reloadWindowAroundVisible(boolean recalcWidthSync) {
-    if (editor.getWidth() == 0 || editor.getHeight() == 0) {
-      editor.invalidate();
-      return;
-    }
-    int firstVisibleLine = Math.max(0, editor.wordWrap.getGlobalLineForY(editor.scroll.scrollY));
-    int targetStart = Math.max(0, firstVisibleLine - prefetchLines);
-    editor.fileIO.loadWindowAround(targetStart, null, recalcWidthSync);
-  }
+
+
+
+
+
+
+
 
   // ========================================================================
   // Background Methods
@@ -519,8 +391,8 @@ public final List<String> linesWindow = new ArrayList<>();
    * Set editor background color
    */
   public void setEditorBackgroundColor(int color) {
-    hasEditorBackgroundColor = true;
-    editorBackgroundColor = color;
+    editor.view.hasEditorBackgroundColor = true;
+    editor.view.editorBackgroundColor = color;
     editor.invalidate();
   }
 
@@ -528,7 +400,7 @@ public final List<String> linesWindow = new ArrayList<>();
    * Clear editor background color
    */
   public void clearEditorBackgroundColor() {
-    hasEditorBackgroundColor = false;
+    editor.view.hasEditorBackgroundColor = false;
     editor.invalidate();
   }
 
@@ -536,10 +408,10 @@ public final List<String> linesWindow = new ArrayList<>();
    * Set editor background bitmap
    */
   public void setEditorBackgroundBitmap(android.graphics.Bitmap bitmap) {
-    if (editorBackgroundBitmap != null && !editorBackgroundBitmap.isRecycled()) {
-      editorBackgroundBitmap.recycle();
+    if (editor.view.editorBackgroundBitmap != null && !editor.view.editorBackgroundBitmap.isRecycled()) {
+      editor.view.editorBackgroundBitmap.recycle();
     }
-    editorBackgroundBitmap = bitmap;
+    editor.view.editorBackgroundBitmap = bitmap;
     editor.invalidate();
   }
 
@@ -547,223 +419,42 @@ public final List<String> linesWindow = new ArrayList<>();
    * Clear editor background image
    */
   public void clearEditorBackgroundImage() {
-    if (editorBackgroundBitmap != null && !editorBackgroundBitmap.isRecycled()) {
-      editorBackgroundBitmap.recycle();
+    if (editor.view.editorBackgroundBitmap != null && !editor.view.editorBackgroundBitmap.isRecycled()) {
+      editor.view.editorBackgroundBitmap.recycle();
     }
-    editorBackgroundBitmap = null;
+    editor.view.editorBackgroundBitmap = null;
     editor.invalidate();
   }
 
-  // ========================================================================
-  // Font and Typeface Methods
-  // ========================================================================
-
-  /**
-   * Apply typeface to editor
-   */
-  public void applyTypeface(@Nullable android.graphics.Typeface typeface, int style) {
-    if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
-      final android.graphics.Typeface tf = typeface;
-      final int st = style;
-      editor.post(() -> applyTypeface(tf, st));
-      return;
-    }
-    android.graphics.Typeface safeBase = (typeface != null) ? typeface : android.graphics.Typeface.DEFAULT;
-    baseTypeface = safeBase;
-    int typefaceStyle;
-    switch (style) {
-      case SodiumEditor.STYLE_BOLD:
-        typefaceStyle = android.graphics.Typeface.BOLD;
-        break;
-      case SodiumEditor.STYLE_ITALIC:
-        typefaceStyle = android.graphics.Typeface.ITALIC;
-        break;
-      case SodiumEditor.STYLE_BOLD_ITALIC:
-        typefaceStyle = android.graphics.Typeface.BOLD_ITALIC;
-        break;
-      default:
-        typefaceStyle = android.graphics.Typeface.NORMAL;
-        break;
-    }
-    android.graphics.Typeface finalTypeface = android.graphics.Typeface.create(safeBase, typefaceStyle);
-    paint.setTypeface(finalTypeface);
-    editor.autoCompletion.suggestionPaint.setTypeface(finalTypeface);
-    editor.lineNumber.lineNumbersPaint.setTypeface(finalTypeface);
-    editor.codeFold.animation.foldMarkerPaint.setTypeface(finalTypeface);
-    editor.wordWrap.indicator.wordWrapIndicatorPaint.setTypeface(finalTypeface);
-    if (editor.highlightRules.whitespaceStringRule != null)
-      editor.highlightRules.whitespaceStringRule.updateTypeface(safeBase);
-    if (editor.highlightRules.whitespaceCommentRule != null)
-      editor.highlightRules.whitespaceCommentRule.updateTypeface(safeBase);
-    if (editor.highlightRules.lineCommentHighlightRule != null)
-      editor.highlightRules.lineCommentHighlightRule.updateTypeface(safeBase);
-    for (HighliteRender.HighlightRule rule : editor.highlite.highlightRules) {
-      rule.updateTypeface(safeBase);
-    }
-    editor.highlite.clearHighlightCaches();
-
-    lineHeight = paint.getFontSpacing();
-    editor.whitespaceGuides.updateMetrics();
-    editor.lineNumber.invalidateLineNumberCache();
-    editor.wordWrap.indicator.wordWrapIndicatorWidth =
-        editor.wordWrap.indicator.wordWrapIndicatorPaint.measureText(
-            com.yn.sodiumeditor.core.WordWrapIndicator.WORD_WRAP_INDICATOR_TEXT);
-
+  public void clearCachesOnTypefaceChange() {
     cachedSpaceWidth = -1f;
     cachedTabWidth = -1f;
     cachedBaseIndex = -1;
     lastFrameBaseLine = -1;
-    lineWidthCache.clear();
-    avgCharWidthCache.clear();
-    
-    editor.textRender.currentMaxWindowLineWidth = 0f;
-    editor.textRender.globalMaxLineWidth = 0f;
-    editor.scroll.maxLineWidthForScroll = 0f;
-    editor.scroll.maxTextStartXForScroll = 0f;
-    editor.scroll.maxScrollXForScroll = 0f;
-    editor.recalculateMaxLineWidth();
-
-    editor.requestLayout();
-    if (editor.wordWrap.isWordWrapEnabled) editor.wordWrap.invalidateWrapMetrics(true);
-    editor.wordWrap.requestWrapPrefixRebuild();
-    editor.invalidate();
-  }
-
-  /**
-   * Apply text size to editor
-   */
-  public void applyTextSizePx(float sizePx) {
-    applyTextSizePx(sizePx, false);
-  }
-
-  /**
-   * Apply text size to editor with defer option
-   */
-  public void applyTextSizePx(float sizePx, boolean deferWrapRebuild) {
-    float oldSize = paint.getTextSize();
-    if (Math.abs(sizePx - oldSize) < 0.1f) return;
-
-    paint.setTextSize(sizePx);
-    
-    // Update binary render cached character width
-    editor.binaryRender.updateCachedCharWidth(paint);
-    
-    if (!editor.autoCompletion.isSuggestionTextSizeCustom) {
-      editor.autoCompletion.suggestionTextSizeScale = 1f;
-    }
-    editor.autoCompletion.suggestionPaint.setTextSize(sizePx * editor.autoCompletion.suggestionTextSizeScale);
-    editor.lineNumber.lineNumbersPaint.setTextSize(sizePx);
-    editor.codeFold.animation.foldMarkerPaint.setTextSize(sizePx * editor.codeFold.animation.foldMarkerTextScale);
-    editor.wordWrap.indicator.wordWrapIndicatorPaint.setTextSize(
-        sizePx * editor.wordWrap.indicator.wordWrapIndicatorTextScale);
-    editor.wordWrap.indicator.wordWrapIndicatorPaint.setTypeface(paint.getTypeface());
-    editor.wordWrap.indicator.wordWrapIndicatorWidth =
-        editor.wordWrap.indicator.wordWrapIndicatorPaint.measureText(
-            com.yn.sodiumeditor.core.WordWrapIndicator.WORD_WRAP_INDICATOR_TEXT);
-    lineHeight = paint.getFontSpacing();
-    editor.recalculateMaxLineWidth();
-    editor.whitespaceGuides.updateMetrics();
-    editor.lineNumber.invalidateLineNumberCache();
-
-    cachedSpaceWidth = -1f;
-    cachedTabWidth = -1f;
-    cachedBaseIndex = -1;
-    lastFrameBaseLine = -1;
-    lineWidthCache.clear();
-    avgCharWidthCache.clear();
-
-    for (HighliteRender.HighlightRule rule : editor.highlite.highlightRules) {
-      rule.updateTextSize(sizePx);
-    }
-    if (editor.highlightRules.whitespaceStringRule != null)
-      editor.highlightRules.whitespaceStringRule.updateTextSize(sizePx);
-    if (editor.highlightRules.whitespaceCommentRule != null)
-      editor.highlightRules.whitespaceCommentRule.updateTextSize(sizePx);
-    if (editor.highlightRules.lineCommentHighlightRule != null)
-      editor.highlightRules.lineCommentHighlightRule.updateTextSize(sizePx);
-    editor.highlite.clearHighlightCaches();
-
-    float scale = sizePx / oldSize;
-    editor.textRender.currentMaxWindowLineWidth *= scale;
-    editor.textRender.globalMaxLineWidth *= scale;
-    editor.scroll.maxLineWidthForScroll *= scale;
-    editor.scroll.maxScrollXForScroll *= scale;
-    editor.scroll.maxTextStartXForScroll = 0f;
-    if (scale < 1f) {
-      editor.scroll.maxLineWidthForScroll = 0f;
-      editor.scroll.maxScrollXForScroll = 0f;
-    }
-
-    editor.requestLayout();
-    if (editor.wordWrap.isWordWrapEnabled) editor.wordWrap.invalidateWrapMetrics(true, !deferWrapRebuild);
-    editor.wordWrap.requestWrapPrefixRebuild();
-    editor.invalidate();
   }
 
   // ========================================================================
   // Line Text Access Methods
   // ========================================================================
 
-  /**
-   * Get line text for render with direct lines support
-   */
-  public String getLineTextForRenderWithDirect(
-      int line, @Nullable java.util.Map<Integer, String> direct) {
-    if (line < 0) return "";
 
-    // Modified lines first — always the most recent edits
-    String mod = modifiedLines.get(line);
-    if (mod != null) return mod;
 
-    // Then the window
-    if (line >= windowStartLine && line < windowStartLine + linesWindow.size()) {
-      String text = editor.getLineFromWindowLocal(line - windowStartLine);
-      return (text != null) ? text : "";
-    }
 
-    // Direct batch (during fast fling)
-    if (direct != null) {
-      String d = direct.get(line);
-      if (d != null) return d;
-    }
-
-    // Cache
-    String c = editor.fileIO.directLineCache.get(line);
-    if (c != null) return c;
-
-    return "";
-  }
-
-  /**
-   * Get line text for render (render-safe, no file random read)
-   */
-  public String getLineTextForRender(int line) {
-    if (line < 0) return "";
-
-    // Modified lines first — always the most recent edits
-    String mod = modifiedLines.get(line);
-    if (mod != null) return mod;
-
-    // Then the window
-    if (line >= windowStartLine && line < windowStartLine + linesWindow.size()) {
-      String text = editor.getLineFromWindowLocal(line - windowStartLine);
-      return (text != null) ? text : "";
-    }
-
-    editor.logRender(
-        "line-miss",
-        "lineMiss line=" + line
-            + " windowStart=" + windowStartLine
-            + " windowSize=" + linesWindow.size()
-            + " isIndexReady=" + editor.fileIO.isIndexReady
-            + " isWindowLoading=" + editor.fileIO.isWindowLoading,
-        1000);
-    return "";
-  }
 
   // ========================================================================
   // Text Measurement Methods
   // ========================================================================
+
+  public int getVisualSpaceScale() {
+    return 1;
+  }
+
+  public float getVisualSpaceWidth(Paint p) {
+    if (cachedSpaceWidth < 0f) {
+      cachedSpaceWidth = p.measureText(" ");
+    }
+    return cachedSpaceWidth;
+  }
 
   /**
    * Get character advance width
@@ -780,8 +471,183 @@ public final List<String> linesWindow = new ArrayList<>();
   
   public float getVisualTabWidth(Paint p) {
     if (cachedTabWidth < 0f) {
-      cachedTabWidth = p.measureText(" ") * DEFAULT_TAB_SIZE_SPACES;
+      cachedTabWidth = getVisualSpaceWidth(p) * DEFAULT_TAB_SIZE_SPACES;
     }
     return cachedTabWidth;
   }
-}
+
+  public float measureTextWithVisualSpaces(String text, int start, int end, Paint p) {
+    if (text == null) return 0f;
+    start = Math.max(0, Math.min(start, text.length()));
+    end = Math.max(start, Math.min(end, text.length()));
+    if (start >= end) return 0f;
+
+    if (text.indexOf('\t', start) < 0) {
+      return p.measureText(text, start, end);
+    }
+
+    int len = end - start;
+    if (editor.view.measureWidthBuffer == null || editor.view.measureWidthBuffer.length < len) {
+      editor.view.measureWidthBuffer = new float[Math.max(len, 64)];
+    }
+    p.getTextWidths(text, start, end, editor.view.measureWidthBuffer);
+    float total = 0f;
+    for (int i = 0; i < len; i++) {
+      char c = text.charAt(start + i);
+      total += getCharAdvanceWidth(c, editor.view.measureWidthBuffer[i], p);
+    }
+    return total;
+  }
+
+  public float measureText(String line, int length, int globalLine) {
+    int logicalLen = editor.view.getLogicalLineLength(globalLine, line);
+    int safeLen = Math.max(0, Math.min(length, logicalLen));
+
+    if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
+      int[] spans = editor.binaryRender.getBinaryTokenSpans(globalLine);
+      float padX =
+          editor.binaryRender.binaryCaretNotationEnabled ? 0f : editor.binaryRender.binaryTokenPaddingX;
+
+      if (spans != null && spans.length > 0) {
+        return editor.binaryRender.getXForCharBinary(line, safeLen, paint, spans, padX);
+      } else {
+        float charWidth = paint.measureText("M");
+        float effectiveAvgWidth = charWidth + (padX * 2f * 0.2f);
+        return effectiveAvgWidth * safeLen;
+      }
+    }
+
+    if (safeLen > editor.highliteRender.maxSyntaxLineLength) {
+      float avg = getAverageCharWidthForLine(line, globalLine);
+      return avg * safeLen;
+    }
+
+    java.util.List<HighliteRender.HighlightSpan> spans = editor.highlite.highlightCache.get(globalLine);
+    if (spans == null) {
+      spans = editor.highlite.calculateSpansForLine(line, globalLine);
+      editor.highlite.highlightCache.put(globalLine, spans);
+    }
+
+    float totalWidth = 0f;
+    int lastEnd = 0;
+
+    for (HighliteRender.HighlightSpan span : spans) {
+      if (lastEnd >= safeLen) break;
+      if (span.start >= safeLen) break;
+      if (span.start < lastEnd) continue;
+
+      if (span.start > lastEnd) {
+        int measureEnd = Math.min(span.start, safeLen);
+        totalWidth += measureTextWithVisualSpaces(line, lastEnd, measureEnd, paint);
+      }
+
+      lastEnd = span.start;
+
+      int measureEnd = Math.min(span.end, safeLen);
+      totalWidth += measureTextWithVisualSpaces(line, lastEnd, measureEnd, span.paint);
+
+      lastEnd = span.end;
+    }
+
+    if (lastEnd < safeLen) {
+      totalWidth += measureTextWithVisualSpaces(line, lastEnd, safeLen, paint);
+    }
+
+    return totalWidth;
+  }
+
+  public int getCharIndexForX(String text, float x, int globalLine) {
+    if (text == null || text.isEmpty()) return 0;
+    if (isRtl) {
+      float baseX = editor.layout.getRtlLineBaseX(text, globalLine);
+      x -= baseX;
+      float w =
+          editor.highlite.measureHighlightedSegmentWidth(
+              text, globalLine, 0, editor.view.getLogicalLineLength(globalLine, text));
+      x = w - x;
+    }
+    if (x <= 0f) return 0;
+    if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
+      int[] spans = editor.binaryRender.getBinaryTokenSpans(globalLine);
+      float padX =
+          editor.binaryRender.binaryCaretNotationEnabled ? 0f : editor.binaryRender.binaryTokenPaddingX;
+      float charWidth = paint.measureText("M");
+
+      if (spans != null && spans.length > 0) {
+        return editor.binaryRender.getCharIndexForXBinary(text, 0, text.length(), x, paint, spans, padX);
+      } else {
+        float effectiveAvgWidth = charWidth + (padX * 2f * 0.2f);
+        if (effectiveAvgWidth <= 0f) return 0;
+        int idx = (int) Math.round(x / effectiveAvgWidth);
+        return Math.max(0, Math.min(idx, text.length()));
+      }
+    }
+
+    int len = editor.view.getLogicalLineLength(globalLine, text);
+    if (len > editor.highliteRender.maxSyntaxLineLength) {
+      float avg = getAverageCharWidthForLine(text, globalLine);
+      if (avg <= 0f) return 0;
+      int idx = (int) Math.round(x / avg);
+      return Math.max(0, Math.min(idx, len));
+    }
+    int textLen = text.length();
+    if (getVisualSpaceScale() == 1) {
+      int count = paint.breakText(text, true, x, null);
+      if (count <= 0) return 0;
+      if (count >= textLen) return textLen;
+
+      float wPrev = (count > 1) ? paint.measureText(text, 0, count - 1) : 0f;
+      float wCount = paint.measureText(text, 0, count);
+      float mid = wPrev + (wCount - wPrev) * 0.5f;
+      return (x < mid) ? (count - 1) : count;
+    }
+
+    if (editor.view.measureWidthBuffer == null || editor.view.measureWidthBuffer.length < textLen) {
+      editor.view.measureWidthBuffer = new float[Math.max(textLen, 64)];
+    }
+    paint.getTextWidths(text, 0, textLen, editor.view.measureWidthBuffer);
+    float current = 0f;
+    for (int i = 0; i < textLen; i++) {
+      float adv = getCharAdvanceWidth(text.charAt(i), editor.view.measureWidthBuffer[i], paint);
+      float mid = current + adv * 0.5f;
+      if (x < mid) return i;
+      if (x < current + adv) return i + 1;
+      current += adv;
+    }
+    return textLen;
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  // ========================================================================
+  // Window Management Methods
+  // ========================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+  }

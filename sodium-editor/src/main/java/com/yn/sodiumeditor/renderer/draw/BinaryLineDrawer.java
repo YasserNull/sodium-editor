@@ -4,7 +4,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.BinaryTokenConverter;
+import com.yn.sodiumeditor.core.binary.BinaryTokenConverter;
 
 /**
  * BinaryLineDrawer handles fast binary line drawing.

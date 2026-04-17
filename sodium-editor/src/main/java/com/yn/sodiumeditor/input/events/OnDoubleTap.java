@@ -27,7 +27,7 @@ public class OnDoubleTap {
     EditOp.CursorTarget target = editor.wordWrap.getCursorTargetForPosition(e.getX(), e.getY(), null);
     int line = target.line;
     editor.fileIO.ensureLineInWindow(line, true);
-    String ln = editor.textRender.getLineTextForRender(line);
+    String ln = editor.windowRender.getLineTextForRender(line);
     if (ln == null || ln.isEmpty()) {
       return onSingleTapUp.onSingleTapUp(e);
     }
@@ -45,7 +45,7 @@ public class OnDoubleTap {
         });
     editor.caret.resetBlink();
     editor.invalidate();
-    editor.showKeyboard();
+    editor.ime.showKeyboard();
     editor.view.restartInput();
     return true;
   }

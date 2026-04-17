@@ -68,7 +68,7 @@ public class OnScroll extends GestureDetector.SimpleOnGestureListener {
     if (editor.autoCompletion.suggestionAcceptedThisTouch)
       return false; // Don't process if suggestion was accepted
 
-    editor.movedSinceDown = true;
+    editor.onTouch.movedSinceDown = true;
 
     // Delegate to Scroll
     return editor.scroll.handleScroll(e1, e2, distanceX, distanceY);

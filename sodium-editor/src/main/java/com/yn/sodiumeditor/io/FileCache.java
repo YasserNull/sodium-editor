@@ -1,6 +1,7 @@
 package com.yn.sodiumeditor.io;
 
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.core.StreamedCharSlice;
 import java.io.File;
 import java.io.RandomAccessFile;
 import java.util.LinkedHashMap;
@@ -54,16 +55,16 @@ public class FileCache {
                 long lineByteLen = fileIO.indexer.getLineByteLengthFromIndex(raf, cur, fileLen);
                 int lineLen = (int) Math.min(Integer.MAX_VALUE, lineByteLen);
                 String ln;
-                if (editor.shouldStreamLineLength(lineLen)) {
-                    editor.textRender.computeStreamedSliceBounds(null, cur, lineLen, editor.textRender.streamedSliceTmp);
-                    int sS = editor.textRender.streamedSliceTmp[0];
-                    int sE = editor.textRender.streamedSliceTmp[1];
-                    if (editor.isSingleByteCharset()) {
+                if (editor.windowRender.shouldStreamLineLength(lineLen)) {
+                    editor.textRender.computeStreamedSliceBounds(null, cur, lineLen, editor.windowRender.streamedSliceTmp);
+                    int sS = editor.windowRender.streamedSliceTmp[0];
+                    int sE = editor.windowRender.streamedSliceTmp[1];
+                    if (editor.windowRender.isSingleByteCharset()) {
                         ln = fileIO.readLineSliceAtByte(raf, lineStart, lineByteLen, sS, sE);
-                        editor.setStreamedLineInfo(cur, lineLen, sS);
+                        editor.windowRender.setStreamedLineInfo(cur, lineLen, sS);
                     } else {
-                        SodiumEditor.StreamedCharSlice slice = editor.fileIO.readLineSliceByChars(raf, lineStart, sS, sE, true);
-                        ln = slice.text; editor.setStreamedLineInfo(cur, slice.length, sS);
+                        StreamedCharSlice slice = editor.fileIO.readLineSliceByChars(raf, lineStart, sS, sE, true);
+                        ln = slice.text; editor.windowRender.setStreamedLineInfo(cur, slice.length, sS);
                     }
                 } else {
                     ln = fileIO.readLineUtf8AtByte(raf, lineStart);

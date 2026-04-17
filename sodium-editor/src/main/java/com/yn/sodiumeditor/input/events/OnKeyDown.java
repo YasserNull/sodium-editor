@@ -21,9 +21,9 @@ public class OnKeyDown {
    * @return true if the event was handled, false otherwise
    */
   public boolean onKeyDown(int keyCode, KeyEvent event) {
-    if (editor.isDisabled) return true;
+    if (editor.view.isDisabled) return true;
     
-    if (editor.isReadOnly) {
+    if (editor.view.isReadOnly) {
       return handleReadOnlyKey(keyCode, event);
     }
 

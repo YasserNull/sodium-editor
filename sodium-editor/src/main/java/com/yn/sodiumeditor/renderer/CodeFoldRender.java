@@ -4,10 +4,11 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.CodeFold;
-import com.yn.sodiumeditor.core.BracketGuides;
-import com.yn.sodiumeditor.core.BracketGuideState;
-import com.yn.sodiumeditor.core.BracketGuideToken;
+import com.yn.sodiumeditor.core.guides.bracket.BracketMatch;
+import com.yn.sodiumeditor.core.fold.CodeFold;
+import com.yn.sodiumeditor.core.guides.bracket.BracketGuides;
+import com.yn.sodiumeditor.core.guides.bracket.BracketGuideState;
+import com.yn.sodiumeditor.core.guides.bracket.BracketGuideToken;
 import java.util.HashMap;
 
 /**
@@ -52,7 +53,7 @@ public class CodeFoldRender {
         for (int v = firstVisibleIndex; v <= lastVisibleIndex; v++) {
             int line = editor.codeFold.mapVisibleIndexToGlobal(v);
             Paint p = editor.codeFold.pendingFoldComputations.containsKey(line) ? pendingPaint : normalPaint;
-            String marker = editor.codeFold.getFoldMarkerForLine(line, editor.textRender.getLineTextForRender(line));
+            String marker = editor.codeFold.getFoldMarkerForLine(line, editor.windowRender.getLineTextForRender(line));
             if (marker == null) continue;
             float y = Math.round(v * editor.textRender.lineHeight - editor.scroll.scrollY + editor.textRender.lineHeight - editor.textRender.paint.descent());
             if (line == editor.codeFold.animation.foldRippleLine && editor.codeFold.animation.foldRippleAlpha > 0f) {
@@ -203,7 +204,7 @@ public class CodeFoldRender {
     public void drawFoldedContent(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex,
                                    int firstVisibleLine, int lastVisibleLine,
                                    HashMap<Integer, String> directLines, Paint selPaint,
-                                   SodiumEditor.BracketMatch bracketMatchResult, boolean drawDecorations, boolean drawBracketGuides,
+                                   BracketMatch bracketMatchResult, boolean drawDecorations, boolean drawBracketGuides,
                                    BracketGuideState initialBracketState) {
         if (drawDecorations && editor.indentGuides.indentGuideIntervalsDirty) {
             editor.indentGuides.rebuildIndentGuideIntervalsIfNeeded();
@@ -211,8 +212,8 @@ public class CodeFoldRender {
 
         // Track bracket guide state for synchronous rendering
         BracketGuideState bracketState = initialBracketState;
-        int windowStart = editor.textRender.windowStartLine;
-        int windowEnd = windowStart + editor.textRender.linesWindow.size() - 1;
+        int windowStart = editor.windowRender.windowStartLine;
+        int windowEnd = windowStart + editor.windowRender.linesWindow.size() - 1;
 
         for (int v = firstVisibleIndex; v <= lastVisibleIndex; v++) {
             int globalLine = editor.codeFold.mapVisibleIndexToGlobal(v);
@@ -253,10 +254,10 @@ public class CodeFoldRender {
                     int startChar = (globalLine == selStartLine) ? selStartChar : 0;
                     int endChar = (globalLine == selEndLine) ? selEndChar : line.length();
 
-                    float startX = editor.measureTextWithVisualSpaces(line, 0, startChar, editor.textRender.paint);
-                    float endX = editor.measureTextWithVisualSpaces(line, 0, endChar, editor.textRender.paint);
+                    float startX = editor.textRender.measureTextWithVisualSpaces(line, 0, startChar, editor.textRender.paint);
+                    float endX = editor.textRender.measureTextWithVisualSpaces(line, 0, endChar, editor.textRender.paint);
 
-                    float textStartX = editor.getTextStartX() - editor.lineNumber.lineNumbersGutterWidth;
+                    float textStartX = editor.layout.getTextStartX() - editor.lineNumber.lineNumbersGutterWidth;
                     float left = textStartX + startX;
                     float top = lineTop;
                     float right = textStartX + endX;
@@ -310,8 +311,7 @@ public class CodeFoldRender {
                     bracketState = editor.bracketGuides.calculateBracketGuideStateForLine(line, globalLine, bracketState);
                     // If collapsed, use cached bracket state or compute once and cache
                     if (isCollapsed && range.endLine > globalLine) {
-                        com.yn.sodiumeditor.core.BracketGuideState cachedState = editor.codeFold.cachedBracketStateAfterFold.get(range.startLine);
-                        if (cachedState != null) {
+                        BracketGuideState cachedState = editor.codeFold.cachedBracketStateAfterFold.get(range.startLine);                        if (cachedState != null) {
                             bracketState = cachedState;
                         } else {
                             // Compute once and cache
@@ -378,7 +378,7 @@ public class CodeFoldRender {
     private String getLineTextForRenderWithDirect(int globalLine, HashMap<Integer, String> directLines) {
         // Always honor modified lines (including empty strings) over cached/file data.
         // No synchronized needed — render thread is single-threaded for reads.
-        String mod = editor.textRender.modifiedLines.get(globalLine);
+        String mod = editor.windowRender.modifiedLines.get(globalLine);
         if (mod != null) return mod;
 
         if (directLines != null) {
@@ -387,14 +387,14 @@ public class CodeFoldRender {
         }
 
         // Try standard lookup
-        String text = editor.textRender.getLineTextForRender(globalLine);
+        String text = editor.windowRender.getLineTextForRender(globalLine);
         if (text != null && !text.isEmpty()) {
             return text;
         }
 
         // If the line is within the window, an empty string is authoritative.
-        int winStart = editor.textRender.windowStartLine;
-        int winEnd = winStart + editor.textRender.linesWindow.size();
+        int winStart = editor.windowRender.windowStartLine;
+        int winEnd = winStart + editor.windowRender.linesWindow.size();
         if (globalLine >= winStart && globalLine < winEnd) {
             return text != null ? text : "";
         }
@@ -420,7 +420,7 @@ public class CodeFoldRender {
      */
     private int getLogicalLineLength(int globalLine, String line) {
         if (line == null) return 0;
-        return editor.getLogicalLineLength(globalLine, line);
+        return editor.view.getLogicalLineLength(globalLine, line);
     }
 
     /**
@@ -434,7 +434,7 @@ public class CodeFoldRender {
      * Get RTL line base X position.
      */
     private float getRtlLineBaseX(String line, int globalLine) {
-        float totalWidth = editor.textRender.globalMaxLineWidth;
+        float totalWidth = editor.windowRender.globalMaxLineWidth;
         float lineWidth = measureHighlightedSegmentWidth(line, globalLine, 0, getLogicalLineLength(globalLine, line));
         return Math.max(0f, totalWidth - lineWidth);
     }

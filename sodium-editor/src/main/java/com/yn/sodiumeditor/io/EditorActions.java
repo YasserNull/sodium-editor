@@ -3,7 +3,7 @@ package com.yn.sodiumeditor.io;
 import android.os.Looper;
 import android.util.Log;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.CodeFold;
+import com.yn.sodiumeditor.core.fold.CodeFold;
 import java.io.File;
 
 /**
@@ -19,7 +19,7 @@ public class EditorActions {
     }
 
     public void deleteForwardAtCursor() {
-        if (editor.isReadOnly) return;
+        if (editor.view.isReadOnly) return;
         editor.fileIO.invalidatePendingIOForEdit();
         operators.editVersion.incrementAndGet();
         editor.autoCompletion.clearActiveSuggestion();
@@ -40,23 +40,23 @@ public class EditorActions {
             return;
         }
 
-        int localIdx = editor.cursor.cursorLine - editor.textRender.windowStartLine;
-        synchronized (editor.textRender.linesWindow) {
-            String base = editor.getLineFromWindowLocal(localIdx);
+        int localIdx = editor.cursor.cursorLine - editor.windowRender.windowStartLine;
+        synchronized (editor.windowRender.linesWindow) {
+            String base = editor.windowRender.getLineFromWindowLocal(localIdx);
             if (base == null) base = "";
 
             if (editor.cursor.cursorChar < base.length()) {
                 String removed = base.substring(editor.cursor.cursorChar, editor.cursor.cursorChar + 1);
                 String modified = base.substring(0, editor.cursor.cursorChar) + base.substring(editor.cursor.cursorChar + 1);
-                editor.updateLocalLine(localIdx, modified);
-                editor.textRender.modifiedLines.put(editor.cursor.cursorLine, modified);
+                editor.view.updateLocalLine(localIdx, modified);
+                editor.windowRender.modifiedLines.put(editor.cursor.cursorLine, modified);
                 
                 if (editor.codeFold.isCodeFoldingEnabled) {
-                    if (editor.containsBracketChars(removed)) editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
+                    if (com.yn.sodiumeditor.utils.TextUtils.containsBracketChars(removed)) editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
                     editor.codeFold.adjustFoldRangeForLineEdit(editor.cursor.cursorLine, editor.cursor.cursorChar, -1, 1);
                 }
-                editor.computeWidthForLine(editor.cursor.cursorLine, modified);
-                editor.invalidateLineGlobal(editor.cursor.cursorLine);
+                editor.view.computeWidthForLine(editor.cursor.cursorLine, modified);
+                editor.view.invalidateLineGlobal(editor.cursor.cursorLine);
 
                 EditOp op = new EditOp();
                 op.startLine = beforeLine; op.startChar = beforeChar;
@@ -70,22 +70,22 @@ public class EditorActions {
             } else {
                 int nextGlobal = editor.cursor.cursorLine + 1;
                 editor.fileIO.ensureLineInWindow(nextGlobal, true);
-                int nextLocal = nextGlobal - editor.textRender.windowStartLine;
-                if (nextLocal >= 0 && nextLocal < editor.textRender.linesWindow.size()) {
-                    String next = editor.getLineFromWindowLocal(nextLocal);
+                int nextLocal = nextGlobal - editor.windowRender.windowStartLine;
+                if (nextLocal >= 0 && nextLocal < editor.windowRender.linesWindow.size()) {
+                    String next = editor.windowRender.getLineFromWindowLocal(nextLocal);
                     String merged = base + (next == null ? "" : next);
-                    editor.updateLocalLine(localIdx, merged);
-                    editor.textRender.modifiedLines.put(editor.cursor.cursorLine, merged);
+                    editor.view.updateLocalLine(localIdx, merged);
+                    editor.windowRender.modifiedLines.put(editor.cursor.cursorLine, merged);
                     
                     if (editor.codeFold.isCodeFoldingEnabled) {
                         editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
                         editor.codeFold.adjustFoldRangesForLineEdit(nextGlobal, -1);
                     }
-                    editor.textRender.linesWindow.remove(nextLocal);
+                    editor.windowRender.linesWindow.remove(nextLocal);
                     operators.shifter.shiftModifiedLines(nextGlobal, -1);
 
-                    editor.recalculateMaxLineWidth();
-                    editor.computeWidthForLine(editor.cursor.cursorLine, merged);
+                    editor.windowRender.recalculateMaxLineWidth();
+                    editor.view.computeWidthForLine(editor.cursor.cursorLine, merged);
                     editor.lineNumber.invalidateLineNumberCache();
                     editor.wordWrap.onLineCountChanged();
                     editor.invalidate();
@@ -107,12 +107,12 @@ public class EditorActions {
     }
 
     private boolean isLineInLoadedWindow(int line) {
-        return line >= editor.textRender.windowStartLine && 
-               line < editor.textRender.windowStartLine + editor.textRender.linesWindow.size();
+        return line >= editor.windowRender.windowStartLine && 
+               line < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size();
     }
 
     public void insertCharAtCursor(char c) {
-        if (editor.isReadOnly) return;
+        if (editor.view.isReadOnly) return;
         editor.fileIO.invalidatePendingIOForEdit();
         operators.editVersion.incrementAndGet();
 
@@ -143,34 +143,34 @@ public class EditorActions {
             return;
         }
 
-        int localIdx = editor.cursor.cursorLine - editor.textRender.windowStartLine;
-        if (localIdx < 0 || localIdx >= editor.textRender.linesWindow.size()) {
+        int localIdx = editor.cursor.cursorLine - editor.windowRender.windowStartLine;
+        if (localIdx < 0 || localIdx >= editor.windowRender.linesWindow.size()) {
             localIdx = handleWindowEdgeCase(localIdx);
         }
 
         boolean fullInvalidate = false;
-        synchronized (editor.textRender.linesWindow) {
-            String base = editor.getLineFromWindowLocal(localIdx);
+        synchronized (editor.windowRender.linesWindow) {
+            String base = editor.windowRender.getLineFromWindowLocal(localIdx);
             if (base == null) base = "";
 
             if (c == '\n') {
                 fullInvalidate = true;
-                int oldLineCount = editor.getLinesCount();
+                int oldLineCount = editor.view.getLinesCount();
                 String before = base.substring(0, Math.min(editor.cursor.cursorChar, base.length()));
                 String after = base.substring(Math.min(editor.cursor.cursorChar, base.length()));
                 
-                editor.updateLocalLine(localIdx, before);
-                editor.textRender.linesWindow.add(localIdx + 1, after);
+                editor.view.updateLocalLine(localIdx, before);
+                editor.windowRender.linesWindow.add(localIdx + 1, after);
 
                 operators.shifter.shiftModifiedLines(editor.cursor.cursorLine + 1, 1);
                 
-                editor.textRender.modifiedLines.put(editor.cursor.cursorLine, before);
-                editor.textRender.modifiedLines.put(editor.cursor.cursorLine + 1, after);
+                editor.windowRender.modifiedLines.put(editor.cursor.cursorLine, before);
+                editor.windowRender.modifiedLines.put(editor.cursor.cursorLine + 1, after);
                 
                 handleCodeFoldNewline(beforeLine);
 
-                editor.computeWidthForLine(editor.cursor.cursorLine, before);
-                editor.computeWidthForLine(editor.cursor.cursorLine + 1, after);
+                editor.view.computeWidthForLine(editor.cursor.cursorLine, before);
+                editor.view.computeWidthForLine(editor.cursor.cursorLine + 1, after);
 
                 editor.lineNumber.invalidateLineNumberCache();
                 editor.cursor.cursorLine++;
@@ -178,7 +178,7 @@ public class EditorActions {
                 operators.lineCountDelta += 1;
                 
                 if (editor.lineNumber.showLineNumbers && 
-                    String.valueOf(oldLineCount).length() != String.valueOf(editor.getLinesCount()).length()) {
+                    String.valueOf(oldLineCount).length() != String.valueOf(editor.view.getLinesCount()).length()) {
                     editor.requestLayout();
                 }
                 editor.lineNumber.updateGutterWidth();
@@ -186,25 +186,25 @@ public class EditorActions {
             } else {
                 int pos = Math.max(0, Math.min(editor.cursor.cursorChar, base.length()));
                 String modified = base.substring(0, pos) + c + base.substring(pos);
-                editor.updateLocalLine(localIdx, modified);
-                editor.textRender.modifiedLines.put(editor.cursor.cursorLine, modified);
+                editor.view.updateLocalLine(localIdx, modified);
+                editor.windowRender.modifiedLines.put(editor.cursor.cursorLine, modified);
                 
-                synchronized (editor.textRender.avgCharWidthCache) { editor.textRender.avgCharWidthCache.remove(editor.cursor.cursorLine); }
-                synchronized (editor.textRender.lineWidthCache) { editor.textRender.lineWidthCache.remove(editor.cursor.cursorLine); }
+                synchronized (editor.windowRender.avgCharWidthCache) { editor.windowRender.avgCharWidthCache.remove(editor.cursor.cursorLine); }
+                synchronized (editor.windowRender.lineWidthCache) { editor.windowRender.lineWidthCache.remove(editor.cursor.cursorLine); }
                 
                 if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
                     editor.binaryRender.adjustBinaryTokenSpansForEdit(editor.cursor.cursorLine, pos, 1, 0);
                 }
                 if (editor.codeFold.isCodeFoldingEnabled) {
-                    if (editor.containsBracketChars(String.valueOf(c))) editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
+                    if (com.yn.sodiumeditor.utils.TextUtils.containsBracketChars(String.valueOf(c))) editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
                     editor.codeFold.adjustFoldRangeForLineEdit(editor.cursor.cursorLine, pos, 1, 0);
                 }
                 editor.highlite.invalidateHighlightCacheForLine(editor.cursor.cursorLine);
                 editor.cursor.cursorChar++;
-                editor.computeWidthForLine(editor.cursor.cursorLine, modified);
+                editor.view.computeWidthForLine(editor.cursor.cursorLine, modified);
             }
             if (fullInvalidate) editor.invalidate();
-            else editor.invalidateLineGlobal(editor.cursor.cursorLine);
+            else editor.view.invalidateLineGlobal(editor.cursor.cursorLine);
             editor.scroll.keepCursorVisibleHorizontally();
         }
         editor.autoCompletion.updateSuggestion();
@@ -222,7 +222,7 @@ public class EditorActions {
     }
 
     public void deleteCharAtCursor() {
-        if (editor.isReadOnly) return;
+        if (editor.view.isReadOnly) return;
         editor.fileIO.invalidatePendingIOForEdit();
         operators.editVersion.incrementAndGet();
         editor.autoCompletion.clearActiveSuggestion();
@@ -243,11 +243,11 @@ public class EditorActions {
             return;
         }
 
-        int localIdx = editor.cursor.cursorLine - editor.textRender.windowStartLine;
-        if (localIdx < 0 || localIdx >= editor.textRender.linesWindow.size()) return;
+        int localIdx = editor.cursor.cursorLine - editor.windowRender.windowStartLine;
+        if (localIdx < 0 || localIdx >= editor.windowRender.linesWindow.size()) return;
 
-        synchronized (editor.textRender.linesWindow) {
-            String base = editor.getLineFromWindowLocal(localIdx);
+        synchronized (editor.windowRender.linesWindow) {
+            String base = editor.windowRender.getLineFromWindowLocal(localIdx);
             if (base == null) base = "";
             int safeCursorChar = Math.max(0, Math.min(editor.cursor.cursorChar, base.length()));
 
@@ -257,17 +257,17 @@ public class EditorActions {
                 
                 // Binary token logic omitted for brevity, same as original
                 String modified = base.substring(0, safeStart) + base.substring(safeCursorChar);
-                editor.updateLocalLine(localIdx, modified);
-                editor.textRender.modifiedLines.put(editor.cursor.cursorLine, modified);
+                editor.view.updateLocalLine(localIdx, modified);
+                editor.windowRender.modifiedLines.put(editor.cursor.cursorLine, modified);
                 
                 if (editor.codeFold.isCodeFoldingEnabled) {
-                    if (editor.containsBracketChars(removed)) editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
+                    if (com.yn.sodiumeditor.utils.TextUtils.containsBracketChars(removed)) editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
                     editor.codeFold.adjustFoldRangeForLineEdit(editor.cursor.cursorLine, safeStart, -1, 1);
                 }
                 editor.highlite.invalidateHighlightCacheForLine(editor.cursor.cursorLine);
                 editor.cursor.cursorChar = safeStart;
-                editor.computeWidthForLine(editor.cursor.cursorLine, modified);
-                editor.invalidateLineGlobal(editor.cursor.cursorLine);
+                editor.view.computeWidthForLine(editor.cursor.cursorLine, modified);
+                editor.view.invalidateLineGlobal(editor.cursor.cursorLine);
 
                 EditOp op = new EditOp();
                 op.startLine = beforeLine; op.startChar = safeStart;
@@ -282,26 +282,26 @@ public class EditorActions {
                 int deletedLine = editor.cursor.cursorLine;
                 int prevGlobal = editor.cursor.cursorLine - 1;
                 editor.fileIO.ensureLineInWindow(prevGlobal, true);
-                int prevLocal = prevGlobal - editor.textRender.windowStartLine;
-                if (prevLocal < 0 || prevLocal >= editor.textRender.linesWindow.size()) return;
+                int prevLocal = prevGlobal - editor.windowRender.windowStartLine;
+                if (prevLocal < 0 || prevLocal >= editor.windowRender.linesWindow.size()) return;
 
-                String prev = editor.getLineFromWindowLocal(prevLocal);
+                String prev = editor.windowRender.getLineFromWindowLocal(prevLocal);
                 String merged = (prev == null ? "" : prev) + base;
-                editor.updateLocalLine(prevLocal, merged);
-                editor.textRender.modifiedLines.put(prevGlobal, merged);
+                editor.view.updateLocalLine(prevLocal, merged);
+                editor.windowRender.modifiedLines.put(prevGlobal, merged);
                 
                 if (editor.codeFold.isCodeFoldingEnabled) {
                     editor.codeFold.invalidateFoldRangeForLine(prevGlobal);
                     editor.codeFold.adjustFoldRangesForLineEdit(deletedLine, -1);
                 }
                 
-                editor.textRender.linesWindow.remove(localIdx);
+                editor.windowRender.linesWindow.remove(localIdx);
                 operators.shifter.shiftModifiedLines(deletedLine, -1);
 
-                editor.recalculateMaxLineWidth();
+                editor.windowRender.recalculateMaxLineWidth();
                 editor.cursor.cursorLine = prevGlobal;
                 editor.cursor.cursorChar = (prev == null ? 0 : prev.length());
-                editor.computeWidthForLine(prevGlobal, merged);
+                editor.view.computeWidthForLine(prevGlobal, merged);
                 operators.lineCountDelta -= 1;
                 editor.wordWrap.onLineCountChanged();
                 editor.invalidate();
@@ -335,7 +335,7 @@ public class EditorActions {
 
     private void moveCursorToFoldEnd(CodeFold.FoldRange fold) {
         editor.fileIO.ensureLineInWindow(fold.endLine, true);
-        String endText = editor.textRender.getLineTextForRender(fold.endLine);
+        String endText = editor.windowRender.getLineTextForRender(fold.endLine);
         int closeIdx = editor.codeFold.resolveCloseCharIndex(fold, endText == null ? "" : endText);
         if (closeIdx < 0) closeIdx = (endText == null ? 0 : endText.length());
         editor.cursor.cursorLine = fold.endLine;
@@ -357,20 +357,20 @@ public class EditorActions {
     }
 
     private int handleWindowEdgeCase(int localIdx) {
-        synchronized (editor.textRender.linesWindow) {
-            if (editor.textRender.linesWindow.isEmpty()) {
-                editor.textRender.linesWindow.add("");
+        synchronized (editor.windowRender.linesWindow) {
+            if (editor.windowRender.linesWindow.isEmpty()) {
+                editor.windowRender.linesWindow.add("");
                 return 0;
-            } else if (editor.fileIO.isEof && localIdx >= editor.textRender.linesWindow.size()) {
-                while (editor.textRender.linesWindow.size() <= localIdx) editor.textRender.linesWindow.add("");
+            } else if (editor.fileIO.isEof && localIdx >= editor.windowRender.linesWindow.size()) {
+                while (editor.windowRender.linesWindow.size() <= localIdx) editor.windowRender.linesWindow.add("");
                 return localIdx;
             }
         }
-        return Math.max(0, Math.min(localIdx, editor.textRender.linesWindow.size() - 1));
+        return Math.max(0, Math.min(localIdx, editor.windowRender.linesWindow.size() - 1));
     }
 
     public void insertTextAtCursor(String text) {
-        if (editor.isReadOnly || text == null || text.isEmpty()) return;
+        if (editor.view.isReadOnly || text == null || text.isEmpty()) return;
         if (editor.selection.hasSelection) {
             editor.selection.replaceSelectionWithText(text);
             return;

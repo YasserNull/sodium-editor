@@ -71,10 +71,10 @@ public class FileMetadata {
         if (editor.editOperators.comparePos(sL, sC, eL, eC) > 0) {
             int tL = sL, tC = sC; sL = eL; sC = eC; eL = tL; eC = tC;
         }
-        if (sL >= editor.textRender.windowStartLine && eL < editor.textRender.windowStartLine + editor.textRender.linesWindow.size()) {
+        if (sL >= editor.windowRender.windowStartLine && eL < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) {
             StringBuilder sb = new StringBuilder();
             for (int line = sL; line <= eL; line++) {
-                String ln = editor.getLineFromWindowLocal(line - editor.textRender.windowStartLine);
+                String ln = editor.windowRender.getLineFromWindowLocal(line - editor.windowRender.windowStartLine);
                 if (ln == null) ln = "";
                 int from = (line == sL) ? Math.min(sC, ln.length()) : 0;
                 int to = (line == eL) ? Math.min(eC, ln.length()) : ln.length();

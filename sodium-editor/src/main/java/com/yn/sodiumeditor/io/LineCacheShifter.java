@@ -20,10 +20,10 @@ public class LineCacheShifter {
 
     public void shiftModifiedLines(int startLine, int delta) {
         if (delta == 0) return;
-        synchronized (editor.textRender.modifiedLines) {
-            if (editor.textRender.modifiedLines.isEmpty()) return;
+        synchronized (editor.windowRender.modifiedLines) {
+            if (editor.windowRender.modifiedLines.isEmpty()) return;
             LinkedHashMap<Integer, String> shifted = new LinkedHashMap<>();
-            for (Map.Entry<Integer, String> entry : editor.textRender.modifiedLines.entrySet()) {
+            for (Map.Entry<Integer, String> entry : editor.windowRender.modifiedLines.entrySet()) {
                 int line = entry.getKey();
                 if (line < startLine) {
                     shifted.put(line, entry.getValue());
@@ -34,14 +34,14 @@ public class LineCacheShifter {
                     }
                 }
             }
-            editor.textRender.modifiedLines.clear();
-            editor.textRender.modifiedLines.putAll(shifted);
+            editor.windowRender.modifiedLines.clear();
+            editor.windowRender.modifiedLines.putAll(shifted);
         }
         shiftTextRenderCaches(startLine, delta);
     }
 
     private void shiftTextRenderCaches(int startLine, int delta) {
-        SparseArray<Float> lwCache = editor.textRender.lineWidthCache;
+        SparseArray<Float> lwCache = editor.windowRender.lineWidthCache;
         if (lwCache.size() > 0) {
             SparseArray<Float> shiftedLw = new SparseArray<>(lwCache.size());
             for (int i = 0; i < lwCache.size(); i++) {
@@ -55,7 +55,7 @@ public class LineCacheShifter {
                 lwCache.put(shiftedLw.keyAt(i), shiftedLw.valueAt(i));
             }
         }
-        SparseArray<Float> awCache = editor.textRender.avgCharWidthCache;
+        SparseArray<Float> awCache = editor.windowRender.avgCharWidthCache;
         if (awCache.size() > 0) {
             SparseArray<Float> shiftedAw = new SparseArray<>(awCache.size());
             for (int i = 0; i < awCache.size(); i++) {

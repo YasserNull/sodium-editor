@@ -4,15 +4,17 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.CodeFold;
-import com.yn.sodiumeditor.core.WordWrap;
-import com.yn.sodiumeditor.core.BracketGuides;
+import com.yn.sodiumeditor.core.guides.bracket.BracketMatch;
+import com.yn.sodiumeditor.core.fold.CodeFold;
+import com.yn.sodiumeditor.core.wordwrap.WordWrap;
+import com.yn.sodiumeditor.core.guides.bracket.BracketGuides;
 import java.util.List;
 import java.util.HashMap;
 
 public class ViewRender {
 
   private final SodiumEditor editor;
+  public int drawBaseLine = 0;
   private final Paint selectionPaint;
   private final RectF tempRectF;
   private int frameCounter = 0;
@@ -25,8 +27,8 @@ public class ViewRender {
   }
 
   public void drawContent(Canvas canvas) {
-    int windowStart = editor.textRender.windowStartLine;
-    int windowEnd = windowStart + editor.textRender.linesWindow.size() - 1;
+    int windowStart = editor.windowRender.windowStartLine;
+    int windowEnd = windowStart + editor.windowRender.linesWindow.size() - 1;
     boolean fastScroll = editor.scroll.scrollerIsScrolling || editor.scroll.flingStopAnimator != null;
     
     int firstVisibleIndex = (int) (editor.scroll.scrollY / editor.textRender.lineHeight);
@@ -86,7 +88,7 @@ public class ViewRender {
       lastVisibleLine = lastVisibleIndex;
     }
 
-    editor.drawBaseLine = firstVisibleLine;
+    drawBaseLine = firstVisibleLine;
     float baseY = firstVisibleIndex * editor.textRender.lineHeight;
     float translateY = -editor.scroll.scrollY + baseY;
 
@@ -150,8 +152,8 @@ public class ViewRender {
 
     HashMap<Integer, String> directLines = null;
     if (editor.fileIO.sourceFile != null) {
-      int winStart = editor.textRender.windowStartLine;
-      int winEnd = winStart + editor.textRender.linesWindow.size() - 1;
+      int winStart = editor.windowRender.windowStartLine;
+      int winEnd = winStart + editor.windowRender.linesWindow.size() - 1;
       java.util.HashSet<Integer> needed = new java.util.HashSet<>();
       for (int v = firstVisibleIndex; v <= lastVisibleIndex; v++) {
           int gl = editor.codeFold.mapVisibleIndexToGlobal(v);
@@ -168,8 +170,8 @@ public class ViewRender {
       for (Integer gl : needed) { if (gl < winStart || gl > winEnd) { needDirect = true; break; } }
 
       if (needDirect) {
-          editor.textRender.directLinesTmp.clear();
-          directLines = editor.textRender.directLinesTmp;
+          editor.windowRender.directLinesTmp.clear();
+          directLines = editor.windowRender.directLinesTmp;
           for (Integer gl : needed) {
               if (gl < winStart || gl > winEnd) {
                   editor.fileIO.populateDirectLinesForRange(gl, gl, directLines);
@@ -178,7 +180,7 @@ public class ViewRender {
       }
     }
 
-    SodiumEditor.BracketMatch bracketMatchResult = null;
+    BracketMatch bracketMatchResult = null;
     if (editor.bracketMatchManager.isBracketMatchingEnabled) {
       bracketMatchResult = editor.bracketMatchManager.findAndCacheBracketMatch(firstVisibleLine, lastVisibleLine, directLines);
     }
@@ -204,11 +206,11 @@ public class ViewRender {
           }
 
           // Canvas is already translated, so use relative coordinates
-          float textStartX = editor.getTextStartX() - editor.lineNumber.lineNumbersGutterWidth;
+          float textStartX = editor.layout.getTextStartX() - editor.lineNumber.lineNumbersGutterWidth;
 
           for (int i = firstVisibleLine; i <= lastVisibleLine; i++) {
               if (i >= selStartLine && i <= selEndLine) {
-                  String line = editor.textRender.getLineTextForRenderWithDirect(i, directLines);
+                  String line = editor.windowRender.getLineTextForRenderWithDirect(i, directLines);
                   if (line != null) {
                       float lineTop = editor.textRender.getDrawLineTop(i);
                       float lineBottom = lineTop + editor.textRender.lineHeight;
@@ -216,8 +218,8 @@ public class ViewRender {
                       int startChar = (i == selStartLine) ? selStartChar : 0;
                       int endChar = (i == selEndLine) ? selEndChar : line.length();
 
-                      float startX = editor.measureTextWithVisualSpaces(line, 0, startChar, editor.textRender.paint);
-                      float endX = editor.measureTextWithVisualSpaces(line, 0, endChar, editor.textRender.paint);
+                      float startX = editor.textRender.measureTextWithVisualSpaces(line, 0, startChar, editor.textRender.paint);
+                      float endX = editor.textRender.measureTextWithVisualSpaces(line, 0, endChar, editor.textRender.paint);
 
                       float left = textStartX + startX;
                       float top = lineTop;
@@ -252,7 +254,7 @@ public class ViewRender {
       }
       
       for (int i = firstVisibleLine; i <= lastVisibleLine; i++) {
-          String line = editor.textRender.getLineTextForRenderWithDirect(i, directLines);
+          String line = editor.windowRender.getLineTextForRenderWithDirect(i, directLines);
           if ((line == null || line.isEmpty())
               && editor.cursor != null
               && editor.cursor.cursorLine == i
@@ -265,9 +267,9 @@ public class ViewRender {
                       + " ch="
                       + editor.cursor.cursorChar
                       + " windowStart="
-                      + editor.textRender.windowStartLine
+                      + editor.windowRender.windowStartLine
                       + " windowSize="
-                      + editor.textRender.linesWindow.size());
+                      + editor.windowRender.linesWindow.size());
           }
           float y = (i - firstVisibleLine) * editor.textRender.lineHeight + editor.textRender.lineHeight - editor.textRender.paint.descent();
           editor.textRender.drawHighlightedLine(canvas, line, i, y);

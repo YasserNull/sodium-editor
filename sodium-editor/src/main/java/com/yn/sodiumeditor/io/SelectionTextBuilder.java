@@ -21,10 +21,10 @@ public class SelectionTextBuilder {
    */
   public String buildSelectedTextFromWindow(int sL, int sC, int eL, int eC, int maxChars) {
     StringBuilder sb = new StringBuilder();
-    synchronized (editor.textRender.linesWindow) {
+    synchronized (editor.windowRender.linesWindow) {
       for (int L = sL; L <= eL; L++) {
-        int local = L - editor.textRender.windowStartLine;
-        String ln = (local >= 0 && local < editor.textRender.linesWindow.size()) ? editor.textRender.linesWindow.get(local) : "";
+        int local = L - editor.windowRender.windowStartLine;
+        String ln = (local >= 0 && local < editor.windowRender.linesWindow.size()) ? editor.windowRender.linesWindow.get(local) : "";
         if (ln == null) ln = "";
         int startIdx = (L == sL) ? Math.min(sC, ln.length()) : 0;
         int endIdx = (L == eL) ? Math.min(eC, ln.length()) : ln.length();
@@ -55,7 +55,7 @@ public class SelectionTextBuilder {
     }
 
     // If the selection is fully inside the current window, prefer the window snapshot
-    boolean fullyInWindow = (sL >= editor.textRender.windowStartLine) && (eL < editor.textRender.windowStartLine + editor.textRender.linesWindow.size());
+    boolean fullyInWindow = (sL >= editor.windowRender.windowStartLine) && (eL < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size());
     if (fullyInWindow) {
       return editor.selection.buildSelectedTextFromWindow(sL, sC, eL, eC, maxChars);
     }
@@ -83,8 +83,8 @@ public class SelectionTextBuilder {
           if (fileLine == null) fileLine = "";
 
           String ln;
-          synchronized (editor.textRender.modifiedLines) {
-            ln = editor.textRender.modifiedLines.containsKey(L) ? editor.textRender.modifiedLines.get(L) : fileLine;
+          synchronized (editor.windowRender.modifiedLines) {
+            ln = editor.windowRender.modifiedLines.containsKey(L) ? editor.windowRender.modifiedLines.get(L) : fileLine;
           }
           if (ln == null) ln = "";
 

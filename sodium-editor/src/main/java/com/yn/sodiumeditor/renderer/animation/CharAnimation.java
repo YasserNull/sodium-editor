@@ -128,7 +128,7 @@ public class CharAnimation {
           charAnimEndChar = Math.max(0, targetEndChar);
           charAnimStartChar = Math.max(0, charAnimEndChar - finalCharCount);
           charAnimAlpha = 0.2f;
-          editor.invalidateLineGlobal(charAnimLine);
+          editor.view.invalidateLineGlobal(charAnimLine);
 
           charAnimAnimator = ValueAnimator.ofFloat(0.2f, 1f);
           charAnimAnimator.setDuration(animDuration);
@@ -136,7 +136,7 @@ public class CharAnimation {
               a -> {
                 Object v = a.getAnimatedValue();
                 charAnimAlpha = (v instanceof Float) ? (Float) v : 0f;
-                editor.invalidateLineGlobal(charAnimLine);
+                editor.view.invalidateLineGlobal(charAnimLine);
               });
           charAnimAnimator.addListener(
               new AnimatorListenerAdapter() {
@@ -201,7 +201,7 @@ public class CharAnimation {
           delAnimText = textForAnim;
           delAnimPaint = p;
           delAnimAlpha = 1f;
-          editor.invalidateLineGlobal(lineForAnim);
+          editor.view.invalidateLineGlobal(lineForAnim);
 
           delAnimAnimator = ValueAnimator.ofFloat(1f, 0f);
           delAnimAnimator.setDuration(animDuration);
@@ -209,7 +209,7 @@ public class CharAnimation {
               a -> {
                 Object v = a.getAnimatedValue();
                 delAnimAlpha = (v instanceof Float) ? (Float) v : 0f;
-                editor.invalidateLineGlobal(lineForAnim);
+                editor.view.invalidateLineGlobal(lineForAnim);
               });
           delAnimAnimator.addListener(
               new AnimatorListenerAdapter() {

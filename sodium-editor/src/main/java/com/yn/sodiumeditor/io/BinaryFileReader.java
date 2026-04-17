@@ -1,7 +1,8 @@
 package com.yn.sodiumeditor.io;
 
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.BinaryTokenConverter;
+import com.yn.sodiumeditor.core.StreamedCharSlice;
+import com.yn.sodiumeditor.core.binary.BinaryTokenConverter;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -122,7 +123,7 @@ public class BinaryFileReader {
      *  • Single decoder instance per call (no per-chunk recreation)
      *  • Binary-safe path uses lookup table, not escapeControlChar()
      */
-    public SodiumEditor.StreamedCharSlice readLineSliceByChars(
+    public StreamedCharSlice readLineSliceByChars(
         RandomAccessFile raf, long lineStart,
         int startChar, int endChar,
         boolean needTotalLength, Charset fileCharset, boolean binarySafeRenderingEnabled,
@@ -206,7 +207,7 @@ public class BinaryFileReader {
             if (hitNL) break;
         }
 
-        return new SodiumEditor.StreamedCharSlice(
+        return new StreamedCharSlice(
             sb.toString(), needTotalLength ? charIndex : -1);
     }
 

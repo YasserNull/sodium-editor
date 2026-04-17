@@ -1,7 +1,11 @@
 package com.yn.sodiumeditor.renderer;
 
 import android.graphics.Paint;
+import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.core.HitAdvance;
+import com.yn.sodiumeditor.renderer.HighliteRender;
+import java.util.List;
 
 /**
  * Layout handles all layout-related logic for SodiumEditor.
@@ -16,6 +20,9 @@ import com.yn.sodiumeditor.SodiumEditor;
 public class Layout {
 
     private final SodiumEditor editor;
+
+    public final com.yn.sodiumeditor.core.HitAdvance lastHitAdvance =
+        new com.yn.sodiumeditor.core.HitAdvance();
 
     // Text direction state
     public boolean isRtl = false;
@@ -113,6 +120,129 @@ public class Layout {
     }
 
     // ============================================================================
+    // Guide and Whitespace Calculations
+    // ============================================================================
+
+    public float getGuideXForColumn(String line, int column, int globalLine) {
+        if (line == null) line = "";
+        if (column <= line.length()) {
+            return editor.textRender.measureText(line, column, globalLine);
+        }
+        float base = editor.textRender.measureText(line, line.length(), globalLine);
+        float spaceWidth = editor.textRender.getVisualSpaceWidth(editor.textRender.paint);
+        return base + spaceWidth * (column - line.length());
+    }
+
+    public boolean isWhitespaceAtX(String line, int globalLine, float x) {
+        if (line == null || line.isEmpty()) return true;
+        if (x <= 0f) return Character.isWhitespace(line.charAt(0));
+
+        List<HighliteRender.HighlightSpan> spans = editor.highlite.highlightCache.get(globalLine);
+        if (spans == null) {
+            spans = editor.highlite.calculateSpansForLine(line, globalLine);
+            editor.highlite.highlightCache.put(globalLine, spans);
+        }
+
+        final int len = line.length();
+        float currentX = 0f;
+        boolean prevWhitespace = false;
+        final float eps = 0.25f;
+
+        int pos = 0;
+        if (spans != null && !spans.isEmpty()) {
+            for (HighliteRender.HighlightSpan span : spans) {
+                if (pos >= len) break;
+                if (span.end <= pos) continue;
+                if (span.start > pos) {
+                    if (hitTestWhitespaceSegment(line, pos, Math.min(span.start, len), globalLine, x, editor.textRender.paint, eps, currentX, prevWhitespace)) {
+                        if (isGuideHitOnWhitespaceBoundary(line, x)) return false;
+                        return true;
+                    }
+                    HitAdvance a = editor.layout.lastHitAdvance;
+                    if (a.hit) return a.isWhitespace;
+                    currentX = a.x;
+                    prevWhitespace = a.prevWhitespace;
+                    pos = a.pos;
+                }
+                int segStart = Math.max(pos, span.start);
+                int segEnd = Math.min(len, span.end);
+                if (segEnd > segStart) {
+                    if (hitTestWhitespaceSegment(line, segStart, segEnd, globalLine, x, span.paint, eps, currentX, prevWhitespace)) {
+                        if (isGuideHitOnWhitespaceBoundary(line, x)) return false;
+                        return true;
+                    }
+                    HitAdvance a = editor.layout.lastHitAdvance;
+                    if (a.hit) return a.isWhitespace;
+                    currentX = a.x;
+                    prevWhitespace = a.prevWhitespace;
+                    pos = a.pos;
+                }
+            }
+        }
+
+        if (pos < len) {
+            if (hitTestWhitespaceSegment(line, pos, len, globalLine, x, editor.textRender.paint, eps, currentX, prevWhitespace)) {
+                if (isGuideHitOnWhitespaceBoundary(line, x)) return false;
+                return true;
+            }
+        }
+
+        return true;
+    }
+
+    public boolean isGuideHitOnWhitespaceBoundary(String line, float x) {
+        if (!editor.layout.lastHitAdvance.hit || !editor.layout.lastHitAdvance.isWhitespace) return false;
+        final float boundaryEps = 0.6f;
+        if (editor.layout.lastHitAdvance.hitCharEndX - x > boundaryEps) return false;
+        int next = editor.layout.lastHitAdvance.pos + 1;
+        if (next >= line.length()) return false;
+        return !Character.isWhitespace(line.charAt(next));
+    }
+
+    public boolean hitTestWhitespaceSegment(String line, int start, int end, int globalLine, float x, Paint p, float eps, float startX, boolean prevWhitespace) {
+        editor.layout.lastHitAdvance.hit = false;
+        editor.layout.lastHitAdvance.isWhitespace = false;
+        editor.layout.lastHitAdvance.x = startX;
+        editor.layout.lastHitAdvance.pos = start;
+        editor.layout.lastHitAdvance.prevWhitespace = prevWhitespace;
+
+        if (start >= end) return false;
+
+        int segLen = end - start;
+        if (editor.view.measureWidthBuffer == null || editor.view.measureWidthBuffer.length < segLen) {
+            editor.view.measureWidthBuffer = new float[Math.max(segLen, 64)];
+        }
+        p.getTextWidths(line, start, end, editor.view.measureWidthBuffer);
+
+        float currentX = startX;
+        boolean prevWs = prevWhitespace;
+        for (int i = 0; i < segLen; i++) {
+            int idx = start + i;
+            char c = line.charAt(idx);
+            float adv = editor.textRender.getCharAdvanceWidth(c, editor.view.measureWidthBuffer[i], p);
+            float nextX = currentX + adv;
+
+            if (x <= nextX + eps) {
+                boolean ws = Character.isWhitespace(c);
+                editor.layout.lastHitAdvance.hit = true;
+                editor.layout.lastHitAdvance.isWhitespace = ws;
+                editor.layout.lastHitAdvance.x = currentX;
+                editor.layout.lastHitAdvance.hitCharEndX = nextX;
+                editor.layout.lastHitAdvance.pos = idx;
+                editor.layout.lastHitAdvance.prevWhitespace = prevWs;
+                return ws;
+            }
+            currentX = nextX;
+            prevWs = Character.isWhitespace(c);
+        }
+
+        editor.layout.lastHitAdvance.x = currentX;
+        editor.layout.lastHitAdvance.pos = end;
+        editor.layout.lastHitAdvance.prevWhitespace = prevWs;
+        return false;
+    }
+
+    // ============================================================================
     // RTL Base X Calculations
     // ============================================================================
 
@@ -123,27 +253,19 @@ public class Layout {
      * @param globalLine the global line index
      * @return the base X position for RTL text
      */
-    public float getRtlLineBaseX(String line, int globalLine) {
+    public float getRtlLineBaseX(@Nullable String line, int globalLine) {
         if (!isRtl || line == null) return 0f;
-        float totalWidth = editor.textRender.globalMaxLineWidth;
-        float lineWidth = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, editor.getLogicalLineLength(globalLine, line));
-        return Math.max(0f, totalWidth - lineWidth);
+        int logicalLen = editor.view.getLogicalLineLength(globalLine, line);
+        float w = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, logicalLen);
+        float area = getTextAreaWidth();
+        return area - w;
     }
 
-    /**
-     * Get the RTL segment base X position.
-     * This is used to align a segment of text to the right in RTL mode.
-     * @param line the line text
-     * @param globalLine the global line index
-     * @param segStart the start character index of the segment
-     * @param segEnd the end character index of the segment
-     * @return the base X position for RTL segment
-     */
-    public float getRtlSegmentBaseX(String line, int globalLine, int segStart, int segEnd) {
+    public float getRtlSegmentBaseX(@Nullable String line, int globalLine, int segStart, int segEnd) {
         if (!isRtl || line == null) return 0f;
-        float segWidth = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, segStart, segEnd);
-        float lineBaseX = getRtlLineBaseX(line, globalLine);
-        return lineBaseX + (editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, segStart));
+        float w = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, segStart, segEnd);
+        float area = getTextAreaWidth();
+        return area - w;
     }
 
     /**
@@ -156,7 +278,7 @@ public class Layout {
     public float convertXToRtl(float x, String line, int globalLine) {
         if (!isRtl) return x;
         float baseX = getRtlLineBaseX(line, globalLine);
-        float lineWidth = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, editor.getLogicalLineLength(globalLine, line));
+        float lineWidth = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, editor.view.getLogicalLineLength(globalLine, line));
         return baseX + (lineWidth - x);
     }
 
@@ -170,7 +292,7 @@ public class Layout {
     public float convertXToLtr(float x, String line, int globalLine) {
         if (!isRtl) return x;
         float baseX = getRtlLineBaseX(line, globalLine);
-        float lineWidth = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, editor.getLogicalLineLength(globalLine, line));
+        float lineWidth = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, editor.view.getLogicalLineLength(globalLine, line));
         return lineWidth - (x - baseX);
     }
 
@@ -274,12 +396,12 @@ public class Layout {
     public void invalidateLayout() {
         textAreaWidth = 0f;
         textAreaHeight = 0f;
-        editor.textRender.currentMaxWindowLineWidth = 0f;
-        editor.textRender.globalMaxLineWidth = 0f;
+        editor.windowRender.currentMaxWindowLineWidth = 0f;
+        editor.windowRender.globalMaxLineWidth = 0f;
         editor.scroll.maxLineWidthForScroll = 0f;
         editor.scroll.maxTextStartXForScroll = 0f;
         editor.scroll.maxScrollXForScroll = 0f;
-        editor.recalculateMaxLineWidth();
+        editor.windowRender.recalculateMaxLineWidth();
         editor.requestLayout();
         editor.invalidate();
     }
@@ -290,5 +412,25 @@ public class Layout {
     public void updateTextAreaDimensions() {
         calculateTextAreaWidth();
         calculateTextAreaHeight();
+    }
+
+    public float getViewXForLineChar(String line, int globalLine, int ch) {
+        if (line == null) line = "";
+        int safeChar = Math.max(0, Math.min(ch, editor.view.getLogicalLineLength(globalLine, line)));
+        if (!editor.wordWrap.isWordWrapEnabled) {
+            return editor.layout.getTextStartX()
+                    + editor.textRender.measureText(line, safeChar, globalLine)
+                    - editor.scroll.getEffectiveScrollX();
+        }
+        int[] starts = editor.wordWrap.getWrapStartsForLine(globalLine, line);
+        int seg = editor.wordWrap.getWrapSegmentIndexForChar(starts, safeChar);
+        int segStart = editor.wordWrap.getWrapSegmentStart(starts, seg);
+        float x = editor.textRender.measureTextWithVisualSpaces(line, segStart, safeChar, editor.textRender.paint);
+        return editor.layout.getTextStartX() + x - editor.scroll.getEffectiveScrollX();
+    }
+
+    public float getViewYTopForLineChar(int globalLine, int ch) {
+        int v = editor.wordWrap.getVisualIndexForLineAndChar(globalLine, ch);
+        return v * editor.textRender.lineHeight - editor.scroll.scrollY;
     }
 }

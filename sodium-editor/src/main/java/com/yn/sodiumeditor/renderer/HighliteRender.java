@@ -67,13 +67,13 @@ public class HighliteRender {
 
             int typefaceStyle;
             switch (style) {
-                case SodiumEditor.STYLE_BOLD:
+                case com.yn.sodiumeditor.core.view.FontStyle.STYLE_BOLD:
                     typefaceStyle = Typeface.BOLD;
                     break;
-                case SodiumEditor.STYLE_ITALIC:
+                case com.yn.sodiumeditor.core.view.FontStyle.STYLE_ITALIC:
                     typefaceStyle = Typeface.ITALIC;
                     break;
-                case SodiumEditor.STYLE_BOLD_ITALIC:
+                case com.yn.sodiumeditor.core.view.FontStyle.STYLE_BOLD_ITALIC:
                     typefaceStyle = Typeface.BOLD_ITALIC;
                     break;
                 default:
@@ -92,13 +92,13 @@ public class HighliteRender {
         public void updateTypeface(Typeface baseTypeface) {
             int typefaceStyle;
             switch (style) {
-                case SodiumEditor.STYLE_BOLD:
+                case com.yn.sodiumeditor.core.view.FontStyle.STYLE_BOLD:
                     typefaceStyle = Typeface.BOLD;
                     break;
-                case SodiumEditor.STYLE_ITALIC:
+                case com.yn.sodiumeditor.core.view.FontStyle.STYLE_ITALIC:
                     typefaceStyle = Typeface.ITALIC;
                     break;
-                case SodiumEditor.STYLE_BOLD_ITALIC:
+                case com.yn.sodiumeditor.core.view.FontStyle.STYLE_BOLD_ITALIC:
                     typefaceStyle = Typeface.BOLD_ITALIC;
                     break;
                 default:
@@ -172,7 +172,7 @@ public class HighliteRender {
             int visibleStart = editor.textRender.visibleCharRangeTmp[0];
             int visibleEnd   = editor.textRender.visibleCharRangeTmp[1];
             if (visibleEnd > visibleStart) {
-                int sliceStart = editor.getStreamedLineSliceStart(globalLine);
+                int sliceStart = editor.windowRender.getStreamedLineSliceStart(globalLine);
                 int sliceEnd   = sliceStart + line.length();
                 int drawStart  = Math.max(visibleStart, sliceStart);
                 int drawEnd    = Math.min(visibleEnd,   sliceEnd);
@@ -199,12 +199,12 @@ public class HighliteRender {
         editor.textRender.getVisibleCharRangeForLine(line, globalLine, editor.textRender.visibleCharRangeTmp);
         int visibleStart = editor.textRender.visibleCharRangeTmp[0];
         int visibleEnd = editor.textRender.visibleCharRangeTmp[1];
-        int len = editor.getLogicalLineLength(globalLine, line);
+        int len = editor.view.getLogicalLineLength(globalLine, line);
 
         // Handle lines exceeding max syntax length
         if (len > maxSyntaxLineLength) {
             if (visibleEnd > visibleStart) {
-                int sliceStart = editor.getStreamedLineSliceStart(globalLine);
+                int sliceStart = editor.windowRender.getStreamedLineSliceStart(globalLine);
                 int sliceEnd = sliceStart + line.length();
                 int drawStart = Math.max(visibleStart, sliceStart);
                 int drawEnd = Math.min(visibleEnd, sliceEnd);
@@ -269,7 +269,7 @@ public class HighliteRender {
                     && !editor.charAnimation.delAnimText.isEmpty()
                     && editor.charAnimation.delAnimAlpha > 0f) {
                 int at = Math.max(0, Math.min(editor.charAnimation.delAnimAtChar, line.length()));
-                float x = editor.measureText(line, at, globalLine);
+                float x = editor.textRender.measureText(line, at, globalLine);
                 Paint ghostPaint = (editor.charAnimation.delAnimPaint != null) ? editor.charAnimation.delAnimPaint : editor.textRender.paint;
                 editor.charAnimation.charAnimTmpPaint.set(ghostPaint);
                 editor.charAnimation.charAnimTmpPaint.setUnderlineText(false);
@@ -298,7 +298,7 @@ public class HighliteRender {
                     && !editor.charAnimation.delAnimText.isEmpty()
                     && editor.charAnimation.delAnimAlpha > 0f) {
                 int at = Math.max(0, Math.min(editor.charAnimation.delAnimAtChar, line.length()));
-                float x = editor.measureText(line, at, globalLine);
+                float x = editor.textRender.measureText(line, at, globalLine);
                 Paint ghostPaint = (editor.charAnimation.delAnimPaint != null) ? editor.charAnimation.delAnimPaint : editor.textRender.paint;
                 editor.charAnimation.charAnimTmpPaint.set(ghostPaint);
                 editor.charAnimation.charAnimTmpPaint.setUnderlineText(false);
@@ -343,7 +343,7 @@ public class HighliteRender {
                 && !editor.charAnimation.delAnimText.isEmpty()
                 && editor.charAnimation.delAnimAlpha > 0f) {
             int at = Math.max(0, Math.min(editor.charAnimation.delAnimAtChar, line.length()));
-            float x = editor.measureText(line, at, globalLine);
+            float x = editor.textRender.measureText(line, at, globalLine);
             Paint ghostPaint = (editor.charAnimation.delAnimPaint != null) ? editor.charAnimation.delAnimPaint : editor.textRender.paint;
             editor.charAnimation.charAnimTmpPaint.set(ghostPaint);
             editor.charAnimation.charAnimTmpPaint.setUnderlineText(false);
@@ -398,7 +398,7 @@ public class HighliteRender {
 
         float lineTop = editor.textRender.getDrawLineTop(globalLine);
         float lineBottom = lineTop + editor.textRender.lineHeight;
-        float currentX = editor.measureText(line, start, globalLine);
+        float currentX = editor.textRender.measureText(line, start, globalLine);
         int lastEnd = start;
 
         if (editor.highlite.highlightRules.isEmpty()) {
@@ -445,7 +445,7 @@ public class HighliteRender {
                 && editor.charAnimation.delAnimAlpha > 0f) {
             int at = Math.max(0, Math.min(editor.charAnimation.delAnimAtChar, line.length()));
             if (at >= start && at <= end) {
-                float x = editor.measureText(line, at, globalLine);
+                float x = editor.textRender.measureText(line, at, globalLine);
                 Paint ghostPaint = (editor.charAnimation.delAnimPaint != null) ? editor.charAnimation.delAnimPaint : editor.textRender.paint;
                 editor.charAnimation.charAnimTmpPaint.set(ghostPaint);
                 editor.charAnimation.charAnimTmpPaint.setUnderlineText(false);

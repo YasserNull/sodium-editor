@@ -3,8 +3,8 @@ package com.yn.sodiumeditor.renderer;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.LineNumber;
-import com.yn.sodiumeditor.core.WordWrap;
+import com.yn.sodiumeditor.core.linenumber.LineNumber;
+import com.yn.sodiumeditor.core.wordwrap.WordWrap;
 
 /**
  * LineNumberRender handles all line number rendering logic for SodiumEditor.

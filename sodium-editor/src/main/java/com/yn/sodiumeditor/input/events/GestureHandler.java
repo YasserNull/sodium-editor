@@ -14,8 +14,8 @@ public class GestureHandler {
     }
 
     public void handleActionDown(MotionEvent event) {
-        editor.multiTouchActive = false;
-        editor.hadMultiTouch = false;
+        editor.onTouch.multiTouchActive = false;
+        editor.onTouch.hadMultiTouch = false;
         if (!editor.scroll.scroller.isFinished()) {
             editor.scroll.scroller.abortAnimation();
         }
@@ -23,11 +23,11 @@ public class GestureHandler {
     }
 
     public void handleActionPointerDown(MotionEvent event) {
-        editor.multiTouchActive = true;
-        editor.hadMultiTouch = true;
+        editor.onTouch.multiTouchActive = true;
+        editor.onTouch.hadMultiTouch = true;
         editor.zoom.mJustFinishedScale = true;
-        editor.pointerDown = false;
-        editor.movedSinceDown = false;
+        editor.onTouch.pointerDown = false;
+        editor.onTouch.movedSinceDown = false;
         editor.selectionHandles.draggingHandle = 0;
         editor.scroll.dragMaxScrollX = -1f;
 
@@ -50,8 +50,7 @@ public class GestureHandler {
             editor.selection.lineNumberSelectAnchorLine = -1;
         }
 
-        editor.caret.mainHandler.removeCallbacks(editor.autoScrollRunnable);
-        if (!editor.scroll.scroller.isFinished()) {
+        editor.caret.mainHandler.removeCallbacks(editor.scroll.autoScrollRunnable);        if (!editor.scroll.scroller.isFinished()) {
             editor.scroll.scroller.computeScrollOffset();
             editor.scroll.scrollX = editor.scroll.scroller.getCurrX();
             editor.scroll.scrollY = editor.scroll.scroller.getCurrY();
@@ -74,7 +73,7 @@ public class GestureHandler {
         }
 
         if (event.getPointerCount() - 1 <= 1) {
-            editor.multiTouchActive = false;
+            editor.onTouch.multiTouchActive = false;
             editor.zoom.mJustFinishedScale = true;
             editor.scroll.dragMaxScrollX = -1f;
         }
@@ -86,7 +85,7 @@ public class GestureHandler {
         }
 
         if (editor.scaleGestureDetector.isInProgress()
-            || (editor.multiTouchActive && !editor.selection.longPressSelecting)
+            || (editor.onTouch.multiTouchActive && !editor.selection.longPressSelecting)
             || (event.getPointerCount() > 1 && !editor.selection.longPressSelecting)
             || editor.zoom.isScaling
             || event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN

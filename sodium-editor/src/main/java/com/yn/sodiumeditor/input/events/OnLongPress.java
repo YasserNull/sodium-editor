@@ -21,7 +21,7 @@ public class OnLongPress {
    */
   public void onLongPress(MotionEvent e) {
     if (editor.autoCompletion.suggestionAcceptedThisTouch) return;
-    if (editor.multiTouchActive || editor.hadMultiTouch) return;
+    if (editor.onTouch.multiTouchActive || editor.onTouch.hadMultiTouch) return;
 
     if (editor.popup.showPopup) {
       int hitAction = editor.popup.getPopupActionAt(e.getX(), e.getY());
@@ -44,8 +44,8 @@ public class OnLongPress {
     int line = target.line;
     editor.fileIO.ensureLineInWindow(line, true); // Make sure line data is available
 
-    String ln = editor.getLineFromWindowLocal(line - editor.textRender.windowStartLine);
-    if (ln == null) ln = editor.textRender.getLineTextForRender(line);
+    String ln = editor.windowRender.getLineFromWindowLocal(line - editor.windowRender.windowStartLine);
+    if (ln == null) ln = editor.windowRender.getLineTextForRender(line);
     int cursorLine = line;
     int charIndex = Math.max(0, Math.min(target.ch, ln.length()));
     float xLocal = editor.scroll.viewToTextX(e.getX());
@@ -55,20 +55,20 @@ public class OnLongPress {
           editor.wordWrap.getWrapSegmentIndexForChar(
               starts, Math.max(0, Math.min(target.ch, ln.length())));
       int segStart = editor.wordWrap.getWrapSegmentStart(starts, seg);
-      xLocal = xLocal + editor.measureTextWithVisualSpaces(ln, 0, segStart, editor.textRender.paint);
+      xLocal = xLocal + editor.textRender.measureTextWithVisualSpaces(ln, 0, segStart, editor.textRender.paint);
     }
 
     if (editor.codeFold.isCodeFoldingEnabled) {
-      com.yn.sodiumeditor.core.CodeFold.FoldRange range = editor.codeFold.getFoldRangeAtStart(line);
+      com.yn.sodiumeditor.core.fold.CodeFold.FoldRange range = editor.codeFold.getFoldRangeAtStart(line);
       if (range != null && range.collapsed) {
         float[] bounds = new float[2];
         if (editor.codeFold.getFoldPlaceholderBounds(line, ln, bounds)) {
           float x = xLocal;
           float xStart = bounds[0];
           float placeholderWidth =
-              Math.max(0f, editor.textRender.paint.measureText(com.yn.sodiumeditor.core.CodeFold.FOLD_PLACEHOLDER_TEXT));
+              Math.max(0f, editor.textRender.paint.measureText(com.yn.sodiumeditor.core.fold.CodeFold.FOLD_PLACEHOLDER_TEXT));
           float closeStart = xStart + placeholderWidth;
-          String endLineText = editor.textRender.getLineTextForRender(range.endLine);
+          String endLineText = editor.windowRender.getLineTextForRender(range.endLine);
           if (endLineText == null || endLineText.isEmpty()) {
             endLineText = editor.codeFold.utils.getEndLineTextForFold(range);
           }
@@ -124,7 +124,7 @@ public class OnLongPress {
             editor.popup.hidePopup();
             editor.caret.resetBlink();
             editor.invalidate();
-            editor.showKeyboard();
+            editor.ime.showKeyboard();
             editor.view.restartInput();
             return;
           }
@@ -132,7 +132,7 @@ public class OnLongPress {
       }
     }
 
-    float textWidth = editor.measureTextWithVisualSpaces(ln, 0, ln.length(), editor.textRender.paint);
+    float textWidth = editor.textRender.measureTextWithVisualSpaces(ln, 0, ln.length(), editor.textRender.paint);
     if (xLocal > textWidth) {
       // Correctly clear selection and sync state
       editor.selection.clearSelection();
@@ -149,7 +149,7 @@ public class OnLongPress {
       
       editor.caret.resetBlink();
       editor.invalidate();
-      editor.showKeyboard();
+      editor.ime.showKeyboard();
       editor.view.restartInput();
       return;
     }
@@ -169,7 +169,7 @@ public class OnLongPress {
     // Only try smart selection if pressing directly on text OR inside an existing selection,
     // AND the finger hasn't moved yet.
     boolean smartSelected = false;
-    if ((isOnText || isInsideSelection) && !editor.movedSinceDown) {
+    if ((isOnText || isInsideSelection) && !editor.onTouch.movedSinceDown) {
       smartSelected = editor.selection.applySmartDoubleTapSelection(line, charIndex, ln);
     }
 
@@ -185,7 +185,7 @@ public class OnLongPress {
     } else {
       // If long pressed on existing selection but no smart cycle was found (e.g. at end of cycle)
       // and we haven't moved yet, just show the popup.
-      if (isInsideSelection && !editor.movedSinceDown) {
+      if (isInsideSelection && !editor.onTouch.movedSinceDown) {
         editor.selection.state.longPressFreeForm = false;
         editor.selection.syncFromState();
         editor.popup.showPopupAtSelection();
@@ -203,7 +203,7 @@ public class OnLongPress {
 
     editor.caret.resetBlink();
     editor.invalidate();
-    editor.showKeyboard();
+    editor.ime.showKeyboard();
     editor.view.restartInput();
   }
 

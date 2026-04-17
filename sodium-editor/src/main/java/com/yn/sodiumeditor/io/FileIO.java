@@ -4,6 +4,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.core.StreamedCharSlice;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -38,6 +39,8 @@ public class FileIO {
     public BufferedReader readerForFile = null;
     
     public volatile boolean isWindowLoading = false;
+
+    // readLineSliceByChars already exists below (kept for compatibility).
     public volatile boolean isIndexReady = false;
     public volatile boolean isIndexBuilding = false;
     public long[] lineOffsets = new long[0];
@@ -139,11 +142,11 @@ public class FileIO {
         editor.wordWrap.totalWrapVisualLines = 0;
         editor.wordWrap.wrapPrefixValidUpToLine = -1;
 
-        synchronized (editor.textRender.linesWindow) { editor.textRender.linesWindow.clear(); editor.textRender.linesWindow.add(""); }
-        synchronized (editor.textRender.modifiedLines) { editor.textRender.modifiedLines.clear(); }
-        editor.clearStreamedLineCaches();
+        synchronized (editor.windowRender.linesWindow) { editor.windowRender.linesWindow.clear(); editor.windowRender.linesWindow.add(""); }
+        synchronized (editor.windowRender.modifiedLines) { editor.windowRender.modifiedLines.clear(); }
+        editor.windowRender.clearStreamedLineCaches();
         editor.scroll.scrollY = 0; editor.scroll.scrollX = 0;
-        editor.recalculateMaxLineWidth(); editor.requestLayout(); editor.invalidate();
+        editor.windowRender.recalculateMaxLineWidth(); editor.requestLayout(); editor.invalidate();
     }
 
     // ==============================
@@ -155,7 +158,7 @@ public class FileIO {
     public void buildFileIndex() { indexer.buildFileIndex(); }
     public void populateDirectLinesForRange(int s, int e, Map<Integer, String> out) { cache.populateDirectLinesForRange(s, e, out); }
     public String readRangeText(int sL, int sC, int eL, int eC) { return metadata.readRangeText(sourceFile, sL, sC, eL, eC); }
-    public void ensureLineInWindow(int gL, boolean block) { windowLoader.loadWindowAround(Math.max(0, gL - editor.textRender.prefetchLines), null, false); }
+    public void ensureLineInWindow(int gL, boolean block) { windowLoader.loadWindowAround(Math.max(0, gL - editor.windowRender.prefetchLines), null, false); }
     public void invalidatePendingIO() { ioTaskVersion.incrementAndGet(); ioHandler.removeCallbacksAndMessages(null); }
     public void invalidatePendingIOForEdit() { invalidatePendingIO(); editor.highlite.clearHighlightCaches(); }
 
@@ -237,7 +240,7 @@ public class FileIO {
         return editor.binaryRender.isBinarySafeRenderingEnabled() ? editor.binaryRender.bytesToControlVisible(buf, buf.length) : new String(buf, fileCharset);
     }
 
-    public SodiumEditor.StreamedCharSlice readLineSliceByChars(RandomAccessFile raf, long lineStart, int sC, int eC, boolean needTotal) throws Exception {
+    public StreamedCharSlice readLineSliceByChars(RandomAccessFile raf, long lineStart, int sC, int eC, boolean needTotal) throws Exception {
         return editor.binaryRender.readLineSliceByChars(raf, lineStart, sC, eC, needTotal, fileCharset);
     }
 
@@ -246,25 +249,25 @@ public class FileIO {
     // ==============================
 
     private void resetStateForNewFile() {
-        editor.textRender.windowStartLine = 0;
-        synchronized (editor.textRender.linesWindow) { editor.textRender.linesWindow.clear(); }
-        synchronized (editor.textRender.modifiedLines) { editor.textRender.modifiedLines.clear(); }
-        synchronized (editor.textRender.lineWidthCache) { editor.textRender.lineWidthCache.clear(); }
-        synchronized (editor.textRender.avgCharWidthCache) { editor.textRender.avgCharWidthCache.clear(); }
+        editor.windowRender.windowStartLine = 0;
+        synchronized (editor.windowRender.linesWindow) { editor.windowRender.linesWindow.clear(); }
+        synchronized (editor.windowRender.modifiedLines) { editor.windowRender.modifiedLines.clear(); }
+        synchronized (editor.windowRender.lineWidthCache) { editor.windowRender.lineWidthCache.clear(); }
+        synchronized (editor.windowRender.avgCharWidthCache) { editor.windowRender.avgCharWidthCache.clear(); }
         synchronized (directLineCache) { directLineCache.clear(); }
         
-        editor.textRender.currentMaxWindowLineWidth = 0f;
-        editor.textRender.globalMaxLineWidth = 0f;
+        editor.windowRender.currentMaxWindowLineWidth = 0f;
+        editor.windowRender.globalMaxLineWidth = 0f;
         editor.scroll.maxLineWidthForScroll = 0f;
         
-        editor.clearStreamedLineCaches();
+        editor.windowRender.clearStreamedLineCaches();
         editor.cursor.setCursorPosition(0, 0);
         editor.scroll.scrollY = 0; editor.scroll.scrollX = 0;
     }
 
     private void checkHeavyFeatures() {
         int total; synchronized (lineOffsetsLock) { total = lineOffsets.length; }
-        if (total > editor.heavyFeaturesThreshold) {
+        if (total > editor.view.heavyFeaturesThreshold) {
             editor.bracketGuides.setBracketGuidesEnabled(false);
             editor.indentGuides.setIndentGuidesEnabled(false);
         } else { editor.bracketCache.scanFileAsync(); }
@@ -280,9 +283,9 @@ public class FileIO {
     public void recalculateMaxLineWidthAsync() {
         final int token = ++editor.loadingCircle.maxWidthRecalcToken;
         final int start; final ArrayList<String> snapshot;
-        synchronized (editor.textRender.linesWindow) {
-            start = editor.textRender.windowStartLine;
-            snapshot = new ArrayList<>(editor.textRender.linesWindow);
+        synchronized (editor.windowRender.linesWindow) {
+            start = editor.windowRender.windowStartLine;
+            snapshot = new ArrayList<>(editor.windowRender.linesWindow);
         }
         if (snapshot.isEmpty()) return;
         editor.post(new Runnable() {
@@ -291,12 +294,12 @@ public class FileIO {
                 if (token != editor.loadingCircle.maxWidthRecalcToken) return;
                 int end = Math.min(snapshot.size(), idx + 120);
                 for (int i = idx; i < end; i++) {
-                    float w = editor.getWidthForLine(start + i, snapshot.get(i));
-                    synchronized (editor.textRender.lineWidthCache) { editor.textRender.lineWidthCache.put(start + i, w); }
+                    float w = editor.view.getWidthForLine(start + i, snapshot.get(i));
+                    synchronized (editor.windowRender.lineWidthCache) { editor.windowRender.lineWidthCache.put(start + i, w); }
                     if (w > mx) mx = w;
                 }
-                editor.textRender.currentMaxWindowLineWidth = mx;
-                editor.textRender.globalMaxLineWidth = Math.max(editor.textRender.globalMaxLineWidth, mx);
+                editor.windowRender.currentMaxWindowLineWidth = mx;
+                editor.windowRender.globalMaxLineWidth = Math.max(editor.windowRender.globalMaxLineWidth, mx);
                 idx = end;
                 if (idx < snapshot.size()) editor.post(this);
                 else { editor.scroll.clampScrollX(); editor.invalidate(); }
@@ -305,13 +308,13 @@ public class FileIO {
     }
 
     public String getTextSnapshot() {
-        int total = editor.getLinesCount();
+        int total = editor.view.getLinesCount();
         if (total <= 0) return "";
         java.util.HashMap<Integer, String> direct = new java.util.HashMap<>();
         if (isIndexReady && sourceFile != null) populateDirectLinesForRange(0, total - 1, direct);
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < total; i++) {
-            String ln = editor.textRender.getLineTextForRenderWithDirect(i, direct);
+            String ln = editor.windowRender.getLineTextForRenderWithDirect(i, direct);
             sb.append(ln == null ? "" : ln);
             if (i < total - 1) sb.append('\n');
         }

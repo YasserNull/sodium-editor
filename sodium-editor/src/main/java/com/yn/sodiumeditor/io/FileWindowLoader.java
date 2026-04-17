@@ -3,6 +3,7 @@ package com.yn.sodiumeditor.io;
 import android.util.SparseIntArray;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.core.StreamedCharSlice;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,15 +35,15 @@ public class FileWindowLoader {
         }
         int loadTarget = fL;
         if (editor.codeFold.isCodeFoldingEnabled) {
-            com.yn.sodiumeditor.core.CodeFold.FoldRange fr = editor.codeFold.getFoldRangeAtStart(fL);
-            if (fr != null && fr.collapsed && (fr.endLine - fr.startLine) > (editor.textRender.windowSize / 2)) loadTarget = fr.endLine + 1;
+            com.yn.sodiumeditor.core.fold.CodeFold.FoldRange fr = editor.codeFold.getFoldRangeAtStart(fL);
+            if (fr != null && fr.collapsed && (fr.endLine - fr.startLine) > (editor.windowRender.windowSize / 2)) loadTarget = fr.endLine + 1;
         }
         int winEnd;
-        synchronized (editor.textRender.linesWindow) { winEnd = editor.textRender.windowStartLine + editor.textRender.linesWindow.size() - 1; }
-        boolean top = editor.textRender.windowStartLine > 0 && loadTarget < editor.textRender.windowStartLine + editor.textRender.prefetchLines;
-        boolean bottom = !fileIO.isEof && lL > winEnd - editor.textRender.prefetchLines;
-        boolean out = loadTarget < editor.textRender.windowStartLine || loadTarget > winEnd;
-        if (top || bottom || out) loadWindowAround(Math.max(0, loadTarget - editor.textRender.prefetchLines), null, false);
+        synchronized (editor.windowRender.linesWindow) { winEnd = editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size() - 1; }
+        boolean top = editor.windowRender.windowStartLine > 0 && loadTarget < editor.windowRender.windowStartLine + editor.windowRender.prefetchLines;
+        boolean bottom = !fileIO.isEof && lL > winEnd - editor.windowRender.prefetchLines;
+        boolean out = loadTarget < editor.windowRender.windowStartLine || loadTarget > winEnd;
+        if (top || bottom || out) loadWindowAround(Math.max(0, loadTarget - editor.windowRender.prefetchLines), null, false);
     }
 
     public void loadWindowAround(int startLine, @Nullable Runnable onComplete, boolean recalcWidthSync) {
@@ -75,7 +76,7 @@ public class FileWindowLoader {
         try (RandomAccessFile raf = new RandomAccessFile(fileIO.sourceFile, "r")) {
             long fileLen = raf.length();
             if (fileLen > 0) { raf.seek(fileLen - 1); endsWithNl = (raf.read() == '\n'); }
-            int limit = editor.textRender.windowSize + (editor.textRender.prefetchLines * 2);
+            int limit = editor.windowRender.windowSize + (editor.windowRender.prefetchLines * 2);
             int lineIdx = actualStart;
 
             if (fileIO.isIndexReady()) {
@@ -84,13 +85,13 @@ public class FileWindowLoader {
                     long start = fileIO.getLineOffsets()[lineIdx];
                     long bLen = fileIO.indexer.getLineByteLengthFromIndex(raf, lineIdx, fileLen);
                     int len = (int) Math.min(Integer.MAX_VALUE, bLen);
-                    if (editor.shouldStreamLineLength(len)) {
+                    if (editor.windowRender.shouldStreamLineLength(len)) {
                         int sS = 0;
-                        if (editor.isSingleByteCharset()) {
+                        if (editor.windowRender.isSingleByteCharset()) {
                             int sE = Math.max(1, Math.min(len, editor.textRender.getInitialStreamedSliceSize()));
                             newWin.add(fileIO.readLineSliceAtByte(raf, start, bLen, sS, sE));
                         } else {
-                            SodiumEditor.StreamedCharSlice slice = fileIO.readLineSliceByChars(raf, start, sS, Math.max(1, editor.textRender.getInitialStreamedSliceSize()), true);
+                            StreamedCharSlice slice = fileIO.readLineSliceByChars(raf, start, sS, Math.max(1, editor.textRender.getInitialStreamedSliceSize()), true);
                             newWin.add(slice.text); len = slice.length;
                         }
                         newLengths.put(lineIdx, len); newSliceStarts.put(lineIdx, sS);
@@ -108,13 +109,13 @@ public class FileWindowLoader {
                     FileMetadata.LineScanResult scan = fileIO.metadata.scanLineLength(raf);
                     long after = raf.getFilePointer();
                     int len = (int) Math.min(Integer.MAX_VALUE, scan.length);
-                    if (editor.shouldStreamLineLength(len)) {
+                    if (editor.windowRender.shouldStreamLineLength(len)) {
                         int sS = 0;
-                        if (editor.isSingleByteCharset()) {
+                        if (editor.windowRender.isSingleByteCharset()) {
                             int sE = Math.max(1, Math.min(len, editor.textRender.getInitialStreamedSliceSize()));
                             newWin.add(fileIO.readLineSliceAtByte(raf, start, scan.length, sS, sE));
                         } else {
-                            SodiumEditor.StreamedCharSlice slice = fileIO.readLineSliceByChars(raf, start, sS, Math.max(1, editor.textRender.getInitialStreamedSliceSize()), true);
+                            StreamedCharSlice slice = fileIO.readLineSliceByChars(raf, start, sS, Math.max(1, editor.textRender.getInitialStreamedSliceSize()), true);
                             newWin.add(slice.text); len = slice.length;
                         }
                         newLengths.put(lineIdx, len); newSliceStarts.put(lineIdx, sS);
@@ -130,26 +131,26 @@ public class FileWindowLoader {
 
         if (newWin.isEmpty()) { newWin.add(""); actualStart = 0; }
         if (reachedEof && endsWithNl && !trailingEmpty) newWin.add("");
-        final boolean finalEof = newWin.size() < editor.textRender.windowSize + (editor.textRender.prefetchLines * 2);
+        final boolean finalEof = newWin.size() < editor.windowRender.windowSize + (editor.windowRender.prefetchLines * 2);
         final int fStart = actualStart;
 
         editor.post(() -> {
             fileIO.isWindowLoading = false;
             if (taskVersion != fileIO.ioTaskVersion.get()) { checkAndLoadWindow(); return; }
-            synchronized (editor.textRender.linesWindow) {
-                editor.textRender.linesWindow.clear(); editor.textRender.linesWindow.addAll(newWin);
-                editor.textRender.windowStartLine = fStart; fileIO.isEof = finalEof;
-                synchronized (editor.textRender.modifiedLines) {
-                    for (Map.Entry<Integer, String> entry : editor.textRender.modifiedLines.entrySet()) {
+            synchronized (editor.windowRender.linesWindow) {
+                editor.windowRender.linesWindow.clear(); editor.windowRender.linesWindow.addAll(newWin);
+                editor.windowRender.windowStartLine = fStart; fileIO.isEof = finalEof;
+                synchronized (editor.windowRender.modifiedLines) {
+                    for (Map.Entry<Integer, String> entry : editor.windowRender.modifiedLines.entrySet()) {
                         int line = entry.getKey();
-                        if (line >= fStart && line < fStart + newWin.size()) editor.textRender.linesWindow.set(line - fStart, entry.getValue());
+                        if (line >= fStart && line < fStart + newWin.size()) editor.windowRender.linesWindow.set(line - fStart, entry.getValue());
                     }
                 }
             }
             applyStreamedInfo(newLengths, newSliceStarts);
             editor.lineNumber.invalidateLineNumberCache();
             editor.highlite.invalidateHighlightEnsureRange();
-            if (recalcWidthSync) editor.recalculateMaxLineWidth();
+            if (recalcWidthSync) editor.windowRender.recalculateMaxLineWidth();
             else fileIO.recalculateMaxLineWidthAsync();
             if (editor.wordWrap.isWordWrapEnabled) {
                 if (!editor.wordWrap.shouldSuppressWrapMetricsForFastSelectAll()) {
@@ -164,20 +165,20 @@ public class FileWindowLoader {
     }
 
     private void applyStreamedInfo(SparseIntArray lengths, SparseIntArray starts) {
-        synchronized (editor.textRender.streamedLinesLock) {
-            editor.textRender.streamedLineLengths.clear(); editor.textRender.streamedLineSliceStarts.clear();
+        synchronized (editor.windowRender.streamedLinesLock) {
+            editor.windowRender.streamedLineLengths.clear(); editor.windowRender.streamedLineSliceStarts.clear();
             for (int i = 0; i < lengths.size(); i++) {
                 int key = lengths.keyAt(i);
-                editor.textRender.streamedLineLengths.put(key, lengths.valueAt(i));
-                editor.textRender.streamedLineSliceStarts.put(key, starts.get(key, 0));
+                editor.windowRender.streamedLineLengths.put(key, lengths.valueAt(i));
+                editor.windowRender.streamedLineSliceStarts.put(key, starts.get(key, 0));
             }
         }
-        synchronized (editor.textRender.streamedLinesLockLinesLock) {
-            editor.textRender.streamedLinesLockLineLengths.clear(); editor.textRender.streamedLinesLockLineSliceStarts.clear();
+        synchronized (editor.windowRender.streamedLinesLockLinesLock) {
+            editor.windowRender.streamedLinesLockLineLengths.clear(); editor.windowRender.streamedLinesLockLineSliceStarts.clear();
             for (int i = 0; i < lengths.size(); i++) {
                 int key = lengths.keyAt(i);
-                editor.textRender.streamedLinesLockLineLengths.put(key, lengths.valueAt(i));
-                editor.textRender.streamedLinesLockLineSliceStarts.put(key, starts.get(key, 0));
+                editor.windowRender.streamedLinesLockLineLengths.put(key, lengths.valueAt(i));
+                editor.windowRender.streamedLinesLockLineSliceStarts.put(key, starts.get(key, 0));
             }
         }
     }

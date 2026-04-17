@@ -3,7 +3,7 @@ package com.yn.sodiumeditor.renderer;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.LineNumber;
+import com.yn.sodiumeditor.core.linenumber.LineNumber;
 
 /**
  * Manages bitmap caching for line numbers to improve rendering performance.

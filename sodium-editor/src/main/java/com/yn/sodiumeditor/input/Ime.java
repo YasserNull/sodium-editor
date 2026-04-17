@@ -48,7 +48,7 @@ public class Ime {
   }
 
   public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
-    if (editor.isDisabled || editor.isReadOnly) return null;
+    if (editor.view.isDisabled || editor.view.isReadOnly) return null;
     
     outAttrs.inputType =
         EditorInfo.TYPE_CLASS_TEXT
@@ -180,7 +180,7 @@ public class Ime {
       if (now - lastImeCommitUptime < 700 && str.trim().isEmpty()) {
         int[] bounds = getWordBoundsAtCursor();
         if (bounds != null) {
-          String line = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
+          String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
           if (line != null && bounds[0] < bounds[1] && bounds[1] <= line.length()) {
             String word = line.substring(bounds[0], bounds[1]);
             if (!word.isEmpty() && lastImeCommitText.startsWith(word)) {
@@ -303,7 +303,7 @@ public class Ime {
   // --- End of methods called by SodiumInputConnection ---
 
   public void updateImeSelection() {
-    if (editor.isDisabled || editor.isReadOnly) return;
+    if (editor.view.isDisabled || editor.view.isReadOnly) return;
     if (!editor.isFocused()) return;
     InputMethodManager imm = (InputMethodManager) editor.getContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
     if (imm == null || !imm.isActive(editor)) return;
@@ -345,17 +345,17 @@ public class Ime {
   }
 
   public void replaceComposingWith(CharSequence textSeq) {
-    if (editor.isReadOnly) return;
+    if (editor.view.isReadOnly) return;
     editor.fileIO.invalidatePendingIOForEdit();
     editor.editOperators.editVersion.incrementAndGet();
     editor.fileIO.ensureLineInWindow(composingLine, true);
-    if (editor.fileIO.isWindowLoading && (composingLine < editor.textRender.windowStartLine || composingLine >= editor.textRender.windowStartLine + editor.textRender.linesWindow.size())) {
+    if (editor.fileIO.isWindowLoading && (composingLine < editor.windowRender.windowStartLine || composingLine >= editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size())) {
       editor.post(() -> replaceComposingWith(textSeq));
       return;
     }
-    int local = composingLine - editor.textRender.windowStartLine;
-    synchronized (editor.textRender.linesWindow) {
-      String base = editor.getLineFromWindowLocal(local);
+    int local = composingLine - editor.windowRender.windowStartLine;
+    synchronized (editor.windowRender.linesWindow) {
+      String base = editor.windowRender.getLineFromWindowLocal(local);
       if (base == null) base = "";
       int start = Math.max(0, Math.min(composingOffset, base.length()));
       int end = Math.max(0, Math.min(composingOffset + composingLength, base.length()));
@@ -376,18 +376,18 @@ public class Ime {
         }
       }
       String newLine = base.substring(0, start) + textSeq + base.substring(end);
-      editor.updateLocalLine(local, newLine);
-      editor.textRender.modifiedLines.put(composingLine, newLine);
+      editor.view.updateLocalLine(local, newLine);
+      editor.windowRender.modifiedLines.put(composingLine, newLine);
       editor.wordWrap.onLineContentChanged(composingLine, newLine);
-      editor.clearStreamedLineInfo(composingLine);
+      editor.windowRender.clearStreamedLineInfo(composingLine);
       editor.highlite.invalidateHighlightCacheForLine(composingLine);
       editor.lineNumber.invalidateLineNumberCache();
       composingLength = textSeq.length();
       editor.cursor.cursorLine = composingLine;
       editor.cursor.cursorChar = composingOffset + composingLength;
-      editor.computeWidthForLine(composingLine, newLine);
-      editor.recalculateMaxLineWidth();
-      editor.invalidateLineGlobal(composingLine);
+      editor.view.computeWidthForLine(composingLine, newLine);
+      editor.windowRender.recalculateMaxLineWidth();
+      editor.view.invalidateLineGlobal(composingLine);
       editor.scroll.keepCursorVisibleHorizontally();
       editor.invalidate();
     }
@@ -460,11 +460,11 @@ public class Ime {
     String insert = textSeq.toString();
     if (insert.isEmpty()) return false;
     if (editor.selection.hasSelection) { editor.selection.replaceSelectionWithText(insert); return true; }
-    String line = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
+    String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
     if (line == null || line.isEmpty()) return false;
     int pos = Math.max(0, Math.min(editor.cursor.cursorChar, line.length()));
     if (pos == line.length()) pos = Math.max(0, pos - 1);
-    int[] bounds = editor.computeWordBounds(line, pos);
+    int[] bounds = editor.view.computeWordBounds(line, pos);
     if (bounds[0] == bounds[1]) return false;
     editor.selection.setSelectionInternal(editor.cursor.cursorLine, bounds[0], editor.cursor.cursorLine, bounds[1]);
     editor.selection.replaceSelectionWithText(insert);
@@ -482,7 +482,7 @@ public class Ime {
     for (int i = 0; i < core.length(); i++) if (Character.isWhitespace(core.charAt(i))) return false;
     int[] bounds = getWordBoundsAtCursor();
     if (bounds == null) return false;
-    String line = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
+    String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
     if (line == null || bounds[0] >= bounds[1] || bounds[1] > line.length()) return false;
     String word = line.substring(bounds[0], bounds[1]);
     if (word.isEmpty() || word.equals(core)) return false;
@@ -496,12 +496,12 @@ public class Ime {
 
   @Nullable
   public int[] getWordBoundsAtCursor() {
-    String line = editor.textRender.getLineTextForRender(editor.cursor.cursorLine);
+    String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
     if (line == null || line.isEmpty()) return null;
     int pos = Math.max(0, Math.min(editor.cursor.cursorChar, line.length()));
     if (pos == line.length() && pos > 0) pos--;
     if (pos < 0 || pos >= line.length() || Character.isWhitespace(line.charAt(pos))) return null;
-    return editor.computeWordBounds(line, pos);
+    return editor.view.computeWordBounds(line, pos);
   }
 
   public void setImeExtractedTextMonitor(boolean enabled) { this.imeExtractedTextMonitor = enabled; }
@@ -524,7 +524,11 @@ public class Ime {
   }
 
   public void showKeyboard() {
-    InputMethodManager imm = (InputMethodManager) editor.getContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+    if (editor.view.isReadOnly) return;
+    editor.requestFocus();
+    InputMethodManager imm =
+        (InputMethodManager)
+            editor.getContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
     if (imm != null) imm.showSoftInput(editor, 0);
   }
 }

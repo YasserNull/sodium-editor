@@ -1,7 +1,7 @@
 package com.yn.sodiumeditor.utils;
 
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.LineNumber;
+import com.yn.sodiumeditor.core.linenumber.LineNumber;
 
 /**
  * Utility methods for gutter calculations and formatting.
@@ -39,7 +39,7 @@ public class GutterUtils {
 
     public float calculateGutterWidth() {
         if (!lineNumber.showLineNumbers) return 0f;
-        int total = editor.getLinesCount();
+        int total = editor.view.getLinesCount();
         String maxLineNum = String.valueOf(Math.max(1, total));
         float baseWidth = lineNumber.lineNumbersPaint.measureText(maxLineNum) + (LineNumber.GUTTER_TEXT_PADDING * 2);
         float foldMarkerGutterWidth = 0f;

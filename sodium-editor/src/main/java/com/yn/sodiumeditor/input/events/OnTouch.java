@@ -7,8 +7,8 @@ import android.graphics.RectF;
 import android.util.Log;
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.CodeFold;
-import com.yn.sodiumeditor.core.Popup;
+import com.yn.sodiumeditor.core.fold.CodeFold;
+import com.yn.sodiumeditor.core.scroll.Popup;
 
 /**
  * OnTouch handles all touch event logic for SodiumEditor by delegating to specialized handlers.
@@ -16,6 +16,14 @@ import com.yn.sodiumeditor.core.Popup;
 public class OnTouch {
 
   private final SodiumEditor editor;
+  public boolean pointerDown = false;
+  public boolean movedSinceDown = false;
+  public float downX = 0f, downY = 0f;
+  public final int touchSlop;
+  public boolean multiTouchActive = false;
+  public boolean hadMultiTouch = false;
+  public float lastTouchX = 0f, lastTouchY = 0f;
+
   private final ScrollBarHandler scrollBarHandler;
   private final PopupInteractionHandler popupHandler;
   private final DragSelectionHandler dragSelectionHandler;
@@ -23,6 +31,7 @@ public class OnTouch {
 
   public OnTouch(SodiumEditor editor) {
     this.editor = editor;
+    this.touchSlop = android.view.ViewConfiguration.get(editor.getContext()).getScaledTouchSlop();
     this.scrollBarHandler = new ScrollBarHandler(editor);
     this.popupHandler = new PopupInteractionHandler(editor);
     this.dragSelectionHandler = new DragSelectionHandler(editor);
@@ -34,7 +43,7 @@ public class OnTouch {
   }
 
   public boolean onTouchEvent(MotionEvent event) {
-    if (editor.isDisabled) return true;
+    if (editor.view.isDisabled) return true;
 
     int action = event.getActionMasked();
     int pointerCount = event.getPointerCount();
@@ -52,29 +61,29 @@ public class OnTouch {
       return true;
     }
 
-    if (editor.hadMultiTouch && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL)) {
-      editor.pointerDown = false;
+    if (editor.onTouch.hadMultiTouch && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL)) {
+      editor.onTouch.pointerDown = false;
       editor.selectionHandles.draggingHandle = 0;
       editor.selection.selecting = false;
       editor.selection.isLineNumberSelecting = false;
       editor.selection.lineNumberSelectAnchorLine = -1;
-      editor.caret.mainHandler.removeCallbacks(editor.autoScrollRunnable);
+      editor.caret.mainHandler.removeCallbacks(editor.scroll.autoScrollRunnable);
       editor.scroll.dragMaxScrollX = -1f;
       return true;
     }
 
     float ex = event.getX(), ey = event.getY();
-    editor.lastTouchX = ex;
-    editor.lastTouchY = ey;
+    editor.onTouch.lastTouchX = ex;
+    editor.onTouch.lastTouchY = ey;
 
     switch (action) {
       case MotionEvent.ACTION_DOWN:
         editor.caret.resetBlink();
         if (!editor.isFocused()) editor.requestFocus();
-        editor.pointerDown = true;
-        editor.downX = ex;
-        editor.downY = ey;
-        editor.movedSinceDown = false;
+        editor.onTouch.pointerDown = true;
+        editor.onTouch.downX = ex;
+        editor.onTouch.downY = ey;
+        editor.onTouch.movedSinceDown = false;
         editor.autoCompletion.suggestionAcceptedThisTouch = false;
         editor.scroll.dragMaxScrollX = editor.wordWrap.isWordWrapEnabled ? -1f : editor.scroll.getMaxScrollXForClamp();
 
@@ -96,8 +105,8 @@ public class OnTouch {
 
       case MotionEvent.ACTION_MOVE:
         if (editor.scroll.flingStopAnimator != null) editor.scroll.cancelFlingStopAnimation();
-        if (Math.abs(ex - editor.downX) > editor.touchSlop || Math.abs(ey - editor.downY) > editor.touchSlop)
-          editor.movedSinceDown = true;
+        if (Math.abs(ex - editor.onTouch.downX) > editor.onTouch.touchSlop || Math.abs(ey - editor.onTouch.downY) > editor.onTouch.touchSlop)
+          editor.onTouch.movedSinceDown = true;
 
         if (scrollBarHandler.handleActionMove(event)) return true;
         if (popupHandler.handleActionMove(event)) return true;
@@ -124,7 +133,7 @@ public class OnTouch {
         if (editor.selection.isLineNumberSelecting) {
           editor.lineNumber.endLineNumberSelection();
           editor.selection.selecting = false;
-          editor.pointerDown = false;
+          editor.onTouch.pointerDown = false;
           if (editor.selection.hasSelection) editor.popup.showPopupAtSelection();
           return true;
         }
@@ -138,10 +147,10 @@ public class OnTouch {
         // Handle Suggestion Tap
         if (handleSuggestionTap(ex, ey)) return true;
 
-        editor.pointerDown = false;
+        editor.onTouch.pointerDown = false;
         editor.selection.selecting = false;
 
-        if (editor.movedSinceDown && editor.scroll.scroller.isFinished()) {
+        if (editor.onTouch.movedSinceDown && editor.scroll.scroller.isFinished()) {
           if (editor.selection.hasSelection) editor.popup.showPopupAtSelection();
           editor.view.restartInput();
           if (editor.wordWrap.isWordWrapEnabled && editor.wordWrap.wrapPrefixRebuildPending && !editor.wordWrap.wrapPrefixBuilding) {
@@ -158,7 +167,7 @@ public class OnTouch {
         dragSelectionHandler.handleActionUpOrCancel();
         scrollBarHandler.handleActionUpOrCancel();
         popupHandler.handleActionCancel();
-        editor.pointerDown = false;
+        editor.onTouch.pointerDown = false;
         editor.selection.selecting = false;
         editor.selection.endLongPressSelection();
         editor.selection.isLineNumberSelecting = false;
@@ -177,15 +186,15 @@ public class OnTouch {
 
   private boolean handleSuggestionTap(float ex, float ey) {
     com.yn.sodiumeditor.io.EditOp.CursorTarget target = editor.wordWrap.getCursorTargetForPosition(ex, ey, null);
-    String ln = editor.textRender.getLineTextForRender(target.line);
+    String ln = editor.windowRender.getLineTextForRender(target.line);
     int charIndex = Math.max(0, Math.min(target.ch, (ln == null) ? 0 : ln.length()));
     boolean isEmptyArea = (ln == null || ln.isEmpty() || charIndex >= ln.length());
 
     boolean allowSuggestionTap = editor.autoCompletion.activeSuggestionIsPath ? editor.autoPathCompletion.isAutoPathCompletionEnabled : editor.autoCompletion.isAutoCompletionEnabled;
-    if (!editor.movedSinceDown && allowSuggestionTap && editor.autoCompletion.activeSuggestion != null && !editor.autoCompletion.activeSuggestionRect.isEmpty()) {
+    if (!editor.onTouch.movedSinceDown && allowSuggestionTap && editor.autoCompletion.activeSuggestion != null && !editor.autoCompletion.activeSuggestionRect.isEmpty()) {
       if (editor.autoCompletion.activeSuggestionRect.contains(ex, ey) || (isEmptyArea && target.line == editor.cursor.cursorLine)) {
         editor.autoCompletion.acceptAutoCompletion();
-        editor.pointerDown = false;
+        editor.onTouch.pointerDown = false;
         return true;
       }
     }

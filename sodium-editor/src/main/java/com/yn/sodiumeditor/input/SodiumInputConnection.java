@@ -31,31 +31,31 @@ public class SodiumInputConnection extends BaseInputConnection {
 
     @Override
     public ExtractedText getExtractedText(ExtractedTextRequest request, int flags) {
-        if (editor.isDisabled || editor.isReadOnly) return null;
+        if (editor.view.isDisabled || editor.view.isReadOnly) return null;
         return ime.onGetExtractedText(request, flags);
     }
 
     @Override
     public CharSequence getTextBeforeCursor(int length, int flags) {
-        if (editor.isDisabled || editor.isReadOnly) return "";
+        if (editor.view.isDisabled || editor.view.isReadOnly) return "";
         return ime.scanner.getImeTextBeforeCursor(length);
     }
 
     @Override
     public CharSequence getTextAfterCursor(int length, int flags) {
-        if (editor.isDisabled || editor.isReadOnly) return "";
+        if (editor.view.isDisabled || editor.view.isReadOnly) return "";
         return ime.scanner.getImeTextAfterCursor(length);
     }
 
     @Override
     public CharSequence getSelectedText(int flags) {
-        if (editor.isDisabled || editor.isReadOnly) return "";
+        if (editor.view.isDisabled || editor.view.isReadOnly) return "";
         return editor.selection.getSelectedText();
     }
 
     @Override
     public SurroundingText getSurroundingText(int beforeLength, int afterLength, int flags) {
-        if (editor.isDisabled || editor.isReadOnly) return null;
+        if (editor.view.isDisabled || editor.view.isReadOnly) return null;
         int before = Math.max(0, beforeLength);
         int after = Math.max(0, afterLength);
         ImeContext ctx = ime.scanner.buildImeContext(before, after);
@@ -87,40 +87,40 @@ public class SodiumInputConnection extends BaseInputConnection {
 
     @Override
     public boolean setSelection(int start, int end) {
-        if (editor.isDisabled || editor.isReadOnly) return true;
+        if (editor.view.isDisabled || editor.view.isReadOnly) return true;
         return ime.onSetSelection(start, end);
     }
 
     @Override
     public boolean setComposingRegion(int start, int end) {
-        if (editor.isDisabled || editor.isReadOnly) return true;
+        if (editor.view.isDisabled || editor.view.isReadOnly) return true;
         return ime.onSetComposingRegion(start, end);
     }
 
     @Override
     public boolean finishComposingText() {
-        if (editor.isDisabled || editor.isReadOnly) return true;
+        if (editor.view.isDisabled || editor.view.isReadOnly) return true;
         ime.onFinishComposingText();
         return true;
     }
 
     @Override
     public boolean commitCompletion(CompletionInfo text) {
-        if (editor.isDisabled || editor.isReadOnly) return true;
+        if (editor.view.isDisabled || editor.view.isReadOnly) return true;
         if (text == null || text.getText() == null) return true;
         return ime.onCommitCompletion(text.getText());
     }
 
     @Override
     public boolean commitCorrection(CorrectionInfo correctionInfo) {
-        if (editor.isDisabled || editor.isReadOnly) return true;
+        if (editor.view.isDisabled || editor.view.isReadOnly) return true;
         if (correctionInfo == null || correctionInfo.getNewText() == null) return true;
         return ime.onCommitCorrection(correctionInfo.getNewText());
     }
 
     @Override
     public boolean commitText(CharSequence text, int newCursorPosition) {
-        if (editor.isDisabled || editor.isReadOnly) return true;
+        if (editor.view.isDisabled || editor.view.isReadOnly) return true;
         if (editor.zoom.isZoomGestureActive()) return true;
         if (text == null) return super.commitText(text, newCursorPosition);
         return ime.onCommitText(text, newCursorPosition);
@@ -128,7 +128,7 @@ public class SodiumInputConnection extends BaseInputConnection {
 
     @Override
     public boolean setComposingText(CharSequence text, int newCursorPosition) {
-        if (editor.isDisabled || editor.isReadOnly) return true;
+        if (editor.view.isDisabled || editor.view.isReadOnly) return true;
         if (editor.zoom.isZoomGestureActive()) return true;
         if (text == null) return true;
         return ime.onSetComposingText(text, newCursorPosition);
@@ -136,7 +136,7 @@ public class SodiumInputConnection extends BaseInputConnection {
 
     @Override
     public boolean deleteSurroundingText(int beforeLength, int afterLength) {
-        if (editor.isDisabled || editor.isReadOnly) return true;
+        if (editor.view.isDisabled || editor.view.isReadOnly) return true;
         if (editor.zoom.isZoomGestureActive()) return true;
         return ime.onDeleteSurroundingText(beforeLength, afterLength);
     }

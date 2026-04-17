@@ -45,8 +45,8 @@ public class ByteRangeLocator {
             String startLineText = editor.fileIO.readLineUtf8AtByte(raf, startLineByte);
             String endLineText = (eL == sL) ? startLineText : editor.fileIO.readLineUtf8AtByte(raf, endLineByte);
 
-            long startByte = startLineByte + editor.computeByteOffsetInLineUtf8(startLineText, sC);
-            long endByte = endLineByte + editor.computeByteOffsetInLineUtf8(endLineText, eC);
+            long startByte = startLineByte + editor.view.computeByteOffsetInLineUtf8(startLineText, sC);
+            long endByte = endLineByte + editor.view.computeByteOffsetInLineUtf8(endLineText, eC);
 
             return new EditOp.RangeBytes(startByte, endByte);
         } catch (Exception ignore) {
@@ -71,8 +71,8 @@ public class ByteRangeLocator {
             String startLineText = editor.fileIO.readLineUtf8AtByte(raf, startLineByte);
             String endLineText = (eL == sL) ? startLineText : editor.fileIO.readLineUtf8AtByte(raf, endLineByte);
 
-            long startByte = startLineByte + editor.computeByteOffsetInLineUtf8(startLineText, sC);
-            long endByte = endLineByte + editor.computeByteOffsetInLineUtf8(endLineText, eC);
+            long startByte = startLineByte + editor.view.computeByteOffsetInLineUtf8(startLineText, sC);
+            long endByte = endLineByte + editor.view.computeByteOffsetInLineUtf8(endLineText, eC);
 
             return new EditOp.RangeBytes(startByte, endByte);
         } catch (Exception e) {

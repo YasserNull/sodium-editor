@@ -26,10 +26,10 @@ public class WordWrapUtils {
         int len = line.length();
         float[] widths;
         if (useSharedBuffer) {
-            if (editor.textRender.measureWidthBuffer == null || editor.textRender.measureWidthBuffer.length < len) {
-                editor.textRender.measureWidthBuffer = new float[len];
+            if (editor.view.measureWidthBuffer == null || editor.view.measureWidthBuffer.length < len) {
+                editor.view.measureWidthBuffer = new float[len];
             }
-            widths = editor.textRender.measureWidthBuffer;
+            widths = editor.view.measureWidthBuffer;
         } else { widths = new float[len]; }
 
         p.getTextWidths(line, 0, len, widths);
@@ -57,7 +57,7 @@ public class WordWrapUtils {
     }
 
     private boolean shouldUseBreakTextWrap(String line) {
-        return editor.getVisualSpaceScale() == 1 && line.indexOf('\t') < 0;
+        return editor.textRender.getVisualSpaceScale() == 1 && line.indexOf('\t') < 0;
     }
 
     public int[] computeWrapStartsWithBreakText(String line, int widthPx, Paint p) {
@@ -83,10 +83,10 @@ public class WordWrapUtils {
     }
 
     private float getCharAdvanceWidth(char c, float measuredWidth, Paint p) {
-        if (c == ' ') return editor.getVisualSpaceScale() != 1 ? measuredWidth * editor.getVisualSpaceScale() : measuredWidth;
+        if (c == ' ') return editor.textRender.getVisualSpaceScale() != 1 ? measuredWidth * editor.textRender.getVisualSpaceScale() : measuredWidth;
         if (c == '\t') {
             float tabWidth = measuredWidth * TextRender.DEFAULT_TAB_SIZE_SPACES;
-            return editor.getVisualSpaceScale() != 1 ? tabWidth * editor.getVisualSpaceScale() : tabWidth;
+            return editor.textRender.getVisualSpaceScale() != 1 ? tabWidth * editor.textRender.getVisualSpaceScale() : tabWidth;
         }
         return measuredWidth;
     }

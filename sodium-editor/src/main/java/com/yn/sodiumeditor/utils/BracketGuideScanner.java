@@ -1,9 +1,9 @@
 package com.yn.sodiumeditor.utils;
 
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.BracketGuideState;
-import com.yn.sodiumeditor.core.BracketGuideToken;
-import com.yn.sodiumeditor.core.Highlite;
+import com.yn.sodiumeditor.core.guides.bracket.BracketGuideState;
+import com.yn.sodiumeditor.core.guides.bracket.BracketGuideToken;
+import com.yn.sodiumeditor.core.highlight.Highlite;
 import com.yn.sodiumeditor.renderer.draw.BracketGuideDraw;
 import java.util.ArrayList;
 import java.util.List;
@@ -89,9 +89,9 @@ public class BracketGuideScanner {
       String line, int globalLine, BracketGuideState state) {
     if (line == null) line = "";
     int length = line.length();
-    int firstNonSpace = editor.getFirstNonSpaceIndex(line);
+    int firstNonSpace = com.yn.sodiumeditor.utils.TextUtils.getFirstNonSpaceIndex(line);
 
-    if (state.stringState != 0 && !editor.highlite.isMultiLineStringsEnabled && state.stringState != Highlite.STRING_STATE_TRIPLE) {
+    if (state.stringState != 0 && !editor.highlite.isMultiLineStringsEnabled && state.stringState != com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_TRIPLE) {
       state.stringState = 0;
     }
 
@@ -112,7 +112,8 @@ public class BracketGuideScanner {
       }
 
       if (state.stringState != 0) {
-        SodiumEditor.StringEndResult endResult = editor.highlite.findStringEndForState(line, i, state.stringState);
+        com.yn.sodiumeditor.core.StringEndResult endResult =
+            editor.highlite.findStringEndForState(line, i, state.stringState);
         if (!endResult.found) {
           i = length;
           break;
@@ -145,7 +146,7 @@ public class BracketGuideScanner {
         int end = Highlite.findTripleQuoteEnd(line, i + 3);
         if (end < 0) {
           if (editor.highlite.isTripleQuoteStringsEnabled) {
-            state.stringState = SodiumEditor.STRING_STATE_TRIPLE;
+            state.stringState = com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_TRIPLE;
           }
           break;
         }
@@ -158,7 +159,7 @@ public class BracketGuideScanner {
         int end = Highlite.findStringEnd(line, i + 1, c);
         if (end < 0) {
           if (editor.highlite.isMultiLineStringsEnabled) {
-            state.stringState = editor.getStringStateForDelimiter(c);
+            state.stringState = editor.highlite.getStringStateForDelimiter(c);
           }
           break;
         }
@@ -168,7 +169,7 @@ public class BracketGuideScanner {
 
       if ((c == '{' || c == '}' || c == '(' || c == ')' || c == '[' || c == ']') && !Highlite.isEscaped(line, i)) {
         if (c == '{' || c == '(' || c == '[') {
-          int column = (c == '{') ? editor.getBraceGuideColumnForLine(line, globalLine, i, firstNonSpace) : i;
+          int column = (c == '{') ? editor.view.getBraceGuideColumnForLine(line, globalLine, i, firstNonSpace) : i;
           float x = bracketGuideDraw.getGuideX(line, column, globalLine);
           state.stack.push(new BracketGuideToken(column, x, c));
         } else {
@@ -192,9 +193,9 @@ public class BracketGuideScanner {
   public void scanLineForSpans(String line, int globalLine, BracketSpanScanState state, SpanCollector collector) {
     if (line == null) line = "";
     int length = line.length();
-    int firstNonSpace = editor.getFirstNonSpaceIndex(line);
+    int firstNonSpace = com.yn.sodiumeditor.utils.TextUtils.getFirstNonSpaceIndex(line);
 
-    if (state.stringState != 0 && !editor.highlite.isMultiLineStringsEnabled && state.stringState != Highlite.STRING_STATE_TRIPLE) {
+    if (state.stringState != 0 && !editor.highlite.isMultiLineStringsEnabled && state.stringState != com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_TRIPLE) {
       state.stringState = 0;
     }
 
@@ -213,7 +214,8 @@ public class BracketGuideScanner {
       }
 
       if (state.stringState != 0) {
-        SodiumEditor.StringEndResult endResult = editor.highlite.findStringEndForState(line, i, state.stringState);
+        com.yn.sodiumeditor.core.StringEndResult endResult =
+            editor.highlite.findStringEndForState(line, i, state.stringState);
         if (!endResult.found) {
           i = length;
           break;
@@ -246,7 +248,7 @@ public class BracketGuideScanner {
         int end = Highlite.findTripleQuoteEnd(line, i + 3);
         if (end < 0) {
           if (editor.highlite.isTripleQuoteStringsEnabled) {
-            state.stringState = SodiumEditor.STRING_STATE_TRIPLE;
+            state.stringState = com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_TRIPLE;
           }
           break;
         }
@@ -259,7 +261,7 @@ public class BracketGuideScanner {
         int end = Highlite.findStringEnd(line, i + 1, c);
         if (end < 0) {
           if (editor.highlite.isMultiLineStringsEnabled) {
-            state.stringState = editor.getStringStateForDelimiter(c);
+            state.stringState = editor.highlite.getStringStateForDelimiter(c);
           }
           break;
         }
@@ -279,7 +281,7 @@ public class BracketGuideScanner {
         if (c == '{' || c == '(' || c == '[') {
           int column;
           if (c == '{') {
-            column = editor.getBraceGuideColumnForLine(line, globalLine, i, firstNonSpace);
+            column = editor.view.getBraceGuideColumnForLine(line, globalLine, i, firstNonSpace);
           } else {
             column = (firstNonSpace >= 0) ? firstNonSpace : i;
           }
@@ -356,12 +358,12 @@ public class BracketGuideScanner {
       String direct = directLines.get(line);
       if (direct != null) return direct;
     }
-    String mod = editor.textRender.modifiedLines.get(line);
+    String mod = editor.windowRender.modifiedLines.get(line);
     if (mod != null) return mod;
-    int winStart = editor.textRender.windowStartLine;
-    int winEnd = winStart + editor.textRender.linesWindow.size();
+    int winStart = editor.windowRender.windowStartLine;
+    int winEnd = winStart + editor.windowRender.linesWindow.size();
     if (line >= winStart && line < winEnd) {
-      String w = editor.getLineFromWindowLocal(line - winStart);
+      String w = editor.windowRender.getLineFromWindowLocal(line - winStart);
       if (w != null) return w;
     }
     if (raf != null && editor.fileIO.isIndexReady) {
