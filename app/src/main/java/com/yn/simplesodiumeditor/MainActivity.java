@@ -1,751 +1,1520 @@
 package com.yn.simplesodiumeditor;
 
-import android.Manifest;
-import android.app.AlertDialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Intent;
-import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Process;
+import android.provider.OpenableColumns;
 import android.provider.Settings;
-import android.text.InputType;
-import android.view.Gravity;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.TextView;
 import android.widget.Toast;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.function.Consumer;
-import java.util.function.IntConsumer;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-
-import com.yn.sodiumeditor.view.SodiumEditorView;
-
+import com.yn.sodiumeditor.SodiumEditor;
 import java.io.File;
+import java.util.Arrays;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final int STORAGE_PERMISSION_CODE = 101;
-    private SodiumEditorView editor;
-    private ActivityResultLauncher<Intent> storagePermissionLauncher;
-    private boolean wordWrapEnabled = false;
-    private boolean autoCompletionEnabled = true;
-    private boolean autoPathCompletionEnabled = true;
-    private boolean readOnlyEnabled = false;
-    private boolean urlUnderliningEnabled = false;
-    private boolean pathUnderliningEnabled = false;
-    private boolean whitespaceGuidesEnabled = false;
-    private int whitespaceGuidesColor = 0xFF7A7A7A;
-    private int whitespaceGuidesStep = 2;
-    private boolean stableGlyphPositionsEnabled = true;
-    private boolean cursorAnimationEnabled = true;
-    private boolean charAnimationEnabled = true;
-    private int charAnimationDurationMs = 100;
-    private boolean colorCodeHighlightingEnabled = false;
-    private boolean smoothScrollEffectEnabled = false;
-    private int maxSyntaxLineLength = 100;
-    private int prefetchCols = 100;
-    private int colsCacheSize = 100;
-    private int windowSize = 100;
-    private int prefetchLines = 100;
-    private int lineCacheSize = 100;
-    private int renderWindow = 100;
-    private int renderPrefetch = 100;
-    private boolean deferWrapReflowDuringZoom = true;
-    private boolean layoutRtl = false;
-    private boolean zoomEnabledState = true;
-    private float zoomMinTextSize = 8f;
-    private float zoomMaxTextSize = 45f;
-    private float zoomStepClampValue = 0.02f;
-    private float zoomFocusSmoothing = 0f;
-    private float zoomScaleSmoothing = 0.02f;
-    private boolean zoomLockToInitialFocus = false;
-    private boolean hideDecorationsWhileZooming = false;
-    private int scrollMode = SodiumEditorView.SCROLL_MODE_FREE;
-    private float scrollSensitivity = 1.2f;
-    private float flingSensitivity = 0.8f;
+  private SodiumEditor editor;
+  private ActivityResultLauncher<Intent> openFileLauncher;
+  private ActivityResultLauncher<Intent> manageStorageLauncher;
+  private ActivityResultLauncher<String[]> requestPermissionLauncher;
+  private int currentScrollMode = 2; // SCROLL_MODE_FREE
+  private Uri pendingUri = null;
 
-    @Override
-    protected void onCreate(@Nullable Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+  @Override
+  protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    setContentView(R.layout.activity_main);
 
-        // Launcher for MANAGE_EXTERNAL_STORAGE
-        storagePermissionLauncher = registerForActivityResult(
-                new ActivityResultContracts.StartActivityForResult(),
-                result -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        if (Environment.isExternalStorageManager()) {
-                            loadFile();
-                        } else {
-                            Toast.makeText(this, "All Files Access permission denied.", Toast.LENGTH_LONG).show();
-                        }
-                    }
-                });
+    editor = findViewById(R.id.editor);
+    Button openFileBtn = findViewById(R.id.openFileBtn);
+    Button settingsBtn = findViewById(R.id.settingsBtn);
+    Button copyLogBtn = findViewById(R.id.copyLogBtn);
 
-        setContentView(R.layout.activity_main);
-
-        Button gotoBtn = findViewById(R.id.gotoBtn);
-        Button settingsBtn = findViewById(R.id.settingsBtn);
-        editor = findViewById(R.id.editor);
-
-        gotoBtn.setOnClickListener(v -> {
-            showGotoDialog();
-        });
-
-        settingsBtn.setOnClickListener(v -> showSettingsDialog());
-        editor.setBackgroundColor(0xFF000000);
-        editor.setTextColor(0xFFFFFFFF);
-        editor.setGutterBackgroundColor(0xFF000000);
-       editor.setTextSize(16f);
-        editor.setStableGlyphPositionsEnabled(stableGlyphPositionsEnabled);
-        editor.setWindowSize(100);
-//editor.setWordWrapEnabled(true);
-editor.setShowLineNumbers(true);
-        editor.setPrefetchLines(100);
-editor.setLineWidthCacheSize(100);
-editor.setBinarySafeRenderingEnabled(true);
-//editor.setFileEncoding("ISO-8859-1"); // ثابت
- editor.setPrefetchCols(100);      // شبيه
-//editor.setFlingBounceEnabled(true); 
-  editor.setColsWidthCacheSize(100); // كاش متوسط
- 
-//  editor.setMaxSyntaxLineLength(10000); //
-editor.setGutterSeparatorWidth(2);
-editor.setHighlightCurrentLine(true);
-//editor.setColorHighlightingEnabled(true); 
-//editor.setFlingBounceDistancePx(120); // أو
-//  editor.setFlingBounceDistanceFactor(0.2f);
-editor.setScrollBarEnabled(true);
-editor.setScrollBarHaloColor(0x66FFFFFF);   //
-//  لون الهالة
-  editor.setScrollBarHaloSizePx(12f);         //
-//  حجم الهالة
-  editor.setScrollBarFadeEnabled(true);       //
-  //تفعيل الإخفاء
-  editor.setScrollBarFadeDelayMs(1000);       //
-//  التأخير قبل الإخفاء
-  editor.setScrollBarFadeDurationMs(200);     //
-editor.setScrollBarMarginPx(30f);
-editor.setScrollBarCornerRadiusPx(4f);
-  editor.setScrollBarColor(0xFF0000FF);
-  editor.setScrollBarWidthPx(20f);
-  editor.setScrollBarMinThumbPx(85f);
-editor.setStretchOverscrollEnabled(true);
-  editor.setStretchOverscrollStrength(1.0f);
-editor.setZoomTextSizeRange(8f,45f);
-editor.setZoomEnabled(true);
-editor.setClickAfterEndToAddLineEnabled(true);
-//editor.setEdgeEffectEnabled(true);
-//  editor.setEdgeEffectColor(0xFFFFFFFF);
-//  editor.setEdgeEffectStrength(1.5f);
-editor.setDeferWordWrapReflowDuringZoom(true);
-        editor.setCursorAnimationEnabled(cursorAnimationEnabled);
-        editor.setCharAnimation(charAnimationEnabled, charAnimationDurationMs);
-//        editor.setColorCodeHighlightingEnabled(colorCodeHighlightingEnabled);
-//        editor.setSmoothScrollEffectEnabled(smoothScrollEffectEnabled);
-editor.setZoomScaleSmoothing(0.02f);
-editor.setZoomFocusSmoothing(0.0f);
-editor.setZoomLockToInitialFocus(false);
-//editor.setZoomDebugLoggingEnabled(true);
-editor.setDeferWordWrapReflowDuringZoom(true);
-editor.setZoomEnabled(true);
-//editor.setSmoothScrollEffectBlurEnabled(true);
-//editor.setPerformanceModeEnabled(true);
-//editor.setBinaryModeEnabled(true);
-        editor.setAutoPairingEnabled(true);
-        editor.setAutoBracketNewlineEnabled(true);
-        editor.setAutoCompletionEnabled(autoCompletionEnabled);
-        editor.setAutoPathCompletionEnabled(autoPathCompletionEnabled);
-        editor.setWhitespaceGuidesEnabled(whitespaceGuidesEnabled);
-        editor.setWhitespaceGuidesColor(whitespaceGuidesColor);
-        editor.setWhitespaceGuidesSpaceStep(whitespaceGuidesStep);
-        editor.setReadOnly(readOnlyEnabled);
-        editor.setLayoutDirection(layoutRtl);
-
-//editor.setScrollMode(SodiumEditorView.SCROLL_MODE_SINGLE_AXIS);
-//editor.setScrollMode(SodiumEditorView.SCROLL_MODE_GRID);
-editor.setScrollMode(scrollMode);
-  editor.setScrollSensitivity(scrollSensitivity);
-  editor.setFlingSensitivity(flingSensitivity);
-
-        checkPermissionAndLoadFile();
-    }
-
-    private void showSettingsDialog() {
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(40, 20, 40, 10);
-
-        Button autoCompletionBtn = new Button(this);
-        autoCompletionBtn.setAllCaps(false);
-        autoCompletionBtn.setText(autoCompletionEnabled ? "Auto Completion: ON" : "Auto Completion: OFF");
-        autoCompletionBtn.setOnClickListener(v -> {
-            autoCompletionEnabled = !autoCompletionEnabled;
-            editor.setAutoCompletionEnabled(autoCompletionEnabled);
-            autoCompletionBtn.setText(autoCompletionEnabled ? "Auto Completion: ON" : "Auto Completion: OFF");
-        });
-
-        Button autoPathBtn = new Button(this);
-        autoPathBtn.setAllCaps(false);
-        autoPathBtn.setText(autoPathCompletionEnabled ? "Auto Path: ON" : "Auto Path: OFF");
-        autoPathBtn.setOnClickListener(v -> {
-            autoPathCompletionEnabled = !autoPathCompletionEnabled;
-            editor.setAutoPathCompletionEnabled(autoPathCompletionEnabled);
-            autoPathBtn.setText(autoPathCompletionEnabled ? "Auto Path: ON" : "Auto Path: OFF");
-        });
-
-        Button wrapBtn = new Button(this);
-        wrapBtn.setAllCaps(false);
-        wrapBtn.setText(wordWrapEnabled ? "Wrap: ON" : "Wrap: OFF");
-        wrapBtn.setOnClickListener(v -> {
-            wordWrapEnabled = !wordWrapEnabled;
-            editor.setWordWrapEnabled(wordWrapEnabled);
-            wrapBtn.setText(wordWrapEnabled ? "Wrap: ON" : "Wrap: OFF");
-        });
-
-        Button readOnlyBtn = new Button(this);
-        readOnlyBtn.setAllCaps(false);
-        readOnlyBtn.setText(readOnlyEnabled ? "Read Only: ON" : "Read Only: OFF");
-        readOnlyBtn.setOnClickListener(v -> {
-            readOnlyEnabled = !readOnlyEnabled;
-            editor.setReadOnly(readOnlyEnabled);
-            readOnlyBtn.setText(readOnlyEnabled ? "Read Only: ON" : "Read Only: OFF");
-        });
-
-        Button wrapIndicatorBtn = new Button(this);
-        wrapIndicatorBtn.setAllCaps(false);
-        wrapIndicatorBtn.setText("Wrap Indicator: ON");
-        final boolean[] wrapIndicatorEnabled = {true};
-        wrapIndicatorBtn.setOnClickListener(v -> {
-            wrapIndicatorEnabled[0] = !wrapIndicatorEnabled[0];
-            editor.setWordWrapIndicatorEnabled(wrapIndicatorEnabled[0]);
-            wrapIndicatorBtn.setText(wrapIndicatorEnabled[0] ? "Wrap Indicator: ON" : "Wrap Indicator: OFF");
-        });
-
-        Button wrapIndicatorColorBtn = new Button(this);
-        wrapIndicatorColorBtn.setAllCaps(false);
-        wrapIndicatorColorBtn.setText("Wrap Indicator Color");
-        wrapIndicatorColorBtn.setOnClickListener(v -> showColorDialog("Wrap Indicator Color", color -> editor.setWordWrapIndicatorColor(color)));
-
-        Button deferWrapBtn = new Button(this);
-        deferWrapBtn.setAllCaps(false);
-        deferWrapBtn.setText(deferWrapReflowDuringZoom ? "Defer Wrap Reflow: ON" : "Defer Wrap Reflow: OFF");
-        deferWrapBtn.setOnClickListener(v -> {
-            deferWrapReflowDuringZoom = !deferWrapReflowDuringZoom;
-            editor.setDeferWordWrapReflowDuringZoom(deferWrapReflowDuringZoom);
-            deferWrapBtn.setText(deferWrapReflowDuringZoom ? "Defer Wrap Reflow: ON" : "Defer Wrap Reflow: OFF");
-        });
-
-        Button layoutDirBtn = new Button(this);
-        layoutDirBtn.setAllCaps(false);
-        layoutDirBtn.setText(layoutRtl ? "Layout RTL: ON" : "Layout RTL: OFF");
-        layoutDirBtn.setOnClickListener(v -> {
-            layoutRtl = !layoutRtl;
-            editor.setLayoutDirection(layoutRtl);
-            layoutDirBtn.setText(layoutRtl ? "Layout RTL: ON" : "Layout RTL: OFF");
-        });
-
-        Button urlUnderlineBtn = new Button(this);
-        urlUnderlineBtn.setAllCaps(false);
-        urlUnderlineBtn.setText(urlUnderliningEnabled ? "URL Underline: ON" : "URL Underline: OFF");
-        urlUnderlineBtn.setOnClickListener(v -> {
-            urlUnderliningEnabled = !urlUnderliningEnabled;
-            editor.setUrlUnderliningEnabled(urlUnderliningEnabled);
-            urlUnderlineBtn.setText(urlUnderliningEnabled ? "URL Underline: ON" : "URL Underline: OFF");
-        });
-
-        Button pathUnderlineBtn = new Button(this);
-        pathUnderlineBtn.setAllCaps(false);
-        pathUnderlineBtn.setText(pathUnderliningEnabled ? "Path Underline: ON" : "Path Underline: OFF");
-        pathUnderlineBtn.setOnClickListener(v -> {
-            pathUnderliningEnabled = !pathUnderliningEnabled;
-            editor.setPathUnderliningEnabled(pathUnderliningEnabled);
-            pathUnderlineBtn.setText(pathUnderliningEnabled ? "Path Underline: ON" : "Path Underline: OFF");
-        });
-
-        Button whitespaceGuidesBtn = new Button(this);
-        whitespaceGuidesBtn.setAllCaps(false);
-        whitespaceGuidesBtn.setText(whitespaceGuidesEnabled ? "Whitespace Guides: ON" : "Whitespace Guides: OFF");
-        whitespaceGuidesBtn.setOnClickListener(v -> {
-            whitespaceGuidesEnabled = !whitespaceGuidesEnabled;
-            editor.setWhitespaceGuidesEnabled(whitespaceGuidesEnabled);
-            whitespaceGuidesBtn.setText(whitespaceGuidesEnabled ? "Whitespace Guides: ON" : "Whitespace Guides: OFF");
-        });
-
-        Button whitespaceGuidesColorBtn = new Button(this);
-        whitespaceGuidesColorBtn.setAllCaps(false);
-        whitespaceGuidesColorBtn.setText("Whitespace Guides Color");
-        whitespaceGuidesColorBtn.setOnClickListener(
-                v -> showColorDialog("Whitespace Guides Color", color -> {
-                    whitespaceGuidesColor = color;
-                    editor.setWhitespaceGuidesColor(color);
-                }));
-
-        Button whitespaceGuidesStepBtn = new Button(this);
-        whitespaceGuidesStepBtn.setAllCaps(false);
-        whitespaceGuidesStepBtn.setText("Whitespace Guides Step: " + whitespaceGuidesStep);
-        whitespaceGuidesStepBtn.setOnClickListener(
-                v -> showIntInputDialog("Whitespace Guides Step", whitespaceGuidesStep, val -> {
-                    whitespaceGuidesStep = Math.max(1, val);
-                    editor.setWhitespaceGuidesSpaceStep(whitespaceGuidesStep);
-                    whitespaceGuidesStepBtn.setText("Whitespace Guides Step: " + whitespaceGuidesStep);
-                }));
-
-        Button stableGlyphBtn = new Button(this);
-        stableGlyphBtn.setAllCaps(false);
-        stableGlyphBtn.setText(stableGlyphPositionsEnabled ? "Stable Glyphs: ON" : "Stable Glyphs: OFF");
-        stableGlyphBtn.setOnClickListener(v -> {
-            stableGlyphPositionsEnabled = !stableGlyphPositionsEnabled;
-            editor.setStableGlyphPositionsEnabled(stableGlyphPositionsEnabled);
-            stableGlyphBtn.setText(stableGlyphPositionsEnabled ? "Stable Glyphs: ON" : "Stable Glyphs: OFF");
-        });
-
-        Button cursorAnimBtn = new Button(this);
-        cursorAnimBtn.setAllCaps(false);
-        cursorAnimBtn.setText(cursorAnimationEnabled ? "Cursor Animation: ON" : "Cursor Animation: OFF");
-        cursorAnimBtn.setOnClickListener(v -> {
-            cursorAnimationEnabled = !cursorAnimationEnabled;
-            editor.setCursorAnimationEnabled(cursorAnimationEnabled);
-            cursorAnimBtn.setText(cursorAnimationEnabled ? "Cursor Animation: ON" : "Cursor Animation: OFF");
-        });
-
-        Button charAnimBtn = new Button(this);
-        charAnimBtn.setAllCaps(false);
-        charAnimBtn.setText("Char Animation: " + (charAnimationEnabled ? "ON" : "OFF") + " / " + charAnimationDurationMs + "ms");
-        charAnimBtn.setOnClickListener(v -> showIntInputDialog("Char Animation Duration (ms)", charAnimationDurationMs, val -> {
-            charAnimationEnabled = !charAnimationEnabled;
-            charAnimationDurationMs = Math.max(0, val);
-            editor.setCharAnimation(charAnimationEnabled, charAnimationDurationMs);
-            charAnimBtn.setText("Char Animation: " + (charAnimationEnabled ? "ON" : "OFF") + " / " + charAnimationDurationMs + "ms");
-        }));
-
-        Button colorCodeBtn = new Button(this);
-        colorCodeBtn.setAllCaps(false);
-        colorCodeBtn.setText(colorCodeHighlightingEnabled ? "Color Code Highlight: ON" : "Color Code Highlight: OFF");
-        colorCodeBtn.setOnClickListener(v -> {
-            colorCodeHighlightingEnabled = !colorCodeHighlightingEnabled;
-            editor.setColorCodeHighlightingEnabled(colorCodeHighlightingEnabled);
-            colorCodeBtn.setText(colorCodeHighlightingEnabled ? "Color Code Highlight: ON" : "Color Code Highlight: OFF");
-        });
-/*
-        Button smoothScrollBtn = new Button(this);
-        smoothScrollBtn.setAllCaps(false);
-        smoothScrollBtn.setText(smoothScrollEffectEnabled ? "Smooth Scroll Effect: ON" : "Smooth Scroll Effect: OFF");
-        smoothScrollBtn.setOnClickListener(v -> {
-            smoothScrollEffectEnabled = !smoothScrollEffectEnabled;
-            editor.setSmoothScrollEffectEnabled(smoothScrollEffectEnabled);
-            smoothScrollBtn.setText(smoothScrollEffectEnabled ? "Smooth Scroll Effect: ON" : "Smooth Scroll Effect: OFF");
-        });
-*/
-        Button maxSyntaxBtn = new Button(this);
-        maxSyntaxBtn.setAllCaps(false);
-        maxSyntaxBtn.setText("Max Syntax Line Length: " + maxSyntaxLineLength);
-        maxSyntaxBtn.setOnClickListener(v -> showIntInputDialog("Max Syntax Line Length", maxSyntaxLineLength, val -> {
-            maxSyntaxLineLength = val;
-            editor.setMaxSyntaxLineLength(val);
-            maxSyntaxBtn.setText("Max Syntax Line Length: " + val);
-        }));
-
-        Button prefetchColsBtn = new Button(this);
-        prefetchColsBtn.setAllCaps(false);
-        prefetchColsBtn.setText("Prefetch Cols: " + prefetchCols);
-        prefetchColsBtn.setOnClickListener(v -> showIntInputDialog("Prefetch Cols", prefetchCols, val -> {
-            prefetchCols = val;
-            editor.setPrefetchCols(val);
-            prefetchColsBtn.setText("Prefetch Cols: " + val);
-        }));
-
-        Button colsCacheBtn = new Button(this);
-        colsCacheBtn.setAllCaps(false);
-        colsCacheBtn.setText("Cols Cache Size: " + colsCacheSize);
-        colsCacheBtn.setOnClickListener(v -> showIntInputDialog("Cols Width Cache Size", colsCacheSize, val -> {
-            colsCacheSize = val;
-            editor.setColsWidthCacheSize(val);
-            colsCacheBtn.setText("Cols Cache Size: " + val);
-        }));
-
-        Button windowSizeBtn = new Button(this);
-        windowSizeBtn.setAllCaps(false);
-        windowSizeBtn.setText("Window Size: " + windowSize);
-        windowSizeBtn.setOnClickListener(v -> showIntInputDialog("Window Size", windowSize, val -> {
-            windowSize = val;
-            editor.setWindowSize(val);
-            windowSizeBtn.setText("Window Size: " + val);
-        }));
-
-        Button prefetchLinesBtn = new Button(this);
-        prefetchLinesBtn.setAllCaps(false);
-        prefetchLinesBtn.setText("Prefetch Lines: " + prefetchLines);
-        prefetchLinesBtn.setOnClickListener(v -> showIntInputDialog("Prefetch Lines", prefetchLines, val -> {
-            prefetchLines = val;
-            editor.setPrefetchLines(val);
-            prefetchLinesBtn.setText("Prefetch Lines: " + val);
-        }));
-
-        Button lineCacheBtn = new Button(this);
-        lineCacheBtn.setAllCaps(false);
-        lineCacheBtn.setText("Line Cache Size: " + lineCacheSize);
-        lineCacheBtn.setOnClickListener(v -> showIntInputDialog("Line Width Cache Size", lineCacheSize, val -> {
-            lineCacheSize = val;
-            editor.setLineWidthCacheSize(val);
-            lineCacheBtn.setText("Line Cache Size: " + val);
-        }));
-
-        Button renderWindowBtn = new Button(this);
-        renderWindowBtn.setAllCaps(false);
-        renderWindowBtn.setText("Render Window: " + renderWindow + " / " + renderPrefetch);
-        renderWindowBtn.setOnClickListener(v -> showRenderWindowDialog(renderWindowBtn));
-
-        Button zoomEnabledBtn = new Button(this);
-        zoomEnabledBtn.setAllCaps(false);
-        zoomEnabledBtn.setText(zoomEnabledState ? "Zoom: ON" : "Zoom: OFF");
-        zoomEnabledBtn.setOnClickListener(v -> {
-            zoomEnabledState = !zoomEnabledState;
-            editor.setZoomEnabled(zoomEnabledState);
-            zoomEnabledBtn.setText(zoomEnabledState ? "Zoom: ON" : "Zoom: OFF");
-        });
-
-        Button zoomRangeBtn = new Button(this);
-        zoomRangeBtn.setAllCaps(false);
-        zoomRangeBtn.setText("Zoom Text Range: " + zoomMinTextSize + "–" + zoomMaxTextSize);
-        zoomRangeBtn.setOnClickListener(v -> showZoomRangeDialog(zoomRangeBtn));
-
-        Button zoomStepBtn = new Button(this);
-        zoomStepBtn.setAllCaps(false);
-        zoomStepBtn.setText("Zoom Step Clamp: " + zoomStepClampValue);
-        zoomStepBtn.setOnClickListener(v -> showFloatInputDialog("Zoom Step Clamp", zoomStepClampValue, val -> {
-            zoomStepClampValue = val;
-            editor.setZoomStepClamp(val);
-            zoomStepBtn.setText("Zoom Step Clamp: " + val);
-        }));
-
-        Button zoomFocusBtn = new Button(this);
-        zoomFocusBtn.setAllCaps(false);
-        zoomFocusBtn.setText("Zoom Focus Smoothing: " + zoomFocusSmoothing);
-        zoomFocusBtn.setOnClickListener(v -> showFloatInputDialog("Zoom Focus Smoothing", zoomFocusSmoothing, val -> {
-            zoomFocusSmoothing = val;
-            editor.setZoomFocusSmoothing(val);
-            zoomFocusBtn.setText("Zoom Focus Smoothing: " + val);
-        }));
-
-        Button zoomScaleBtn = new Button(this);
-        zoomScaleBtn.setAllCaps(false);
-        zoomScaleBtn.setText("Zoom Scale Smoothing: " + zoomScaleSmoothing);
-        zoomScaleBtn.setOnClickListener(v -> showFloatInputDialog("Zoom Scale Smoothing", zoomScaleSmoothing, val -> {
-            zoomScaleSmoothing = val;
-            editor.setZoomScaleSmoothing(val);
-            zoomScaleBtn.setText("Zoom Scale Smoothing: " + val);
-        }));
-
-        Button zoomLockBtn = new Button(this);
-        zoomLockBtn.setAllCaps(false);
-        zoomLockBtn.setText(zoomLockToInitialFocus ? "Zoom Lock To Focus: ON" : "Zoom Lock To Focus: OFF");
-        zoomLockBtn.setOnClickListener(v -> {
-            zoomLockToInitialFocus = !zoomLockToInitialFocus;
-            editor.setZoomLockToInitialFocus(zoomLockToInitialFocus);
-            zoomLockBtn.setText(zoomLockToInitialFocus ? "Zoom Lock To Focus: ON" : "Zoom Lock To Focus: OFF");
-        });
-
-        Button hideDecorationsBtn = new Button(this);
-        hideDecorationsBtn.setAllCaps(false);
-        hideDecorationsBtn.setText(hideDecorationsWhileZooming ? "Hide Decorations While Zooming: ON" : "Hide Decorations While Zooming: OFF");
-        hideDecorationsBtn.setOnClickListener(v -> {
-            hideDecorationsWhileZooming = !hideDecorationsWhileZooming;
-            editor.setHideDecorationsWhileZooming(hideDecorationsWhileZooming);
-            hideDecorationsBtn.setText(hideDecorationsWhileZooming ? "Hide Decorations While Zooming: ON" : "Hide Decorations While Zooming: OFF");
-        });
-
-        Button scrollSensitivityBtn = new Button(this);
-        scrollSensitivityBtn.setAllCaps(false);
-        scrollSensitivityBtn.setText("Scroll Sensitivity: " + scrollSensitivity);
-        scrollSensitivityBtn.setOnClickListener(v -> showFloatInputDialog("Scroll Sensitivity", scrollSensitivity, val -> {
-            scrollSensitivity = val;
-            editor.setScrollSensitivity(val);
-            scrollSensitivityBtn.setText("Scroll Sensitivity: " + val);
-        }));
-
-        Button flingSensitivityBtn = new Button(this);
-        flingSensitivityBtn.setAllCaps(false);
-        flingSensitivityBtn.setText("Fling Sensitivity: " + flingSensitivity);
-        flingSensitivityBtn.setOnClickListener(v -> showFloatInputDialog("Fling Sensitivity", flingSensitivity, val -> {
-            flingSensitivity = val;
-            editor.setFlingSensitivity(val);
-            flingSensitivityBtn.setText("Fling Sensitivity: " + val);
-        }));
-
-        layout.addView(autoCompletionBtn);
-        layout.addView(autoPathBtn);
-        layout.addView(wrapBtn);
-        layout.addView(readOnlyBtn);
-        layout.addView(wrapIndicatorBtn);
-        layout.addView(wrapIndicatorColorBtn);
-        layout.addView(deferWrapBtn);
-        layout.addView(layoutDirBtn);
-        layout.addView(urlUnderlineBtn);
-        layout.addView(pathUnderlineBtn);
-        layout.addView(whitespaceGuidesBtn);
-        layout.addView(whitespaceGuidesColorBtn);
-        layout.addView(whitespaceGuidesStepBtn);
-        layout.addView(stableGlyphBtn);
-        layout.addView(cursorAnimBtn);
-        layout.addView(charAnimBtn);
-        layout.addView(colorCodeBtn);
-//        layout.addView(smoothScrollBtn);
-        layout.addView(maxSyntaxBtn);
-        layout.addView(prefetchColsBtn);
-        layout.addView(colsCacheBtn);
-        layout.addView(windowSizeBtn);
-        layout.addView(prefetchLinesBtn);
-        layout.addView(lineCacheBtn);
-        layout.addView(renderWindowBtn);
-        layout.addView(scrollSensitivityBtn);
-        layout.addView(flingSensitivityBtn);
-        layout.addView(zoomEnabledBtn);
-        layout.addView(zoomRangeBtn);
-        layout.addView(zoomStepBtn);
-        layout.addView(zoomFocusBtn);
-        layout.addView(zoomScaleBtn);
-        layout.addView(zoomLockBtn);
-        layout.addView(hideDecorationsBtn);
-
-        Button scrollModeBtn = new Button(this);
-        scrollModeBtn.setAllCaps(false);
-        scrollModeBtn.setText(scrollModeLabel());
-        scrollModeBtn.setOnClickListener(v -> {
-            if (scrollMode == SodiumEditorView.SCROLL_MODE_SINGLE_AXIS) {
-                scrollMode = SodiumEditorView.SCROLL_MODE_GRID;
-            } else if (scrollMode == SodiumEditorView.SCROLL_MODE_GRID) {
-                scrollMode = SodiumEditorView.SCROLL_MODE_FREE;
-            } else {
-                scrollMode = SodiumEditorView.SCROLL_MODE_SINGLE_AXIS;
-            }
-            editor.setScrollMode(scrollMode);
-            scrollModeBtn.setText(scrollModeLabel());
-        });
-
-        layout.addView(scrollModeBtn);
-        ScrollView scrollView = new ScrollView(this);
-        scrollView.addView(layout);
-
-        new AlertDialog.Builder(this)
-                .setTitle("Settings")
-                .setView(scrollView)
-                .setPositiveButton("Close", (d, w) -> d.dismiss())
-                .show();
-    }
-    private void showGotoDialog() {
-        EditText input = new EditText(this);
-        input.setInputType(InputType.TYPE_CLASS_NUMBER);
-        input.setHint("Line");
-        input.setGravity(Gravity.CENTER_HORIZONTAL);
-
-        new AlertDialog.Builder(this)
-                .setTitle("Go To Line")
-                .setView(input)
-                .setPositiveButton("Go", (d, w) -> {
-                    try {
-                        String lineString = input.getText().toString().trim();
-                        if (!lineString.isEmpty()) {
-                            int line = Integer.parseInt(lineString);
-                            editor.goToLine(line, 1);
-                        }
-                    } catch (Exception ignored) {}
-                })
-                .setNegativeButton("Cancel", (d, w) -> d.dismiss())
-                .show();
-    }
-
-    private String scrollModeLabel() {
-        if (scrollMode == SodiumEditorView.SCROLL_MODE_SINGLE_AXIS) return "Scroll Mode: Single Axis";
-        if (scrollMode == SodiumEditorView.SCROLL_MODE_GRID) return "Scroll Mode: Grid";
-        return "Scroll Mode: Free";
-    }
-
-    private void showIntInputDialog(String title, int currentValue, IntConsumer callback) {
-        EditText input = new EditText(this);
-        input.setInputType(InputType.TYPE_CLASS_NUMBER);
-        input.setText(String.valueOf(currentValue));
-        new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setView(input)
-                .setPositiveButton("Set", (d, w) -> {
-                    try {
-                        int val = Integer.parseInt(input.getText().toString().trim());
-                        callback.accept(val);
-                    } catch (Exception ignored) {}
-                })
-                .setNegativeButton("Cancel", (d, w) -> d.dismiss())
-                .show();
-    }
-
-    private void showFloatInputDialog(String title, float currentValue, Consumer<Float> callback) {
-        EditText input = new EditText(this);
-        input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        input.setText(String.valueOf(currentValue));
-        new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setView(input)
-                .setPositiveButton("Set", (d, w) -> {
-                    try {
-                        float val = Float.parseFloat(input.getText().toString().trim());
-                        callback.accept(val);
-                    } catch (Exception ignored) {}
-                })
-                .setNegativeButton("Cancel", (d, w) -> d.dismiss())
-                .show();
-    }
-
-    private void showRenderWindowDialog(Button source) {
-        LinearLayout container = new LinearLayout(this);
-        container.setOrientation(LinearLayout.VERTICAL);
-        container.setPadding(20, 20, 20, 20);
-
-        EditText windowInput = new EditText(this);
-        windowInput.setInputType(InputType.TYPE_CLASS_NUMBER);
-        windowInput.setHint("Window size");
-        windowInput.setText(String.valueOf(renderWindow));
-
-        EditText prefetchInput = new EditText(this);
-        prefetchInput.setInputType(InputType.TYPE_CLASS_NUMBER);
-        prefetchInput.setHint("Prefetch lines");
-        prefetchInput.setText(String.valueOf(renderPrefetch));
-
-        container.addView(windowInput);
-        container.addView(prefetchInput);
-
-        new AlertDialog.Builder(this)
-                .setTitle("Render Window")
-                .setView(container)
-                .setPositiveButton("Set", (d, w) -> {
-                    try {
-                        int win = Integer.parseInt(windowInput.getText().toString().trim());
-                        int pre = Integer.parseInt(prefetchInput.getText().toString().trim());
-                        renderWindow = win;
-                        renderPrefetch = pre;
-                        editor.setRenderWindow(win, pre);
-                        source.setText("Render Window: " + renderWindow + " / " + renderPrefetch);
-                    } catch (Exception ignored) {}
-                })
-                .setNegativeButton("Cancel", (d, w) -> d.dismiss())
-                .show();
-    }
-
-    private void showZoomRangeDialog(Button source) {
-        LinearLayout container = new LinearLayout(this);
-        container.setOrientation(LinearLayout.VERTICAL);
-        container.setPadding(20, 20, 20, 20);
-
-        EditText minInput = new EditText(this);
-        minInput.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        minInput.setHint("Min text size (sp)");
-        minInput.setText(String.valueOf(zoomMinTextSize));
-
-        EditText maxInput = new EditText(this);
-        maxInput.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        maxInput.setHint("Max text size (sp)");
-        maxInput.setText(String.valueOf(zoomMaxTextSize));
-
-        container.addView(minInput);
-        container.addView(maxInput);
-
-        new AlertDialog.Builder(this)
-                .setTitle("Zoom Text Size Range")
-                .setView(container)
-                .setPositiveButton("Set", (d, w) -> {
-                    try {
-                        float min = Float.parseFloat(minInput.getText().toString().trim());
-                        float max = Float.parseFloat(maxInput.getText().toString().trim());
-                        zoomMinTextSize = min;
-                        zoomMaxTextSize = max;
-                        editor.setZoomTextSizeRange(min, max);
-                        source.setText("Zoom Text Range: " + zoomMinTextSize + "–" + zoomMaxTextSize);
-                    } catch (Exception ignored) {}
-                })
-                .setNegativeButton("Cancel", (d, w) -> d.dismiss())
-                .show();
-    }
-
-    private void showColorDialog(String title, IntConsumer callback) {
-        EditText input = new EditText(this);
-        input.setHint("ARGB (e.g. FF00FF00)");
-        input.setInputType(InputType.TYPE_CLASS_TEXT);
-        new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setView(input)
-                .setPositiveButton("Set", (d, w) -> {
-                    try {
-                        String hex = input.getText().toString().trim();
-                        if (hex.startsWith("#")) hex = hex.substring(1);
-                        if (hex.length() == 6) hex = "FF" + hex;
-                        int color = (int) Long.parseLong(hex, 16);
-                        callback.accept(color);
-                    } catch (Exception ignored) {}
-                })
-                .setNegativeButton("Cancel", (d, w) -> d.dismiss())
-                .show();
-    }
-
-
-
-    private void checkPermissionAndLoadFile() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) { // Android 11+
-            if (Environment.isExternalStorageManager()) {
-                loadFile();
-            } else {
-                try {
-                    Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-                    intent.setData(Uri.parse("package:" + getPackageName()));
-                    storagePermissionLauncher.launch(intent);
-                } catch (Exception e) {
-                    Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
-                    storagePermissionLauncher.launch(intent);
+    //
+    // Launcher for managing storage permission (Android 11+)
+    manageStorageLauncher =
+        registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                if (Environment.isExternalStorageManager()) {
+                  if (pendingUri != null) {
+                    loadUriIntoEditor(pendingUri);
+                    pendingUri = null;
+                  } else {
+                    Toast.makeText(this, "تم منح صلاحية الوصول للملفات", Toast.LENGTH_SHORT).show();
+                  }
+                } else {
+                  Toast.makeText(this, "لم يتم منح صلاحية الوصول للملفات", Toast.LENGTH_SHORT)
+                      .show();
                 }
-            }
-        } else { // Android 10 and below
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
-                    == PackageManager.PERMISSION_GRANTED) {
-                loadFile();
+              }
+            });
+
+    // Launcher for standard storage permissions (Android 6-10)
+    requestPermissionLauncher =
+        registerForActivityResult(
+            new ActivityResultContracts.RequestMultiplePermissions(),
+            isGranted -> {
+              boolean allGranted = true;
+              for (Boolean granted : isGranted.values()) {
+                if (!granted) {
+                  allGranted = false;
+                  break;
+                }
+              }
+              if (allGranted) {
+                if (pendingUri != null) {
+                  loadUriIntoEditor(pendingUri);
+                  pendingUri = null;
+                } else {
+                  showFilePicker();
+                }
+              } else {
+                Toast.makeText(this, "يجب منح الصلاحيات للوصول للملفات", Toast.LENGTH_SHORT).show();
+              }
+            });
+
+    openFileLauncher =
+        registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+              if (result.getResultCode() != RESULT_OK || result.getData() == null) return;
+              Uri uri = result.getData().getData();
+              if (uri == null) return;
+              loadUriIntoEditor(uri);
+            });
+
+    openFileBtn.setOnClickListener(v -> openFilePicker());
+
+    settingsBtn.setOnClickListener(v -> showSettingsDialog());
+    copyLogBtn.setOnClickListener(v -> showLogDialog());
+
+    // Clear log when opening a new file
+    clearLogcat();
+
+    // Check permissions on start
+    checkPermissionsAndStart();
+  }
+
+  private void checkPermissionsAndStart() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+      if (!Environment.isExternalStorageManager()) {
+        new AlertDialog.Builder(this)
+            .setTitle("صلاحية الوصول للملفات")
+            .setMessage(
+                "يحتاج هذا التطبيق لصلاحية الوصول لجميع الملفات ليتمكن من فتح وتحرير الملفات"
+                    + " البرمجية.")
+            .setPositiveButton(
+                "منح",
+                (dialog, which) -> {
+                  try {
+                    Intent intent =
+                        new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                    intent.setData(Uri.parse("package:" + getPackageName()));
+                    manageStorageLauncher.launch(intent);
+                  } catch (Exception e) {
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                    manageStorageLauncher.launch(intent);
+                  }
+                })
+            .setNegativeButton("إلغاء", null)
+            .show();
+      }
+    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+      if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+          != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        requestPermissionLauncher.launch(
+            new String[] {
+              android.Manifest.permission.READ_EXTERNAL_STORAGE,
+              android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+            });
+      }
+    }
+  }
+
+  private void openFilePicker() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+      if (!Environment.isExternalStorageManager()) {
+        checkPermissionsAndStart();
+        return;
+      }
+    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+      if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+          != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        checkPermissionsAndStart();
+        return;
+      }
+    }
+    showFilePicker();
+  }
+
+  private void showFilePicker() {
+    File rootDir = Environment.getExternalStorageDirectory();
+    showFilePickerDialog(rootDir);
+  }
+
+  private void showFilePickerDialog(File currentDir) {
+    File[] files = currentDir.listFiles();
+    if (files == null) files = new File[0];
+
+    // Sort: directories first, then alphabetically
+    Arrays.sort(
+        files,
+        (a, b) -> {
+          if (a.isDirectory() && !b.isDirectory()) return -1;
+          if (!a.isDirectory() && b.isDirectory()) return 1;
+          return a.getName().compareToIgnoreCase(b.getName());
+        });
+
+    LinearLayout layout = new LinearLayout(this);
+    layout.setOrientation(LinearLayout.VERTICAL);
+    layout.setPadding(32, 32, 32, 32);
+
+    ScrollView scrollView = new ScrollView(this);
+    LinearLayout fileLayout = new LinearLayout(this);
+    fileLayout.setOrientation(LinearLayout.VERTICAL);
+
+    // Parent directory button
+    if (currentDir.getParentFile() != null) {
+      TextView parentBtn = new TextView(this);
+      parentBtn.setText("📁 ..");
+      parentBtn.setTextSize(18f);
+      parentBtn.setPadding(24, 24, 24, 24);
+      parentBtn.setOnClickListener(
+          v -> {
+            showFilePickerDialog(currentDir.getParentFile());
+          });
+      fileLayout.addView(parentBtn);
+    }
+
+    // File/directory buttons
+    for (File file : files) {
+      TextView tv = new TextView(this);
+      String icon = file.isDirectory() ? "📁" : "📄";
+      tv.setText(icon + " " + file.getName());
+      tv.setTextSize(16f);
+      tv.setPadding(24, 20, 24, 20);
+      tv.setOnClickListener(
+          v -> {
+            if (file.isDirectory()) {
+              showFilePickerDialog(file);
             } else {
-                ActivityCompat.requestPermissions(
-                        this,
-                        new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
-                        STORAGE_PERMISSION_CODE
-                );
+              editor.fileIO.loadFromFile(file);
+              Toast.makeText(this, "تم فتح الملف (" + file.length() + " بايت)", Toast.LENGTH_SHORT)
+                  .show();
             }
-        }
+          });
+      fileLayout.addView(tv);
     }
 
-    private void loadFile() {
-        File file = new File("/sdcard/code.txt");
-        if (file.exists()) {
-            editor.loadFromFile(file);
-            // Remove the initial goToLine call to prevent blur on startup
-            // editor.goToLine(1, 1); // optional initial jump
-        } else {
-            Toast.makeText(this, "File not found: /sdcard/code.txt", Toast.LENGTH_LONG).show();
-        }
+    scrollView.addView(fileLayout);
+    layout.addView(
+        scrollView, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+
+    // Current path display
+    TextView pathView = new TextView(this);
+    pathView.setText(currentDir.getAbsolutePath());
+    pathView.setTextSize(12f);
+    pathView.setPadding(24, 16, 24, 16);
+    pathView.setMaxLines(2);
+    pathView.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
+    layout.addView(pathView);
+
+    AlertDialog.Builder builder = new AlertDialog.Builder(this);
+    builder.setTitle("اختر ملف");
+    builder.setView(layout);
+    builder.setNegativeButton("إلغاء", null);
+    builder.show();
+  }
+
+  private void clearLogcat() {
+    new Thread(
+            () -> {
+              try {
+                ProcessBuilder pb = new ProcessBuilder("logcat", "-c");
+                pb.start().waitFor();
+              } catch (Exception ignored) {
+              }
+            })
+        .start();
+  }
+
+  private void showSettingsDialog() {
+    String[] scrollModes = {"Axis", "Grid", "Free"};
+    int currentItem = currentScrollMode;
+
+    AlertDialog.Builder builder = new AlertDialog.Builder(this);
+    builder.setTitle("Scroll Settings");
+
+    builder.setSingleChoiceItems(
+        scrollModes,
+        currentItem,
+        (dialog, which) -> {
+          currentScrollMode = which;
+          editor.scroll.setScrollMode(which);
+          Toast.makeText(this, "Scroll mode: " + scrollModes[which], Toast.LENGTH_SHORT).show();
+        });
+
+    builder.setPositiveButton("OK", (dialog, which) -> dialog.dismiss());
+    builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+
+    AlertDialog dialog = builder.create();
+    dialog.show();
+  }
+
+  private void showLogDialog() {
+    // Create TextView for log output
+    android.widget.TextView textView = new android.widget.TextView(this);
+    textView.setPadding(48, 48, 48, 48);
+    textView.setTextSize(12f);
+    textView.setMaxLines(30);
+    textView.setMovementMethod(new android.text.method.ScrollingMovementMethod());
+    textView.setText("Loading logs...");
+
+    // Create horizontal layout for buttons
+    android.widget.LinearLayout buttonLayout = new android.widget.LinearLayout(this);
+    buttonLayout.setPadding(48, 32, 48, 48);
+    buttonLayout.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+
+    // Tags button
+    android.widget.Button tagsButton = new android.widget.Button(this);
+    tagsButton.setText("Tags");
+    tagsButton.setLayoutParams(
+        new android.widget.LinearLayout.LayoutParams(
+            0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+    tagsButton.setPadding(16, 24, 16, 24);
+
+    // Clear button
+    android.widget.Button clearButton = new android.widget.Button(this);
+    clearButton.setText("Clear");
+    clearButton.setLayoutParams(
+        new android.widget.LinearLayout.LayoutParams(
+            0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+    clearButton.setPadding(16, 24, 16, 24);
+
+    // Copy button
+    android.widget.Button copyButton = new android.widget.Button(this);
+    copyButton.setText("نسخ");
+    copyButton.setLayoutParams(
+        new android.widget.LinearLayout.LayoutParams(
+            0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+    copyButton.setPadding(16, 24, 16, 24);
+
+    // Close button
+    android.widget.Button closeButton = new android.widget.Button(this);
+    closeButton.setText("إغلاق");
+    closeButton.setLayoutParams(
+        new android.widget.LinearLayout.LayoutParams(
+            0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+    closeButton.setPadding(16, 24, 16, 24);
+
+    buttonLayout.addView(tagsButton);
+    buttonLayout.addView(clearButton);
+    buttonLayout.addView(copyButton);
+    buttonLayout.addView(closeButton);
+
+    // Create main vertical layout
+    android.widget.LinearLayout mainLayout = new android.widget.LinearLayout(this);
+    mainLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
+    mainLayout.addView(
+        textView,
+        new android.widget.LinearLayout.LayoutParams(
+            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+            1f));
+    mainLayout.addView(buttonLayout);
+
+    AlertDialog.Builder builder = new AlertDialog.Builder(this);
+    builder.setTitle("Log");
+    builder.setView(mainLayout);
+
+    AlertDialog dialog = builder.create();
+
+    // Default tags
+    final String[] defaultTags = {
+    "CursorTarget","ImeScanner","Ime","SodiumInputConnection","ImeContext","DragSelectionHandler",
+"GestureHandler",
+"OnDoubleTap",
+"OnDown",
+"OnFling",
+"OnKeyDown",
+"OnLongPress",
+"OnScroll",
+"OnSingleTapUp",
+"OnTouch",
+"PopupInteractionHandler",
+"ScrollBarHandler"
+    /*
+"AutoCompletion",
+"initSuggestionPaint",
+"setAutoCompletionEnabled",
+"isAutoCompletionEnabled",
+"setSuggestions",
+"acceptAutoCompletion",
+"clearActiveSuggestion",
+"updateSuggestion",
+"updateSuggestionInternal",
+"getCurrentWordFragment",
+"setSuggestionTextSize",
+"clear",
+"insert",
+"findFirstSuggestion",
+"findFirstWordFromNode",
+"drawAutoSuggestion",
+"drawAutoSuggestionWrapped",
+"Caret",
+"startBlink",
+"stopBlink",
+"resetBlink",
+"getCaretDocumentX",
+"getCaretDocumentY",
+"drawCaret",
+"updateCaretAppearance",
+"getCaretXForSegment",
+"getCaretXForLine",
+"Cursor",
+"setCursorWidth",
+"setCursorPosition",
+"moveToLine",
+"moveToChar",
+"clampToDocument",
+"getLine",
+"getChar",
+"reset",
+"isAtEndOfLine",
+"isAtStartOfLine",
+"isAtEndOfDocument",
+"isAtStartOfDocument",
+"moveCursorLeft",
+"moveCursorRight",
+"moveCursorUp",
+"moveCursorDown",
+"setCursorPositionNoClear",
+"skipForbiddenBracePositions",
+"invalidateCursorArea",
+"CursorHandle",
+"updateCursorHandlePosition",
+"drawCursorHandle",
+"hitTest",
+"shouldShow",
+"setCursorHandleSize",
+"setCursorHandleColor",
+"setCursorHandleRadius",
+"getHandleRect",
+"CodeFoldDetector",
+"findFoldRangeForLine",
+"isIndentFoldCandidate",
+"getLineTextForFoldScan",
+"findIndentFoldRangeForLine",
+"findFoldTokenInLine",
+"findLastUnclosedFoldTokenInLine",
+"findBlockCommentEndLine",
+"findMatchingBracketFrom",
+"getClosingBracket",
+"getIndentWidth",
+"rstripWhitespace",
+"isTokenEscaped",
+"readLineUtf8AtByte",
+"shouldShowFoldMarkerFromLine",
+"isPotentialFoldStart",
+"detectFoldRangeAsync",
+"CodeFold",
+"setCodeFoldingEnabled",
+"isCodeFoldingEnabled",
+"toggleFoldAtLine",
+"invalidateFoldCaches",
+"markIntervalsDirty",
+"getVisibleLineCount",
+"mapVisibleIndexToGlobal",
+"getVisibleIndexForGlobalLine",
+"isLineHidden",
+"isFoldStart",
+"getFoldRangeAtStart",
+"clearFoldRanges",
+"invalidateFoldRangesInRange",
+"rebuildFoldIntervalsIfNeeded",
+"isFoldPlaceholderHit",
+"getFoldPlaceholderBounds",
+"clearAllFolds",
+"setIndentationBlocksEnabled",
+"invalidateFoldRangeForLine",
+"adjustFoldRangesForLineEdit",
+"startFoldMarkerRipple",
+"startFoldPlaceholderRipple",
+"FoldRange",
+"BracketGuideCache",
+"invalidateCache",
+"isCacheValid",
+"swapCache",
+"swapCachePartial",
+"getTokensForLine",
+"getStateForLine",
+"LineBracketInfo",
+"BracketPosition",
+"isOpeningBracket",
+"isClosingBracket",
+"getMatchingBracket",
+"QuotePosition",
+"BracketCache",
+"scanFileAsync",
+"rebuildFoldRangesInBg",
+"isInStringOrCommentQuick",
+"parseLine",
+"invalidateLines",
+"getLineInfo",
+"isInStringOrComment",
+"getOpeningBrackets",
+"findMatchingBracket",
+"isQuoteChar",
+"getStringState",
+"isEscaped",
+"isScanning",
+"BracketGuideAsyncBuilder",
+"buildCacheAsync",
+"BracketGuideCheckpoint",
+"ensureCheckpointCapacity",
+"ensureCheckpointsUpTo",
+"getCheckpointIndexForLine",
+"getCheckpointState",
+"getCheckpointLine",
+"mergeWithMainCache",
+"invalidate",
+"containsLine",
+"getEditVersion",
+"BracketGuideSpanCache",
+"ensureSpanCapacity",
+"addSpan",
+"getGuideXApproxFromColumn",
+"drawBracketGuidesForVisibleRange",
+"buildSpanCacheAsync",
+"getStartLine",
+"getEndLine",
+"canDraw",
+"BracketGuideState",
+"cloneState",
+"BracketGuideToken",
+"getX",
+"BracketGuides",
+"setBracketGuidesEnabled",
+"setDrawGuidesForOffScreenLines",
+"isDrawGuidesForOffScreenLinesEnabled",
+"setSkipGuidesDuringFastScroll",
+"setMinRebuildIntervalMs",
+"setBracketGuidesColor",
+"setBracketGuidesStrokeWidth",
+"updateStrokeWidth",
+"invalidateBracketGuideCache",
+"setShowGuidesDuringFastScroll",
+"getBracketGuideCacheConfigHash",
+"calculateBracketGuideStateForLine",
+"calculateBracketGuideStateFromWindowStart",
+"ensureBracketGuideCacheForWindow",
+"getBracketGuideTokensForLine",
+"getBracketGuideStateForLine",
+"updateBracketGuideStateForLine",
+"scanLineForSpans",
+"getLineTextForGuideScan",
+"copyState",
+"getGuideTokensFromStack",
+"getGuideX",
+"beginRenderFrame",
+"setFrameFastScroll",
+"canDrawBracketGuides",
+"isLineVisible",
+"drawBracketGuidesForLine",
+"drawBracketGuidesForLineFromStack",
+"endRenderFrameMaybeLog",
+"ensureBracketGuideSpanCacheForWindow",
+"ensureBracketGuideCheckpointsUpTo",
+"BracketMatch",
+"BracketMatchManager",
+"setBracketMatchingEnabled",
+"setBracketMatchColor",
+"setBracketMatchStrokeWidth",
+"clearBracketMatchCache",
+"findAndCacheBracketMatch",
+"findBracketMatchInVisible",
+"findBracketMatchInDocument",
+"findBracketMatchInRange",
+"drawBracketMatchForLine",
+"drawBracketMatchForSegment",
+"drawBracketBoxSegment",
+"drawBracketBox",
+"drawBracketBoxRange",
+"drawBracketBoxRect",
+"drawBracketBoxRectAtY",
+"BracketToken",
+"IndentGuides",
+"initPaint",
+"setIndentGuidesEnabled",
+"setIndentGuidesColor",
+"setIndentGuidesStrokeWidth",
+"rebuildIndentGuideIntervalsIfNeeded",
+"getLineTextForScan",
+"isLineInIndentBlock",
+"drawIndentGuidesForLine",
+"clearIntervals",
+"WhitespaceGuides",
+"setWhitespaceGuidesEnabled",
+"setWhitespaceGuidesSpaceStep",
+"setWhitespaceGuidesColor",
+"updateMetrics",
+"getWhitespaceGuideStep",
+"drawWhitespaceGuidesForRangeRtl",
+"drawWhitespaceGuidesForLine",
+"drawWhitespaceGuidesForSegment",
+"drawWhitespaceGuidesSegment",
+"getWhitespaceGuideSyntaxSpans",
+"CurrentLineHighlight",
+"setHighlightCurrentLine",
+"setCurrentLineHighlightColor",
+"setCurrentLineGutterHighlightEnabled",
+"setAnimationEnabled",
+"getAnimatedVisualIndex",
+"drawCurrentLineHighlightInGutter",
+"drawCurrentLineHighlightUnwrapped",
+"drawCurrentLineHighlightWrapped",
+"drawCurrentLineHighlightSegment",
+"ColorCodeHighlight",
+"setColorCodeHighlightingEnabled",
+"clearColorCodeCacheForLine",
+"clearColorCodeCaches",
+"drawColorCodeBackgrounds",
+"ErrorUnderlineSpan",
+"ErrorUnderline",
+"clearErrorUnderlines",
+"clearErrorUnderlinesForLine",
+"getErrorUnderlineSpansForLine",
+"setErrorUnderline",
+"setErrorUnderlineColor",
+"getErrorUnderlineColor",
+"setErrorUnderlineEnabled",
+"isErrorUnderlineEnabled",
+"setErrorUnderlineHeightScale",
+"getErrorUnderlineHeightScale",
+"setErrorUnderlineWaveLengthScale",
+"getErrorUnderlineWaveLengthScale",
+"setErrorUnderlineStrokeScale",
+"getErrorUnderlineStrokeScale",
+"setErrorUnderlineSmoothness",
+"getErrorUnderlineSmoothness",
+"drawErrorUnderlinesForLine",
+"drawErrorUnderlinesForLineRange",
+"drawErrorUnderlinesForSegment",
+"drawErrorSquiggle",
+"HighlightParser",
+"parseLineForSyntax",
+"isLineCommentStart",
+"isStringDelimiter",
+"isTripleQuoteStart",
+"getStringStateForDelimiter",
+"findStringEndForState",
+"HighlightRules",
+"initWhitespaceRules",
+"addHighlightRule",
+"clearHighlightRules",
+"extractLineCommentDelimiter",
+"addLineCommentDelimiter",
+"isEmpty",
+"calculateSyntaxSpansForLine",
+"PathUnderline",
+"setPathUnderliningEnabled",
+"clearPathUnderlineCache",
+"clearPathUnderlineCacheForLine",
+"getPathUnderlineSpansForLine",
+"ensurePathUnderlineCacheForLine",
+"invalidatePathUnderlineCacheForLine",
+"clearAllCaches",
+"isPathUnderliningActive",
+"validatePathInBackground",
+"getPathUnderlinePaint",
+"Highlite",
+"markTyping",
+"maybeEnsureHighlightCacheForRange",
+"invalidateHighlightEnsureRange",
+"syncRulesFromComponent",
+"syncRulesToComponent",
+"setLineCommentDelimiter",
+"setStringHighlightColor",
+"setBlockCommentHighlight",
+"onTextSizeChanged",
+"onTypefaceChanged",
+"getLineStateAtStart",
+"getHighlightSpansForLine",
+"calculateSpansForLine",
+"clearHighlightCaches",
+"invalidateHighlightCacheForLine",
+"setStringsHighlight",
+"setMultiLineStringsHighlight",
+"setBacktickStringsEnabled",
+"setMultiLineComments",
+"setSingleLineCommentDelimiters",
+"ensureLineCommentDelimiter",
+"setSingleLineCommentsHighlight",
+"setSingleLineCommentSyntax",
+"setTripleQuoteStringsEnabled",
+"measureHighlightedSegmentWidth",
+"drawHighlightedSegment",
+"measureTextInRange",
+"UrlUnderline",
+"setUrlUnderliningEnabled",
+"setUrlUnderliningRegex",
+"clearUrlUnderlineCache",
+"clearUrlUnderlineCacheForLine",
+"getUrlUnderlineSpansForLine",
+"trimUrlUnderlineEnd",
+"ensureUrlUnderlineCacheForLine",
+"isUrlUnderliningActive",
+"LineNumberSelection",
+"isInLineNumberGutter",
+"beginLineNumberSelection",
+"updateLineNumberSelection",
+"endLineNumberSelection",
+"LineNumber",
+"setShowLineNumbers",
+"invalidateLineNumberCache",
+"getShowLineNumbers",
+"setLineNumberColor",
+"getLineNumberColor",
+"isCurrentLineGutterHighlightEnabled",
+"setLineNumberSelectionEnabled",
+"isLineNumberSelectionEnabled",
+"setGutterBackgroundColor",
+"getGutterBackgroundColor",
+"setGutterSeparatorColor",
+"getGutterSeparatorColor",
+"setGutterSeparatorWidth",
+"getGutterSeparatorWidth",
+"setCurrentLineNumberColor",
+"getCurrentLineNumberColor",
+"setLineNumberTextSize",
+"getLineNumberTextSize",
+"setLineNumberTypeface",
+"getLineNumberTypeface",
+"writeIntToChars",
+"updateGutterWidth",
+"drawLineNumbersDirectUnwrapped",
+"drawLineNumbersDirectWrapped",
+"shouldUseLineNumberCache",
+"ensureLineNumberCacheBitmap",
+"drawCurrentlineNumberUnwrapped",
+"drawCurrentlineNumberWrapped",
+"getGutterStartX",
+"drawLineNumbersCachedUnwrapped",
+"drawLineNumbersCachedWrapped",
+"drawCurrentLineNumberUnwrapped",
+"drawCurrentLineNumberWrapped",
+"Edge",
+"setEdgeEffectColor",
+"pullTop",
+"pullBottom",
+"pullLeft",
+"pullRight",
+"releaseVertical",
+"releaseHorizontal",
+"absorbTop",
+"absorbBottom",
+"absorbLeft",
+"absorbRight",
+"releaseAll",
+"draw",
+"drawGlowArc",
+"Popup",
+"applyPopupConfig",
+"setPopupBackgroundColor",
+"setPopupTextColor",
+"setPopupTextSize",
+"setPopupTextSizePx",
+"setPopupTextFollowsEditorTypeface",
+"setPopupTextTypeface",
+"setPopupLabels",
+"showPopupAtSelection",
+"showMinimalPopupAtCursor",
+"hidePopup",
+"showPopupAnimated",
+"hidePopupAnimated",
+"shouldKeepVisible",
+"drawPopup",
+"shouldHideCopyCutForSelection",
+"getPopupRectForAction",
+"getPopupLabelForAction",
+"getPopupActionAt",
+"startPopupRipple",
+"startPopupRippleHold",
+"cancelPopupRipple",
+"spToPx",
+"Scroll",
+"handleScroll",
+"handleFling",
+"drawStretch",
+"drawEdge",
+"getMaxScrollXForClamp",
+"getMaxScrollYForClamp",
+"clampScrollX",
+"clampScrollY",
+"getBottomBarrierPadding",
+"getKeyboardBarrierPadding",
+"drawScrollBar",
+"showScrollBar",
+"startScrollBarFadeOut",
+"cancelScrollBarFade",
+"scrollTo",
+"smoothScrollTo",
+"abortAnimation",
+"cancelFlingStopAnimation",
+"getFlingOverScrollX",
+"getFlingOverScrollY",
+"computeScroll",
+"scrollToLineFastForSelectAll",
+"keepCursorVisibleHorizontally",
+"getEffectiveScrollX",
+"viewToTextX",
+"startFlingStopAnimation",
+"setScrollMode",
+"setScrollSensitivity",
+"setFlingSensitivity",
+"setScrollBarEnabled",
+"setScrollBarFadeEnabled",
+"setScrollBarColor",
+"setScrollBarWidthPx",
+"setScrollBarMinThumbPx",
+"setScrollBarFadeDelayMs",
+"setScrollBarFadeDurationMs",
+"setScrollBarHaloColor",
+"setScrollBarHaloSizePx",
+"setScrollBarCornerRadiusPx",
+"setScrollBarMarginPx",
+"setStretchOverscrollEnabled",
+"setStretchOverscrollStrength",
+"setFlingBounceEnabled",
+"setFlingBounceDistancePx",
+"setFlingBounceDistanceFactor",
+"ScrollBar",
+"show",
+"startFadeOut",
+"cancelFade",
+"setEnabled",
+"setFadeEnabled",
+"setColor",
+"setWidthPx",
+"setMinThumbPx",
+"setFadeDelayMs",
+"setFadeDurationMs",
+"setHaloColor",
+"setHaloSizePx",
+"setCornerRadiusPx",
+"setMarginPx",
+"ScrollBounds",
+"ScrollHandler",
+"Stretch",
+"pullStretchX",
+"pullStretchY",
+"absorbStretchX",
+"absorbStretchY",
+"releaseStretch",
+"cancelStretchRelease",
+"Selection",
+"syncFromState",
+"syncToState",
+"setSelection",
+"clearSelection",
+"selectAll",
+"selectWordAtCursor",
+"selectLineAtCursor",
+"getSelectedText",
+"copyOrCutSelection",
+"deleteSelection",
+"pasteFromClipboard",
+"replaceSelectionWithText",
+"applySmartDoubleTapSelection",
+"buildDoubleTapCandidates",
+"comparePos",
+"contains",
+"setSelectionInternal",
+"clearSelectionStateAfterDelete",
+"beginLongPressSelection",
+"updateLongPressSelection",
+"updateLongPressSelectionFromSelectionEnd",
+"endLongPressSelection",
+"findSelectionCandidateIndex",
+"setSelectionAnimationEnabled",
+"isPositionInsideSelection",
+"buildSelectedTextFromWindow",
+"buildSelectedTextBlocking",
+"recordReplaceSelectionEdit",
+"SelectionActionHandler",
+"finishSelectAll",
+"handleSelectAllReplace",
+"handleSingleLineReplace",
+"finalizeAction",
+"SelectionClipboard",
+"setPrimaryClip",
+"SelectionHandles",
+"drawTeardropHandle",
+"getAnimatedHandlePosition",
+"setHandleMoveAnimationEnabled",
+"updateHandlesPosition",
+"drawHandles",
+"hitTestLeft",
+"hitTestRight",
+"getCharX",
+"getLineY",
+"startDragLeft",
+"startDragRight",
+"stopDrag",
+"isDragging",
+"isDraggingLeft",
+"isDraggingRight",
+"setHandleSize",
+"setHandleColor",
+"setSelectionHandleColor",
+"setHandleRadius",
+"getLeftHandleRect",
+"getRightHandleRect",
+"SelectionState",
+"getSelectionAlpha",
+"getHandleAlpha",
+"isSelectionAnimationEnabled",
+"getStartChar",
+"getEndChar",
+"getLineCount",
+"hasSelection",
+"isSelectAll",
+"setSelectionColor",
+"setSelectionHighlightColor",
+"updateSelectionVisibility",
+"clampLineForSelection",
+"isLineSelectable",
+"restoreSelection",
+"SelectionTextRange",
+"SmartSelection",
+"OnDoubleTap",
+"onDoubleTap",
+"DragSelectionHandler",
+"handleActionDown",
+"handleActionMove",
+"handleActionUpOrCancel",
+"updateAutoScroll",
+"updateHandlePosition",
+"handleCodeFoldSelection",
+"GestureHandler",
+"handleActionPointerDown",
+"handleActionPointerUp",
+"processGestures",
+"OnDown",
+"onDown",
+"OnKeyDown",
+"onKeyDown",
+"handleReadOnlyKey",
+"handleSelectionWithPrintingKey",
+"handleNormalKey",
+"OnFling",
+"onFling",
+"OnLongPress",
+"onLongPress",
+"onSingleTapUpFallback",
+"OnScroll",
+"getGestureDetector",
+"onSingleTapUp",
+"onScroll",
+"OnSingleTapUp",
+"OnTouch",
+"onTouchEvent",
+"handleSuggestionTap",
+"drawSelectionSegment",
+"PopupInteractionHandler",
+"handleActionUp",
+"handleActionCancel",
+"ScrollBarHandler",
+"CursorTarget",
+"Ime",
+"onCreateInputConnection",
+"onGetExtractedText",
+"onSetSelection",
+"onSetComposingRegion",
+"onFinishComposingText",
+"onCommitCompletion",
+"onCommitCorrection",
+"onCommitText",
+"onSetComposingText",
+"onDeleteSurroundingText",
+"updateImeSelection",
+"commitComposing",
+"replaceComposingWith",
+"deleteComposing",
+"updateComposingPendingOp",
+"markImeCommit",
+"replaceWordAtCursorWith",
+"tryReplaceWordFromImeCommit",
+"getWordBoundsAtCursor",
+"setImeExtractedTextMonitor",
+"setImeExtractedTextToken",
+"setImeContextSize",
+"hasComposing",
+"clearComposing",
+"restartInput",
+"hideKeyboard",
+"showKeyboard",
+"ImeScanner",
+"buildImeContext",
+"buildExtractedTextFromContext",
+"getImeTextBeforeCursor",
+"getImeTextAfterCursor",
+"openImeRandomAccessFile",
+"getLineTextForImeScan",
+"clampLineCharToDocument",
+"moveCursorByCharsForIme",
+"buildRangeTextForIme",
+"offsetToLineCharInContext",
+"lineCharToOffsetInContext",
+"ImeContext",
+"SodiumInputConnection",
+"getEditable",
+"getExtractedText",
+"getTextBeforeCursor",
+"getTextAfterCursor",
+"getSurroundingText",
+"getCursorCapsMode",
+"setComposingRegion",
+"finishComposingText",
+"commitCompletion",
+"commitCorrection",
+"commitText",
+"setComposingText",
+"deleteSurroundingText",
+"toJson",
+"fromJson",
+"dequeToJson",
+"listFromJson",
+"BinaryFileReader",
+"readLineWithBinarySafe",
+"readLineSliceAtByte",
+"readLineSliceByChars",
+"ByteRangeLocator",
+"computeByteRangeFastOrScan",
+"computeByteRangeUsingIndex",
+"computeByteRangeByScanning",
+"findTwoLineStartBytesByScanning",
+"findLineStartByteByScanning",
+"EditOperators",
+"canUndo",
+"canRedo",
+"getUndoStackSize",
+"getPendingEditsCount",
+"clearUndoRedoHistory",
+"getLastEditTimestamp",
+"undo",
+"redo",
+"insertCharAtCursor",
+"deleteCharAtCursor",
+"deleteForwardAtCursor",
+"insertStringAtCursor",
+"insertTextAtCursor",
+"applyPendingEditsToFileAsync",
+"recordEdit",
+"recordEditNoUndo",
+"countNewlines",
+"computeCursorAfterInsert",
+"rewriteReplaceRangeAsync",
+"applyEditForUndoRedo",
+"EditRecordManager",
+"isLargePasteText",
+"EditorActions",
+"isLineInLoadedWindow",
+"handleCodeFoldBeforeEdit",
+"moveCursorToFoldEnd",
+"handleCodeFoldNewline",
+"handleWindowEdgeCase",
+"insertTextAt",
+"FileCache",
+"populateDirectLinesForRange",
+"FileEditHandler",
+"rewriteReplaceRangeBlocking",
+"transferRange",
+"FileIO",
+"loadFromFile",
+"clearContent",
+"loadWindowAround",
+"buildFileIndex",
+"readRangeText",
+"invalidatePendingIO",
+"invalidatePendingIOForEdit",
+"reopenReaderAtStart",
+"cancelAndCloseReader",
+"countTotalLines",
+"FileIndexer",
+"buildIndexJava",
+"disableIndex",
+"getLineByteLengthFromIndex",
+"FileMetadata",
+"LineCacheShifter",
+"shiftModifiedLines",
+"shiftTextRenderCaches",
+"Redo",
+"execute",
+"Undo",
+"SelectionTextBuilder",
+"getUndoSize",
+"getPendingSize",
+"pushUndo",
+"popUndo",
+"pushRedo",
+"popRedo",
+"CurrentLineHighlightAnimation",
+"getTargetVisualIndex",
+"checkAndStartAnimation",
+"cancelAnimation",
+"CharAnimation",
+"setCharAnimation",
+"isCharAnimationEnabled",
+"setAnimationParameters",
+"startCharAnimationFromText",
+"startDeleteAnimation",
+"cancelAllAnimations",
+"cancelCharAnimation",
+"cancelDeleteAnimation",
+"isCharAnimationRunning",
+"isDeleteAnimationRunning",
+"getCharAnimAlpha",
+"getDelAnimAlpha",
+"getCharAnimLine",
+"getDelAnimLine",
+"CodeFoldAnimation",
+"clearFoldRipple",
+"updateTextSize",
+"updateTypeface",
+"CursorAnimation",
+"setCursorAnimationEnabled",
+"isCursorAnimationEnabled",
+"setAnimationDurationMs",
+"updateCursorDrawPosition",
+"snapToPosition",
+"getDrawX",
+"getDrawY",
+"getTargetX",
+"getTargetY",
+"isRunning",
+"LoadingCircleAnimation",
+"startRotation",
+"stopRotation",
+"beginLargeEditUiIfNeeded",
+"endLargeEditUi",
+"cancel",
+"isAnimating",
+"PopupAnimation",
+"startFade",
+"startRipple",
+"startRippleHold",
+"cancelRipple",
+"SelectionAnimation",
+"resetAnimationState",
+"BracketGuideDraw",
+"resetDrawTracking",
+"BinaryLineDrawer",
+"updateCachedCharWidth",
+"getCachedCharWidth",
+"setCachedCharWidth",
+"setBinaryTokenBoxEnabled",
+"setBinaryTokenFillColor",
+"setBinaryTokenStrokeColor",
+"setBinaryTokenStrokeWidth",
+"setBinaryTokenBoxPadding",
+"setBinaryTokenCornerRadius",
+"setBinaryTokenTextColor",
+"setBinaryCaretNotationEnabled",
+"getBinaryTokenFillPaint",
+"getBinaryTokenStrokePaint",
+"snapBinaryCursor",
+"getCharIndexForXBinary",
+"getXForCharBinary",
+"drawBinaryLine",
+"drawBinaryLineSlice",
+"TextLineDraw",
+"drawTextSegmentWithFade",
+"drawTextSegmentWithFadeAndUnderlines",
+"drawUnderlineSegmentWithFade",
+"drawTextSegmentWithVisualSpaces",
+"drawDeleteAnimationForSegment",
+"CodeFoldRender",
+"drawFoldMarkersForVisibleLines",
+"drawFoldedLine",
+"drawFoldedContent",
+"getLineTextForRenderWithDirect",
+"getLogicalLineLength",
+"getRtlLineBaseX",
+"findBlockCommentEnd",
+"findClosingBracketInLine",
+"getEndLineTextForFold",
+"HighlightCacheManager",
+"ensureHighlightCacheForVisibleRange",
+"HighliteRender",
+"getPaintForChar",
+"drawHighlightedLine",
+"drawHighlightedLineRange",
+"drawHighlightedLineSegment",
+"setMaxSyntaxLineLength",
+"setPrefetchCols",
+"Layout",
+"setLayoutDirection",
+"isRtl",
+"isLtr",
+"calculateTextAreaWidth",
+"calculateTextAreaHeight",
+"getTextAreaWidth",
+"getTextAreaHeight",
+"getGuideXForColumn",
+"isWhitespaceAtX",
+"isGuideHitOnWhitespaceBoundary",
+"hitTestWhitespaceSegment",
+"getRtlSegmentBaseX",
+"convertXToRtl",
+"convertXToLtr",
+"setPadding",
+"setPaddingLeft",
+"setPaddingRight",
+"setPaddingTop",
+"setPaddingBottom",
+"getEffectivePaddingLeft",
+"getEffectivePaddingRight",
+"getTextStartX",
+"invalidateLayout",
+"updateTextAreaDimensions",
+"getViewXForLineChar",
+"getViewYTopForLineChar",
+"LineNumberCache",
+"shouldUseCache",
+"ensureBitmap",
+"needsRebuild",
+"updateMetadata",
+"TextRender",
+"getAverageCharWidthForLine",
+"getVisibleCharRangeForLine",
+"getVisibleCharRangeForLineFast",
+"computeStreamedSliceBounds",
+"getInitialStreamedSliceSize",
+"shouldUselineNumberCache",
+"ensurelineNumberCacheBitmap",
+"drawlineNumbersCachedUnwrapped",
+"drawlineNumbersCachedWrapped",
+"drawlineNumbersDirectUnwrapped",
+"drawlineNumbersDirectWrapped",
+"getDrawLineTop",
+"getDrawLineBottom",
+"getHitTestBaseY",
+"setColsWidthCacheSize",
+"setEditorBackgroundColor",
+"clearEditorBackgroundColor",
+"setEditorBackgroundBitmap",
+"clearEditorBackgroundImage",
+"clearCachesOnTypefaceChange",
+"getVisualSpaceScale",
+"getVisualSpaceWidth",
+"getCharAdvanceWidth",
+"getVisualTabWidth",
+"measureTextWithVisualSpaces",
+"measureText",
+"getCharIndexForX",
+"ViewRender",
+"drawContent",
+"drawContentUnfolded",
+"drawTextContent",
+"drawSearchHighlightsForLine",
+"drawSelectionForLine",
+"getEditor",
+"WindowRender",
+"getLineTextForRender",
+"maybeUpdateStreamedSlicesForVisibleRange",
+"getStreamLineThreshold",
+"shouldStreamLineLength",
+"getStreamedLineLength",
+"getStreamedLineSliceStart",
+"setStreamedLineInfo",
+"clearStreamedLineInfo",
+"clearStreamedLineCaches",
+"isSingleByteCharset",
+"getWindowEndLine",
+"getLineFromWindowLocal",
+"maybeKickWindowLoad",
+"recalculateMaxLineWidth",
+"applyMultiLineReplaceInWindowNow",
+"applyMultiLineDeleteInWindowNow",
+"setWindowSize",
+"setPrefetchLines",
+"setLineWidthCacheSize",
+"setRenderWindow",
+"computeMinWindowSize",
+"computeMinWindowSizeForPrefetch",
+"reloadWindowAroundVisible"*/
+    };
+    final String[] currentTags = defaultTags.clone();
+
+    // Tags button click listener
+    tagsButton.setOnClickListener(
+        v -> {
+          // Create input field for tags
+          android.widget.EditText tagInput = new android.widget.EditText(this);
+          tagInput.setPadding(48, 48, 48, 48);
+          tagInput.setText(String.join("|", currentTags));
+          tagInput.setHint("Tag1|Tag2|Tag3");
+
+          AlertDialog.Builder tagsBuilder = new AlertDialog.Builder(this);
+          tagsBuilder.setTitle("Log Tags");
+          tagsBuilder.setMessage("Enter tags separated by | (e.g., SodiumEditor|TestTag)");
+          tagsBuilder.setView(tagInput);
+
+          tagsBuilder.setPositiveButton(
+              "OK",
+              (dlg, which) -> {
+                String input = tagInput.getText().toString().trim();
+                if (input.isEmpty()) {
+                  currentTags[0] = "*"; // Show all logs
+                } else {
+                  currentTags[0] = input;
+                }
+                // Reload logs with new tags
+                loadLogsIntoTextView(textView, currentTags[0]);
+              });
+
+          tagsBuilder.setNegativeButton("Cancel", (dlg, which) -> dlg.dismiss());
+          tagsBuilder.show();
+        });
+
+    // Load logs asynchronously
+    loadLogsIntoTextView(textView, String.join("|", currentTags));
+
+    // Clear button click listener
+    clearButton.setOnClickListener(
+        v -> {
+          clearLogcat();
+          textView.setText("Log cleared");
+          Toast.makeText(this, "Log cleared", Toast.LENGTH_SHORT).show();
+        });
+
+    // Copy button click listener
+    copyButton.setOnClickListener(
+        v -> {
+          ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+          if (cm != null) {
+            cm.setPrimaryClip(ClipData.newPlainText("log", textView.getText().toString()));
+            Toast.makeText(this, "Log copied", Toast.LENGTH_SHORT).show();
+          }
+        });
+
+    // Close button click listener
+    closeButton.setOnClickListener(v -> dialog.dismiss());
+
+    dialog.show();
+  }
+
+  private void loadLogsIntoTextView(android.widget.TextView textView, String tagsFilter) {
+    textView.setText("Loading logs...");
+    new Thread(
+            () -> {
+              String output;
+              try {
+                int pid = Process.myPid();
+                java.util.List<String> cmd = new java.util.ArrayList<>();
+                cmd.add("logcat");
+                cmd.add("-d");
+                cmd.add("-v");
+                cmd.add("time");
+                cmd.add("--pid=" + pid);
+
+                // Parse tags filter
+                String[] tags = tagsFilter.split("\\|");
+                for (String tag : tags) {
+                  tag = tag.trim();
+                  if (!tag.isEmpty()) {
+                    cmd.add(tag + ":V"); // Show all log levels (Verbose)
+                  }
+                }
+                if (tags.length == 0 || (tags.length == 1 && tags[0].trim().isEmpty())) {
+                  cmd.add("*:V"); // Show all logs if no filter
+                } else {
+                  cmd.add("*:S"); // Silence other logs
+                }
+
+                ProcessBuilder pb = new ProcessBuilder(cmd);
+                pb.redirectErrorStream(true);
+                java.lang.Process proc = pb.start();
+                StringBuilder sb = new StringBuilder();
+                try (java.io.InputStream in = proc.getInputStream()) {
+                  byte[] buf = new byte[8192];
+                  int read;
+                  while ((read = in.read(buf)) != -1) {
+                    sb.append(new String(buf, 0, read));
+                    if (sb.length() > 500_000) break; // Limit to 500KB
+                  }
+                }
+                proc.waitFor();
+                output = sb.toString();
+                if (output.isEmpty()) output = "No log output for tags: " + tagsFilter;
+              } catch (Exception e) {
+                output = "Failed to read logs: " + e.getMessage();
+              }
+              String finalOutput = output;
+              runOnUiThread(
+                  () -> {
+                    textView.setText(finalOutput);
+                    // Scroll to top
+                    textView.scrollTo(0, 0);
+                  });
+            })
+        .start();
+  }
+
+  private void loadUriIntoEditor(Uri uri) {
+    // Check and request MANAGE_EXTERNAL_STORAGE permission on Android 11+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+      if (!Environment.isExternalStorageManager()) {
+        pendingUri = uri;
+        checkPermissionsAndStart();
+        return;
+      }
+    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+      // On older Android, check READ/WRITE_EXTERNAL_STORAGE
+      if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+          != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        pendingUri = uri;
+        requestPermissionLauncher.launch(
+            new String[] {
+              android.Manifest.permission.READ_EXTERNAL_STORAGE,
+              android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+            });
+        return;
+      }
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    clearLogcat();
 
-        if (requestCode == STORAGE_PERMISSION_CODE) {
-            if (grantResults.length > 0 &&
-                grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                loadFile();
-            } else {
-                Toast.makeText(this, "Permission denied. Cannot load file.", Toast.LENGTH_LONG).show();
+    new Thread(
+            () -> {
+              try {
+                String path = getPathFromUri(uri);
+                if (path == null) {
+                  runOnUiThread(
+                      () ->
+                          Toast.makeText(this, "تعذر الحصول على مسار الملف", Toast.LENGTH_SHORT)
+                              .show());
+                  return;
+                }
+
+                File file = new File(path);
+                if (!file.exists()) {
+                  runOnUiThread(
+                      () ->
+                          Toast.makeText(this, "الملف غير موجود: " + path, Toast.LENGTH_SHORT)
+                              .show());
+                  return;
+                }
+
+                long size = file.length();
+                runOnUiThread(
+                    () -> {
+                      editor.fileIO.loadFromFile(file);
+                      Toast.makeText(this, "تم فتح الملف (" + size + " بايت)", Toast.LENGTH_SHORT)
+                          .show();
+                    });
+              } catch (Exception e) {
+                runOnUiThread(
+                    () ->
+                        Toast.makeText(
+                                this, "تعذر فتح الملف: " + e.getMessage(), Toast.LENGTH_SHORT)
+                            .show());
+              }
+            })
+        .start();
+  }
+
+  private String getPathFromUri(Uri uri) {
+    if (uri == null) return null;
+
+    // file:// scheme
+    if ("file".equals(uri.getScheme())) {
+      return uri.getPath();
+    }
+
+    // content:// scheme - try to get real path
+    if ("content".equals(uri.getScheme())) {
+      // Try MediaStore
+      try (android.database.Cursor cursor =
+          getContentResolver()
+              .query(
+                  uri,
+                  new String[] {android.provider.MediaStore.Files.FileColumns.DATA},
+                  null,
+                  null,
+                  null)) {
+        if (cursor != null && cursor.moveToFirst()) {
+          int idx = cursor.getColumnIndex(android.provider.MediaStore.Files.FileColumns.DATA);
+          if (idx >= 0) {
+            return cursor.getString(idx);
+          }
+        }
+      } catch (Exception ignored) {
+      }
+
+      // Try DocumentsContract (for SAF / external storage)
+      try {
+        String docId = android.provider.DocumentsContract.getDocumentId(uri);
+        if (docId != null && docId.contains(":")) {
+          String[] parts = docId.split(":");
+          String type = parts[0];
+          String id = parts[1];
+
+          if ("primary".equalsIgnoreCase(type)) {
+            return android.os.Environment.getExternalStorageDirectory() + "/" + id;
+          }
+
+          // Handle other storage types
+          java.io.File[] dirs = getExternalFilesDirs(null);
+          for (java.io.File dir : dirs) {
+            if (dir != null) {
+              String path =
+                  dir.getAbsolutePath().replace("/Android/data/" + getPackageName() + "/files", "");
+              if (dir.exists()) {
+                java.io.File target = new java.io.File(path + "/" + id);
+                if (target.exists()) {
+                  return target.getAbsolutePath();
+                }
+              }
             }
+          }
         }
+      } catch (Exception ignored) {
+      }
     }
+
+    return uri.getPath();
+  }
+
+  private String queryDisplayName(Uri uri) {
+    try (Cursor cursor =
+        getContentResolver()
+            .query(uri, new String[] {OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+      if (cursor != null && cursor.moveToFirst()) {
+        int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+        if (index >= 0) {
+          return cursor.getString(index);
+        }
+      }
+    } catch (Exception ignored) {
+      // Fallback handled by caller.
+    }
+    return null;
+  }
 }

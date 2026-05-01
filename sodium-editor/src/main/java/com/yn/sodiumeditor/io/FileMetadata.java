@@ -1,6 +1,7 @@
 package com.yn.sodiumeditor.io;
 
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.utils.FunctionLog;
 import java.io.File;
 import java.io.RandomAccessFile;
 
@@ -12,6 +13,7 @@ public class FileMetadata {
     private final FileIO fileIO;
 
     public FileMetadata(SodiumEditor editor, FileIO fileIO) {
+        FunctionLog.f("FileMetadata", "FileMetadata", editor, fileIO);
         this.editor = editor;
         this.fileIO = fileIO;
     }
@@ -28,7 +30,7 @@ public class FileMetadata {
             int nonPrintableCount = 0;
             int totalChars = 0;
             for (int i = 0; i < bytesRead; i++) {
-                byte b = buffer[i];
+                int b = buffer[i] & 0xFF; // IMPORTANT: avoid signed-byte misclassification for UTF-8 (e.g. Arabic)
                 if (b == 0) continue;
                 totalChars++;
                 if (b < 9 || (b > 13 && b < 32) || b == 127) nonPrintableCount++;

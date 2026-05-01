@@ -6,6 +6,7 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Main facade for edit operations. Delegating to specialized components.
@@ -41,6 +42,7 @@ public class EditOperators {
     public final java.util.concurrent.atomic.AtomicInteger editVersion = new java.util.concurrent.atomic.AtomicInteger(0);
 
     public EditOperators(SodiumEditor editor) {
+        FunctionLog.f("EditOperators", "EditOperators", editor);
         this.editor = editor;
         this.locator = new ByteRangeLocator(editor);
         this.shifter = new LineCacheShifter(editor);
@@ -55,39 +57,43 @@ public class EditOperators {
     // Bridge Methods
     // ==============================
 
-    public boolean canUndo() { return history.canUndo(); }
-    public boolean canRedo() { return history.canRedo(); }
-    public int getUndoStackSize() { return history.getUndoSize(); }
-    public int getPendingEditsCount() { return history.getPendingSize(); }
-    public void clearUndoRedoHistory() { history.clear(); }
-    public long getLastEditTimestamp() { return lastEditTimestamp; }
+    public boolean canUndo() { FunctionLog.f("EditOperators", "canUndo"); return history.canUndo(); }
+    public boolean canRedo() { FunctionLog.f("EditOperators", "canRedo"); return history.canRedo(); }
+    public int getUndoStackSize() { FunctionLog.f("EditOperators", "getUndoStackSize"); return history.getUndoSize(); }
+    public int getPendingEditsCount() { FunctionLog.f("EditOperators", "getPendingEditsCount"); return history.getPendingSize(); }
+    public void clearUndoRedoHistory() { FunctionLog.f("EditOperators", "clearUndoRedoHistory"); history.clear(); }
+    public long getLastEditTimestamp() { FunctionLog.f("EditOperators", "getLastEditTimestamp"); return lastEditTimestamp; }
     
-    public void undo() { undo.execute(); }
-    public void redo() { redo.execute(); }
+    public void undo() { FunctionLog.f("EditOperators", "undo"); undo.execute(); }
+    public void redo() { FunctionLog.f("EditOperators", "redo"); redo.execute(); }
 
-    public void insertCharAtCursor(char c) { actions.insertCharAtCursor(c); }
-    public void deleteCharAtCursor() { actions.deleteCharAtCursor(); }
-    public void deleteForwardAtCursor() { /* Add this if it existed */ actions.deleteForwardAtCursor(); }
-    public void insertStringAtCursor(String text) { actions.insertTextAtCursor(text); }
-    public void insertTextAtCursor(String text) { actions.insertTextAtCursor(text); }
-    public void applyPendingEditsToFileAsync(@Nullable Runnable onComplete) { fileHandler.applyPendingEditsToFileAsync(onComplete); }
+    public void insertCharAtCursor(char c) { FunctionLog.f("EditOperators", "insertCharAtCursor", c); actions.insertCharAtCursor(c); }
+    public void deleteCharAtCursor() { FunctionLog.f("EditOperators", "deleteCharAtCursor"); actions.deleteCharAtCursor(); }
+    public void deleteForwardAtCursor() { FunctionLog.f("EditOperators", "deleteForwardAtCursor"); actions.deleteForwardAtCursor(); }
+    public void insertStringAtCursor(String text) { FunctionLog.f("EditOperators", "insertStringAtCursor", text); actions.insertTextAtCursor(text); }
+    public void insertTextAtCursor(String text) { FunctionLog.f("EditOperators", "insertTextAtCursor", text); actions.insertTextAtCursor(text); }
+    public void applyPendingEditsToFileAsync(@Nullable Runnable onComplete) { FunctionLog.f("EditOperators", "applyPendingEditsToFileAsync", onComplete); fileHandler.applyPendingEditsToFileAsync(onComplete); }
 
-    public void recordEdit(EditOp op) { recorder.recordEdit(op); }
-    public void recordEditNoUndo(EditOp op) { recorder.recordEditNoUndo(op); }
-    public int countNewlines(@Nullable String text) { return recorder.countNewlines(text); }
+    public void recordEdit(EditOp op) { FunctionLog.f("EditOperators", "recordEdit", op); recorder.recordEdit(op); }
+    public void recordEditNoUndo(EditOp op) { FunctionLog.f("EditOperators", "recordEditNoUndo", op); recorder.recordEditNoUndo(op); }
+    public int countNewlines(@Nullable String text) { FunctionLog.f("EditOperators", "countNewlines", text); return recorder.countNewlines(text); }
     public EditOp.CursorTarget computeCursorAfterInsert(int baseLine, int baseChar, String insertText) {
+        FunctionLog.f("EditOperators", "computeCursorAfterInsert", baseLine, baseChar, insertText);
         return recorder.computeCursorAfterInsert(baseLine, baseChar, insertText);
     }
 
-    public int comparePos(int l1, int c1, int l2, int c2) { return locator.comparePos(l1, c1, l2, c2); }
+    public int comparePos(int l1, int c1, int l2, int c2) { FunctionLog.f("EditOperators", "comparePos", l1, c1, l2, c2); return locator.comparePos(l1, c1, l2, c2); }
     public EditOp.RangeBytes computeByteRangeFastOrScan(java.io.File file, int sL, int sC, int eL, int eC) {
+        FunctionLog.f("EditOperators", "computeByteRangeFastOrScan", file, sL, sC, eL, eC);
         return locator.computeByteRangeFastOrScan(file, sL, sC, eL, eC);
     }
     public long findLineStartByteByScanning(java.io.RandomAccessFile raf, int targetLine) throws Exception {
+        FunctionLog.f("EditOperators", "findLineStartByteByScanning", raf, targetLine);
         return locator.findLineStartByteByScanning(raf, targetLine);
     }
 
     public void rewriteReplaceRangeAsync(int opToken, java.io.File inFile, int sL, int sC, int eL, int eC, String insertText, EditOp.CursorTarget target, boolean finishLargeEditUi) {
+        FunctionLog.f("EditOperators", "rewriteReplaceRangeAsync", opToken, inFile, sL, sC, eL, eC, insertText, target, finishLargeEditUi);
         fileHandler.rewriteReplaceRangeAsync(opToken, inFile, sL, sC, eL, eC, insertText, target, finishLargeEditUi);
     }
 
@@ -96,6 +102,7 @@ public class EditOperators {
     // ==============================
 
     public void applyEditForUndoRedo(int sL, int sC, int eL, int eC, String text, int cursorLine, int cursorChar) {
+        FunctionLog.f("EditOperators", "applyEditForUndoRedo", sL, sC, eL, eC, text, cursorLine, cursorChar);
         editor.selection.setSelectionInternal(sL, sC, eL, eC);
         editor.selection.replaceSelectionWithText(text);
         editor.cursor.setCursorPosition(cursorLine, cursorChar);

@@ -4,6 +4,7 @@ import android.animation.ValueAnimator;
 import android.view.animation.DecelerateInterpolator;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Stretch handles all stretch/overscroll effects for SodiumEditor.
@@ -24,10 +25,12 @@ public class Stretch {
   private final SodiumEditor editor;
 
   public Stretch(SodiumEditor editor) {
+    FunctionLog.f("Stretch", "Stretch", editor);
     this.editor = editor;
   }
 
   public void pullStretchX(float deltaPx, boolean toRight) {
+    FunctionLog.f("Stretch", "pullStretchX", deltaPx, toRight);
     if (!stretchOverscrollEnabled) return;
     cancelStretchRelease();
     float norm = Math.abs(deltaPx) / (float) editor.getWidth();
@@ -38,6 +41,7 @@ public class Stretch {
   }
 
   public void pullStretchY(float deltaPx, boolean toBottom) {
+    FunctionLog.f("Stretch", "pullStretchY", deltaPx, toBottom);
     if (!stretchOverscrollEnabled) return;
     cancelStretchRelease();
     float norm = Math.abs(deltaPx) / (float) editor.getHeight();
@@ -48,6 +52,7 @@ public class Stretch {
   }
 
   public void absorbStretchX(float velocity, boolean toRight) {
+    FunctionLog.f("Stretch", "absorbStretchX", velocity, toRight);
     if (!stretchOverscrollEnabled) return;
     stretchDirX = toRight ? 1 : -1;
     stretchX = Math.min(0.5f, Math.abs(velocity) / 10000f);
@@ -55,6 +60,7 @@ public class Stretch {
   }
 
   public void absorbStretchY(float velocity, boolean toBottom) {
+    FunctionLog.f("Stretch", "absorbStretchY", velocity, toBottom);
     if (!stretchOverscrollEnabled) return;
     stretchDirY = toBottom ? 1 : -1;
     stretchY = Math.min(0.5f, Math.abs(velocity) / 10000f);
@@ -62,6 +68,7 @@ public class Stretch {
   }
 
   public void releaseStretch() {
+    FunctionLog.f("Stretch", "releaseStretch");
     if (stretchReleaseAnimator != null) {
       stretchReleaseAnimator.cancel();
     }
@@ -80,6 +87,7 @@ public class Stretch {
   }
 
   public void cancelStretchRelease() {
+    FunctionLog.f("Stretch", "cancelStretchRelease");
     if (stretchReleaseAnimator != null) {
       stretchReleaseAnimator.cancel();
       stretchReleaseAnimator = null;
@@ -87,10 +95,12 @@ public class Stretch {
   }
 
   public void drawStretch(android.graphics.Canvas canvas) {
+    FunctionLog.f("Stretch", "drawStretch", canvas);
     // Custom drawing if needed, but SodiumEditor uses scale() on canvas
   }
 
   public void reset() {
+    FunctionLog.f("Stretch", "reset");
     stretchX = 0f;
     stretchY = 0f;
     stretchDirX = 0;
@@ -99,11 +109,13 @@ public class Stretch {
   }
 
   public void setStretchOverscrollEnabled(boolean enabled) {
+    FunctionLog.f("Stretch", "setStretchOverscrollEnabled", enabled);
     this.stretchOverscrollEnabled = enabled;
     if (!enabled) reset();
   }
 
   public void setStretchOverscrollStrength(float strength) {
+    FunctionLog.f("Stretch", "setStretchOverscrollStrength", strength);
     this.stretchOverscrollStrength = strength;
   }
 }

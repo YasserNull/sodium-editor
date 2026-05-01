@@ -12,6 +12,7 @@ import android.text.TextPaint;
 import android.view.animation.DecelerateInterpolator;
 import android.view.inputmethod.InputMethodManager;
 import androidx.annotation.Nullable;
+import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,12 +30,16 @@ public class Popup {
   public static final int POPUP_ACTION_SELECT_ALL = 5;
 
   // Animation duration constants
-  public static final long POPUP_FADE_IN_MS = 140;
-  public static final long POPUP_FADE_OUT_MS = 110;
+  public static final long POPUP_FADE_IN_MS = 450;
+  public static final long POPUP_FADE_OUT_MS = 350;
+  public static final long POPUP_RIPPLE_DELAY_MS = 500;
+  public static final long POPUP_RIPPLE_MS = 250;
 
   // Popup state
   public boolean showPopup = false;
+  public boolean isFadingOut = false;
   public boolean isMinimalPopup = false;
+  public boolean isDeleteButtonEnabled = true;
   public RectF popupRect = new RectF();
   public RectF btnCopyRect = new RectF();
   public RectF btnCutRect = new RectF();
@@ -68,6 +73,7 @@ public class Popup {
 
   // Popup animation state
   public float popupAlpha = 0f;
+  public float fadeTargetAlpha = 0f;
   @Nullable public ValueAnimator popupFadeAnimator;
 
   // Popup interaction state
@@ -82,6 +88,8 @@ public class Popup {
   public float popupRippleAlpha = 0f;
   public boolean popupRippleHoldActive = false;
   @Nullable public ValueAnimator popupRippleAnimator;
+  public boolean popupHideAfterRipple = false;
+  public final List<Integer> popupLastDrawnActions = new ArrayList<>();
 
   // Paint objects
   public final Paint popupBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -97,11 +105,18 @@ public class Popup {
   public float btnWidth = 0f;
   public float popupLabelPadding = 0f;
 
+  // Components
+  public final com.yn.sodiumeditor.renderer.animation.PopupAnimation animation;
+  public final com.yn.sodiumeditor.renderer.draw.PopupMenu menu;
+
   // Reference to parent editor
   private final SodiumEditor editor;
 
   public Popup(SodiumEditor editor) {
+    FunctionLog.f("Popup", "Popup", editor);
     this.editor = editor;
+    this.animation = new com.yn.sodiumeditor.renderer.animation.PopupAnimation(editor, this);
+    this.menu = new com.yn.sodiumeditor.renderer.draw.PopupMenu(editor, this);
   }
 
   /**
@@ -109,6 +124,7 @@ public class Popup {
    * Should be called when the editor is ready or configuration changes.
    */
   public void applyPopupConfig() {
+    FunctionLog.f("Popup", "applyPopupConfig");
     float density = editor.getResources().getDisplayMetrics().density;
     popupPadding = popupPaddingDp * density;
     popupCorner = popupCornerDp * density;
@@ -126,6 +142,7 @@ public class Popup {
    * @param color The color to use for the popup background
    */
   public void setPopupBackgroundColor(int color) {
+    FunctionLog.f("Popup", "setPopupBackgroundColor", color);
     popupBackgroundColor = color;
     popupBgPaint.setColor(color);
     if (showPopup) editor.invalidate();
@@ -136,6 +153,7 @@ public class Popup {
    * @param color The color to use for popup button text
    */
   public void setPopupTextColor(int color) {
+    FunctionLog.f("Popup", "setPopupTextColor", color);
     popupTextColor = color;
     popupTextPaint.setColor(color);
     if (showPopup) editor.invalidate();
@@ -146,6 +164,7 @@ public class Popup {
    * @param sp The text size in scaled pixels
    */
   public void setPopupTextSize(float sp) {
+    FunctionLog.f("Popup", "setPopupTextSize", sp);
     popupTextSizeSp = sp;
     popupTextPaint.setTextSize(spToPx(sp));
     if (showPopup) editor.invalidate();
@@ -156,6 +175,7 @@ public class Popup {
    * @param sizePx The text size in pixels
    */
   public void setPopupTextSizePx(float sizePx) {
+    FunctionLog.f("Popup", "setPopupTextSizePx", sizePx);
     float scaledDensity = editor.getResources().getDisplayMetrics().scaledDensity;
     popupTextSizeSp = (scaledDensity > 0f) ? (sizePx / scaledDensity) : popupTextSizeSp;
     popupTextPaint.setTextSize(sizePx);
@@ -167,6 +187,7 @@ public class Popup {
    * @param follow true if popup text should use the same typeface as the editor
    */
   public void setPopupTextFollowsEditorTypeface(boolean follow) {
+    FunctionLog.f("Popup", "setPopupTextFollowsEditorTypeface", follow);
     popupTextFollowsEditorTypeface = follow;
     if (follow) {
       popupTextPaint.setTypeface(editor.textRender.paint.getTypeface());
@@ -179,6 +200,7 @@ public class Popup {
    * @param typeface The typeface to use, or null for default
    */
   public void setPopupTextTypeface(@Nullable android.graphics.Typeface typeface) {
+    FunctionLog.f("Popup", "setPopupTextTypeface", typeface);
     popupTextFollowsEditorTypeface = false;
     popupTextPaint.setTypeface((typeface != null) ? typeface : android.graphics.Typeface.DEFAULT);
     if (showPopup) editor.invalidate();
@@ -194,6 +216,7 @@ public class Popup {
    */
   public void setPopupLabels(
       String copy, String cut, String paste, String delete, String selectAll) {
+    FunctionLog.f("Popup", "setPopupLabels", copy, cut, paste, delete, selectAll);
     popupLabelCopy = copy;
     popupLabelCut = cut;
     popupLabelPaste = paste;
@@ -206,6 +229,7 @@ public class Popup {
    * Show the popup at the current selection.
    */
   public void showPopupAtSelection() {
+    FunctionLog.f("Popup", "showPopupAtSelection");
     if (!editor.selection.hasSelection) return;
     isMinimalPopup = false;
     showPopupAnimated();
@@ -215,6 +239,7 @@ public class Popup {
    * Show a minimal popup at the cursor position.
    */
   public void showMinimalPopupAtCursor() {
+    FunctionLog.f("Popup", "showMinimalPopupAtCursor");
     isMinimalPopup = true;
     showPopupAnimated();
   }
@@ -223,6 +248,7 @@ public class Popup {
    * Hide the popup menu.
    */
   public void hidePopup() {
+    FunctionLog.f("Popup", "hidePopup");
     hidePopupAnimated();
   }
 
@@ -230,59 +256,34 @@ public class Popup {
    * Show the popup with fade-in animation.
    */
   private void showPopupAnimated() {
-    if (!showPopup) {
+    FunctionLog.f("Popup", "showPopupAnimated");
+    if (!showPopup || popupAlpha < 0.95f) {
+      android.util.Log.d("Popup", "Action: SHOW (current alpha=" + popupAlpha + ")");
       showPopup = true;
+      popupAlpha = 0f;
     }
-    startPopupFade(1f);
+    isFadingOut = false;
+    animation.startFade(1f);
   }
 
   /**
    * Hide the popup with fade-out animation.
    */
   private void hidePopupAnimated() {
+    FunctionLog.f("Popup", "hidePopupAnimated");
+    if (!showPopup || isFadingOut) return;
+    android.util.Log.d("Popup", "Action: HIDE (current alpha=" + popupAlpha + ")");
+    isFadingOut = true;
     popupPressedAction = 0;
-    cancelPopupRipple();
-    startPopupFade(0f);
+    popupHideAfterRipple = false;
+    animation.cancelRipple();
+    animation.startFade(0f);
   }
 
-  /**
-   * Start fade animation to target alpha.
-   * @param targetAlpha The target alpha value (0f for hide, 1f for show)
-   */
-  private void startPopupFade(float targetAlpha) {
-    if (popupFadeAnimator != null) popupFadeAnimator.cancel();
-    float startAlpha = popupAlpha;
-    long duration = (targetAlpha > startAlpha) ? POPUP_FADE_IN_MS : POPUP_FADE_OUT_MS;
-    popupFadeAnimator = ValueAnimator.ofFloat(startAlpha, targetAlpha);
-    popupFadeAnimator.setDuration(duration);
-    popupFadeAnimator.setInterpolator(new DecelerateInterpolator());
-    popupFadeAnimator.addUpdateListener(
-        a -> {
-          Object v = a.getAnimatedValue();
-          popupAlpha = (v instanceof Float) ? (Float) v : targetAlpha;
-          editor.invalidate();
-        });
-    popupFadeAnimator.addListener(
-        new AnimatorListenerAdapter() {
-          @Override
-          public void onAnimationEnd(Animator animation) {
-            if (popupAlpha <= 0f) {
-              showPopup = false;
-              isMinimalPopup = false;
-            }
-            editor.invalidate();
-          }
-
-          @Override
-          public void onAnimationCancel(Animator animation) {
-            if (popupAlpha <= 0f) {
-              showPopup = false;
-              isMinimalPopup = false;
-            }
-            editor.invalidate();
-          }
-        });
-    popupFadeAnimator.start();
+  public boolean shouldKeepVisible() {
+    FunctionLog.f("Popup", "shouldKeepVisible");
+    if (popupRippleActive || popupRippleHoldActive) return true;
+    return popupHideAfterRipple;
   }
 
   /**
@@ -290,171 +291,8 @@ public class Popup {
    * @param canvas The canvas to draw on
    */
   public void drawPopup(Canvas canvas) {
-    if (popupAlpha <= 0f) return;
-    applyPopupConfig();
-    Paint bgPaint = popupBgPaint;
-
-    // Reset rects (so .contains() is safe when buttons are hidden)
-    btnCopyRect.setEmpty();
-    btnCutRect.setEmpty();
-    btnPasteRect.setEmpty();
-    btnDeleteRect.setEmpty();
-    btnSelectAllRect.setEmpty();
-
-    // Buttons order
-    final List<Integer> actions = new ArrayList<>();
-    if (isMinimalPopup) {
-      actions.add(POPUP_ACTION_SELECT_ALL);
-      if (!editor.view.isReadOnly) {
-        actions.add(POPUP_ACTION_PASTE);
-      }
-    } else if (editor.selection.hasSelection) {
-      final boolean hideCopyCut = shouldHideCopyCutForSelection();
-      actions.add(POPUP_ACTION_SELECT_ALL);
-      if (!hideCopyCut) {
-        if (!editor.view.isReadOnly) {
-          actions.add(POPUP_ACTION_CUT);
-        }
-        actions.add(POPUP_ACTION_COPY);
-      }
-      if (!editor.view.isReadOnly) {
-        actions.add(POPUP_ACTION_PASTE);
-        actions.add(POPUP_ACTION_DELETE);
-      }
-    }
-
-    if (actions.isEmpty()) {
-      hidePopup();
-      return;
-    }
-
-    final int btnCount = actions.size();
-    float density = editor.getResources().getDisplayMetrics().density;
-    float labelPad = popupLabelPadding;
-    float[] btnWidths = new float[btnCount];
-    float totalBtnWidths = 0f;
-    for (int i = 0; i < btnCount; i++) {
-      int action = actions.get(i);
-      String label = getPopupLabelForAction(action);
-      float labelWidth = popupTextPaint.measureText(label);
-      float w = popupFitToLabel ? (labelWidth + labelPad) : btnWidth;
-      btnWidths[i] = Math.max(0f, w);
-      totalBtnWidths += btnWidths[i];
-    }
-    float localBtnHeight = btnHeight;
-    float localBtnSpacing = btnSpacing;
-    float localPopupPadding = popupPadding;
-
-    float totalWidth =
-        totalBtnWidths + (localBtnSpacing * (btnCount - 1)) + (localPopupPadding * 2);
-    float totalHeight = localBtnHeight + (localPopupPadding * 2);
-    float availableWidth = editor.getWidth() - (localPopupPadding * 2);
-    if (availableWidth > 0f && totalWidth > availableWidth) {
-      float availableForButtons = availableWidth - (localBtnSpacing * (btnCount - 1));
-      if (availableForButtons < 0f) {
-        localBtnSpacing = 0f;
-        availableForButtons = availableWidth;
-      }
-      float scale = (totalBtnWidths > 0f) ? (availableForButtons / totalBtnWidths) : 1f;
-      if (scale < 1f) {
-        totalBtnWidths = 0f;
-        for (int i = 0; i < btnCount; i++) {
-          btnWidths[i] = Math.max(0f, btnWidths[i] * scale);
-          totalBtnWidths += btnWidths[i];
-        }
-      }
-      totalWidth = totalBtnWidths + (localBtnSpacing * (btnCount - 1)) + (localPopupPadding * 2);
-    }
-
-    // --- POPUP POSITIONING LOGIC ---
-
-    float anchorX, anchorY_top, anchorY_bottom;
-
-    if (isMinimalPopup || !editor.selection.hasSelection) {
-      // Anchor to cursor
-      String cursorLineText = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
-      anchorX = editor.layout.getViewXForLineChar(cursorLineText, editor.cursor.cursorLine, editor.cursor.cursorChar);
-      anchorY_top = editor.layout.getViewYTopForLineChar(editor.cursor.cursorLine, editor.cursor.cursorChar);
-      anchorY_bottom = anchorY_top + editor.textRender.lineHeight;
-    } else {
-      // Anchor to selection (existing logic)
-      int nStartLine, nEndLine, nEndChar;
-      String endLineText;
-      if (editor.editOperators.comparePos(editor.selection.selStartLine, editor.selection.selStartChar, editor.selection.selEndLine, editor.selection.selEndChar) <= 0) {
-        nStartLine = editor.selection.selStartLine;
-        nEndLine = editor.selection.selEndLine;
-        nEndChar = editor.selection.selEndChar;
-        endLineText = editor.windowRender.getLineTextForRender(nEndLine);
-      } else {
-        nStartLine = editor.selection.selEndLine;
-        nEndLine = editor.selection.selStartLine;
-        nEndChar = editor.selection.selStartChar;
-        endLineText = editor.windowRender.getLineTextForRender(nEndLine);
-      }
-
-      anchorY_top = editor.layout.getViewYTopForLineChar(nStartLine, 0);
-      anchorY_bottom = editor.layout.getViewYTopForLineChar(nEndLine, nEndChar) + editor.textRender.lineHeight;
-      anchorX = editor.layout.getViewXForLineChar(endLineText, nEndLine, nEndChar);
-    }
-
-    float proposedLeft = anchorX - totalWidth / 2f;
-    if (proposedLeft < 0) proposedLeft = 0;
-    if (proposedLeft + totalWidth > editor.getWidth()) proposedLeft = editor.getWidth() - totalWidth;
-    if (proposedLeft < 0) proposedLeft = 0;
-
-    final float popupVerticalPadding = editor.textRender.lineHeight * 0.75f;
-
-    float topAbove = anchorY_top - totalHeight - popupVerticalPadding;
-    float topBelow = anchorY_bottom + popupVerticalPadding;
-
-    float finalTop;
-    float visibleBottomBound = editor.getHeight() - editor.view.keyboardHeight;
-
-    if (topAbove >= 0) {
-      finalTop = topAbove;
-    } else if (topBelow + totalHeight <= visibleBottomBound) {
-      finalTop = topBelow;
-    } else {
-      finalTop = Math.max(0, visibleBottomBound - totalHeight - popupPadding);
-    }
-
-    popupRect.set(proposedLeft, finalTop, proposedLeft + totalWidth, finalTop + totalHeight);
-    int bgBaseAlpha = bgPaint.getAlpha();
-    int textBaseAlpha = popupTextPaint.getAlpha();
-    bgPaint.setAlpha((int) (bgBaseAlpha * popupAlpha));
-    popupTextPaint.setAlpha((int) (textBaseAlpha * popupAlpha));
-    canvas.drawRoundRect(popupRect, popupCorner, popupCorner, bgPaint);
-
-    float bx = popupRect.left + localPopupPadding;
-    float by = popupRect.top + localPopupPadding;
-
-    if (popupRippleActive && popupRippleAlpha > 0f && !popupRippleRect.isEmpty()) {
-      int rippleAlpha = (int) (255f * Math.max(0f, Math.min(1f, popupRippleAlpha * popupAlpha)));
-      int base = popupRipplePaint.getColor();
-      popupRipplePaint.setColor((base & 0x00FFFFFF) | (rippleAlpha << 24));
-      canvas.save();
-      float rippleCorner = Math.min(popupCorner, localBtnHeight * 0.5f);
-      popupRippleClipPath.reset();
-      popupRippleClipPath.addRoundRect(
-          popupRippleRect, rippleCorner, rippleCorner, Path.Direction.CW);
-      canvas.clipPath(popupRippleClipPath);
-      canvas.drawCircle(popupRippleX, popupRippleY, popupRippleRadius, popupRipplePaint);
-      canvas.restore();
-      popupRipplePaint.setColor(base);
-    }
-
-    for (int i = 0; i < btnCount; i++) {
-      int action = actions.get(i);
-      RectF r = getPopupRectForAction(action);
-      float localBtnWidth = btnWidths[i];
-      r.set(bx, by, bx + localBtnWidth, by + localBtnHeight);
-      String label = getPopupLabelForAction(action);
-      float maxTextWidth = Math.max(0f, localBtnWidth - labelPad);
-      drawButton(canvas, r, label, popupTextPaint, maxTextWidth);
-      bx += localBtnWidth + localBtnSpacing;
-    }
-    bgPaint.setAlpha(bgBaseAlpha);
-    popupTextPaint.setAlpha(textBaseAlpha);
+    FunctionLog.f("Popup", "drawPopup", canvas);
+    menu.drawPopup(canvas);
   }
 
   /**
@@ -462,6 +300,7 @@ public class Popup {
    * @return true if copy/cut buttons should be hidden
    */
   public boolean shouldHideCopyCutForSelection() {
+    FunctionLog.f("Popup", "shouldHideCopyCutForSelection");
     if (!editor.selection.hasSelection) return true;
 
     int sL = editor.selection.selStartLine, eL = editor.selection.selEndLine;
@@ -480,6 +319,7 @@ public class Popup {
    * @return The RectF for the button
    */
   public RectF getPopupRectForAction(int action) {
+    FunctionLog.f("Popup", "getPopupRectForAction", action);
     switch (action) {
       case POPUP_ACTION_COPY:
         return btnCopyRect;
@@ -500,6 +340,7 @@ public class Popup {
    * @return The label string
    */
   public String getPopupLabelForAction(int action) {
+    FunctionLog.f("Popup", "getPopupLabelForAction", action);
     switch (action) {
       case POPUP_ACTION_COPY:
         return popupLabelCopy;
@@ -521,6 +362,7 @@ public class Popup {
    * @return The action constant, or 0 if no action
    */
   public int getPopupActionAt(float x, float y) {
+    FunctionLog.f("Popup", "getPopupActionAt", x, y);
     if (btnCopyRect.contains(x, y)) return POPUP_ACTION_COPY;
     if (btnCutRect.contains(x, y)) return POPUP_ACTION_CUT;
     if (btnPasteRect.contains(x, y)) return POPUP_ACTION_PASTE;
@@ -530,76 +372,14 @@ public class Popup {
   }
 
   /**
-   * Draw a single popup button.
-   * @param canvas The canvas to draw on
-   * @param r The button rect
-   * @param label The button label
-   * @param txtPaint The text paint
-   * @param maxTextWidth Maximum text width for ellipsizing
-   */
-  public void drawButton(
-      Canvas canvas, RectF r, String label, Paint txtPaint, float maxTextWidth) {
-    String drawLabel = label;
-    if (maxTextWidth > 0f) {
-      TextPaint ellipsizePaint =
-          (txtPaint instanceof TextPaint) ? (TextPaint) txtPaint : new TextPaint(txtPaint);
-      drawLabel =
-          TextUtils.ellipsize(label, ellipsizePaint, maxTextWidth, TextUtils.TruncateAt.END)
-              .toString();
-    }
-    float textWidth = txtPaint.measureText(drawLabel);
-    float cx = r.centerX();
-    float cy = r.centerY() - ((txtPaint.descent() + txtPaint.ascent()) / 2f);
-    canvas.drawText(drawLabel, cx - textWidth / 2f, cy, txtPaint);
-  }
-
-  /**
    * Start ripple animation for a button press.
    * @param action The action being pressed
    * @param x X coordinate of the press
    * @param y Y coordinate of the press
    */
   public void startPopupRipple(int action, float x, float y) {
-    RectF r = getPopupRectForAction(action);
-    if (r.isEmpty()) return;
-    popupRippleHoldActive = false;
-    popupRippleRect.set(r);
-    popupRippleX = Math.max(r.left, Math.min(x, r.right));
-    popupRippleY = Math.max(r.top, Math.min(y, r.bottom));
-    popupRippleRadius = 0f;
-    popupRippleMaxRadius = (float) Math.hypot(r.width(), r.height());
-    popupRippleAlpha = 0.22f;
-    popupRippleActive = true;
-    if (popupRippleAnimator != null) popupRippleAnimator.cancel();
-    popupRippleAnimator = ValueAnimator.ofFloat(0f, 1f);
-    popupRippleAnimator.setDuration(220);
-    popupRippleAnimator.setInterpolator(new DecelerateInterpolator());
-    popupRippleAnimator.addUpdateListener(
-        a -> {
-          float t = (a.getAnimatedValue() instanceof Float) ? (Float) a.getAnimatedValue() : 1f;
-          popupRippleRadius = popupRippleMaxRadius * t;
-          popupRippleAlpha = 0.22f * (1f - t);
-          editor.invalidate();
-        });
-    popupRippleAnimator.addListener(
-        new AnimatorListenerAdapter() {
-          @Override
-          public void onAnimationEnd(Animator animation) {
-            popupRippleActive = false;
-            popupRippleAlpha = 0f;
-            popupRippleRect.setEmpty();
-            editor.invalidate();
-          }
-
-          @Override
-          public void onAnimationCancel(Animator animation) {
-            popupRippleActive = false;
-            popupRippleAlpha = 0f;
-            popupRippleRect.setEmpty();
-            editor.invalidate();
-          }
-        });
-    popupRippleAnimator.start();
+    FunctionLog.f("Popup", "startPopupRipple", action, x, y);
+    animation.startRipple(action, x, y);
   }
 
   /**
@@ -609,30 +389,16 @@ public class Popup {
    * @param y Y coordinate of the press
    */
   public void startPopupRippleHold(int action, float x, float y) {
-    RectF r = getPopupRectForAction(action);
-    if (r.isEmpty()) return;
-    popupRippleHoldActive = true;
-    popupRippleRect.set(r);
-    popupRippleX = Math.max(r.left, Math.min(x, r.right));
-    popupRippleY = Math.max(r.top, Math.min(y, r.bottom));
-    popupRippleMaxRadius = (float) Math.hypot(r.width(), r.height());
-    popupRippleRadius = popupRippleMaxRadius;
-    popupRippleAlpha = 0.22f;
-    popupRippleActive = true;
-    if (popupRippleAnimator != null) popupRippleAnimator.cancel();
-    editor.invalidate();
+    FunctionLog.f("Popup", "startPopupRippleHold", action, x, y);
+    animation.startRippleHold(action, x, y);
   }
 
   /**
    * Cancel any active ripple animation.
    */
   public void cancelPopupRipple() {
-    if (popupRippleAnimator != null) popupRippleAnimator.cancel();
-    popupRippleHoldActive = false;
-    popupRippleActive = false;
-    popupRippleAlpha = 0f;
-    popupRippleRect.setEmpty();
-    editor.invalidate();
+    FunctionLog.f("Popup", "cancelPopupRipple");
+    animation.cancelRipple();
   }
 
   /**
@@ -641,6 +407,7 @@ public class Popup {
    * @return The value in pixels
    */
   private float spToPx(float sp) {
+    FunctionLog.f("Popup", "spToPx", sp);
     return sp * editor.getResources().getDisplayMetrics().scaledDensity;
   }
 }

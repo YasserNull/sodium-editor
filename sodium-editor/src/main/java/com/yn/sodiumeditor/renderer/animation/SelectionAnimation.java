@@ -2,6 +2,7 @@ package com.yn.sodiumeditor.renderer.animation;
 
 import android.animation.ValueAnimator;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * SelectionAnimation handles the fade in/out animation for selection
@@ -19,6 +20,7 @@ public class SelectionAnimation {
     private boolean lastHasSelection = false;
 
     public SelectionAnimation(SodiumEditor editor) {
+        FunctionLog.f("SelectionAnimation", "SelectionAnimation", editor);
         this.editor = editor;
     }
 
@@ -26,6 +28,7 @@ public class SelectionAnimation {
      * Enable or disable selection animation.
      */
     public void setSelectionAnimationEnabled(boolean enabled) {
+        FunctionLog.f("SelectionAnimation", "setSelectionAnimationEnabled", enabled);
         if (selectionAnimationEnabled == enabled) return;
         selectionAnimationEnabled = enabled;
         if (!selectionAnimationEnabled) {
@@ -44,6 +47,7 @@ public class SelectionAnimation {
      * @param nowHasSelection true if selection is now active
      */
     public void updateSelectionVisibility(boolean nowHasSelection) {
+        FunctionLog.f("SelectionAnimation", "updateSelectionVisibility", nowHasSelection);
         if (nowHasSelection == lastHasSelection) return;
         lastHasSelection = nowHasSelection;
         if (!selectionAnimationEnabled) {
@@ -71,6 +75,7 @@ public class SelectionAnimation {
      * Cancel any running animation.
      */
     public void cancelAnimation() {
+        FunctionLog.f("SelectionAnimation", "cancelAnimation");
         if (selectionFadeAnimator != null) {
             selectionFadeAnimator.cancel();
         }
@@ -80,6 +85,7 @@ public class SelectionAnimation {
      * Check if animation is currently running.
      */
     public boolean isAnimating() {
+        FunctionLog.f("SelectionAnimation", "isAnimating");
         return selectionFadeAnimator != null && selectionFadeAnimator.isRunning();
     }
 }

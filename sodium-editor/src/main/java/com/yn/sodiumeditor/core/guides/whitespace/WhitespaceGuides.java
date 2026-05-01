@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import com.yn.sodiumeditor.renderer.TextRender;
+import com.yn.sodiumeditor.utils.FunctionLog;
 /**
  * Manages whitespace guides for the SodiumEditor.
  * Draws visual indicators for spaces and tabs.
@@ -32,11 +33,13 @@ public class WhitespaceGuides {
   public float[] whitespaceDotBuffer;
 
   public WhitespaceGuides(SodiumEditor editor) {
+    FunctionLog.f("WhitespaceGuides", "WhitespaceGuides", editor);
     this.editor = editor;
     initPaint();
   }
 
   private void initPaint() {
+    FunctionLog.f("WhitespaceGuides", "initPaint");
     whitespaceGuidePaint.setColor(0xFFCCCCCC);
     whitespaceGuidePaint.setStyle(Paint.Style.FILL);
     whitespaceGuidePaint.setUnderlineText(false);
@@ -47,6 +50,7 @@ public class WhitespaceGuides {
   }
 
 public void setWhitespaceGuidesEnabled(boolean enabled) {
+    FunctionLog.f("WhitespaceGuides", "setWhitespaceGuidesEnabled", enabled);
     isWhitespaceGuidesEnabled = enabled;
     editor.bracketGuides.invalidateBracketGuideCache();
     editor.highlite.invalidateHighlightEnsureRange();
@@ -65,6 +69,7 @@ public void setWhitespaceGuidesEnabled(boolean enabled) {
   }
 
   public void setWhitespaceGuidesSpaceStep(int spacesPerDot) {
+    FunctionLog.f("WhitespaceGuides", "setWhitespaceGuidesSpaceStep", spacesPerDot);
   int safeStep = Math.max(1, spacesPerDot);
     if (whitespaceGuideSpaceStep == safeStep) return;
     whitespaceGuideSpaceStep = safeStep;
@@ -91,6 +96,7 @@ public void setWhitespaceGuidesEnabled(boolean enabled) {
    * Sets the whitespace guides color.
    */
   public void setWhitespaceGuidesColor(int color) {
+    FunctionLog.f("WhitespaceGuides", "setWhitespaceGuidesColor", color);
     whitespaceGuidePaint.setColor(color);
     whitespaceGuideDotPaint.setColor(color);
     if (isWhitespaceGuidesEnabled) editor.invalidate();
@@ -105,6 +111,7 @@ public void setWhitespaceGuidesEnabled(boolean enabled) {
    * Updates metrics when text size changes.
    */
   public void updateMetrics() {
+    FunctionLog.f("WhitespaceGuides", "updateMetrics");
     whitespaceGuidePaint.setTextSize(editor.textRender.paint.getTextSize());
     whitespaceGuidePaint.setTypeface(editor.textRender.paint.getTypeface());
     whitespaceGuideSpaceWidth = whitespaceGuidePaint.measureText(WHITESPACE_GUIDE_SPACE);
@@ -120,10 +127,12 @@ public void setWhitespaceGuidesEnabled(boolean enabled) {
    * Gets the whitespace guide step.
    */
   public int getWhitespaceGuideStep() {
+    FunctionLog.f("WhitespaceGuides", "getWhitespaceGuideStep");
     return Math.max(1, whitespaceGuideSpaceStep);
   }
 public void drawWhitespaceGuidesForRangeRtl(
       Canvas canvas, String line, int globalLine, int start, int end, float y) {
+    FunctionLog.f("WhitespaceGuides", "drawWhitespaceGuidesForRangeRtl", canvas, line, globalLine, start, end, y);
     if (line == null || line.isEmpty() || start >= end) return;
     start = Math.max(0, Math.min(start, line.length()));
     end = Math.max(start, Math.min(end, line.length()));
@@ -228,6 +237,7 @@ public void drawWhitespaceGuidesForRangeRtl(
    * Draws whitespace guides for a line.
    */
   public void drawWhitespaceGuidesForLine(Canvas canvas, String line, int globalLine, float y) {
+    FunctionLog.f("WhitespaceGuides", "drawWhitespaceGuidesForLine", canvas, line, globalLine, y);
     if (!isWhitespaceGuidesEnabled || editor.isHeavyDrawSuppressed() || line.isEmpty()) return;
     if (line.indexOf(' ') < 0 && line.indexOf('\t') < 0) return;
 
@@ -281,6 +291,7 @@ public void drawWhitespaceGuidesForRangeRtl(
    */
   public void drawWhitespaceGuidesForSegment(
       Canvas canvas, String line, int globalLine, int start, int end, float y) {
+    FunctionLog.f("WhitespaceGuides", "drawWhitespaceGuidesForSegment", canvas, line, globalLine, start, end, y);
     if (!isWhitespaceGuidesEnabled || editor.isHeavyDrawSuppressed() || line == null || line.isEmpty())
       return;
     if (editor.textRender.isRtl) {
@@ -354,6 +365,7 @@ public void drawWhitespaceGuidesForRangeRtl(
       boolean hasSyntaxSpans,
       com.yn.sodiumeditor.core.view.View.WhitespaceDrawState state,
       float rtlWidth) {
+    FunctionLog.f("WhitespaceGuides", "drawWhitespaceGuidesSegment", canvas, line, start, end, x, y, segmentPaint, syntaxSpans, hasSyntaxSpans, state, rtlWidth);
     if (start >= end) return x;
     int segLen = end - start;
     if (whitespaceWidthBuffer == null || whitespaceWidthBuffer.length < segLen) {
@@ -455,6 +467,7 @@ public void drawWhitespaceGuidesForRangeRtl(
    * Gets syntax spans for whitespace guide rendering.
    */
   public List<com.yn.sodiumeditor.renderer.HighliteRender.HighlightSpan> getWhitespaceGuideSyntaxSpans(String line, int globalLine) {
+    FunctionLog.f("WhitespaceGuides", "getWhitespaceGuideSyntaxSpans", line, globalLine);
     List<com.yn.sodiumeditor.renderer.HighliteRender.HighlightSpan> syntaxSpans = null;
     Paint stringPaint = editor.highlite.stringHighlightRule != null ? editor.highlite.stringHighlightRule.paint : null;
     Paint commentPaint = editor.highlite.blockCommentHighlightRule != null ? editor.highlite.blockCommentHighlightRule.paint : null;

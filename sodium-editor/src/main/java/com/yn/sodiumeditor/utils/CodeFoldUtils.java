@@ -15,6 +15,7 @@ public class CodeFoldUtils {
     private final SodiumEditor editor;
 
     public CodeFoldUtils(SodiumEditor editor) {
+        FunctionLog.f("CodeFoldUtils", "CodeFoldUtils", editor);
         this.editor = editor;
     }
 
@@ -26,6 +27,7 @@ public class CodeFoldUtils {
      * Get end line text for fold range.
      */
     public String getEndLineTextForFold(CodeFold.FoldRange range) {
+        FunctionLog.f("CodeFoldUtils", "getEndLineTextForFold", range);
         if (range == null) return null;
         synchronized (editor.windowRender.modifiedLines) {
             String mod = editor.windowRender.modifiedLines.get(range.endLine);
@@ -112,6 +114,7 @@ public class CodeFoldUtils {
      * Read a line by scanning the file sequentially (fallback when index is not ready).
      */
     public String readLineByScanningFile(int targetLine) {
+        FunctionLog.f("CodeFoldUtils", "readLineByScanningFile", targetLine);
         if (editor.fileIO.sourceFile == null || targetLine < 0) return null;
         RandomAccessFile raf = null;
         try {
@@ -160,6 +163,7 @@ public class CodeFoldUtils {
      * Find block comment end in a line.
      */
     public int findBlockCommentEnd(String line, int startIndex) {
+        FunctionLog.f("CodeFoldUtils", "findBlockCommentEnd", line, startIndex);
         int i = startIndex;
         while (i + 1 < line.length()) {
             if (line.charAt(i) == '*' && line.charAt(i + 1) == '/') {

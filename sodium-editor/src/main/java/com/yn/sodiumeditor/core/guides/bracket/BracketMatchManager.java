@@ -5,6 +5,7 @@ import com.yn.sodiumeditor.core.guides.bracket.BracketCache;
 import com.yn.sodiumeditor.core.guides.bracket.BracketMatch;
 import com.yn.sodiumeditor.core.guides.bracket.BracketToken;
 import com.yn.sodiumeditor.core.highlight.Highlite;
+import com.yn.sodiumeditor.utils.FunctionLog;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
@@ -22,7 +23,7 @@ public class BracketMatchManager {
   private final SodiumEditor editor;
 
   // Bracket matching state
-  public boolean isBracketMatchingEnabled = true;
+  public boolean isBracketMatchingEnabled = false;
   public final Paint bracketMatchPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public float bracketMatchStrokeWidth = 3f;
   public float baseBracketMatchStrokeWidth = bracketMatchStrokeWidth;
@@ -36,6 +37,7 @@ public class BracketMatchManager {
   public int cachedBracketMatchEditVersion = -1;
 
   public BracketMatchManager(SodiumEditor editor) {
+    FunctionLog.f("BracketMatchManager", "BracketMatchManager", editor);
     this.editor = editor;
     bracketMatchPaint.setColor(bracketMatchColor);
     bracketMatchPaint.setStyle(Paint.Style.STROKE);
@@ -46,6 +48,7 @@ public class BracketMatchManager {
    * Enables or disables bracket matching.
    */
   public void setBracketMatchingEnabled(boolean enabled) {
+    FunctionLog.f("BracketMatchManager", "setBracketMatchingEnabled", enabled);
     if (this.isBracketMatchingEnabled == enabled) return;
     this.isBracketMatchingEnabled = enabled;
     clearBracketMatchCache();
@@ -56,6 +59,7 @@ public class BracketMatchManager {
    * Sets the bracket match color.
    */
   public void setBracketMatchColor(int color) {
+    FunctionLog.f("BracketMatchManager", "setBracketMatchColor", color);
     bracketMatchColor = color;
     bracketMatchPaint.setColor(color);
     editor.invalidate();
@@ -65,6 +69,7 @@ public class BracketMatchManager {
    * Sets the bracket match stroke width.
    */
   public void setBracketMatchStrokeWidth(float width) {
+    FunctionLog.f("BracketMatchManager", "setBracketMatchStrokeWidth", width);
     if (this.bracketMatchStrokeWidth == width) return;
     this.baseBracketMatchStrokeWidth = width;
     this.baseBracketMatchTextSizePx = editor.textRender.paint.getTextSize();
@@ -76,6 +81,7 @@ public class BracketMatchManager {
    * Updates stroke width based on text size.
    */
   public void updateStrokeWidth() {
+    FunctionLog.f("BracketMatchManager", "updateStrokeWidth");
     float sizePx = editor.textRender.paint.getTextSize();
     bracketMatchStrokeWidth = Math.max(
         1f,
@@ -87,6 +93,7 @@ public class BracketMatchManager {
    * Clears the bracket match cache.
    */
   public void clearBracketMatchCache() {
+    FunctionLog.f("BracketMatchManager", "clearBracketMatchCache");
     cachedBracketMatch = null;
     cachedBracketMatchCursorLine = -1;
     cachedBracketMatchCursorChar = -1;
@@ -99,6 +106,7 @@ public class BracketMatchManager {
    */
   public BracketMatch findAndCacheBracketMatch(
       int firstVisibleLine, int lastVisibleLine, HashMap<Integer, String> directLines) {
+    FunctionLog.f("BracketMatchManager", "findAndCacheBracketMatch", firstVisibleLine, lastVisibleLine, directLines);
     if (!isBracketMatchingEnabled) return null;
 
     int v = editor.editOperators.editVersion.get();
@@ -125,6 +133,7 @@ public class BracketMatchManager {
    */
   public BracketMatch findBracketMatchInVisible(
       int firstVisibleLine, int lastVisibleLine, HashMap<Integer, String> directLines) {
+    FunctionLog.f("BracketMatchManager", "findBracketMatchInVisible", firstVisibleLine, lastVisibleLine, directLines);
     if (!isBracketMatchingEnabled) {
       if (editor.DEBUG_RENDER_LOGS) {
         android.util.Log.d("BracketMatch", "findBracketMatchInVisible: matching disabled");
@@ -293,6 +302,7 @@ public class BracketMatchManager {
    * This ensures matching works even when the matching bracket is outside the visible range.
    */
   public BracketMatch findBracketMatchInDocument() {
+    FunctionLog.f("BracketMatchManager", "findBracketMatchInDocument");
     if (!isBracketMatchingEnabled) return null;
 
     int totalLines = editor.view.getLinesCount();
@@ -337,6 +347,7 @@ public class BracketMatchManager {
   }
 
   private BracketMatch findBracketMatchInRange(int startLine, int endLine) {
+    FunctionLog.f("BracketMatchManager", "findBracketMatchInRange", startLine, endLine);
     String cursorLineText = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
     if (cursorLineText == null) return null;
 
@@ -433,6 +444,7 @@ public class BracketMatchManager {
    */
   public void drawBracketMatchForLine(
       Canvas canvas, String line, int globalLine, BracketMatch match) {
+    FunctionLog.f("BracketMatchManager", "drawBracketMatchForLine", canvas, line, globalLine, match);
     if (match == null) return;
     if (globalLine != match.openLine && globalLine != match.closeLine) return;
     if (line == null || line.isEmpty()) return;
@@ -464,6 +476,7 @@ public class BracketMatchManager {
   public void drawBracketMatchForSegment(
       Canvas canvas, String line, int globalLine, int segStart, int segEnd, float segBaseX,
       float top, BracketMatch match) {
+    FunctionLog.f("BracketMatchManager", "drawBracketMatchForSegment", canvas, line, globalLine, segStart, segEnd, segBaseX, top, match);
     if (match == null) return;
     if (globalLine != match.openLine && globalLine != match.closeLine) return;
     if (line == null || line.isEmpty()) return;
@@ -499,6 +512,7 @@ public class BracketMatchManager {
   public void drawBracketBoxSegment(
       Canvas canvas, String line, int globalLine, int segStart, int segEnd, float segBaseX,
       float top, int index) {
+    FunctionLog.f("BracketMatchManager", "drawBracketBoxSegment", canvas, line, globalLine, segStart, segEnd, segBaseX, top, index);
     if (index < 0 || index >= line.length()) return;
 
     float left = editor.caret.getCaretXForSegment(line, globalLine, segStart, segEnd, index);
@@ -517,6 +531,7 @@ public class BracketMatchManager {
    * Draws bracket box for a single character.
    */
   public void drawBracketBox(Canvas canvas, String line, int globalLine, int index) {
+    FunctionLog.f("BracketMatchManager", "drawBracketBox", canvas, line, globalLine, index);
     if (index < 0 || index >= line.length()) return;
 
     float left = editor.textRender.measureText(line, index, globalLine);
@@ -531,6 +546,7 @@ public class BracketMatchManager {
    */
   public void drawBracketBoxRange(
       Canvas canvas, String line, int globalLine, int startIndex, int endIndex) {
+    FunctionLog.f("BracketMatchManager", "drawBracketBoxRange", canvas, line, globalLine, startIndex, endIndex);
     if (startIndex < 0 || endIndex < 0) return;
     if (startIndex >= line.length()) return;
     if (endIndex >= line.length()) endIndex = line.length() - 1;
@@ -547,6 +563,7 @@ public class BracketMatchManager {
    * Draws bracket box rectangle.
    */
   public void drawBracketBoxRect(Canvas canvas, int globalLine, float left, float right) {
+    FunctionLog.f("BracketMatchManager", "drawBracketBoxRect", canvas, globalLine, left, right);
     final float padding = 1f;
     final float top = editor.textRender.getDrawLineTop(globalLine) + padding;
     drawBracketBoxRectAtY(canvas, top, left, right);
@@ -556,6 +573,7 @@ public class BracketMatchManager {
    * Draws bracket box rectangle at specific Y position.
    */
   public void drawBracketBoxRectAtY(Canvas canvas, float top, float left, float right) {
+    FunctionLog.f("BracketMatchManager", "drawBracketBoxRectAtY", canvas, top, left, right);
     final float padding = 1f;
     final float bottom = top + editor.textRender.lineHeight - (padding * 2f);
 

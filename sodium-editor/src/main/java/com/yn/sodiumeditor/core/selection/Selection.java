@@ -10,6 +10,7 @@ import com.yn.sodiumeditor.core.selection.SelectionState;
 import com.yn.sodiumeditor.core.selection.SelectionTextRange;
 import com.yn.sodiumeditor.utils.SelectionWordFinder;
 import com.yn.sodiumeditor.utils.SelectionQuoteFinder;
+import com.yn.sodiumeditor.utils.FunctionLog;
 import androidx.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
@@ -63,6 +64,7 @@ public class Selection {
     public boolean hideKeyboardOnFocusLoss;
 
     public Selection(SodiumEditor editor, Cursor cursor) {
+        FunctionLog.f("Selection", "Selection", editor, cursor);
         this.editor = editor;
         this.cursor = cursor;
         this.state = new SelectionState(editor);
@@ -76,6 +78,7 @@ public class Selection {
     }
 
     public void syncFromState() {
+        FunctionLog.f("Selection", "syncFromState");
         hasSelection = state.hasSelection; selStartLine = state.selStartLine; selStartChar = state.selStartChar;
         selEndLine = state.selEndLine; selEndChar = state.selEndChar; selecting = state.selecting;
         isSelectAllActive = state.isSelectAllActive; isEntireFileSelected = state.isEntireFileSelected;
@@ -94,6 +97,7 @@ public class Selection {
     }
 
     public void syncToState() {
+        FunctionLog.f("Selection", "syncToState");
         state.hasSelection = hasSelection; state.selStartLine = selStartLine; state.selStartChar = selStartChar;
         state.selEndLine = selEndLine; state.selEndChar = selEndChar; state.selecting = selecting;
         state.isSelectAllActive = isSelectAllActive; state.isEntireFileSelected = isEntireFileSelected;
@@ -103,42 +107,141 @@ public class Selection {
     // Bridge Methods (Delegated)
     // ==============================
 
-    public void setSelection(int sL, int sC, int eL, int eC) { state.setSelection(sL, sC, eL, eC); syncFromState(); }
-    public void clearSelection() { state.clearSelection(); syncFromState(); }
-    public void selectAll() { actions.selectAll(); syncFromState(); }
-    public void selectWordAtCursor() { smart.selectWordAtCursor(); }
-    public void selectLineAtCursor() { smart.selectLineAtCursor(); }
+    public void setSelection(int sL, int sC, int eL, int eC) {
+        FunctionLog.f("Selection", "setSelection", sL, sC, eL, eC);
+        state.setSelection(sL, sC, eL, eC); syncFromState();
+    }
+
+    public void clearSelection() {
+        FunctionLog.f("Selection", "clearSelection");
+        state.clearSelection(); syncFromState();
+    }
+
+    public void selectAll() {
+        FunctionLog.f("Selection", "selectAll");
+        actions.selectAll(); syncFromState();
+    }
+
+    public void selectWordAtCursor() {
+        FunctionLog.f("Selection", "selectWordAtCursor");
+        smart.selectWordAtCursor();
+    }
+
+    public void selectLineAtCursor() {
+        FunctionLog.f("Selection", "selectLineAtCursor");
+        smart.selectLineAtCursor();
+    }
+
     public String getSelectedText() {
+        FunctionLog.f("Selection", "getSelectedText");
         if (!hasSelection) return null;
         int sL = selStartLine, sC = selStartChar, eL = selEndLine, eC = selEndChar;
         if (state.comparePos(sL, sC, eL, eC) > 0) { int tL = sL, tC = sC; sL = eL; sC = eC; eL = tL; eC = tC; }
         return textBuilder.buildSelectedTextFromWindow(sL, sC, eL, eC, copyCutMaxChars);
     }
-    public void copyOrCutSelection(boolean cut) { clipboard.copyOrCutSelection(cut); }
-    public void deleteSelection() { clipboard.deleteSelection(); }
-    public void pasteFromClipboard() { clipboard.pasteFromClipboard(); syncFromState(); }
-    public void replaceSelectionWithText(String t) { actions.replaceSelectionWithText(t); syncFromState(); }
-    public boolean applySmartDoubleTapSelection(int l, int c, String t) { boolean r = smart.applySmartDoubleTapSelection(l, c, t); syncFromState(); return r; }
-    public ArrayList<SelectionTextRange> buildDoubleTapCandidates(String line, int charIndex, int wStart, int wEnd) { return smart.buildDoubleTapCandidates(line, charIndex, wStart, wEnd); }
 
-    public int comparePos(int lA, int cA, int lB, int cB) { return state.comparePos(lA, cA, lB, cB); }
-    public boolean contains(int l, int c) { return state.contains(l, c); }
-    public void setSelectionInternal(int sL, int sC, int eL, int eC) { state.setSelectionInternal(sL, sC, eL, eC); syncFromState(); }
-    public void clearSelectionStateAfterDelete() { state.clearSelectionStateAfterDelete(); syncFromState(); }
+    public void copyOrCutSelection(boolean cut) {
+        FunctionLog.f("Selection", "copyOrCutSelection", cut);
+        clipboard.copyOrCutSelection(cut);
+    }
+
+    public void deleteSelection() {
+        FunctionLog.f("Selection", "deleteSelection");
+        clipboard.deleteSelection();
+    }
+
+    public void pasteFromClipboard() {
+        FunctionLog.f("Selection", "pasteFromClipboard");
+        clipboard.pasteFromClipboard(); syncFromState();
+    }
+
+    public void replaceSelectionWithText(String t) {
+        FunctionLog.f("Selection", "replaceSelectionWithText", t);
+        actions.replaceSelectionWithText(t); syncFromState();
+    }
+
+    public boolean applySmartDoubleTapSelection(int l, int c, String t) {
+        FunctionLog.f("Selection", "applySmartDoubleTapSelection", l, c, t);
+        boolean r = smart.applySmartDoubleTapSelection(l, c, t); syncFromState(); return r;
+    }
+
+    public ArrayList<SelectionTextRange> buildDoubleTapCandidates(String line, int charIndex, int wStart, int wEnd) {
+        FunctionLog.f("Selection", "buildDoubleTapCandidates", line, charIndex, wStart, wEnd);
+        return smart.buildDoubleTapCandidates(line, charIndex, wStart, wEnd);
+    }
+
+    public int comparePos(int lA, int cA, int lB, int cB) {
+        FunctionLog.f("Selection", "comparePos", lA, cA, lB, cB);
+        return state.comparePos(lA, cA, lB, cB);
+    }
+
+    public boolean contains(int l, int c) {
+        FunctionLog.f("Selection", "contains", l, c);
+        return state.contains(l, c);
+    }
+
+    public void setSelectionInternal(int sL, int sC, int eL, int eC) {
+        FunctionLog.f("Selection", "setSelectionInternal", sL, sC, eL, eC);
+        state.setSelectionInternal(sL, sC, eL, eC); syncFromState();
+    }
+
+    public void clearSelectionStateAfterDelete() {
+        FunctionLog.f("Selection", "clearSelectionStateAfterDelete");
+        state.clearSelectionStateAfterDelete(); syncFromState();
+    }
     
-    public void beginLongPressSelection(int l, int c) { state.beginLongPressSelection(l, c); syncFromState(); }
-    public void updateLongPressSelection(int l, int c) { state.updateLongPressSelection(l, c); syncFromState(); }
-    public void updateLongPressSelectionFromSelectionEnd(int l, int c) { state.updateLongPressSelectionFromSelectionEnd(l, c); syncFromState(); }
-    public void endLongPressSelection() { state.endLongPressSelection(); syncFromState(); }
+    public void beginLongPressSelection(int l, int c) {
+        FunctionLog.f("Selection", "beginLongPressSelection", l, c);
+        state.beginLongPressSelection(l, c); syncFromState();
+    }
 
-    public boolean shouldHideCopyCutForSelection() { return state.shouldHideCopyCutForSelection(); }
-    public int findSelectionCandidateIndex(int l, List<SelectionTextRange> c) { return wordFinder.findSelectionCandidateIndex(l, c, selStartLine, selStartChar, selEndLine, selEndChar); }
-    public void setSelectionAnimationEnabled(boolean enabled) { state.setSelectionAnimationEnabled(enabled); }
-    public boolean isPositionInsideSelection(int line, int ch) { return state.isPositionInsideSelection(line, ch); }
-    public String buildSelectedTextFromWindow(int sL, int sC, int eL, int eC, int max) { return textBuilder.buildSelectedTextFromWindow(sL, sC, eL, eC, max); }
-    public String buildSelectedTextBlocking(int sL, int sC, int eL, int eC, int max) { return textBuilder.buildSelectedTextBlocking(sL, sC, eL, eC, max); }
+    public void updateLongPressSelection(int l, int c) {
+        FunctionLog.f("Selection", "updateLongPressSelection", l, c);
+        state.updateLongPressSelection(l, c); syncFromState();
+    }
+
+    public void updateLongPressSelectionFromSelectionEnd(int l, int c) {
+        FunctionLog.f("Selection", "updateLongPressSelectionFromSelectionEnd", l, c);
+        state.updateLongPressSelectionFromSelectionEnd(l, c); syncFromState();
+    }
+
+    public void endLongPressSelection() {
+        FunctionLog.f("Selection", "endLongPressSelection");
+        state.endLongPressSelection(); syncFromState();
+    }
+
+    public boolean shouldHideCopyCutForSelection() {
+        FunctionLog.f("Selection", "shouldHideCopyCutForSelection");
+        return state.shouldHideCopyCutForSelection();
+    }
+
+    public int findSelectionCandidateIndex(int l, List<SelectionTextRange> c) {
+        FunctionLog.f("Selection", "findSelectionCandidateIndex", l, c);
+        return wordFinder.findSelectionCandidateIndex(l, c, selStartLine, selStartChar, selEndLine, selEndChar);
+    }
+
+    public void setSelectionAnimationEnabled(boolean enabled) {
+        FunctionLog.f("Selection", "setSelectionAnimationEnabled", enabled);
+        state.setSelectionAnimationEnabled(enabled);
+    }
+
+    public boolean isPositionInsideSelection(int line, int ch) {
+        FunctionLog.f("Selection", "isPositionInsideSelection", line, ch);
+        return state.isPositionInsideSelection(line, ch);
+    }
+
+    public String buildSelectedTextFromWindow(int sL, int sC, int eL, int eC, int max) {
+        FunctionLog.f("Selection", "buildSelectedTextFromWindow", sL, sC, eL, eC, max);
+        return textBuilder.buildSelectedTextFromWindow(sL, sC, eL, eC, max);
+    }
+
+    public String buildSelectedTextBlocking(int sL, int sC, int eL, int eC, int max) {
+        FunctionLog.f("Selection", "buildSelectedTextBlocking", sL, sC, eL, eC, max);
+        return textBuilder.buildSelectedTextBlocking(sL, sC, eL, eC, max);
+    }
 
     public void recordReplaceSelectionEdit(int sL, int sC, int eL, int eC, @Nullable String rem, @Nullable String ins, int bL, int bC) {
+        FunctionLog.f("Selection", "recordReplaceSelectionEdit", sL, sC, eL, eC, rem, ins, bL, bC);
         String insert = (ins == null) ? "" : ins;
         EditOp op = new EditOp(); op.startLine = sL; op.startChar = sC; op.endLine = eL; op.endChar = eC; op.removedText = rem; op.insertedText = insert;
         EditOp.CursorTarget end = editor.editOperators.computeCursorAfterInsert(sL, sC, insert);

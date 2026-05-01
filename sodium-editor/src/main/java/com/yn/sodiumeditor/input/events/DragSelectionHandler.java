@@ -4,6 +4,7 @@ import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.fold.CodeFold;
 import com.yn.sodiumeditor.io.EditOp;
+import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Handles selection dragging and auto-scroll for SodiumEditor.
@@ -12,10 +13,12 @@ public class DragSelectionHandler {
     private final SodiumEditor editor;
 
     public DragSelectionHandler(SodiumEditor editor) {
+        FunctionLog.f("DragSelectionHandler", "DragSelectionHandler", editor);
         this.editor = editor;
     }
 
     public boolean handleActionDown(MotionEvent event) {
+        FunctionLog.f("DragSelectionHandler", "handleActionDown", event);
         float ex = event.getX(), ey = event.getY();
         if (editor.selection.hasSelection) {
             editor.selectionHandles.updateHandlesPosition();
@@ -36,6 +39,7 @@ public class DragSelectionHandler {
     }
 
     public boolean handleActionMove(MotionEvent event) {
+        FunctionLog.f("DragSelectionHandler", "handleActionMove", event);
         float ex = event.getX(), ey = event.getY();
         
         if (editor.selection.longPressSelecting
@@ -59,7 +63,6 @@ public class DragSelectionHandler {
                         editor.selection.syncFromState();
                         editor.selection.hasSelection = false;
                         editor.selection.selecting = true;
-                        editor.popup.hidePopup();
                     } else {
                         return true;
                     }
@@ -80,7 +83,6 @@ public class DragSelectionHandler {
             }
             
             editor.selection.updateLongPressSelection(line, clamped);
-            editor.popup.hidePopup();
             updateAutoScroll(moveX, moveY);
             editor.invalidate();
             return true;
@@ -99,6 +101,7 @@ public class DragSelectionHandler {
     }
 
     public void handleActionUpOrCancel() {
+        FunctionLog.f("DragSelectionHandler", "handleActionUpOrCancel");
         editor.caret.mainHandler.removeCallbacks(editor.scroll.autoScrollRunnable);        if (editor.selectionHandles.draggingHandle != 0) {
             if (editor.selectionHandles.draggingHandle == 3) {
                 updateHandlePosition(editor.onTouch.lastTouchX, editor.onTouch.lastTouchY);
@@ -113,6 +116,7 @@ public class DragSelectionHandler {
     }
 
     private void updateAutoScroll(float x, float y) {
+        FunctionLog.f("DragSelectionHandler", "updateAutoScroll", x, y);
         float scrollMargin = editor.textRender.lineHeight * 2f;
         float scrollSpeed = Math.max(4f, editor.textRender.lineHeight * 0.35f);
         editor.scroll.autoScrollY = 0;
@@ -139,6 +143,7 @@ public class DragSelectionHandler {
     }
 
     public void updateHandlePosition(float touchX, float touchY) {
+        FunctionLog.f("DragSelectionHandler", "updateHandlePosition", touchX, touchY);
         if (editor.selection.isSelectAllActive || editor.selection.isEntireFileSelected) {
             editor.selection.isSelectAllActive = false;
             editor.selection.isEntireFileSelected = false;
@@ -220,6 +225,7 @@ public class DragSelectionHandler {
     }
 
     private int handleCodeFoldSelection(int line, String ln, float moveX, int clamped) {
+        FunctionLog.f("DragSelectionHandler", "handleCodeFoldSelection", line, ln, moveX, clamped);
         CodeFold.FoldRange range = editor.codeFold.getFoldRangeAtStart(line);
         if (range != null && range.collapsed) {
             float[] bounds = new float[2];

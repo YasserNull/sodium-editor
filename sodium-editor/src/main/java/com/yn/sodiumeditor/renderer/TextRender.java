@@ -22,6 +22,7 @@ import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.StreamedCharSlice;
 import com.yn.sodiumeditor.core.StreamedSliceRequest;
 import com.yn.sodiumeditor.renderer.WindowRender;
+import com.yn.sodiumeditor.utils.FunctionLog;
 /**
  * TextRender handles all text rendering algorithms for SodiumEditor.
  * This includes drawing text, handling syntax highlighting, underlines,
@@ -78,6 +79,7 @@ public class TextRender {
     }
 
     public TextRender(SodiumEditor editor) {
+        FunctionLog.f("TextRender", "TextRender", editor);
         this.editor = editor;
         this.paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         this.baseTypeface = Typeface.DEFAULT;
@@ -98,6 +100,7 @@ public class TextRender {
      * Get paint for a specific character based on syntax highlighting
      */
     public Paint getPaintForChar(int lineIndex, int charIndex, String lineText) {
+        FunctionLog.f("TextRender", "getPaintForChar", lineIndex, charIndex, lineText);
         return editor.highliteRender.getPaintForChar(lineIndex, charIndex, lineText);
     }
 
@@ -105,6 +108,7 @@ public class TextRender {
      * Get average character width for a line
      */
     public float getAverageCharWidthForLine(String line, int lineIndex) {
+        FunctionLog.f("TextRender", "getAverageCharWidthForLine", line, lineIndex);
         if (line == null || line.isEmpty()) return paint.measureText(" ");
         if (lineIndex >= 0) {
             Float cached = editor.windowRender.avgCharWidthCache.get(lineIndex);
@@ -127,6 +131,7 @@ public class TextRender {
      * Draw a highlighted line with syntax highlighting, underlines, and animations
      */
     public void drawHighlightedLine(Canvas canvas, String line, int globalLine, float y) {
+        FunctionLog.f("TextRender", "drawHighlightedLine", canvas, line, globalLine, y);
         editor.highliteRender.drawHighlightedLine(canvas, line, globalLine, y);
     }
 
@@ -134,6 +139,7 @@ public class TextRender {
      * Draw a highlighted line range
      */
     public void drawHighlightedLineRange(Canvas canvas, String line, int globalLine, int start, int end, float y) {
+        FunctionLog.f("TextRender", "drawHighlightedLineRange", canvas, line, globalLine, start, end, y);
         editor.highliteRender.drawHighlightedLineRange(canvas, line, globalLine, start, end, y);
     }
 
@@ -145,6 +151,7 @@ public class TextRender {
      * Get visible character range for a line (delegated)
      */
     public void getVisibleCharRangeForLine(String line, int globalLine, int[] out) {
+        FunctionLog.f("TextRender", "getVisibleCharRangeForLine", line, globalLine, out);
         editor.textRange.getVisibleCharRangeForLine(line, globalLine, out, isRtl, editor.view.isStableGlyphPositionsEnabled);
     }
 
@@ -152,6 +159,7 @@ public class TextRender {
      * Get visible character range for a line (fast version for long lines) (delegated)
      */
     public void getVisibleCharRangeForLineFast(String line, int globalLine, int lineLength, int[] out) {
+        FunctionLog.f("TextRender", "getVisibleCharRangeForLineFast", line, globalLine, lineLength, out);
         editor.textRange.getVisibleCharRangeForLineFast(line, globalLine, lineLength, out, isRtl, editor.view.isStableGlyphPositionsEnabled);
     }
 
@@ -159,6 +167,7 @@ public class TextRender {
      * Compute streamed slice bounds (delegated)
      */
     public void computeStreamedSliceBounds(@Nullable String lineText, int globalLine, int lineLength, int[] out) {
+        FunctionLog.f("TextRender", "computeStreamedSliceBounds", lineText, globalLine, lineLength, out);
         editor.textRange.computeStreamedSliceBounds(lineText, globalLine, lineLength, out, isRtl);
     }
 
@@ -166,6 +175,7 @@ public class TextRender {
      * Get initial streamed slice size (delegated)
      */
     public int getInitialStreamedSliceSize() {
+        FunctionLog.f("TextRender", "getInitialStreamedSliceSize");
         return editor.textRange.getInitialStreamedSliceSize();
     }
 
@@ -179,6 +189,7 @@ public class TextRender {
     public float drawTextSegmentWithFade(
             Canvas canvas, String line, int start, int end, float x, float y,
             Paint segmentPaint, int fadeStart, int fadeEnd, float fadeAlpha) {
+        FunctionLog.f("TextRender", "drawTextSegmentWithFade", canvas, line, start, end, x, y, segmentPaint, fadeStart, fadeEnd, fadeAlpha);
         return editor.textLineDraw.drawTextSegmentWithFade(canvas, line, start, end, x, y, segmentPaint, fadeStart, fadeEnd, fadeAlpha);
     }
 
@@ -189,6 +200,7 @@ public class TextRender {
             Canvas canvas, String line, int start, int end, float x, float y,
             Paint segmentPaint, int fadeStart, int fadeEnd, float fadeAlpha,
             @Nullable List<UnderlineSpan> underlines, float lineTop, float lineBottom) {
+        FunctionLog.f("TextRender", "drawTextSegmentWithFadeAndUnderlines", canvas, line, start, end, x, y, segmentPaint, fadeStart, fadeEnd, fadeAlpha, underlines, lineTop, lineBottom);
         return editor.textLineDraw.drawTextSegmentWithFadeAndUnderlines(canvas, line, start, end, x, y, segmentPaint, fadeStart, fadeEnd, fadeAlpha, underlines, lineTop, lineBottom);
     }
 
@@ -199,6 +211,7 @@ public class TextRender {
             Canvas canvas, String line, int start, int end, float x, float baselineY,
             float lineTop, float lineBottom, Paint textPaint,
             int fadeStart, int fadeEnd, float fadeAlpha, boolean isPath) {
+        FunctionLog.f("TextRender", "drawUnderlineSegmentWithFade", canvas, line, start, end, x, baselineY, lineTop, lineBottom, textPaint, fadeStart, fadeEnd, fadeAlpha, isPath);
         editor.textLineDraw.drawUnderlineSegmentWithFade(canvas, line, start, end, x, baselineY, lineTop, lineBottom, textPaint, fadeStart, fadeEnd, fadeAlpha, isPath);
     }
 
@@ -214,6 +227,7 @@ public class TextRender {
           float y,
           Paint segmentPaint,
           float alphaMultiplier) {
+        FunctionLog.f("TextRender", "drawTextSegmentWithVisualSpaces", canvas, line, start, end, x, y, segmentPaint, alphaMultiplier);
         return editor.textLineDraw.drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, segmentPaint, alphaMultiplier);
     }
 
@@ -221,6 +235,7 @@ public class TextRender {
      * Draw delete animation for segment (delegated)
      */
     public void drawDeleteAnimationForSegment(Canvas canvas, String line, int globalLine, int segStart, int segEnd, float y) {
+        FunctionLog.f("TextRender", "drawDeleteAnimationForSegment", canvas, line, globalLine, segStart, segEnd, y);
         editor.textLineDraw.drawDeleteAnimationForSegment(canvas, line, globalLine, segStart, segEnd, y);
     }
     
@@ -233,6 +248,7 @@ public class TextRender {
      * Check if line number cache should be used (delegated)
      */
     public boolean shouldUselineNumberCache() {
+        FunctionLog.f("TextRender", "shouldUselineNumberCache");
         return editor.lineNumber.shouldUseLineNumberCache();
     }
 
@@ -240,6 +256,7 @@ public class TextRender {
      * Ensure line number cache bitmap exists (delegated)
      */
     public void ensurelineNumberCacheBitmap(int width, int height) {
+        FunctionLog.f("TextRender", "ensurelineNumberCacheBitmap", width, height);
         editor.lineNumber.ensureLineNumberCacheBitmap(width, height);
     }
 
@@ -247,6 +264,7 @@ public class TextRender {
      * Write integer to chars buffer (delegated)
      */
     public int writeIntToChars(int value, char[] chars) {
+        FunctionLog.f("TextRender", "writeIntToChars", value, chars);
         return editor.lineNumber.writeIntToChars(value, chars);
     }
 
@@ -256,6 +274,7 @@ public class TextRender {
     public void drawlineNumbersCachedUnwrapped(
             Canvas canvas, int firstVisibleIndex, int lastVisibleIndex,
             int firstVisibleLine, int lastVisibleLine) {
+        FunctionLog.f("TextRender", "drawlineNumbersCachedUnwrapped", canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine);
         editor.lineNumber.drawLineNumbersCachedUnwrapped(canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine);
     }
 
@@ -263,6 +282,7 @@ public class TextRender {
      * Draw line numbers cached (wrapped) (delegated)
      */
     public void drawlineNumbersCachedWrapped(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
+        FunctionLog.f("TextRender", "drawlineNumbersCachedWrapped", canvas, firstVisualIndex, lastVisualIndex);
         editor.lineNumber.drawLineNumbersCachedWrapped(canvas, firstVisualIndex, lastVisualIndex);
     }
 
@@ -272,6 +292,7 @@ public class TextRender {
     public void drawlineNumbersDirectUnwrapped(
             Canvas canvas, int firstVisibleIndex, int lastVisibleIndex,
             int firstVisibleLine, int lastVisibleLine) {
+        FunctionLog.f("TextRender", "drawlineNumbersDirectUnwrapped", canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine);
         editor.lineNumber.drawLineNumbersDirectUnwrapped(canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine);
     }
 
@@ -279,6 +300,7 @@ public class TextRender {
      * Draw line numbers direct (wrapped) (delegated)
      */
     public void drawlineNumbersDirectWrapped(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
+        FunctionLog.f("TextRender", "drawlineNumbersDirectWrapped", canvas, firstVisualIndex, lastVisualIndex);
         editor.lineNumber.drawLineNumbersDirectWrapped(canvas, firstVisualIndex, lastVisualIndex);
     }
 
@@ -286,6 +308,7 @@ public class TextRender {
      * Draw current line number (unwrapped) (delegated)
      */
     public void drawCurrentlineNumberUnwrapped(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex) {
+        FunctionLog.f("TextRender", "drawCurrentlineNumberUnwrapped", canvas, firstVisibleIndex, lastVisibleIndex);
         editor.lineNumber.drawCurrentlineNumberUnwrapped(canvas, firstVisibleIndex, lastVisibleIndex);
     }
 
@@ -293,6 +316,7 @@ public class TextRender {
      * Draw current line number (wrapped) (delegated)
      */
     public void drawCurrentlineNumberWrapped(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
+        FunctionLog.f("TextRender", "drawCurrentlineNumberWrapped", canvas, firstVisualIndex, lastVisualIndex);
         editor.lineNumber.drawCurrentlineNumberWrapped(canvas, firstVisualIndex, lastVisualIndex);
     }
 
@@ -301,6 +325,7 @@ public class TextRender {
      */
     public void drawHighlightedLineSegment(
             Canvas canvas, String line, int globalLine, int start, int end, float y, float lineTop, float lineBottom) {
+        FunctionLog.f("TextRender", "drawHighlightedLineSegment", canvas, line, globalLine, start, end, y, lineTop, lineBottom);
         editor.highliteRender.drawHighlightedLineSegment(canvas, line, globalLine, start, end, y, lineTop, lineBottom);
     }
 
@@ -308,6 +333,7 @@ public class TextRender {
      * Draw whitespace guides for segment
      */
     public void drawWhitespaceGuidesForSegment(Canvas canvas, String line, int globalLine, int start, int end, float y) {
+        FunctionLog.f("TextRender", "drawWhitespaceGuidesForSegment", canvas, line, globalLine, start, end, y);
         editor.whitespaceGuides.drawWhitespaceGuidesForSegment(canvas, line, globalLine, start, end, y);
     }
 
@@ -319,6 +345,7 @@ public class TextRender {
      * Draw whitespace guides for line
      */
     public void drawWhitespaceGuidesForLine(Canvas canvas, String line, int globalLine, float y) {
+        FunctionLog.f("TextRender", "drawWhitespaceGuidesForLine", canvas, line, globalLine, y);
         editor.whitespaceGuides.drawWhitespaceGuidesForLine(canvas, line, globalLine, y);
     }
 
@@ -327,6 +354,7 @@ public class TextRender {
      * Coordinate system is consistent with drawing translation in ViewRender.
      */
     public float getDrawLineTop(int globalLine) {
+        FunctionLog.f("TextRender", "getDrawLineTop", globalLine);
         int drawIndex = globalLine;
         if (editor.codeFold.isCodeFoldingEnabled) {
             drawIndex = editor.codeFold.getVisibleIndexForGlobalLine(globalLine);
@@ -343,6 +371,7 @@ public class TextRender {
      * Get draw line bottom position
      */
     public float getDrawLineBottom(int globalLine) {
+        FunctionLog.f("TextRender", "getDrawLineBottom", globalLine);
         return getDrawLineTop(globalLine) + lineHeight;
     }
 
@@ -350,23 +379,28 @@ public class TextRender {
      * Get hit test base Y
      */
     public float getHitTestBaseY() {
+        FunctionLog.f("TextRender", "getHitTestBaseY");
         int baseLine = (int) (editor.scroll.scrollY / lineHeight);
         if (baseLine < 0) baseLine = 0;
         return baseLine * lineHeight;
     }
     public void setMaxSyntaxLineLength(int maxChars) {
+    FunctionLog.f("TextRender", "setMaxSyntaxLineLength", maxChars);
     editor.highliteRender.setMaxSyntaxLineLength(maxChars);
-  }
+    }
 
-  public void setPrefetchCols(int cols) {
+    public void setPrefetchCols(int cols) {
+    FunctionLog.f("TextRender", "setPrefetchCols", cols);
     editor.highliteRender.setPrefetchCols(cols);
-  }
+    }
 
-  public void setColsWidthCacheSize(int size) {
+    public void setColsWidthCacheSize(int size) {
+    FunctionLog.f("TextRender", "setColsWidthCacheSize", size);
     // This could also move to highliteRender if it's considered part of prefetch/window logic
+
     // For now keeping it here or just updating it.
     // Actually TextRender still uses avgCharWidthCache.
-  }
+    }
 
 
 
@@ -391,6 +425,7 @@ public class TextRender {
    * Set editor background color
    */
   public void setEditorBackgroundColor(int color) {
+    FunctionLog.f("TextRender", "setEditorBackgroundColor", color);
     editor.view.hasEditorBackgroundColor = true;
     editor.view.editorBackgroundColor = color;
     editor.invalidate();
@@ -400,6 +435,7 @@ public class TextRender {
    * Clear editor background color
    */
   public void clearEditorBackgroundColor() {
+    FunctionLog.f("TextRender", "clearEditorBackgroundColor");
     editor.view.hasEditorBackgroundColor = false;
     editor.invalidate();
   }
@@ -408,6 +444,7 @@ public class TextRender {
    * Set editor background bitmap
    */
   public void setEditorBackgroundBitmap(android.graphics.Bitmap bitmap) {
+    FunctionLog.f("TextRender", "setEditorBackgroundBitmap", bitmap);
     if (editor.view.editorBackgroundBitmap != null && !editor.view.editorBackgroundBitmap.isRecycled()) {
       editor.view.editorBackgroundBitmap.recycle();
     }
@@ -419,6 +456,7 @@ public class TextRender {
    * Clear editor background image
    */
   public void clearEditorBackgroundImage() {
+    FunctionLog.f("TextRender", "clearEditorBackgroundImage");
     if (editor.view.editorBackgroundBitmap != null && !editor.view.editorBackgroundBitmap.isRecycled()) {
       editor.view.editorBackgroundBitmap.recycle();
     }
@@ -427,6 +465,7 @@ public class TextRender {
   }
 
   public void clearCachesOnTypefaceChange() {
+    FunctionLog.f("TextRender", "clearCachesOnTypefaceChange");
     cachedSpaceWidth = -1f;
     cachedTabWidth = -1f;
     cachedBaseIndex = -1;
@@ -446,10 +485,12 @@ public class TextRender {
   // ========================================================================
 
   public int getVisualSpaceScale() {
+    FunctionLog.f("TextRender", "getVisualSpaceScale");
     return 1;
   }
 
   public float getVisualSpaceWidth(Paint p) {
+    FunctionLog.f("TextRender", "getVisualSpaceWidth", p);
     if (cachedSpaceWidth < 0f) {
       cachedSpaceWidth = p.measureText(" ");
     }
@@ -460,6 +501,7 @@ public class TextRender {
    * Get character advance width
    */
   public float getCharAdvanceWidth(char c, float measuredWidth, Paint p) {
+    FunctionLog.f("TextRender", "getCharAdvanceWidth", c, measuredWidth, p);
     if (c == ' ') {
       return measuredWidth;
     }
@@ -470,6 +512,7 @@ public class TextRender {
   }
   
   public float getVisualTabWidth(Paint p) {
+    FunctionLog.f("TextRender", "getVisualTabWidth", p);
     if (cachedTabWidth < 0f) {
       cachedTabWidth = getVisualSpaceWidth(p) * DEFAULT_TAB_SIZE_SPACES;
     }
@@ -477,6 +520,7 @@ public class TextRender {
   }
 
   public float measureTextWithVisualSpaces(String text, int start, int end, Paint p) {
+    FunctionLog.f("TextRender", "measureTextWithVisualSpaces", text, start, end, p);
     if (text == null) return 0f;
     start = Math.max(0, Math.min(start, text.length()));
     end = Math.max(start, Math.min(end, text.length()));
@@ -500,6 +544,7 @@ public class TextRender {
   }
 
   public float measureText(String line, int length, int globalLine) {
+    FunctionLog.f("TextRender", "measureText", line, length, globalLine);
     int logicalLen = editor.view.getLogicalLineLength(globalLine, line);
     int safeLen = Math.max(0, Math.min(length, logicalLen));
 
@@ -557,6 +602,7 @@ public class TextRender {
   }
 
   public int getCharIndexForX(String text, float x, int globalLine) {
+    FunctionLog.f("TextRender", "getCharIndexForX", text, x, globalLine);
     if (text == null || text.isEmpty()) return 0;
     if (isRtl) {
       float baseX = editor.layout.getRtlLineBaseX(text, globalLine);
@@ -638,16 +684,4 @@ public class TextRender {
   // ========================================================================
   // Window Management Methods
   // ========================================================================
-
-
-
-
-
-
-
-
-
-
-
-
-  }
+}

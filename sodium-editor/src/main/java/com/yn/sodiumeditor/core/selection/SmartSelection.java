@@ -2,6 +2,7 @@ package com.yn.sodiumeditor.core.selection;
 
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.selection.SelectionTextRange;
+import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.ArrayList;
 
 /**
@@ -12,11 +13,13 @@ public class SmartSelection {
     private final Selection selection;
 
     public SmartSelection(SodiumEditor editor, Selection selection) {
+        FunctionLog.f("SmartSelection", "SmartSelection", editor, selection);
         this.editor = editor;
         this.selection = selection;
     }
 
     public void selectWordAtCursor() {
+        FunctionLog.f("SmartSelection", "selectWordAtCursor");
         String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
         if (line == null || line.isEmpty()) return;
         int pos = Math.max(0, Math.min(editor.cursor.cursorChar, line.length()));
@@ -30,12 +33,14 @@ public class SmartSelection {
     }
 
     public void selectLineAtCursor() {
+        FunctionLog.f("SmartSelection", "selectLineAtCursor");
         String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
         if (line == null) return;
         selection.setSelection(editor.cursor.cursorLine, 0, editor.cursor.cursorLine, line.length());
     }
 
     public ArrayList<SelectionTextRange> buildDoubleTapCandidates(String line, int charIndex, int wStart, int wEnd) {
+        FunctionLog.f("SmartSelection", "buildDoubleTapCandidates", line, charIndex, wStart, wEnd);
         ArrayList<SelectionTextRange> out = new ArrayList<>(6);
         if (line == null) return out;
         int len = line.length();
@@ -56,6 +61,7 @@ public class SmartSelection {
     }
 
     public boolean applySmartDoubleTapSelection(int line, int charIndex, String lineText) {
+        FunctionLog.f("SmartSelection", "applySmartDoubleTapSelection", line, charIndex, lineText);
         if (lineText == null) return false;
         ArrayList<SelectionTextRange> candidates = selection.wordFinder.buildSmartWordCandidates(lineText, charIndex);
         

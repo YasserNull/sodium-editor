@@ -6,6 +6,7 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -142,6 +143,7 @@ public class HighliteRender {
     }
 
     public HighliteRender(SodiumEditor editor) {
+        FunctionLog.f("HighliteRender", "HighliteRender", editor);
         this.editor = editor;
     }
 
@@ -149,6 +151,7 @@ public class HighliteRender {
      * Get paint for a specific character based on syntax highlighting
      */
     public Paint getPaintForChar(int lineIndex, int charIndex, String lineText) {
+        FunctionLog.f("HighliteRender", "getPaintForChar", lineIndex, charIndex, lineText);
         List<HighlightSpan> spans = editor.highlite.highlightCache.get(lineIndex);
         if (spans == null) {
             spans = editor.highlite.calculateSpansForLine(lineText, lineIndex);
@@ -166,6 +169,7 @@ public class HighliteRender {
      * Draw a highlighted line with syntax highlighting, underlines, and animations
      */
     public void drawHighlightedLine(Canvas canvas, String line, int globalLine, float y) {
+        FunctionLog.f("HighliteRender", "drawHighlightedLine", canvas, line, globalLine, y);
         // Fast path for binary rendering - completely bypass normal highlighting
         if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
             editor.textRender.getVisibleCharRangeForLine(line, globalLine, editor.textRender.visibleCharRangeTmp);
@@ -358,6 +362,7 @@ public class HighliteRender {
      * Draw a highlighted line range
      */
     public void drawHighlightedLineRange(Canvas canvas, String line, int globalLine, int start, int end, float y) {
+        FunctionLog.f("HighliteRender", "drawHighlightedLineRange", canvas, line, globalLine, start, end, y);
         if (line == null || line.isEmpty()) return;
         int len = line.length();
         start = Math.max(0, Math.min(start, len));
@@ -462,6 +467,7 @@ public class HighliteRender {
      */
     public void drawHighlightedLineSegment(
             Canvas canvas, String line, int globalLine, int start, int end, float y, float lineTop, float lineBottom) {
+        FunctionLog.f("HighliteRender", "drawHighlightedLineSegment", canvas, line, globalLine, start, end, y, lineTop, lineBottom);
         if (line == null || line.isEmpty() || start >= end) return;
         start = Math.max(0, Math.min(start, line.length()));
         end = Math.max(start, Math.min(end, line.length()));
@@ -533,6 +539,7 @@ public class HighliteRender {
     }
     
     public void setMaxSyntaxLineLength(int maxChars) {
+        FunctionLog.f("HighliteRender", "setMaxSyntaxLineLength", maxChars);
         int safe = Math.max(512, maxChars);
         if (maxSyntaxLineLength == safe) return;
         maxSyntaxLineLength = safe;
@@ -541,6 +548,7 @@ public class HighliteRender {
     }
 
     public void setPrefetchCols(int cols) {
+        FunctionLog.f("HighliteRender", "setPrefetchCols", cols);
         int safe = Math.max(0, cols);
         if (prefetchCols == safe) return;
         prefetchCols = safe;
@@ -548,6 +556,7 @@ public class HighliteRender {
     }
 
     public List<HighlightSpan> getHighlightSpansForLine(String line, int lineIndex) {
+        FunctionLog.f("HighliteRender", "getHighlightSpansForLine", line, lineIndex);
         List<HighlightSpan> spans = editor.highlite.highlightCache.get(lineIndex);
         if (spans == null) {
             spans = editor.highlite.calculateSpansForLine(line, lineIndex);

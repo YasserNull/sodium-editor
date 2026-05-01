@@ -9,7 +9,7 @@ public class AutoBracketPair {
   private final SodiumEditor editor;
 
   // Auto-pairing state
-  public boolean isAutoPairingEnabled = true;
+  public boolean isAutoPairingEnabled = false;
 
   public AutoBracketPair(SodiumEditor editor) {
     this.editor = editor;

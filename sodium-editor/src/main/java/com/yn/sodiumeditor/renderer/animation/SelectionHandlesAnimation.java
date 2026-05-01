@@ -1,6 +1,7 @@
 package com.yn.sodiumeditor.renderer.animation;
 
 import android.os.SystemClock;
+import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * SelectionHandlesAnimation handles the animation logic for selection handles.
@@ -21,6 +22,7 @@ public class SelectionHandlesAnimation {
     private long rightStartTime = 0;
 
     public float[] getAnimatedHandlePosition(boolean isLeft, float targetX, float targetY) {
+        FunctionLog.f("SelectionHandlesAnimation", "getAnimatedHandlePosition", isLeft, targetX, targetY);
         if (!handleMoveAnimationEnabled) {
             return new float[] {targetX, targetY};
         }
@@ -74,10 +76,12 @@ public class SelectionHandlesAnimation {
     private float animRightX = Float.NaN, animRightY = Float.NaN;
 
     public void setHandleMoveAnimationEnabled(boolean enabled) {
+        FunctionLog.f("SelectionHandlesAnimation", "setHandleMoveAnimationEnabled", enabled);
         handleMoveAnimationEnabled = enabled;
     }
 
     public boolean isAnimating() {
+        FunctionLog.f("SelectionHandlesAnimation", "isAnimating");
         if (!handleMoveAnimationEnabled) return false;
         long now = SystemClock.uptimeMillis();
         boolean leftActive = !Float.isNaN(leftTargetX) && (now - leftStartTime < ANIM_DURATION);
@@ -86,6 +90,7 @@ public class SelectionHandlesAnimation {
     }
 
     public void resetAnimationState() {
+        FunctionLog.f("SelectionHandlesAnimation", "resetAnimationState");
         animLeftX = Float.NaN;
         animLeftY = Float.NaN;
         animRightX = Float.NaN;

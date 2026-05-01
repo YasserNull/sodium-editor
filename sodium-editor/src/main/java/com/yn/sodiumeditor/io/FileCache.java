@@ -1,7 +1,7 @@
 package com.yn.sodiumeditor.io;
-
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.StreamedCharSlice;
+import com.yn.sodiumeditor.utils.FunctionLog;
 import java.io.File;
 import java.io.RandomAccessFile;
 import java.util.LinkedHashMap;
@@ -15,26 +15,22 @@ public class FileCache {
     private final FileIO fileIO;
 
     public FileCache(SodiumEditor editor, FileIO fileIO) {
+        FunctionLog.f("FileCache", "FileCache", editor, fileIO);
         this.editor = editor;
         this.fileIO = fileIO;
     }
 
     public void populateDirectLinesForRange(int startLine, int endLineInclusive, Map<Integer, String> out) {
+        FunctionLog.f("FileCache", "populateDirectLinesForRange", startLine, endLineInclusive, out);
         if (out == null || fileIO.sourceFile == null || !fileIO.sourceFile.exists()) return;
+        // Avoid reading from disk while in-memory edits are pending (phantom render risk).
+        if (editor.editOperators.lineCountDelta != 0) return;
+        synchronized (editor.windowRender.modifiedLines) {
+            if (!editor.windowRender.modifiedLines.isEmpty()) return;
+        }
+
         int start = Math.max(0, startLine);
         int end = Math.max(start, endLineInclusive);
-
-        if (!fileIO.isIndexReady) {
-            for (int l = start; l <= end; l++) {
-                if (out.containsKey(l)) continue;
-                String text = readLineByScanningFile(l);
-                if (text != null) {
-                    out.put(l, text);
-                    synchronized (fileIO.directLineCache) { fileIO.directLineCache.put(l, text); }
-                }
-            }
-            return;
-        }
 
         synchronized (fileIO.directLineCache) {
             for (int l = start; l <= end; l++) {

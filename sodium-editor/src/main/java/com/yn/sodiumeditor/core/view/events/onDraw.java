@@ -1,6 +1,8 @@
 package com.yn.sodiumeditor.core.view.events;
 
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.PorterDuff;
 import com.yn.sodiumeditor.SodiumEditor;
 
 public class onDraw {
@@ -10,7 +12,17 @@ public class onDraw {
         this.editor = editor;
     }
 
+    static boolean shouldClearBeforeDraw(boolean hasEditorBackgroundColor, Object editorBackgroundBitmap) {
+        return !hasEditorBackgroundColor && editorBackgroundBitmap == null;
+    }
+
     public void onDraw(Canvas canvas) {
+        // If the editor background is transparent, previously-rendered glyphs can "ghost"
+        // when a line becomes empty (we skip drawing text for empty lines). CLEAR ensures
+        // the current clip is wiped every frame before drawing.
+        if (shouldClearBeforeDraw(editor.view.hasEditorBackgroundColor, editor.view.editorBackgroundBitmap)) {
+            canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+        }
         editor.view.drawEditorBackground(canvas);
         if (editor.scroll.stretch.stretchOverscrollEnabled && (editor.scroll.stretch.stretchX != 0f || editor.scroll.stretch.stretchY != 0f)) {
             float sx = 1f + (editor.scroll.stretch.stretchX * 0.18f * editor.scroll.stretch.stretchOverscrollStrength);

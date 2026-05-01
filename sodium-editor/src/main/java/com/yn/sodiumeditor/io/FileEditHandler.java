@@ -3,6 +3,7 @@ package com.yn.sodiumeditor.io;
 import android.util.Log;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.utils.FunctionLog;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -20,11 +21,14 @@ public class FileEditHandler {
     private final EditOperators operators;
 
     public FileEditHandler(SodiumEditor editor, EditOperators operators) {
+        FunctionLog.f("FileEditHandler", "FileEditHandler", editor, operators);
         this.editor = editor;
         this.operators = operators;
     }
 
     public void applyPendingEditsToFileAsync(@Nullable Runnable onComplete) {
+        FunctionLog.f("FileEditHandler", "applyPendingEditsToFileAsync", onComplete);
+        Log.i("FileEditHandler", "applyPendingEditsToFileAsync: before modifiedLines.size=" + editor.windowRender.modifiedLines.size() + " isIndexReady=" + editor.fileIO.isIndexReady);
         if (editor.fileIO.sourceFile == null) {
             if (onComplete != null) editor.post(onComplete);
             return;
@@ -53,10 +57,12 @@ public class FileEditHandler {
             }
             final boolean success = ok;
             editor.post(() -> {
+                Log.i("FileEditHandler", "applyPendingEditsToFileAsync: after rewrite modifiedLines.size=" + editor.windowRender.modifiedLines.size());
                 if (!success) {
                     operators.history.pendingEdits.addAll(ops);
                 } else {
                     synchronized (editor.windowRender.modifiedLines) {
+                        Log.i("FileEditHandler", "applyPendingEditsToFileAsync: CLEARING modifiedLines.size=" + editor.windowRender.modifiedLines.size());
                         editor.windowRender.modifiedLines.clear();
                     }
                     operators.lineCountDelta = 0;
@@ -71,6 +77,7 @@ public class FileEditHandler {
 
     public boolean rewriteReplaceRangeBlocking(
             File inFile, int sL, int sC, int eL, int eC, @Nullable String insertText) {
+        FunctionLog.f("FileEditHandler", "rewriteReplaceRangeBlocking", inFile, sL, sC, eL, eC, insertText);
         if (inFile == null || !inFile.exists()) return false;
         try {
             EditOp.RangeBytes range = operators.locator.computeByteRangeFastOrScan(inFile, sL, sC, eL, eC);
@@ -133,6 +140,10 @@ public class FileEditHandler {
             editor.fileIO.isIndexReady = false;
             editor.fileIO.isIndexBuilding = false;
             editor.fileIO.ioHandler.post(editor.fileIO::buildFileIndex);
+            // Don't clear modifiedLines here - keep edited content for IME
+            // until the window is reloaded from the rewritten file.
+            // Clearing them causes the old file content in linesWindow to be
+            // returned by getLineTextForRender, making deleted lines reappear.
             return true;
         } catch (Exception e) {
             return false;
@@ -149,6 +160,7 @@ public class FileEditHandler {
             String insertText,
             EditOp.CursorTarget target,
             boolean finishLargeEditUi) {
+        FunctionLog.f("FileEditHandler", "rewriteReplaceRangeAsync", opToken, inFile, sL, sC, eL, eC, insertText, target, finishLargeEditUi);
         editor.fileIO.ioHandler.post(() -> {
             try {
                 if (inFile == null || !inFile.exists()) {
@@ -255,6 +267,7 @@ public class FileEditHandler {
     }
 
     private void transferRange(FileChannel inCh, FileChannel outCh, long position, long count) throws Exception {
+        FunctionLog.f("FileEditHandler", "transferRange", inCh, outCh, position, count);
         long remaining = count;
         long pos = position;
         while (remaining > 0) {

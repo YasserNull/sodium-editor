@@ -6,6 +6,7 @@ import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.io.EditOp;
 import com.yn.sodiumeditor.io.EditOperators;
+import com.yn.sodiumeditor.utils.FunctionLog;
 import java.io.File;
 
 /**
@@ -16,11 +17,13 @@ public class SelectionActionHandler {
     private final Selection selection;
 
     public SelectionActionHandler(SodiumEditor editor, Selection selection) {
+        FunctionLog.f("SelectionActionHandler", "SelectionActionHandler", editor, selection);
         this.editor = editor;
         this.selection = selection;
     }
 
     public void selectAll() {
+        FunctionLog.f("SelectionActionHandler", "selectAll");
         editor.autoCompletion.clearActiveSuggestion();
         final boolean keyboardWasVisible = editor.view.keyboardHeight > 0;
         if (editor.wordWrap.isWordWrapEnabled) {
@@ -33,7 +36,6 @@ public class SelectionActionHandler {
         selection.isEntireFileSelected = true;
         selection.hasSelection = true;
         selection.selStartLine = 0; selection.selStartChar = 0;
-        editor.popup.hidePopup();
 
         if (editor.fileIO.sourceFile == null || editor.fileIO.isFileCleared) {
             synchronized (editor.windowRender.linesWindow) {
@@ -104,6 +106,7 @@ public class SelectionActionHandler {
     }
 
     private void finishSelectAll(boolean keyboardWasVisible) {
+        FunctionLog.f("SelectionActionHandler", "finishSelectAll", keyboardWasVisible);
         selection.syncToState();
         editor.view.setDisable(false); editor.loadingCircle.showLoadingCircle(false);
         editor.invalidate(); editor.requestFocus(); editor.popup.showPopupAtSelection();
@@ -115,6 +118,7 @@ public class SelectionActionHandler {
     }
 
     public void replaceSelectionWithText(String insertText) {
+        FunctionLog.f("SelectionActionHandler", "replaceSelectionWithText", insertText);
         if (editor.view.isReadOnly) return;
         editor.fileIO.invalidatePendingIOForEdit();
         final int opToken = editor.editOperators.editVersion.incrementAndGet();
@@ -163,6 +167,7 @@ public class SelectionActionHandler {
     }
 
     private void handleSelectAllReplace(String insertText, int sL, int sC, int eL, int eC, String removedText, int beforeL, int beforeC, int remNl, int insNl) {
+        FunctionLog.f("SelectionActionHandler", "handleSelectAllReplace", insertText, sL, sC, eL, eC, removedText, beforeL, beforeC, remNl, insNl);
         synchronized (editor.windowRender.linesWindow) { editor.windowRender.linesWindow.clear(); editor.windowRender.linesWindow.add(""); editor.windowRender.windowStartLine = 0; editor.fileIO.isEof = true; }
         synchronized (editor.fileIO.directLineCache) { editor.fileIO.directLineCache.clear(); }
         synchronized (editor.windowRender.modifiedLines) { editor.windowRender.modifiedLines.clear(); }
@@ -189,6 +194,7 @@ public class SelectionActionHandler {
     }
 
     private void handleSingleLineReplace(String insertText, int sL, int sC, int eL, int eC, String removedText, int beforeL, int beforeC, int remNl, int insNl) {
+        FunctionLog.f("SelectionActionHandler", "handleSingleLineReplace", insertText, sL, sC, eL, eC, removedText, beforeL, beforeC, remNl, insNl);
         editor.fileIO.ensureLineInWindow(sL, true);
         if (editor.fileIO.isWindowLoading && (sL < editor.windowRender.windowStartLine || sL >= editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size())) {
             editor.post(() -> replaceSelectionWithText(insertText)); return;
@@ -210,6 +216,7 @@ public class SelectionActionHandler {
     }
 
     private void finalizeAction(int remNl, int insNl, int sL, int sC, int eL, int eC, String rem, String ins, int bL, int bC) {
+        FunctionLog.f("SelectionActionHandler", "finalizeAction", remNl, insNl, sL, sC, eL, eC, rem, ins, bL, bC);
         editor.autoCompletion.updateSuggestion(); editor.editOperators.lineCountDelta += (insNl - remNl);
         selection.recordReplaceSelectionEdit(sL, sC, eL, eC, rem, ins, bL, bC);
     }

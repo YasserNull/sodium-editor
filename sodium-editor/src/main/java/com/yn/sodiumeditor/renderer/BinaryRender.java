@@ -6,6 +6,7 @@ import com.yn.sodiumeditor.core.StreamedCharSlice;
 import com.yn.sodiumeditor.core.binary.BinaryTokenConverter;
 import com.yn.sodiumeditor.io.BinaryFileReader;
 import com.yn.sodiumeditor.renderer.draw.BinaryLineDrawer;
+import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * BinaryRender is the main entry point for binary-safe rendering.
@@ -124,6 +125,27 @@ public class BinaryRender {
         binaryTokenSpans.remove(lineIndex);
     }
 
+    public void shiftBinaryTokenSpans(int startLine, int delta) {
+        FunctionLog.f("BinaryRender", "shiftBinaryTokenSpans", startLine, delta);
+        if (delta == 0 || binaryTokenSpans.size() == 0) return;
+        SparseArray<int[]> shifted = new SparseArray<>(binaryTokenSpans.size());
+        for (int i = 0; i < binaryTokenSpans.size(); i++) {
+            int line = binaryTokenSpans.keyAt(i);
+            int[] val = binaryTokenSpans.valueAt(i);
+            if (line < startLine) {
+                shifted.put(line, val);
+            } else {
+                if (delta < 0 && line < startLine - delta) continue;
+                int newLine = line + delta;
+                if (newLine >= 0) shifted.put(newLine, val);
+            }
+        }
+        binaryTokenSpans.clear();
+        for (int i = 0; i < shifted.size(); i++) {
+            binaryTokenSpans.put(shifted.keyAt(i), shifted.valueAt(i));
+        }
+    }
+
     /**
      * Adjust binary token spans after an edit operation.
      * @param lineIndex the line index
@@ -183,22 +205,26 @@ public class BinaryRender {
 
     // ── Conversion ─────────────────────────────────────────────────────────────
     public String bytesToControlVisible(byte[] buf, int len) {
+        FunctionLog.f("BinaryRender", "bytesToControlVisible", buf, len);
         return tokenConverter.bytesToControlVisible(buf, len);
     }
 
     public String bytesToControlVisibleAndCacheSpans(byte[] buf, int len, int lineIndex) {
+        FunctionLog.f("BinaryRender", "bytesToControlVisibleAndCacheSpans", buf, len, lineIndex);
         return tokenConverter.bytesToControlVisibleAndCacheSpans(buf, len, lineIndex, binaryTokenSpans);
     }
 
     // ── File Reading ───────────────────────────────────────────────────────────
     public String readLineWithBinarySafe(
         java.io.RandomAccessFile raf, int line, long fileLen, java.nio.charset.Charset fileCharset) throws Exception {
+        FunctionLog.f("BinaryRender", "readLineWithBinarySafe", raf, line, fileLen, fileCharset);
         return fileReader.readLineWithBinarySafe(raf, line, fileLen, fileCharset, binarySafeRenderingEnabled);
     }
 
     public String readLineSliceAtByte(
         java.io.RandomAccessFile raf, long lineStart, long lineByteLen,
         int startChar, int endChar, java.nio.charset.Charset fileCharset) throws Exception {
+        FunctionLog.f("BinaryRender", "readLineSliceAtByte", raf, lineStart, lineByteLen, startChar, endChar, fileCharset);
         return fileReader.readLineSliceAtByte(raf, lineStart, lineByteLen, startChar, endChar, fileCharset, binarySafeRenderingEnabled);
     }
 
@@ -206,47 +232,60 @@ public class BinaryRender {
         java.io.RandomAccessFile raf, long lineStart,
         int startChar, int endChar,
         boolean needTotalLength, java.nio.charset.Charset fileCharset) throws Exception {
+        FunctionLog.f("BinaryRender", "readLineSliceByChars", raf, lineStart, startChar, endChar, needTotalLength, fileCharset);
         return fileReader.readLineSliceByChars(raf, lineStart, startChar, endChar, needTotalLength, fileCharset,
             binarySafeRenderingEnabled, tokenConverter.isBinaryHexTokensEnabled());
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
     public String escapeControlChar(char c) {
+        FunctionLog.f("BinaryRender", "escapeControlChar", c);
         return tokenConverter.escapeControlChar(c);
     }
 
-    public boolean needsEscaping(char c) { return tokenConverter.needsEscaping(c); }
+    public boolean needsEscaping(char c) {
+        FunctionLog.f("BinaryRender", "needsEscaping", c);
+        return tokenConverter.needsEscaping(c);
+    }
 
     public int getDisplayWidth(char c) {
+        FunctionLog.f("BinaryRender", "getDisplayWidth", c);
         return tokenConverter.getDisplayWidth(c, binarySafeRenderingEnabled);
     }
 
     public int matchBinaryToken(String line, int index) {
+        FunctionLog.f("BinaryRender", "matchBinaryToken", line, index);
         return tokenConverter.matchBinaryToken(line, index);
     }
 
     public boolean findBinaryTokenSpan(String line, int index, int[] outStartEnd) {
+        FunctionLog.f("BinaryRender", "findBinaryTokenSpan", line, index, outStartEnd);
         return tokenConverter.findBinaryTokenSpan(line, index, outStartEnd);
     }
 
     public int snapBinaryCursor(String line, int index) {
+        FunctionLog.f("BinaryRender", "snapBinaryCursor", line, index);
         return index;
     }
 
     public int snapBinaryCursor(String line, int index, int lineIndex) {
+        FunctionLog.f("BinaryRender", "snapBinaryCursor", line, index, lineIndex);
         return lineDrawer.snapBinaryCursor(line, index, lineIndex, binaryTokenSpans);
     }
 
     public int getCharIndexForXBinary(
         String line, int start, int end, float x, android.graphics.Paint paint, int[] spans, float padX) {
+        FunctionLog.f("BinaryRender", "getCharIndexForXBinary", line, start, end, x, paint, spans, padX);
         return lineDrawer.getCharIndexForXBinary(line, start, end, x, paint, spans, padX);
     }
 
     public float getXForCharBinary(String line, int charIndex, android.graphics.Paint paint, int[] spans, float padX) {
+        FunctionLog.f("BinaryRender", "getXForCharBinary", line, charIndex, paint, spans, padX);
         return lineDrawer.getXForCharBinary(line, charIndex, paint, spans, padX);
     }
 
     public boolean findBinaryTokenSpanInSpans(int[] spans, int index, int[] outStartEnd) {
+        FunctionLog.f("BinaryRender", "findBinaryTokenSpanInSpans", spans, index, outStartEnd);
         return tokenConverter.findBinaryTokenSpanInSpans(spans, index, outStartEnd);
     }
 

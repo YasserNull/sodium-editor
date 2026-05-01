@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import com.yn.sodiumeditor.renderer.TextRender;
+import com.yn.sodiumeditor.utils.FunctionLog;
 /**
  * Manages URL underlining for the SodiumEditor.
  * Detects and underlines URLs in text.
@@ -35,6 +36,7 @@ public class UrlUnderline {
   public static final Pattern DEFAULT_URL_UNDERLINE_PATTERN = Pattern.compile("https?://[^\\s]+");
 
   public UrlUnderline(SodiumEditor editor) {
+    FunctionLog.f("UrlUnderline", "UrlUnderline", editor);
     this.editor = editor;
   }
 
@@ -42,6 +44,7 @@ public class UrlUnderline {
    * Enables or disables URL underlining.
    */
   public void setUrlUnderliningEnabled(boolean enabled) {
+    FunctionLog.f("UrlUnderline", "setUrlUnderliningEnabled", enabled);
     if (this.isUrlUnderliningEnabled == enabled) return;
     this.isUrlUnderliningEnabled = enabled;
     urlUnderlineCache.clear();
@@ -52,6 +55,7 @@ public class UrlUnderline {
    * Sets the URL underlining regex pattern.
    */
   public void setUrlUnderliningRegex(@Nullable String regex) {
+    FunctionLog.f("UrlUnderline", "setUrlUnderliningRegex", regex);
     if (regex == null || regex.trim().isEmpty()) {
       this.urlUnderlinePattern = null;
     } else {
@@ -65,6 +69,7 @@ public class UrlUnderline {
    * Clears URL underline cache.
    */
   public void clearUrlUnderlineCache() {
+    FunctionLog.f("UrlUnderline", "clearUrlUnderlineCache");
     urlUnderlineCache.clear();
   }
 
@@ -72,6 +77,7 @@ public class UrlUnderline {
    * Clears URL underline cache for a specific line.
    */
   public void clearUrlUnderlineCacheForLine(int line) {
+    FunctionLog.f("UrlUnderline", "clearUrlUnderlineCacheForLine", line);
     urlUnderlineCache.remove(line);
   }
 
@@ -79,6 +85,7 @@ public class UrlUnderline {
    * Gets URL underline spans for a line.
    */
   public List<TextRender.UnderlineSpan> getUrlUnderlineSpansForLine(String line, int globalLine) {
+    FunctionLog.f("UrlUnderline", "getUrlUnderlineSpansForLine", line, globalLine);
     if (!isUrlUnderliningEnabled || urlUnderlinePattern == null) return null;
     List<TextRender.UnderlineSpan> cached = urlUnderlineCache.get(globalLine);
     if (cached != null) return cached;
@@ -101,6 +108,7 @@ public class UrlUnderline {
    * Trims URL underline end to exclude trailing punctuation.
    */
   public static int trimUrlUnderlineEnd(String line, int start, int end) {
+    FunctionLog.f("UrlUnderline", "trimUrlUnderlineEnd", line, start, end);
     while (end > start) {
       char c = line.charAt(end - 1);
       if (c == '.' || c == ',' || c == ';' || c == ':' || c == '!' || c == '?' || c == ')' || c == ']' || c == '}') {
@@ -116,6 +124,7 @@ public class UrlUnderline {
    * Ensures URL underline cache for a line.
    */
   public void ensureUrlUnderlineCacheForLine(String line, int globalLine) {
+    FunctionLog.f("UrlUnderline", "ensureUrlUnderlineCacheForLine", line, globalLine);
     if (!isUrlUnderliningEnabled || urlUnderlinePattern == null) return;
     if (urlUnderlineCache.get(globalLine) != null) return;
     getUrlUnderlineSpansForLine(line, globalLine);
@@ -125,6 +134,7 @@ public class UrlUnderline {
    * Checks if URL underlining is active.
    */
   public boolean isUrlUnderliningActive() {
+    FunctionLog.f("UrlUnderline", "isUrlUnderliningActive");
     return isUrlUnderliningEnabled && urlUnderlinePattern != null;
   }
 }

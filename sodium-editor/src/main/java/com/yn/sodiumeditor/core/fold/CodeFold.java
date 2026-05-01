@@ -4,6 +4,7 @@ import com.yn.sodiumeditor.SodiumEditor;
 import android.os.SystemClock;
 import android.util.Log;
 import androidx.annotation.Nullable;
+import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.concurrent.ConcurrentHashMap;
@@ -15,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CodeFold {
 
     // --- Code Fold State ---
-    public boolean isCodeFoldingEnabled = true;
+    public boolean isCodeFoldingEnabled = false;
     public final ConcurrentHashMap<Integer, FoldRange> foldRanges = new ConcurrentHashMap<>();
     public final ConcurrentHashMap<Integer, Boolean> pendingFoldComputations = new ConcurrentHashMap<>();
     public final ArrayList<int[]> foldIntervals = new ArrayList<>();
@@ -27,6 +28,7 @@ public class CodeFold {
     // Visible-to-global line lookup — O(1) instead of O(intervals) per call
     // visibleToGlobalLookup[vi] = globalLine
     private int[] visibleToGlobalLookup = new int[0];
+    private int[] globalToVisibleLookup = new int[0];
     private int visibleToGlobalLookupVersion = -1;
 
     // Cached bracket state after each collapsed fold range — avoids per-frame re-scan of hidden lines
@@ -44,6 +46,7 @@ public class CodeFold {
     private final SodiumEditor editor;
 
     public CodeFold(SodiumEditor editor) {
+        FunctionLog.f("CodeFold", "CodeFold", editor);
         this.editor = editor;
         this.detector = new CodeFoldDetector(this.editor);
         this.animation = new com.yn.sodiumeditor.renderer.animation.CodeFoldAnimation(this.editor);
@@ -54,6 +57,7 @@ public class CodeFold {
      * Enable or disable code folding.
      */
     public void setCodeFoldingEnabled(boolean enabled) {
+        FunctionLog.f("CodeFold", "setCodeFoldingEnabled", enabled);
         if (this.isCodeFoldingEnabled == enabled || editor.lineNumber.showLineNumbers) return;
         this.isCodeFoldingEnabled = enabled;
         if (!enabled) {
@@ -72,6 +76,7 @@ public class CodeFold {
      * Check if code folding is enabled.
      */
     public boolean isCodeFoldingEnabled() {
+        FunctionLog.f("CodeFold", "isCodeFoldingEnabled");
         return isCodeFoldingEnabled;
     }
 
@@ -79,6 +84,7 @@ public class CodeFold {
      * Toggle fold at the specified line.
      */
     public boolean toggleFoldAtLine(int line) {
+        FunctionLog.f("CodeFold", "toggleFoldAtLine", line);
         if (!isCodeFoldingEnabled) return false;
         if (editor.DEBUG_RENDER_LOGS) {
             Log.d("SodiumRender", "toggleFold line=" + line);
@@ -98,541 +104,386 @@ public class CodeFold {
         if (pendingFoldComputations.putIfAbsent(line, Boolean.TRUE) != null) {
             return false;
         }
-        editor.fileIO.ioHandler.post(() -> {
-            FoldRange created = findFoldRangeForLine(line);
+
+        detector.detectFoldRangeAsync(line, range -> {
             pendingFoldComputations.remove(line);
-            if (created == null) return;
-            created.collapsed = true;
-            
-            // Pre-fetch end line text to avoid frame-time I/O if the end line is outside the window.
-            utils.getEndLineTextForFold(created);
-            
-            editor.caret.mainHandler.post(() -> {
-                foldRanges.put(created.startLine, created);
-                if (created.isIndentFold) editor.indentGuides.markIntervalsDirty();
+            if (range != null) {
+                range.collapsed = true;
+                foldRanges.put(line, range);
                 invalidateFoldCaches();
                 rebuildFoldIntervalsIfNeeded();
-                
-                // Check if we need to load new window content for the new visible area
                 editor.fileIO.checkAndLoadWindow();
-                
                 editor.invalidate();
-            });
+            }
         });
-        return true;
-    }
-
-    /**
-     * Collapse all folds.
-     */
-    public void collapseAllFolds() {
-        if (!isCodeFoldingEnabled) return;
-        for (FoldRange range : foldRanges.values()) {
-            range.collapsed = true;
-        }
-        foldIntervalsDirty = true;
-        editor.invalidate();
-    }
-
-    /**
-     * Expand all folds.
-     */
-    public void expandAllFolds() {
-        if (!isCodeFoldingEnabled) return;
-        for (FoldRange range : foldRanges.values()) {
-            range.collapsed = false;
-        }
-        foldIntervalsDirty = true;
-        editor.invalidate();
-    }
-
-    /**
-     * Get the fold range at the specified line.
-     */
-    public FoldRange getFoldRangeAtStart(int line) {
-        if (!isCodeFoldingEnabled) return null;
-        FoldRange range = foldRanges.get(line);
-        return (range != null && range.collapsed) ? range : null;
-    }
-
-    /**
-     * Check if a line is hidden by a fold.
-     */
-    public boolean isLineHiddenByFold(int line) {
-        if (!isCodeFoldingEnabled || foldRanges.isEmpty()) return false;
-        rebuildFoldIntervalsIfNeeded();
-        for (int[] interval : foldIntervals) {
-            if (line < interval[0]) return false;
-            if (line <= interval[1]) return true;
-        }
         return false;
     }
 
     /**
-     * Get the number of hidden lines.
+     * Invalidate internal fold caches (e.g., after an edit).
      */
-    public int getHiddenLineCount() {
-        if (!isCodeFoldingEnabled || foldRanges.isEmpty()) return 0;
-        rebuildFoldIntervalsIfNeeded();
-        int total = getFoldAwareTotalLines();
-        // Check cache
-        if (cachedHiddenLineCount >= 0 && !foldIntervalsDirty) {
-            return cachedHiddenLineCount;
-        }
-        int hidden = 0;
-        for (int[] interval : foldIntervals) {
-            int s = interval[0];
-            int e = Math.min(interval[1], total - 1);
-            if (e >= s) hidden += (e - s + 1);
-        }
-        cachedHiddenLineCount = hidden;
-        return hidden;
+    public void invalidateFoldCaches() {
+        FunctionLog.f("CodeFold", "invalidateFoldCaches");
+        foldIntervalsDirty = true;
+        foldMarkerVisibilityCache.clear();
+        cachedBracketStateAfterFold.clear();
     }
 
     /**
-     * Get the number of visible lines.
+     * Mark intervals as dirty.
+     */
+    public void markIntervalsDirty() {
+        FunctionLog.f("CodeFold", "markIntervalsDirty");
+        foldIntervalsDirty = true;
+    }
+
+    /**
+     * Get total number of visible lines (accounting for collapsed folds).
      */
     public int getVisibleLineCount() {
-        int total = getFoldAwareTotalLines();
-        int hidden = getHiddenLineCount();
-        int visible = Math.max(1, total - hidden);
-        return visible;
+        FunctionLog.f("CodeFold", "getVisibleLineCount");
+        if (!isCodeFoldingEnabled) return editor.view.getLinesCount();
+        rebuildFoldIntervalsIfNeeded();
+        if (foldIntervals.isEmpty()) return editor.view.getLinesCount();
+        int[] last = foldIntervals.get(foldIntervals.size() - 1);
+        return last[1];
     }
 
-    private long lastMapLogMs = 0L;
-
     /**
-     * Map a visible index to a global line number. O(1) via lookup array.
+     * Maps a visible line index to its global document line number.
      */
     public int mapVisibleIndexToGlobal(int visibleIndex) {
+        FunctionLog.f("CodeFold", "mapVisibleIndexToGlobal", visibleIndex);
         if (!isCodeFoldingEnabled) return visibleIndex;
-
         rebuildFoldIntervalsIfNeeded();
-
-        int vi = Math.max(0, visibleIndex);
-        if (visibleToGlobalLookupVersion == lastVersionForTotalLines && vi < visibleToGlobalLookup.length) {
-            return visibleToGlobalLookup[vi];
+        if (foldIntervals.isEmpty()) return visibleIndex;
+        
+        // Fast O(1) lookup
+        if (visibleIndex >= 0 && visibleIndex < visibleToGlobalLookup.length) {
+            return visibleToGlobalLookup[visibleIndex];
         }
 
-        // Fallback: walk intervals (should rarely happen)
-        int totalLines = getFoldAwareTotalLines();
-        int visibleTotal = getVisibleLineCount();
-        int globalLine = Math.max(0, Math.min(vi, Math.max(0, visibleTotal - 1)));
-        for (int[] interval : foldIntervals) {
-            int firstHiddenLine = interval[0];
-            int lastHiddenLine = interval[1];
-            int hiddenLineCount = lastHiddenLine - firstHiddenLine + 1;
-            if (globalLine >= firstHiddenLine) {
-                globalLine += hiddenLineCount;
+        // Binary search fallback (for large documents where lookup array might be sparse/incomplete)
+        int lo = 0, hi = foldIntervals.size() - 1;
+        while (lo <= hi) {
+            int mid = (lo + hi) >>> 1;
+            int[] interval = foldIntervals.get(mid);
+            if (visibleIndex < interval[2]) {
+                hi = mid - 1;
+            } else if (visibleIndex > interval[3]) {
+                lo = mid + 1;
+            } else {
+                return interval[0] + (visibleIndex - interval[2]);
             }
         }
-        return Math.max(0, Math.min(globalLine, totalLines - 1));
+        return visibleIndex;
     }
 
     /**
-     * Get the visible index for a global line.
+     * Maps a global line number to its visible index.
      */
     public int getVisibleIndexForGlobalLine(int globalLine) {
+        FunctionLog.f("CodeFold", "getVisibleIndexForGlobalLine", globalLine);
         if (!isCodeFoldingEnabled) return globalLine;
         rebuildFoldIntervalsIfNeeded();
-        int visible = globalLine;
-        for (int[] interval : foldIntervals) {
-            if (globalLine < interval[0]) break;
-            if (globalLine <= interval[1]) return Math.max(0, interval[0] - 1);
-            visible -= (interval[1] - interval[0] + 1);
-        }
-        return Math.max(0, visible);
-    }
+        if (foldIntervals.isEmpty()) return globalLine;
 
-    /**
-     * Get the fold marker for a line.
-     */
-    public String getFoldMarkerForLine(int line, @Nullable String lineText) {
-        if (!isCodeFoldingEnabled) return null;
-        FoldRange range = foldRanges.get(line);
-        if (range != null) return range.collapsed ? ">" : "v";
-        if (lineText == null) return null;
-
-        // Check visibility cache
-        Byte cached = foldMarkerVisibilityCache.get(line);
-        if (cached != null) {
-            return cached == 1 ? "v" : null;
+        // Fast O(1) lookup
+        if (globalLine >= 0 && globalLine < globalToVisibleLookup.length) {
+            return globalToVisibleLookup[globalLine];
         }
 
-        boolean isIndentCandidate = editor.indentGuides.isIndentationBlocksEnabled && isIndentFoldCandidate(lineText);
-        boolean shows = isIndentCandidate || detector.shouldShowFoldMarkerFromLine(lineText);
-        foldMarkerVisibilityCache.put(line, (byte) (shows ? 1 : 0));
-        return shows ? "v" : null;
-    }
-
-    /**
-     * Invalidate fold marker visibility cache for a specific line.
-     */
-    public void invalidateFoldMarkerVisibilityCache(int line) {
-        foldMarkerVisibilityCache.remove(line);
-    }
-
-    /**
-     * Clear all fold marker visibility cache.
-     */
-    public void clearFoldMarkerVisibilityCache() {
-        foldMarkerVisibilityCache.clear();
-    }
-
-    /**
-     * Build the display line for a folded range.
-     */
-    public String buildFoldDisplayLine(String line, FoldRange range, int[] placeholderBoundsOut) {
-        if (range == null) return line;
-        int hiddenCount = range.endLine - range.startLine;
-        String suffix = " … (" + hiddenCount + ") ";
-        String trimmed = line.substring(0, Math.min(range.openCharIndex + 1, line.length())).trim();
-        return trimmed + suffix;
-    }
-
-    /**
-     * Start a ripple animation on the fold marker.
-     */
-    public void startFoldMarkerRipple(int line) {
-        animation.startFoldMarkerRipple(line);
-    }
-
-    /**
-     * Start a ripple animation on the folded placeholder button.
-     */
-    public void startFoldPlaceholderRipple(int line, float left, float right) {
-        animation.startFoldPlaceholderRipple(line, left, right);
-    }
-
-    /**
-     * Rebuild fold intervals if needed.
-     */
-    public void rebuildFoldIntervalsIfNeeded() {
-        if (!foldIntervalsDirty) return;
-        long startMs = SystemClock.uptimeMillis();
-        foldIntervalsDirty = false;
-        foldIntervals.clear();
-        if (!isCodeFoldingEnabled || foldRanges.isEmpty()) {
-            editor.lineNumber.invalidateLineNumberCache();
-            visibleToGlobalLookupVersion = -1;
-            return;
-        }
-
-        boolean clampToKnownLines = editor.fileIO.isIndexReady || editor.fileIO.isEof;
-        int maxLine = -1;
-        if (clampToKnownLines) {
-            int totalLines = editor.view.getLinesCount();
-            if (totalLines <= 0) {
-                totalLines = editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size();
-            }
-            maxLine = Math.max(0, totalLines - 1);
-        }
-
-        for (FoldRange range : foldRanges.values()) {
-            if (!range.collapsed) continue;
-            int start = range.startLine + 1;
-            int end = clampToKnownLines ? Math.min(range.endLine, maxLine) : range.endLine;
-            if (end < start) continue;
-            foldIntervals.add(new int[] {start, end});
-        }
-        if (foldIntervals.isEmpty()) {
-            visibleToGlobalLookupVersion = -1;
-            return;
-        }
-
-        Collections.sort(foldIntervals, (a, b) -> Integer.compare(a[0], b[0]));
-        int write = 0;
-        int[] cur = foldIntervals.get(0);
-        for (int i = 1; i < foldIntervals.size(); i++) {
-            int[] nxt = foldIntervals.get(i);
-            if (nxt[0] <= cur[1] + 1) {
-                cur[1] = Math.max(cur[1], nxt[1]);
+        // Binary search fallback
+        int lo = 0, hi = foldIntervals.size() - 1;
+        while (lo <= hi) {
+            int mid = (lo + hi) >>> 1;
+            int[] interval = foldIntervals.get(mid);
+            if (globalLine < interval[0]) {
+                hi = mid - 1;
+            } else if (globalLine > interval[1]) {
+                lo = mid + 1;
             } else {
-                foldIntervals.set(write++, cur);
-                cur = nxt;
+                return interval[2] + (globalLine - interval[0]);
             }
         }
-        foldIntervals.set(write++, cur);
-        while (foldIntervals.size() > write) foldIntervals.remove(foldIntervals.size() - 1);
-
-        // Build visibleToGlobalLookup: walk global lines, skip hidden, assign visible indices
-        int totalLines = getFoldAwareTotalLines();
-        int visibleCount = getVisibleLineCount();
-        if (visibleToGlobalLookup.length < visibleCount) {
-            visibleToGlobalLookup = new int[visibleCount + 64];
-        }
-        int vi = 0;
-        int intervalIdx = 0;
-        for (int gi = 0; gi < totalLines && vi < visibleCount; gi++) {
-            // Skip if this global line is hidden by any fold interval
-            boolean hidden = false;
-            while (intervalIdx < foldIntervals.size()) {
-                int[] interval = foldIntervals.get(intervalIdx);
-                if (gi < interval[0]) break; // past this interval
-                if (gi <= interval[1]) {
-                    hidden = true;
-                    break;
-                }
-                intervalIdx++;
-            }
-            if (!hidden) {
-                visibleToGlobalLookup[vi] = gi;
-                vi++;
-            }
-        }
-        // Fill remaining with identity
-        while (vi < visibleCount) {
-            visibleToGlobalLookup[vi] = vi;
-            vi++;
-        }
-        visibleToGlobalLookupVersion = lastVersionForTotalLines;
-
-        long dt = SystemClock.uptimeMillis() - startMs;
-        if (dt > 8 && editor.DEBUG_RENDER_LOGS) {
-            Log.d("SodiumRender", "foldIntervals rebuild dtMs=" + dt + " ranges=" + foldRanges.size());
-        }
-        // Line numbers depend on fold intervals, so invalidate cache
-        editor.lineNumber.invalidateLineNumberCache();
-    }
-
-    private int cachedFileLineCount = -1;
-    private int cachedFoldAwareTotalLines = -1;
-    private int cachedFoldAwareTotalLinesVersion = -1;
-    private int lastVersionForTotalLines = 0;
-    private int cachedHiddenLineCount = -1;
-    private int cachedHiddenLineCountVersion = -1;
-    private int cachedVisibleLineCount = -1;
-    private int cachedVisibleLineCountVersion = -1;
-
-    public void invalidateFoldCaches() {
-        foldIntervalsDirty = true;
-        lastVersionForTotalLines++;
-        cachedFoldAwareTotalLines = -1;
-        cachedFoldAwareTotalLinesVersion = -1;
-        cachedHiddenLineCount = -1;
-        cachedHiddenLineCountVersion = -1;
-        cachedVisibleLineCount = -1;
-        cachedVisibleLineCountVersion = -1;
-        cachedFileLineCount = -1;
-        foldMarkerVisibilityCache.clear();
-        visibleToGlobalLookupVersion = -1;
-        cachedBracketStateAfterFold.clear();
-
-        // Invalidate line number cache since fold state changed
-        editor.lineNumber.invalidateLineNumberCache();
-    }
-
-    private int getFoldAwareTotalLines() {
-        // Check cache validity
-        int currentVersion = foldIntervalsDirty ? lastVersionForTotalLines + 1 : lastVersionForTotalLines;
-        if (cachedFoldAwareTotalLines >= 0 && cachedFoldAwareTotalLinesVersion == currentVersion) {
-            return cachedFoldAwareTotalLines;
-        }
-
-        int total = editor.view.getLinesCount();
-        int windowEnd = editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size();
-        if (!editor.fileIO.isIndexReady && !editor.fileIO.isEof) {
-            // Try to get actual line count from file
-            if (cachedFileLineCount < 0 && editor.fileIO.sourceFile != null) {
-                cachedFileLineCount = countLinesInFile();
-            }
-            if (cachedFileLineCount > 0) {
-                total = cachedFileLineCount;
-            } else {
-                // Fallback: estimate from fold ranges
-                int maxFoldEnd = windowEnd;
-                for (FoldRange range : foldRanges.values()) {
-                    if (range.endLine > maxFoldEnd) maxFoldEnd = range.endLine;
-                }
-                total = Math.max(total, maxFoldEnd + 1);
-            }
-        }
-        if (total <= 0) total = windowEnd;
-
-        // Cache result
-        lastVersionForTotalLines = currentVersion;
-        cachedFoldAwareTotalLines = total;
-        cachedFoldAwareTotalLinesVersion = currentVersion;
-        return total;
-    }
-
-    private int countLinesInFile() {
-        if (editor.fileIO.sourceFile == null) return -1;
-        java.io.RandomAccessFile raf = null;
-        try {
-            raf = new java.io.RandomAccessFile(editor.fileIO.sourceFile, "r");
-            long len = raf.length();
-            if (len == 0) return 1;
-            int count = 1;
-            byte[] buf = new byte[8192];
-            long pos = 0;
-            int n;
-            while (pos < len && (n = raf.read(buf)) > 0) {
-                for (int i = 0; i < n; i++) {
-                    if (buf[i] == '\n') count++;
-                }
-                pos += n;
-            }
-            return count;
-        } catch (Exception e) {
-            return -1;
-        } finally {
-            if (raf != null) {
-                try { raf.close(); } catch (Exception ignored) {}
-            }
-        }
+        return -1; // Hidden
     }
 
     /**
-     * Invalidate fold ranges for a specific line and nearby lines.
+     * Check if a line is hidden by a collapsed fold.
      */
-    public void invalidateFoldRangeForLine(int line) {
-        if (!isCodeFoldingEnabled) return;
-
-        // Remove fold range for this line
-        foldRanges.remove(line);
-
-        // Remove any fold that STARTS at this line or ENDS at this line
-        foldRanges.entrySet().removeIf(e -> {
-            FoldRange range = e.getValue();
-            return range.startLine == line || range.endLine == line;
-        });
-
-        // Also remove any fold that contains this line (startLine < line < endLine)
-        foldRanges.entrySet().removeIf(e -> {
-            FoldRange range = e.getValue();
-            return range.startLine < line && range.endLine > line;
-        });
-
-        foldMarkerVisibilityCache.remove(line);
-        invalidateFoldCaches();
+    public boolean isLineHidden(int globalLine) {
+        FunctionLog.f("CodeFold", "isLineHidden", globalLine);
+        if (!isCodeFoldingEnabled || foldRanges.isEmpty()) return false;
+        return getVisibleIndexForGlobalLine(globalLine) < 0;
     }
 
     /**
-     * Adjust all fold ranges after a line insertion or deletion.
-     * @param line The line that was inserted (delta=+1) or deleted (delta=-1)
-     * @param delta +1 for insertion, -1 for deletion
+     * Check if a line is the start of a fold range.
      */
-    public void adjustFoldRangesForLineEdit(int line, int delta) {
-        java.util.List<Integer> keysToAdjust = new java.util.ArrayList<>();
-        for (java.util.Map.Entry<Integer, FoldRange> entry : foldRanges.entrySet()) {
-            FoldRange r = entry.getValue();
-            if (r.startLine > line || r.endLine > line) {
-                keysToAdjust.add(entry.getKey());
-            }
-        }
-        for (Integer key : keysToAdjust) {
-            FoldRange r = foldRanges.get(key);
-            int newStart = r.startLine > line ? r.startLine + delta : r.startLine;
-            int newEnd = r.endLine > line ? r.endLine + delta : r.endLine;
-            // Ensure valid range
-            if (newEnd < newStart) newEnd = newStart;
-            int adjustedKey = key > line ? key + delta : key;
-            FoldRange updated = new FoldRange(
-                newStart, newEnd, r.openCharIndex, r.openChar,
-                r.closeChar, r.closeCharIndex, r.isBlockComment, r.isIndentFold);
-            updated.collapsed = r.collapsed;
-            foldRanges.remove(key);
-            if (adjustedKey >= 0) {
-                foldRanges.put(adjustedKey, updated);
-            }
-        }
-        if (!keysToAdjust.isEmpty()) {
-            foldIntervalsDirty = true;
-        }
+    public boolean isFoldStart(int globalLine) {
+        FunctionLog.f("CodeFold", "isFoldStart", globalLine);
+        if (!isCodeFoldingEnabled) return false;
+        
+        Byte cached = foldMarkerVisibilityCache.get(globalLine);
+        if (cached != null) return cached == 1;
+
+        boolean isStart = foldRanges.containsKey(globalLine) || detector.isPotentialFoldStart(globalLine);
+        foldMarkerVisibilityCache.put(globalLine, isStart ? (byte)1 : (byte)0);
+        return isStart;
+    }
+
+    /**
+     * Get fold range starting at the specified line.
+     */
+    public FoldRange getFoldRangeAtStart(int line) {
+        FunctionLog.f("CodeFold", "getFoldRangeAtStart", line);
+        return foldRanges.get(line);
     }
 
     /**
      * Clear all fold ranges.
      */
-    public void clearAllFolds() {
+    public void clearFoldRanges() {
+        FunctionLog.f("CodeFold", "clearFoldRanges");
         foldRanges.clear();
-        foldIntervals.clear();
         invalidateFoldCaches();
     }
 
     /**
-     * Find a fold range for a line.
+     * Invalidates fold ranges in the specified global line range.
      */
-    public FoldRange findFoldRangeForLine(int line) {
-        return detector.findFoldRangeForLine(line);
-    }
-
-    /**
-     * Check if a line is an indent fold candidate.
-     */
-    public boolean isIndentFoldCandidate(String line) {
-        return detector.isIndentFoldCandidate(line);
-    }
-
-    // ========================================================================
-    // FoldRange class
-    // ========================================================================
-
-    public static final class FoldRange {
-        public final int startLine;
-        public final int endLine;
-        public final int openCharIndex;
-        public final char openChar;
-        public final char closeChar;
-        public final int closeCharIndex;
-        public final boolean isBlockComment;
-        public final boolean isIndentFold;
-        public boolean collapsed;
-        public String cachedEndLineText = null;
-        public boolean cachedEndLineTextAttempted = false;
-
-        public FoldRange(int startLine, int endLine, int openCharIndex, char openChar, char closeChar, int closeCharIndex, boolean isBlockComment, boolean isIndentFold) {
-            this.startLine = startLine;
-            this.endLine = endLine;
-            this.openCharIndex = openCharIndex;
-            this.openChar = openChar;
-            this.closeChar = closeChar;
-            this.closeCharIndex = closeCharIndex;
-            this.isBlockComment = isBlockComment;
-            this.isIndentFold = isIndentFold;
-            this.collapsed = false;
+    public void invalidateFoldRangesInRange(int start, int end) {
+        FunctionLog.f("CodeFold", "invalidateFoldRangesInRange", start, end);
+        if (foldRanges.isEmpty()) return;
+        boolean changed = false;
+        for (int line = start; line <= end; line++) {
+            if (foldRanges.remove(line) != null) changed = true;
+        }
+        if (changed) {
+            invalidateFoldCaches();
+            rebuildFoldIntervalsIfNeeded();
         }
     }
 
-    // ========================================================================
-    // Code Fold Helper Methods
-    // ========================================================================
-
     /**
-     * Check if local X position hits a fold placeholder
+     * Rebuild visible intervals based on collapsed fold ranges.
+     * Efficiently maps global line space to visible index space.
      */
-    public boolean isFoldPlaceholderHit(int globalLine, String line, float localX) {
-        return utils.isFoldPlaceholderHit(globalLine, line, localX);
+    public void rebuildFoldIntervalsIfNeeded() {
+        FunctionLog.f("CodeFold", "rebuildFoldIntervalsIfNeeded");
+        if (!foldIntervalsDirty) return;
+        
+        long startMs = SystemClock.uptimeMillis();
+        foldIntervals.clear();
+        int total = editor.view.getLinesCount();
+        if (total <= 0) {
+            foldIntervalsDirty = false;
+            return;
+        }
+
+        ArrayList<Integer> starts = new ArrayList<>(foldRanges.keySet());
+        Collections.sort(starts);
+
+        int currentLine = 0;
+        int currentVisible = 0;
+
+        for (Integer startLine : starts) {
+            if (startLine < currentLine) continue;
+            FoldRange range = foldRanges.get(startLine);
+            if (range == null || !range.collapsed || range.endLine <= range.startLine) continue;
+
+            if (startLine > currentLine) {
+                int len = startLine - currentLine;
+                foldIntervals.add(new int[]{currentLine, startLine - 1, currentVisible, currentVisible + len - 1});
+                currentVisible += len;
+            }
+            
+            // Interval for the collapsed line itself
+            foldIntervals.add(new int[]{startLine, startLine, currentVisible, currentVisible});
+            currentVisible++;
+            currentLine = range.endLine + 1;
+        }
+
+        if (currentLine < total) {
+            int len = total - currentLine;
+            foldIntervals.add(new int[]{currentLine, total - 1, currentVisible, currentVisible + len - 1});
+        }
+
+        // Rebuild fast O(1) lookup arrays
+        int totalVisible = getVisibleLineCount();
+        if (visibleToGlobalLookup.length < totalVisible) {
+            visibleToGlobalLookup = new int[totalVisible + 256];
+        }
+        if (globalToVisibleLookup.length < total) {
+            globalToVisibleLookup = new int[total + 256];
+        }
+        java.util.Arrays.fill(globalToVisibleLookup, -1);
+
+        for (int[] interval : foldIntervals) {
+            int gStart = interval[0], gEnd = interval[1];
+            int vStart = interval[2], vEnd = interval[3];
+            int len = gEnd - gStart + 1;
+            for (int i = 0; i < len; i++) {
+                visibleToGlobalLookup[vStart + i] = gStart + i;
+                globalToVisibleLookup[gStart + i] = vStart + i;
+            }
+        }
+
+        foldIntervalsDirty = false;
+        
+        if (editor.DEBUG_RENDER_LOGS) {
+            Log.d("SodiumRender", "rebuildFoldIntervals dtMs=" + (SystemClock.uptimeMillis() - startMs) + " count=" + foldIntervals.size());
+        }
     }
 
     /**
-     * Get placeholder bounds for a folded line.
-     * outBounds[0]=left, outBounds[1]=right
+     * Hit test for fold placeholders.
      */
-    public boolean getFoldPlaceholderBounds(int globalLine, String line, float[] outBounds) {
-        return utils.getFoldPlaceholderBounds(globalLine, line, outBounds);
+    public boolean isFoldPlaceholderHit(int line, String ln, float x) {
+        FunctionLog.f("CodeFold", "isFoldPlaceholderHit", line, ln, x);
+        if (!isCodeFoldingEnabled || ln == null || ln.isEmpty()) return false;
+        FoldRange range = foldRanges.get(line);
+        if (range == null || !range.collapsed) return false;
+
+        float[] bounds = new float[2];
+        if (getFoldPlaceholderBounds(line, ln, bounds)) {
+            return x >= bounds[0] && x <= bounds[1];
+        }
+        return false;
     }
 
     /**
-     * Adjust fold range indices after a line edit on the fold start line.
+     * Get visual bounds (X coordinates) of fold placeholder.
+     */
+    public boolean getFoldPlaceholderBounds(int line, String ln, float[] outBounds) {
+        FunctionLog.f("CodeFold", "getFoldPlaceholderBounds", line, ln, outBounds);
+        FoldRange range = foldRanges.get(line);
+        if (range == null || !range.collapsed) return false;
+
+        int prefixEnd = range.isBlockComment ? Math.min(range.openCharIndex + 2, ln.length())
+                      : range.isIndentFold ? ln.length()
+                      : Math.min(range.openCharIndex + 1, ln.length());
+        
+        float xStart = editor.highlite.measureHighlightedSegmentWidth(ln, line, 0, prefixEnd);
+        float placeholderWidth = Math.max(0f, editor.textRender.paint.measureText(FOLD_PLACEHOLDER_TEXT));
+        
+        outBounds[0] = xStart;
+        outBounds[1] = xStart + placeholderWidth;
+        return true;
+    }
+
+    /**
+     * Resolve the actual character index of the closing bracket in the end line.
+     */
+    public int resolveCloseCharIndex(FoldRange range, String endLineText) {
+        return utils.resolveCloseCharIndex(range, endLineText);
+    }
+
+    /**
+     * Clear all folds.
+     */
+    public void clearAllFolds() {
+        FunctionLog.f("CodeFold", "clearAllFolds");
+        foldRanges.clear();
+        invalidateFoldCaches();
+        rebuildFoldIntervalsIfNeeded();
+        editor.invalidate();
+    }
+
+    /**
+     * Check if a line is hidden by a collapsed fold.
+     */
+    public boolean isLineHiddenByFold(int globalLine) {
+        return isLineHidden(globalLine);
+    }
+
+    /**
+     * Set whether indentation-based folding blocks are enabled.
+     */
+    public void setIndentationBlocksEnabled(boolean enabled) {
+        FunctionLog.f("CodeFold", "setIndentationBlocksEnabled", enabled);
+    }
+
+    /**
+     * Get the fold marker symbol (+ or -) for a line.
+     */
+    public String getFoldMarkerForLine(int line, String text) {
+        if (!isCodeFoldingEnabled) return null;
+        FoldRange range = foldRanges.get(line);
+        if (range != null) {
+            return range.collapsed ? "+" : "-";
+        }
+        if (detector.isPotentialFoldStart(line)) {
+            return "-";
+        }
+        return null;
+    }
+
+    /**
+     * Invalidates the fold range starting at the specified line.
+     */
+    public void invalidateFoldRangeForLine(int line) {
+        FunctionLog.f("CodeFold", "invalidateFoldRangeForLine", line);
+        if (foldRanges.remove(line) != null) {
+            invalidateFoldCaches();
+            rebuildFoldIntervalsIfNeeded();
+        }
+    }
+
+    /**
+     * Adjust fold range indices after a line edit.
      */
     public void adjustFoldRangeForLineEdit(int line, int editIndex, int delta, int deleteLen) {
         utils.adjustFoldRangeForLineEdit(line, editIndex, delta, deleteLen);
     }
 
     /**
-     * Resolve close char index for a folded range on its end line.
+     * Adjust all fold ranges after lines are inserted or deleted.
      */
-    public int resolveCloseCharIndex(FoldRange range, @Nullable String endLineText) {
-        return utils.resolveCloseCharIndex(range, endLineText);
+    public void adjustFoldRangesForLineEdit(int startLine, int lineDelta) {
+        FunctionLog.f("CodeFold", "adjustFoldRangesForLineEdit", startLine, lineDelta);
+        if (lineDelta == 0 || foldRanges.isEmpty()) return;
+
+        ConcurrentHashMap<Integer, FoldRange> newRanges = new ConcurrentHashMap<>();
+        boolean changed = false;
+
+        for (FoldRange range : foldRanges.values()) {
+            int newStart = range.startLine;
+            int newEnd = range.endLine;
+
+            if (range.startLine >= startLine) {
+                newStart += lineDelta;
+                newEnd += lineDelta;
+                changed = true;
+            } else if (range.endLine >= startLine) {
+                newEnd += lineDelta;
+                changed = true;
+            }
+
+            if (newEnd > newStart) {
+                FoldRange newRange = new FoldRange(newStart, newEnd, range.openCharIndex, range.openChar, range.closeChar, range.closeCharIndex, range.isBlockComment, range.isIndentFold);
+                newRange.collapsed = range.collapsed;
+                newRange.cachedEndLineText = range.cachedEndLineText;
+                newRange.cachedEndLineTextAttempted = range.cachedEndLineTextAttempted;
+                newRanges.put(newStart, newRange);
+            } else {
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            foldRanges.clear();
+            foldRanges.putAll(newRanges);
+            invalidateFoldCaches();
+            rebuildFoldIntervalsIfNeeded();
+        }
     }
 
     /**
-     * Get the collapsed fold range that hides the given line.
+     * Get the collapsed fold range that contains the specified line (exclusive of start).
      */
     public FoldRange getCollapsedRangeContainingLine(int line) {
-        if (!isCodeFoldingEnabled) return null;
         for (FoldRange range : foldRanges.values()) {
             if (range.collapsed && line > range.startLine && line <= range.endLine) {
                 return range;
@@ -642,59 +493,49 @@ public class CodeFold {
     }
 
     /**
-     * Clear fold ripple animation
+     * Start animation for fold marker.
      */
-    public void clearFoldRipple() {
-        animation.clearFoldRipple();
+    public void startFoldMarkerRipple(int line) {
+        FunctionLog.f("CodeFold", "startFoldMarkerRipple", line);
+        animation.startFoldMarkerRipple(line);
     }
 
     /**
-     * Set fold placeholder color
+     * Start animation for fold placeholder.
      */
-    public void setFoldPlaceholderColor(int color) {
-        animation.foldPlaceholderPaint.setColor(color);
-        if (isCodeFoldingEnabled) editor.invalidate();
+    public void startFoldPlaceholderRipple(int line, float left, float right) {
+        FunctionLog.f("CodeFold", "startFoldPlaceholderRipple", line, left, right);
+        animation.startFoldPlaceholderRipple(line, left, right);
     }
 
     /**
-     * Set fold marker color
+     * Fold range class.
      */
-    public void setFoldMarkerColor(int color) {
-        animation.foldMarkerColor = color;
-        animation.foldMarkerPaint.setColor(color);
-        if (isCodeFoldingEnabled) editor.invalidate();
-    }
+    public static class FoldRange {
+        public final int startLine;
+        public final int endLine;
+        public final int openCharIndex;
+        public final char openChar;
+        public final char closeChar;
+        public final int closeCharIndex;
+        public final boolean isBlockComment;
+        public final boolean isIndentFold;
+        public boolean collapsed = false;
 
-    /**
-     * Set fold marker color while fold is being computed.
-     */
-    public void setFoldMarkerPendingColor(int color) {
-        animation.foldMarkerPendingColor = color;
-        if (isCodeFoldingEnabled) editor.invalidate();
-    }
+        // Cached end line text to avoid frequent file I/O during rendering
+        public String cachedEndLineText = null;
+        public boolean cachedEndLineTextAttempted = false;
 
-    /**
-     * Set fold marker text size
-     */
-    public void setFoldMarkerTextSize(float size) {
-        float base = editor.textRender.paint.getTextSize();
-        if (base <= 0f) return;
-        animation.foldMarkerTextScale = size / base;
-        animation.updateTextSize(base * animation.foldMarkerTextScale);
-        editor.requestLayout();
-        if (editor.wordWrap.isWordWrapEnabled) editor.wordWrap.invalidateWrapMetrics(true);
-        editor.invalidate();
-    }
-
-    /**
-     * Set indentation blocks enabled
-     */
-    public void setIndentationBlocksEnabled(boolean enabled) {
-        if (!enabled) {
-            foldRanges.entrySet().removeIf(e -> e.getValue().isIndentFold);
+        public FoldRange(int sL, int eL, int oCI, char oC, char cC, int cCI, boolean isBC, boolean isIF) {
+            FunctionLog.f("FoldRange", "FoldRange", sL, eL, oCI, oC, cC, cCI, isBC, isIF);
+            this.startLine = sL;
+            this.endLine = eL;
+            this.openCharIndex = oCI;
+            this.openChar = oC;
+            this.closeChar = cC;
+            this.closeCharIndex = cCI;
+            this.isBlockComment = isBC;
+            this.isIndentFold = isIF;
         }
-        editor.indentGuides.markIntervalsDirty();
-        foldIntervalsDirty = true;
-        editor.invalidate();
     }
 }

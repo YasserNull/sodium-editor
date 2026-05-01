@@ -14,6 +14,7 @@ import java.util.List;
 
 import com.yn.sodiumeditor.renderer.TextRender;
 import com.yn.sodiumeditor.core.guides.indent.IndentGuides;
+import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Auto-completion functionality for SodiumEditor.
@@ -56,11 +57,13 @@ public class AutoCompletion {
     public boolean suggestionAcceptedThisTouch = false;
 
     public AutoCompletion(SodiumEditor editor) {
+        FunctionLog.f("AutoCompletion", "AutoCompletion", editor);
         this.editor = editor;
         initSuggestionPaint();
     }
 
     private void initSuggestionPaint() {
+        FunctionLog.f("AutoCompletion", "initSuggestionPaint");
         suggestionPaint.set(editor.textRender.paint);
         suggestionPaint.setColor(0xFFAAAAAA);
         suggestionPaint.setAntiAlias(true);
@@ -72,6 +75,7 @@ public class AutoCompletion {
      * Set auto-completion enabled state.
      */
     public void setAutoCompletionEnabled(boolean enabled) {
+        FunctionLog.f("AutoCompletion", "setAutoCompletionEnabled", enabled);
         this.isAutoCompletionEnabled = enabled;
         if (!enabled && !activeSuggestionIsPath) {
             clearActiveSuggestion();
@@ -83,6 +87,7 @@ public class AutoCompletion {
      * Get auto-completion enabled state.
      */
     public boolean isAutoCompletionEnabled() {
+        FunctionLog.f("AutoCompletion", "isAutoCompletionEnabled");
         return isAutoCompletionEnabled;
     }
 
@@ -90,6 +95,7 @@ public class AutoCompletion {
      * Set suggestions from a list of keywords.
      */
     public void setSuggestions(List<String> keywords, int color) {
+        FunctionLog.f("AutoCompletion", "setSuggestions", keywords, color);
         suggestionTrie.clear();
         if (keywords != null) {
             for (String word : keywords) {
@@ -105,6 +111,7 @@ public class AutoCompletion {
      * Accept the current auto-completion suggestion.
      */
     public void acceptAutoCompletion() {
+        FunctionLog.f("AutoCompletion", "acceptAutoCompletion");
         Log.d("AutoCompletion", "acceptAutoCompletion: Entered.");
         if (activeSuggestion == null) {
             Log.d("AutoCompletion", "acceptAutoCompletion: Bailed out (no active suggestion).");
@@ -138,6 +145,7 @@ public class AutoCompletion {
      * Clear the active suggestion.
      */
     public void clearActiveSuggestion() {
+        FunctionLog.f("AutoCompletion", "clearActiveSuggestion");
         if (activeSuggestion != null) {
             activeSuggestion = null;
             activeSuggestionRect.setEmpty();
@@ -150,6 +158,7 @@ public class AutoCompletion {
      * Update suggestion based on current cursor position.
      */
     public void updateSuggestion() {
+        FunctionLog.f("AutoCompletion", "updateSuggestion");
         if (Looper.myLooper() != Looper.getMainLooper()) {
             editor.post(this::updateSuggestion);
             return;
@@ -171,6 +180,7 @@ public class AutoCompletion {
      * Internal suggestion update logic.
      */
     public void updateSuggestionInternal() {
+        FunctionLog.f("AutoCompletion", "updateSuggestionInternal");
         String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
         if (line == null) {
             clearActiveSuggestion();
@@ -226,6 +236,7 @@ public class AutoCompletion {
      * Get the current word fragment before the cursor.
      */
     public String getCurrentWordFragment() {
+        FunctionLog.f("AutoCompletion", "getCurrentWordFragment");
         String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
         if (editor.cursor.cursorChar == 0 || editor.cursor.cursorChar > line.length()) {
             return "";
@@ -241,6 +252,7 @@ public class AutoCompletion {
      * Set suggestion text size.
      */
     public void setSuggestionTextSize(float size) {
+        FunctionLog.f("AutoCompletion", "setSuggestionTextSize", size);
         isSuggestionTextSizeCustom = true;
         float px = editor.view.spToPx(size);
         float base = editor.textRender.paint.getTextSize();
@@ -268,11 +280,13 @@ public class AutoCompletion {
         public final TrieNode root = new TrieNode();
 
         public void clear() {
+            FunctionLog.f("Trie", "clear");
             root.children.clear();
             root.word = null;
         }
 
         public void insert(String word) {
+            FunctionLog.f("Trie", "insert", word);
             if (word == null || word.isEmpty()) return;
             TrieNode current = root;
             for (char l : word.toCharArray()) {
@@ -282,6 +296,7 @@ public class AutoCompletion {
         }
 
         public String findFirstSuggestion(String prefix) {
+            FunctionLog.f("Trie", "findFirstSuggestion", prefix);
             if (prefix == null || prefix.isEmpty()) return null;
             TrieNode current = root;
             for (char l : prefix.toCharArray()) {
@@ -299,6 +314,7 @@ public class AutoCompletion {
         }
 
         public String findFirstWordFromNode(TrieNode node) {
+            FunctionLog.f("Trie", "findFirstWordFromNode", node);
             if (node == null) return null;
             if (node.word != null) {
                 return node.word;
@@ -314,6 +330,7 @@ public class AutoCompletion {
     }
      // Draw auto suggestion
   public void drawAutoSuggestion(Canvas canvas, String lineContent, int globalLine, float textBaselineY) {
+    FunctionLog.f("AutoCompletion", "drawAutoSuggestion", canvas, lineContent, globalLine, textBaselineY);
 
     boolean allowSuggestion = activeSuggestionIsPath 
         ? (editor.autoPathCompletion.isAutoPathCompletionEnabled) 
@@ -344,6 +361,7 @@ public class AutoCompletion {
   }
 
   public void drawAutoSuggestionWrapped(Canvas canvas, String lineContent, int globalLine, int segStart, int segEnd, int visualIndex, float textBaselineY) {
+    FunctionLog.f("AutoCompletion", "drawAutoSuggestionWrapped", canvas, lineContent, globalLine, segStart, segEnd, visualIndex, textBaselineY);
     
     boolean allowSuggestion = activeSuggestionIsPath
         ? (editor.autoPathCompletion.isAutoPathCompletionEnabled)

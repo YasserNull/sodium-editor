@@ -5,6 +5,7 @@ import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.fold.CodeFold;
 import com.yn.sodiumeditor.io.EditOperators;
 import com.yn.sodiumeditor.io.EditOp;
+import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * OnSingleTapUp handles onSingleTapUp() gesture event for SodiumEditor.
@@ -14,6 +15,7 @@ public class OnSingleTapUp {
   private final SodiumEditor editor;
 
   public OnSingleTapUp(SodiumEditor editor) {
+    FunctionLog.f("OnSingleTapUp", "OnSingleTapUp", editor);
     this.editor = editor;
   }
 
@@ -21,6 +23,7 @@ public class OnSingleTapUp {
    * Handle onSingleTapUp event
    */
   public boolean onSingleTapUp(MotionEvent e) {
+    FunctionLog.f("OnSingleTapUp", "onSingleTapUp", e);
     if (editor.autoCompletion.suggestionAcceptedThisTouch) return true;
     if (editor.onTouch.multiTouchActive || editor.onTouch.hadMultiTouch) return true;
 
@@ -34,7 +37,6 @@ public class OnSingleTapUp {
       int line = editor.wordWrap.getGlobalLineForY(gy);
       if (editor.codeFold.toggleFoldAtLine(line)) {
         editor.codeFold.startFoldMarkerRipple(line);
-        editor.popup.hidePopup();
         editor.invalidate();
         return true;
       }
@@ -68,7 +70,6 @@ public class OnSingleTapUp {
         if (editor.codeFold.toggleFoldAtLine(line)) {
           editor.codeFold.startFoldMarkerRipple(line);
         }
-        editor.popup.hidePopup();
         editor.invalidate();
         return true;
       }
@@ -122,7 +123,6 @@ public class OnSingleTapUp {
             editor.cursor.setCursorPosition(range.endLine, Math.max(suffixStart, Math.min(idx, endLineText.length())));
           }
 
-          editor.popup.hidePopup();
           editor.invalidate();
           editor.caret.resetBlink();
           editor.ime.showKeyboard();
@@ -142,10 +142,9 @@ public class OnSingleTapUp {
     } else {
       editor.fileIO.ensureLineInWindow(line, true);
       String ln = editor.windowRender.getLineTextForRender(line);
-      editor.cursor.setCursorPosition(line, Math.max(0, Math.min(target.ch, ln.length())));
+      editor.cursor.setCursorPosition(line, Math.max(0, Math.min(target.ch, (ln == null) ? 0 : ln.length())));
     }
 
-    editor.popup.hidePopup();
     editor.selection.selecting = false;
     editor.invalidate();
     editor.caret.resetBlink();

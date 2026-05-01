@@ -7,6 +7,7 @@ import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.draw.BracketGuideDraw;
 import com.yn.sodiumeditor.utils.BracketGuideScanner;
+import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.Collections;
 import java.util.List;
 
@@ -47,6 +48,7 @@ public class BracketGuides {
   public final BracketGuideScanner scanner;
 
   public BracketGuides(SodiumEditor editor) {
+    FunctionLog.f("BracketGuides", "BracketGuides", editor);
     this.editor = editor;
     bracketGuidePaint.setColor(0xFFCCCCCC);
     bracketGuidePaint.setStyle(Paint.Style.STROKE);
@@ -66,6 +68,7 @@ public class BracketGuides {
    * Enables or disables bracket guides.
    */
   public void setBracketGuidesEnabled(boolean enabled) {
+    FunctionLog.f("BracketGuides", "setBracketGuidesEnabled", enabled);
     if (this.isBracketGuidesEnabled == enabled) return;
     this.isBracketGuidesEnabled = enabled;
     invalidateBracketGuideCache();
@@ -76,6 +79,7 @@ public class BracketGuides {
    * Enables or disables drawing guides for off-screen lines.
    */
   public void setDrawGuidesForOffScreenLines(boolean enabled) {
+    FunctionLog.f("BracketGuides", "setDrawGuidesForOffScreenLines", enabled);
     if (this.drawGuidesForOffScreenLines == enabled) return;
     this.drawGuidesForOffScreenLines = enabled;
     editor.invalidate();
@@ -85,6 +89,7 @@ public class BracketGuides {
    * Check if drawing guides for off-screen lines is enabled.
    */
   public boolean isDrawGuidesForOffScreenLinesEnabled() {
+    FunctionLog.f("BracketGuides", "isDrawGuidesForOffScreenLinesEnabled");
     return drawGuidesForOffScreenLines;
   }
 
@@ -92,6 +97,7 @@ public class BracketGuides {
    * Enable or disable skipping guide rebuilds during fast scroll.
    */
   public void setSkipGuidesDuringFastScroll(boolean enabled) {
+    FunctionLog.f("BracketGuides", "setSkipGuidesDuringFastScroll", enabled);
     this.skipGuidesDuringFastScroll = enabled;
   }
 
@@ -99,6 +105,7 @@ public class BracketGuides {
    * Set minimum interval between cache rebuilds (in milliseconds).
    */
   public void setMinRebuildIntervalMs(long ms) {
+    FunctionLog.f("BracketGuides", "setMinRebuildIntervalMs", ms);
     this.minRebuildIntervalMs = Math.max(0, ms);
   }
 
@@ -106,6 +113,7 @@ public class BracketGuides {
    * Sets the bracket guides color.
    */
   public void setBracketGuidesColor(int color) {
+    FunctionLog.f("BracketGuides", "setBracketGuidesColor", color);
     bracketGuidePaint.setColor(color);
     editor.invalidate();
   }
@@ -114,6 +122,7 @@ public class BracketGuides {
    * Sets the bracket guides stroke width.
    */
   public void setBracketGuidesStrokeWidth(float width) {
+    FunctionLog.f("BracketGuides", "setBracketGuidesStrokeWidth", width);
     if (this.bracketGuideStrokeWidth == width) return;
     this.baseBracketGuideStrokeWidth = width;
     this.baseBracketGuideTextSizePx = editor.textRender.paint.getTextSize();
@@ -126,6 +135,7 @@ public class BracketGuides {
    * Updates stroke width based on text size.
    */
   public void updateStrokeWidth() {
+    FunctionLog.f("BracketGuides", "updateStrokeWidth");
     float sizePx = editor.textRender.paint.getTextSize();
     bracketGuideStrokeWidth = Math.max(
         1f,
@@ -137,6 +147,7 @@ public class BracketGuides {
    * Invalidates bracket guide cache.
    */
   public void invalidateBracketGuideCache() {
+    FunctionLog.f("BracketGuides", "invalidateBracketGuideCache");
     invalidateBracketGuideCache(false);
   }
 
@@ -144,6 +155,7 @@ public class BracketGuides {
    * Invalidates bracket guide cache.
    */
   public void invalidateBracketGuideCache(boolean configChanged) {
+    FunctionLog.f("BracketGuides", "invalidateBracketGuideCache", configChanged);
     // Save current cache to fallback before invalidating
     if (!configChanged && mainCache.bracketGuideCacheStartLine >= 0 && mainCache.bracketGuideCacheEndLine >= mainCache.bracketGuideCacheStartLine
         && mainCache.bracketGuideTokensWindow.size() > 0) {
@@ -174,6 +186,7 @@ public class BracketGuides {
    * Controls whether guides are drawn during fast scroll/fling.
    */
   public void setShowGuidesDuringFastScroll(boolean enabled) {
+    FunctionLog.f("BracketGuides", "setShowGuidesDuringFastScroll", enabled);
     if (this.showGuidesDuringFastScroll == enabled) return;
     this.showGuidesDuringFastScroll = enabled;
     editor.invalidate();
@@ -183,6 +196,7 @@ public class BracketGuides {
    * Gets the bracket guide cache config hash.
    */
   public int getBracketGuideCacheConfigHash() {
+    FunctionLog.f("BracketGuides", "getBracketGuideCacheConfigHash");
     int h = 1;
     h = 31 * h + Float.floatToIntBits(bracketGuideStrokeWidth);
     h = 31 * h + bracketGuidePaint.getColor();
@@ -198,6 +212,7 @@ public class BracketGuides {
    */
   public BracketGuideState calculateBracketGuideStateForLine(
       String line, int globalLine, BracketGuideState prevState) {
+    FunctionLog.f("BracketGuides", "calculateBracketGuideStateForLine", line, globalLine, prevState);
     if (prevState == null) {
       prevState = new BracketGuideState(editor.highlite.isBlockCommentsEnabled, 0);
     }
@@ -214,6 +229,7 @@ public class BracketGuides {
   public BracketGuideState calculateBracketGuideStateFromWindowStart(
       int targetLine, int windowStart, int windowEnd,
       @Nullable java.util.Map<Integer, String> directLines) {
+    FunctionLog.f("BracketGuides", "calculateBracketGuideStateFromWindowStart", targetLine, windowStart, windowEnd, directLines);
 
     BracketGuideState state = new BracketGuideState(editor.highlite.isBlockCommentsEnabled, 0);
 
@@ -274,6 +290,7 @@ public class BracketGuides {
    */
   public void ensureBracketGuideCacheForWindow(
       int startLine, int endLine, @Nullable java.util.Map<Integer, String> directLines) {
+    FunctionLog.f("BracketGuides", "ensureBracketGuideCacheForWindow", startLine, endLine, directLines);
     ensureBracketGuideCacheForWindow(startLine, endLine, startLine, endLine, directLines);
   }
 
@@ -282,6 +299,7 @@ public class BracketGuides {
    */
   public void ensureBracketGuideCacheForWindow(
       int startLine, int endLine, int visibleStart, int visibleEnd, @Nullable java.util.Map<Integer, String> directLines) {
+    FunctionLog.f("BracketGuides", "ensureBracketGuideCacheForWindow", startLine, endLine, visibleStart, visibleEnd, directLines);
     long startTime = SystemClock.uptimeMillis();
 
     if (!isBracketGuidesEnabled) {
@@ -349,6 +367,7 @@ public class BracketGuides {
    * Gets bracket guide tokens for a line.
    */
   public List<BracketGuideToken> getBracketGuideTokensForLine(int globalLine) {
+    FunctionLog.f("BracketGuides", "getBracketGuideTokensForLine", globalLine);
     if (!isBracketGuidesEnabled) return Collections.emptyList();
 
     // Try main cache first
@@ -372,6 +391,7 @@ public class BracketGuides {
    * Gets bracket guide state for a line.
    */
   public BracketGuideState getBracketGuideStateForLine(int globalLine) {
+    FunctionLog.f("BracketGuides", "getBracketGuideStateForLine", globalLine);
     // Try main cache first
     BracketGuideState state = mainCache.getStateForLine(globalLine);
     if (state != null) {
@@ -394,6 +414,7 @@ public class BracketGuides {
    */
   public List<BracketGuideToken> updateBracketGuideStateForLine(
       String line, int globalLine, BracketGuideState state) {
+    FunctionLog.f("BracketGuides", "updateBracketGuideStateForLine", line, globalLine, state);
     return scanner.updateBracketGuideStateForLine(line, globalLine, state);
   }
 
@@ -401,6 +422,7 @@ public class BracketGuides {
    * Scans a line for spans (delegates to scanner).
    */
   public void scanLineForSpans(String line, int globalLine, com.yn.sodiumeditor.utils.BracketGuideScanner.BracketSpanScanState state, BracketGuideScanner.SpanCollector collector) {
+    FunctionLog.f("BracketGuides", "scanLineForSpans", line, globalLine, state, collector);
     scanner.scanLineForSpans(line, globalLine, state, collector);
   }
 
@@ -409,6 +431,7 @@ public class BracketGuides {
    */
   public String getLineTextForGuideScan(
       int line, java.util.Map<Integer, String> directLines, java.io.RandomAccessFile raf) {
+    FunctionLog.f("BracketGuides", "getLineTextForGuideScan", line, directLines, raf);
     return scanner.getLineTextForGuideScan(line, directLines, raf);
   }
 
@@ -416,6 +439,7 @@ public class BracketGuides {
    * Copy bracket guide state (delegates to scanner).
    */
   public static BracketGuideState copyState(BracketGuideState src) {
+    FunctionLog.f("BracketGuides", "copyState", src);
     return BracketGuideScanner.copyState(src);
   }
 
@@ -424,6 +448,7 @@ public class BracketGuides {
    */
   public static List<BracketGuideToken> getGuideTokensFromStack(
       java.util.ArrayDeque<BracketGuideToken> stack) {
+    FunctionLog.f("BracketGuides", "getGuideTokensFromStack", stack);
     return BracketGuideScanner.getGuideTokensFromStack(stack);
   }
 
@@ -431,6 +456,7 @@ public class BracketGuides {
    * Gets the guide X position (delegates to draw).
    */
   public float getGuideX(String line, int column, int globalLine) {
+    FunctionLog.f("BracketGuides", "getGuideX", line, column, globalLine);
     return draw.getGuideX(line, column, globalLine);
   }
 
@@ -442,6 +468,7 @@ public class BracketGuides {
    * Call at start of render pass to track current state and visible lines
    */
   public void beginRenderFrame(int windowStart, int windowEnd, int visibleStart, int visibleEnd) {
+    FunctionLog.f("BracketGuides", "beginRenderFrame", windowStart, windowEnd, visibleStart, visibleEnd);
     draw.beginRenderFrame(windowStart, windowEnd, visibleStart, visibleEnd);
 
     // Ensure cache is built for visible range (async)
@@ -452,6 +479,7 @@ public class BracketGuides {
    * Call at start of render pass (backward compatibility)
    */
   public void beginRenderFrame(int windowStart, int windowEnd) {
+    FunctionLog.f("BracketGuides", "beginRenderFrame", windowStart, windowEnd);
     draw.beginRenderFrame(windowStart, windowEnd);
   }
 
@@ -459,6 +487,7 @@ public class BracketGuides {
    * Update fast-scroll state for the current frame.
    */
   public void setFrameFastScroll(boolean fastScroll) {
+    FunctionLog.f("BracketGuides", "setFrameFastScroll", fastScroll);
     draw.setFrameFastScroll(fastScroll);
   }
 
@@ -466,6 +495,7 @@ public class BracketGuides {
    * Check if bracket guides can be drawn (cache is valid)
    */
   public boolean canDrawBracketGuides() {
+    FunctionLog.f("BracketGuides", "canDrawBracketGuides");
     return draw.canDrawBracketGuides();
   }
 
@@ -473,6 +503,7 @@ public class BracketGuides {
    * Check if a line is currently visible on screen
    */
   public boolean isLineVisible(int globalLine) {
+    FunctionLog.f("BracketGuides", "isLineVisible", globalLine);
     return draw.isLineVisible(globalLine);
   }
 
@@ -481,6 +512,7 @@ public class BracketGuides {
    */
   public void drawBracketGuidesForLine(
       Canvas canvas, String line, int globalLine, List<BracketGuideToken> guideTokens) {
+    FunctionLog.f("BracketGuides", "drawBracketGuidesForLine", canvas, line, globalLine, guideTokens);
     draw.drawBracketGuidesForLine(canvas, line, globalLine, guideTokens);
   }
 
@@ -489,6 +521,7 @@ public class BracketGuides {
    */
   public void drawBracketGuidesForLineFromStack(
       Canvas canvas, String line, int globalLine, java.util.ArrayDeque<BracketGuideToken> stack) {
+    FunctionLog.f("BracketGuides", "drawBracketGuidesForLineFromStack", canvas, line, globalLine, stack);
     draw.drawBracketGuidesForLineFromStack(canvas, line, globalLine, stack);
   }
 
@@ -496,6 +529,7 @@ public class BracketGuides {
    * Draws bracket guides for visible range using span cache.
    */
   public void drawBracketGuidesForVisibleRange(Canvas canvas, int visibleStart, int visibleEnd) {
+    FunctionLog.f("BracketGuides", "drawBracketGuidesForVisibleRange", canvas, visibleStart, visibleEnd);
     if (!isBracketGuidesEnabled || editor.isHeavyDrawSuppressed()) return;
 
     // Try span cache first (fastest)
@@ -539,6 +573,7 @@ public class BracketGuides {
    * Log per-frame stats.
    */
   public void endRenderFrameMaybeLog() {
+    FunctionLog.f("BracketGuides", "endRenderFrameMaybeLog");
     draw.endRenderFrameMaybeLog();
   }
 
@@ -551,6 +586,7 @@ public class BracketGuides {
    */
   public void ensureBracketGuideSpanCacheForWindow(
       int startLine, int endLine, int visibleStart, int visibleEnd, @Nullable java.util.Map<Integer, String> directLines) {
+    FunctionLog.f("BracketGuides", "ensureBracketGuideSpanCacheForWindow", startLine, endLine, visibleStart, visibleEnd, directLines);
     long startTime = SystemClock.uptimeMillis();
     if (!isBracketGuidesEnabled) return;
     if (startLine > endLine) return;
@@ -606,6 +642,7 @@ public class BracketGuides {
    */
   public void ensureBracketGuideCheckpointsUpTo(
       int endLine, @Nullable java.util.Map<Integer, String> directLines, @Nullable java.io.RandomAccessFile ignoredRaf) {
+    FunctionLog.f("BracketGuides", "ensureBracketGuideCheckpointsUpTo", endLine, directLines, ignoredRaf);
     checkpoint.ensureCheckpointsUpTo(endLine, directLines);
   }
 
@@ -613,6 +650,16 @@ public class BracketGuides {
    * Get checkpoint index for a line.
    */
   public int getCheckpointIndexForLine(int line) {
+    FunctionLog.f("BracketGuides", "getCheckpointIndexForLine", line);
     return checkpoint.getCheckpointIndexForLine(line);
+  }
+
+  public void shiftBracketGuideCaches(int startLine, int delta) {
+    FunctionLog.f("BracketGuides", "shiftBracketGuideCaches", startLine, delta);
+    if (delta == 0) return;
+    mainCache.shiftCache(startLine, delta);
+    fallbackCache.shiftCache(startLine, delta);
+    checkpoint.shiftCheckpoints(startLine, delta);
+    spanCache.invalidate(); // Span cache is too complex to shift, just invalidate
   }
 }

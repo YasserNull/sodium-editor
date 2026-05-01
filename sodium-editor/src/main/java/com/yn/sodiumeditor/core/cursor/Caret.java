@@ -7,6 +7,7 @@ import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Looper;
 import com.yn.sodiumeditor.core.fold.CodeFold;
+import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Caret handles caret (cursor) rendering for SodiumEditor.
@@ -33,6 +34,7 @@ public class Caret {
   private final Cursor cursor;
 
   public Caret(SodiumEditor editor, Cursor cursor) {
+    FunctionLog.f("Caret", "Caret", editor, cursor);
     this.editor = editor;
     this.cursor = cursor;
 
@@ -52,6 +54,7 @@ public class Caret {
    * Start caret blink
    */
   public void startBlink() {
+    FunctionLog.f("Caret", "startBlink");
     stopBlink();
     if (caretBlinkEnabled) {
       isCursorVisible = true;
@@ -63,6 +66,7 @@ public class Caret {
    * Stop caret blink
    */
   public void stopBlink() {
+    FunctionLog.f("Caret", "stopBlink");
     mainHandler.removeCallbacks(blinkRunnable);
     isCursorVisible = true;
   }
@@ -71,6 +75,7 @@ public class Caret {
    * Reset caret blink
    */
   public void resetBlink() {
+    FunctionLog.f("Caret", "resetBlink");
     stopBlink();
     startBlink();
   }
@@ -79,6 +84,7 @@ public class Caret {
    * Get caret X position relative to document start (no scroll)
    */
   public float getCaretDocumentX() {
+    FunctionLog.f("Caret", "getCaretDocumentX");
     String lineText = editor.windowRender.getLineTextForRender(cursor.cursorLine);
     if (lineText == null) return 0f;
     int safeChar = Math.max(0, Math.min(cursor.cursorChar, lineText.length()));
@@ -89,6 +95,7 @@ public class Caret {
    * Get caret Y position relative to document start (no scroll)
    */
   public float getCaretDocumentY() {
+    FunctionLog.f("Caret", "getCaretDocumentY");
     int visualLine = editor.wordWrap.getVisualIndexForLineAndChar(cursor.cursorLine, cursor.cursorChar);
     return visualLine * editor.textRender.lineHeight;
   }
@@ -97,254 +104,68 @@ public class Caret {
    * Draw caret on canvas
    */
   public void drawCaret(Canvas canvas) {
+    FunctionLog.f("Caret", "drawCaret", canvas);
     if (!editor.isFocused() || editor.selection.hasSelection) {
       return;
     }
 
-    if (!isCursorVisible && !editor.cursorAnimation.cursorAnimRunning) {
+    if (!isCursorVisible) {
       return;
     }
 
-    // Use animated Document position if available
-    float docX, docY;
-    if (editor.cursorAnimation.cursorAnimValid && !Float.isNaN(editor.cursorAnimation.cursorDrawX)) {
-      docX = editor.cursorAnimation.cursorDrawX;
-      docY = editor.cursorAnimation.cursorDrawY;
+    float cx = getCaretDocumentX();
+    float cy = getCaretDocumentY();
+
+    float top = cy - editor.scroll.scrollY;
+    float bottom = top + editor.textRender.lineHeight;
+    float left = cx - editor.scroll.scrollX;
+    float right = left + caretWidth;
+
+    if (editor.textRender.isRtl) {
+      left = (editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth) - cx + editor.scroll.scrollX;
+      right = left - caretWidth;
     } else {
-      docX = getCaretDocumentX();
-      docY = getCaretDocumentY();
+      left += editor.lineNumber.lineNumbersGutterWidth;
+      right += editor.lineNumber.lineNumbersGutterWidth;
     }
-    
-    // Convert Document coordinates to Screen coordinates for drawing
-    float x = editor.layout.getTextStartX() + docX - editor.scroll.scrollX;
-    float y = docY - editor.scroll.scrollY;
-    
-    float height = editor.textRender.lineHeight;
-    float width = Math.max(2f, caretWidth);
-    
-    Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    paint.setColor(caretColor);
-    paint.setStyle(Paint.Style.FILL);
 
-    RectF caretRect = new RectF(x - width / 2, y, x + width / 2, y + height);
-    canvas.drawRect(caretRect, paint);
+    caretPaint.setColor(caretColor);
+    canvas.drawRect(left, top, right, bottom, caretPaint);
   }
 
   /**
-   * Get caret X position in screen coordinates
+   * Updates caret appearance
    */
-  public float getCaretX() {
-    CodeFold.FoldRange collapsed = null;
-    if (editor.codeFold.isCodeFoldingEnabled) {
-      collapsed = editor.codeFold.getCollapsedRangeContainingLine(cursor.cursorLine);
-    }
-    if (collapsed != null) {
-      return getFoldedCaretX(collapsed, false);
-    }
-
-    String lineText = editor.windowRender.getLineTextForRender(cursor.cursorLine);
-    if (lineText == null) return editor.layout.getTextStartX();
-
-    int safeChar = Math.max(0, Math.min(cursor.cursorChar, lineText.length()));
-    float textWidth = editor.textRender.measureTextWithVisualSpaces(lineText, 0, safeChar, editor.textRender.paint);
-    return editor.layout.getTextStartX() + textWidth - editor.scroll.scrollX;
+  public void updateCaretAppearance() {
+    FunctionLog.f("Caret", "updateCaretAppearance");
+    caretPaint.setColor(caretColor);
   }
 
   /**
-   * Get caret Y position in screen coordinates
+   * Get caret X for wrapped mode
    */
-  public float getCaretY() {
-    int visualLine = cursor.cursorLine;
-    if (editor.codeFold.isCodeFoldingEnabled) {
-      CodeFold.FoldRange collapsed = editor.codeFold.getCollapsedRangeContainingLine(cursor.cursorLine);
-      if (collapsed != null) {
-        visualLine = editor.codeFold.getVisibleIndexForGlobalLine(collapsed.startLine);
-      } else if (editor.wordWrap.isWordWrapEnabled) {
-        visualLine = editor.wordWrap.getVisualIndexForLineAndChar(cursor.cursorLine, cursor.cursorChar);
-      } else {
-        visualLine = editor.codeFold.getVisibleIndexForGlobalLine(cursor.cursorLine);
-      }
-    } else if (editor.wordWrap.isWordWrapEnabled) {
-      visualLine = editor.wordWrap.getVisualIndexForLineAndChar(cursor.cursorLine, cursor.cursorChar);
-    }
-    return (visualLine * editor.textRender.lineHeight) - editor.scroll.scrollY;
+  public float getCaretXForSegment(String line, int globalLine, int segStart, int segEnd, int index) {
+    FunctionLog.f("Caret", "getCaretXForSegment", line, globalLine, segStart, segEnd, index);
+    if (line == null) return 0f;
+    int safeIndex = Math.max(0, Math.min(index, line.length()));
+    int safeSegStart = Math.max(0, Math.min(segStart, line.length()));
+    
+    float xRel = editor.textRender.measureTextWithVisualSpaces(line, safeSegStart, safeIndex, editor.textRender.paint);
+    
+    if (!editor.textRender.isRtl) return xRel;
+    
+    float w = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, segStart, segEnd);
+    float baseX = editor.layout.getRtlSegmentBaseX(line, globalLine, segStart, segEnd);
+    return baseX + (w - xRel);
   }
 
   /**
-   * Get caret X position relative to translated canvas origin
+   * Get caret X for a specific line and column.
    */
-  public float getCaretCanvasX() {
-    CodeFold.FoldRange collapsed = null;
-    if (editor.codeFold.isCodeFoldingEnabled) {
-      collapsed = editor.codeFold.getCollapsedRangeContainingLine(cursor.cursorLine);
-    }
-    if (collapsed != null) {
-      return getFoldedCaretX(collapsed, true);
-    }
-
-    String lineText = editor.windowRender.getLineTextForRender(cursor.cursorLine);
+  public float getCaretXForLine(String lineText, int line, int col) {
+    FunctionLog.f("Caret", "getCaretXForLine", lineText, line, col);
     if (lineText == null) return 0f;
-
-    int safeChar = Math.max(0, Math.min(cursor.cursorChar, lineText.length()));
+    int safeChar = Math.max(0, Math.min(col, lineText.length()));
     return editor.textRender.measureTextWithVisualSpaces(lineText, 0, safeChar, editor.textRender.paint);
   }
-
-  /**
-   * Get caret Y position relative to translated canvas origin
-   */
-  public float getCaretCanvasY() {
-    int visualLine = cursor.cursorLine;
-    if (editor.codeFold.isCodeFoldingEnabled) {
-      CodeFold.FoldRange collapsed = editor.codeFold.getCollapsedRangeContainingLine(cursor.cursorLine);
-      if (collapsed != null) {
-        visualLine = editor.codeFold.getVisibleIndexForGlobalLine(collapsed.startLine);
-      } else if (editor.wordWrap.isWordWrapEnabled) {
-        visualLine = editor.wordWrap.getVisualIndexForLineAndChar(cursor.cursorLine, cursor.cursorChar);
-      } else {
-        visualLine = editor.codeFold.getVisibleIndexForGlobalLine(cursor.cursorLine);
-      }
-    } else if (editor.wordWrap.isWordWrapEnabled) {
-      visualLine = editor.wordWrap.getVisualIndexForLineAndChar(cursor.cursorLine, cursor.cursorChar);
-    }
-    return (visualLine - editor.viewRender.drawBaseLine) * editor.textRender.lineHeight;
-  }
-
-  private float getFoldedCaretX(CodeFold.FoldRange range, boolean canvasSpace) {
-    String startLineText = editor.windowRender.getLineTextForRender(range.startLine);
-    if (startLineText == null) startLineText = "";
-
-    int prefixEnd;
-    if (range.isBlockComment) {
-      prefixEnd = Math.min(range.openCharIndex + 2, startLineText.length());
-    } else if (range.isIndentFold) {
-      prefixEnd = startLineText.length();
-    } else {
-      prefixEnd = Math.min(range.openCharIndex + 1, startLineText.length());
-    }
-
-    float xStart = editor.highlite.measureHighlightedSegmentWidth(startLineText, range.startLine, 0, prefixEnd);
-    float placeholderWidth =
-        Math.max(0f, editor.textRender.paint.measureText(CodeFold.FOLD_PLACEHOLDER_TEXT));
-    float xAfter = xStart + placeholderWidth;
-
-    if (range.isIndentFold) {
-      float x = xAfter;
-      return canvasSpace ? x : editor.layout.getTextStartX() + x - editor.scroll.scrollX;
-    }
-
-    String closeText = range.isBlockComment ? "*/" : String.valueOf(range.closeChar);
-    float closeWidth = editor.textRender.paint.measureText(closeText);
-
-    String endLineText = editor.windowRender.getLineTextForRender(range.endLine);
-    if (endLineText == null || endLineText.isEmpty()) {
-      endLineText = editor.codeFold.utils.getEndLineTextForFold(range);
-    }
-    int closeIdx = editor.codeFold.resolveCloseCharIndex(range, endLineText);
-    if (closeIdx < 0 && range.closeCharIndex >= 0) closeIdx = range.closeCharIndex;
-    int suffixStart = -1;
-    if (closeIdx >= 0) {
-      suffixStart = range.isBlockComment ? closeIdx + 2 : closeIdx + 1;
-    }
-
-    float x = xAfter + closeWidth;
-    if (endLineText != null && suffixStart >= 0 && cursor.cursorChar > suffixStart) {
-      int safeChar = Math.max(suffixStart, Math.min(cursor.cursorChar, endLineText.length()));
-      float suffixWidth =
-          editor.highlite.measureHighlightedSegmentWidth(endLineText, range.endLine, suffixStart, safeChar);
-      x += suffixWidth;
-    }
-
-    return canvasSpace ? x : editor.layout.getTextStartX() + x - editor.scroll.scrollX;
-  }
-
-  /**
-   * Check if caret should be drawn
-   */
-  public boolean shouldDrawCaret() {
-    return editor.isFocused() && !editor.selection.hasSelection;
-  }
-
-  /**
-   * Invalidate caret area
-   */
-  public void invalidateCaretArea() {
-    if (editor.wordWrap.isWordWrapEnabled) {
-      editor.invalidate();
-      return;
-    }
-    editor.view.invalidateLineGlobal(cursor.cursorLine);
-  }
-
-  // Getters and Setters
-
-  public void setCaretBlinkEnabled(boolean enabled) {
-    caretBlinkEnabled = enabled;
-    if (enabled) {
-      startBlink();
-    } else {
-      stopBlink();
-    }
-  }
-
-  public void setCaretBlinkPeriodMs(long periodMs) {
-    caretBlinkPeriodMs = Math.max(100, periodMs);
-  }
-
-  public void setCaretWidth(float width) {
-    if (width <= 0f) return;
-    caretWidth = width;
-  }
-
-  public void setCaretColor(int color) {
-    caretColor = color;
-    editor.invalidate();
-  }
-
-  public boolean isBlinking() {
-    return isCursorVisible;
-  }
-
-  public boolean isAnimating() {
-    return editor.cursorAnimation.cursorAnimRunning;
-  }
-  public float getCaretXForLine(String line, int globalLine, int charIndex) {
-    float x;
-    if (editor.binaryRender.isBinarySafeRenderingEnabled() && !editor.textRender.isRtl) {
-      int[] spans = editor.binaryRender.getBinaryTokenSpans(globalLine);
-      if (spans != null && spans.length > 0) {
-        float padX = editor.binaryRender.binaryCaretNotationEnabled ? 0f : editor.binaryRender.binaryTokenPaddingX;
-        x = editor.binaryRender.getXForCharBinary(line, charIndex, editor.textRender.paint, spans, padX);
-      } else {
-        x = editor.textRender.measureText(line, charIndex, globalLine);
-      }
-    } else {
-      x = editor.textRender.measureText(line, charIndex, globalLine);
-    }
-    if (!editor.textRender.isRtl) return x;
-    int logicalLen = editor.view.getLogicalLineLength(globalLine, line);
-    float w = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, logicalLen);
-    float baseX = editor.layout.getRtlLineBaseX(line, globalLine);    return baseX + (w - x);
-  }
-
-  public float getCaretXForSegment(
-      String line, int globalLine, int segStart, int segEnd, int charIndex) {
-    float xRel;
-    if (editor.binaryRender.isBinarySafeRenderingEnabled() && !editor.textRender.isRtl) {
-      int[] spans = editor.binaryRender.getBinaryTokenSpans(globalLine);
-      if (spans != null && spans.length > 0) {
-        float padX = editor.binaryRender.binaryCaretNotationEnabled ? 0f : editor.binaryRender.binaryTokenPaddingX;
-        float x1 = editor.binaryRender.getXForCharBinary(line, segStart, editor.textRender.paint, spans, padX);
-        float x2 = editor.binaryRender.getXForCharBinary(line, charIndex, editor.textRender.paint, spans, padX);
-        xRel = Math.max(0f, x2 - x1);
-      } else {
-        xRel = editor.textRender.measureTextWithVisualSpaces(line, segStart, charIndex, editor.textRender.paint);
-      }
-    } else {
-      xRel = editor.textRender.measureTextWithVisualSpaces(line, segStart, charIndex, editor.textRender.paint);
-    }
-    if (!editor.textRender.isRtl) return xRel;
-    float w = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, segStart, segEnd);
-    float baseX = editor.layout.getRtlSegmentBaseX(line, globalLine, segStart, segEnd);    return baseX + (w - xRel);
-  }
-  
 }

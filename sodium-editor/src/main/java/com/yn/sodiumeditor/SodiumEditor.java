@@ -95,7 +95,7 @@ import com.yn.sodiumeditor.input.Ime;
 
 public class SodiumEditor extends View {
 
-  public static final boolean DEBUG_RENDER_LOGS = true;
+  public static final boolean DEBUG_RENDER_LOGS = false;
 
   private final java.util.HashMap<String, Long> renderLogLast = new java.util.HashMap<>();
 
@@ -140,16 +140,11 @@ public class SodiumEditor extends View {
   public final com.yn.sodiumeditor.renderer.draw.TextLineDraw textLineDraw;
   public final HighlightRules highlightRules;
   public final com.yn.sodiumeditor.core.view.View view;
-  // SearchMatch moved to com.yn.sodiumeditor.core.SearchMatch
-
   public final Cursor cursor;
   public final Caret caret;
   public final CursorHandle cursorHandle;
   public final Selection selection;
   public final SelectionHandles selectionHandles;
-
-  // moved to OnTouch / Scroll / core.View / IndentGuides
-  
   public final CodeFold codeFold;
   public final CodeFoldRender codeFoldRender;
   public final CurrentLineHighlight currentLineHighlight;
@@ -158,11 +153,7 @@ public class SodiumEditor extends View {
   public final EditOperators editOperators;
   public final ViewRender viewRender;
   public final WordWrap wordWrap;
-
-  // BracketMatch moved to com.yn.sodiumeditor.core.BracketMatch
-
-  // BracketToken moved to com.yn.sodiumeditor.core.BracketToken
-
+  
   public SodiumEditor(Context ctx, @Nullable AttributeSet attrs) {
   super(ctx, attrs);
 
@@ -186,13 +177,12 @@ public class SodiumEditor extends View {
   layout = new Layout(this);
   zoom = new Zoom(this);
   scaleGestureDetector = new ScaleGestureDetector(ctx, zoom.createScaleListener());
-
+  scaleGestureDetector.setQuickScaleEnabled(false);
   ime = new Ime(this);
   onTouch = new OnTouch(this);
   onScroll = new OnScroll(this);
   scroll.gestureDetector = onScroll.getGestureDetector();
   onKeyDown = new OnKeyDown(this);
-
   onDraw = new onDraw(this);
   onMeasure = new onMeasure(this);
   onSizeChanged = new onSizeChanged(this);
@@ -203,41 +193,27 @@ public class SodiumEditor extends View {
   bracketMatchManager = new BracketMatchManager(this);
   whitespaceGuides = new WhitespaceGuides(this);
   urlUnderline = new UrlUnderline(this);
-
   pathUnderline = new PathUnderline(this);
   indentGuides = new IndentGuides(this);
-
   autoBracketPair = new AutoBracketPair(this);
-
   autoBracketNewline = new AutoBracketNewline(this);
-
   search = new Search(this);
-
   popup = new Popup(this);
   autoCompletion = new AutoCompletion(this);
   autoPathCompletion = new AutoPathCompletion(this);
   loadingCircle = new LoadingCircle(this);
-
   editOperators = new EditOperators(this);
-
   viewRender = new ViewRender(this);
-
   cursorAnimation = new CursorAnimation(this);
-
   charAnimation = new CharAnimation(this);
-
   bracketCache = new BracketCache(this);
-
   cursor = new Cursor(this);
   caret = new Caret(this, cursor);
   cursorHandle = new CursorHandle(this, cursor, caret);
   selection = new Selection(this, cursor);
   selectionHandles = new SelectionHandles(this, selection);
-
   wordWrap = new WordWrap(this);
-
   fileIO = new FileIO(this);
-
 
   textRender.paint.setTextSize(36);
   textRender.paint.setTypeface(Typeface.MONOSPACE);
@@ -278,8 +254,6 @@ public class SodiumEditor extends View {
   selectionHandles.handlePaint.setStyle(Paint.Style.FILL);
   loadingCircle.loadingCirclePaint.setStyle(Paint.Style.STROKE);
   loadingCircle.loadingCirclePaint.setStrokeCap(Paint.Cap.ROUND);
-
-
 
   setFocusable(true);
   setFocusableInTouchMode(true);
@@ -322,26 +296,6 @@ public class SodiumEditor extends View {
   }
 
 
-  
-
-
-
-
-  // moved to core.View (editor.view.heavyFeaturesThreshold)
-
-
-  
-public void logRender(String key, String msg, long intervalMs) {
-  if (!DEBUG_RENDER_LOGS) return;
-  long now = SystemClock.uptimeMillis();
-  Long last = renderLogLast.get(key);
-  if (last != null && intervalMs > 0 && now - last < intervalMs) return;
-  renderLogLast.put(key, now);
-  Log.d("SodiumRender", msg);
-  }
-
-
-
   @Override
   protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
   super.onMeasure(widthMeasureSpec, heightMeasureSpec);
@@ -359,24 +313,6 @@ onSizeChanged.onSizeChanged(w, h, oldw, oldh);
   if (onGenericMotionEvent.onGenericMotionEvent(event)) return true;
   return super.onGenericMotionEvent(event);
   }
-
-  // getTextStartX/getTextAreaWidth moved to renderer.Layout
-
-  
-  
-  
-
-  
-
-  
-  
-
-
-  // lastHitAdvance moved to renderer.Layout
-
-  
-
-// readLineSliceByChars moved to FileIO
 
   @Override
   public boolean onKeyDown(int keyCode, KeyEvent event) {
@@ -403,9 +339,16 @@ onSizeChanged.onSizeChanged(w, h, oldw, oldh);
 public boolean isHeavyDrawSuppressed() {
   return false;
   }
+
+
   @Override
   protected void onDraw(Canvas canvas) {
   super.onDraw(canvas);
   onDraw.onDraw(canvas);
+  }
+
+  @Override
+  public void computeScroll() {
+    scroll.computeScroll();
   }
 }

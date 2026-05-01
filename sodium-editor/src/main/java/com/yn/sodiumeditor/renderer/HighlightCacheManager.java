@@ -3,6 +3,7 @@ package com.yn.sodiumeditor.renderer;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.highlight.Highlite;
+import com.yn.sodiumeditor.utils.FunctionLog;
 import com.yn.sodiumeditor.utils.HighlightUtils;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,11 +30,13 @@ public class HighlightCacheManager {
     };
 
     public HighlightCacheManager(SodiumEditor editor, Highlite highlite) {
+        FunctionLog.f("HighlightCacheManager", "HighlightCacheManager", editor, highlite);
         this.editor = editor;
         this.highlite = highlite;
     }
 
     public void ensureHighlightCacheForVisibleRange(int startLine, int endLine, @Nullable Map<Integer, String> directLines) {
+        FunctionLog.f("HighlightCacheManager", "ensureHighlightCacheForVisibleRange", startLine, endLine, directLines);
         if (highlite.rules.highlightRules.isEmpty()) return;
         boolean needRegex = !highlite.rules.regexHighlightRules.isEmpty();
         boolean inBlock = false; int strState = 0;
@@ -76,6 +79,7 @@ public class HighlightCacheManager {
     }
 
     public HighliteRender.HighlightLineState getLineStateAtStart(int globalLine) {
+        FunctionLog.f("HighlightCacheManager", "getLineStateAtStart", globalLine);
         if (globalLine <= editor.windowRender.windowStartLine) return new HighliteRender.HighlightLineState(false, 0);
         Boolean cBlock = blockCommentEndStateCache.get(globalLine - 1);
         Integer cStr = stringEndStateCache.get(globalLine - 1);

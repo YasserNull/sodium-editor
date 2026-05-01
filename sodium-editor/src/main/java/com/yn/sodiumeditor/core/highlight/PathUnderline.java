@@ -13,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import com.yn.sodiumeditor.renderer.TextRender;
+import com.yn.sodiumeditor.utils.FunctionLog;
 /**
  * Manages path underlining for the SodiumEditor.
  * Detects and underlines file paths in text.
@@ -40,6 +41,7 @@ public class PathUnderline {
   public final Set<String> pendingPathValidations = Collections.synchronizedSet(new HashSet<>());
 
   public PathUnderline(SodiumEditor editor) {
+    FunctionLog.f("PathUnderline", "PathUnderline", editor);
     this.editor = editor;
   }
 
@@ -47,6 +49,7 @@ public class PathUnderline {
    * Enables or disables path underlining.
    */
   public void setPathUnderliningEnabled(boolean enabled) {
+    FunctionLog.f("PathUnderline", "setPathUnderliningEnabled", enabled);
     if (this.isPathUnderliningEnabled == enabled) return;
     this.isPathUnderliningEnabled = enabled;
     clearAllCaches();
@@ -57,6 +60,7 @@ public class PathUnderline {
    * Clears path underline cache.
    */
   public void clearPathUnderlineCache() {
+    FunctionLog.f("PathUnderline", "clearPathUnderlineCache");
     pathUnderlineCache.clear();
   }
 
@@ -64,6 +68,7 @@ public class PathUnderline {
    * Clears path underline cache for a specific line.
    */
   public void clearPathUnderlineCacheForLine(int line) {
+    FunctionLog.f("PathUnderline", "clearPathUnderlineCacheForLine", line);
     pathUnderlineCache.remove(line);
   }
 
@@ -72,6 +77,7 @@ public class PathUnderline {
    * Only returns spans for paths that have been validated as existing.
    */
   public List<TextRender.UnderlineSpan> getPathUnderlineSpansForLine(String line, int globalLine) {
+    FunctionLog.f("PathUnderline", "getPathUnderlineSpansForLine", line, globalLine);
     if (!isPathUnderliningEnabled || pathUnderlinePattern == null) {
       if (editor.DEBUG_RENDER_LOGS) {
         android.util.Log.d("PathUnderline", "getPathUnderlineSpansForLine line=" + globalLine + " disabled=" + !isPathUnderliningEnabled + " pattern=" + (pathUnderlinePattern == null));
@@ -133,6 +139,7 @@ public class PathUnderline {
    * Ensures path underline cache for a line.
    */
   public void ensurePathUnderlineCacheForLine(String line, int globalLine) {
+    FunctionLog.f("PathUnderline", "ensurePathUnderlineCacheForLine", line, globalLine);
     if (!isPathUnderliningEnabled || pathUnderlinePattern == null) return;
     if (pathUnderlineCache.get(globalLine) != null) return;
     getPathUnderlineSpansForLine(line, globalLine);
@@ -142,6 +149,7 @@ public class PathUnderline {
    * Invalidates path underline cache for a line (e.g., when file system changes).
    */
   public void invalidatePathUnderlineCacheForLine(int line) {
+    FunctionLog.f("PathUnderline", "invalidatePathUnderlineCacheForLine", line);
     pathUnderlineCache.remove(line);
   }
 
@@ -149,6 +157,7 @@ public class PathUnderline {
    * Clears all path underline caches and validation cache.
    */
   public void clearAllCaches() {
+    FunctionLog.f("PathUnderline", "clearAllCaches");
     pathUnderlineCache.clear();
     pathValidationCache.clear();
     pendingPathValidations.clear();
@@ -158,6 +167,7 @@ public class PathUnderline {
    * Checks if path underlining is active.
    */
   public boolean isPathUnderliningActive() {
+    FunctionLog.f("PathUnderline", "isPathUnderliningActive");
     return isPathUnderliningEnabled && pathUnderlinePattern != null;
   }
 
@@ -165,6 +175,7 @@ public class PathUnderline {
    * Validates a path in the background.
    */
   public void validatePathInBackground(final String path, final int lineToInvalidate) {
+    FunctionLog.f("PathUnderline", "validatePathInBackground", path, lineToInvalidate);
     // Avoid queueing the same path if it's already being checked
     if (pendingPathValidations.contains(path)) {
       return;
@@ -200,6 +211,7 @@ public class PathUnderline {
    * Gets the path underline paint.
    */
   public Paint getPathUnderlinePaint() {
+    FunctionLog.f("PathUnderline", "getPathUnderlinePaint");
     return pathUnderlineTmpPaint;
   }
 }

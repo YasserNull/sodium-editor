@@ -5,6 +5,7 @@ import com.yn.sodiumeditor.renderer.animation.SelectionAnimation;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.Path;
+import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Manages selection state, appearance, and animation for SodiumEditor.
@@ -61,6 +62,7 @@ public class SelectionState {
   private final SodiumEditor editor;
 
   public SelectionState(SodiumEditor editor) {
+    FunctionLog.f("SelectionState", "SelectionState", editor);
     this.editor = editor;
     this.animation = new SelectionAnimation(editor);
 
@@ -69,14 +71,26 @@ public class SelectionState {
     selectionPaint.setAlpha(102);
   }
 
-  public float getSelectionAlpha() { return animation.selectionAlpha; }
-  public float getHandleAlpha() { return animation.handleAlpha; }
-  public boolean isSelectionAnimationEnabled() { return animation.selectionAnimationEnabled; }
+  public float getSelectionAlpha() {
+    FunctionLog.f("SelectionState", "getSelectionAlpha");
+    return animation.selectionAlpha;
+  }
+
+  public float getHandleAlpha() {
+    FunctionLog.f("SelectionState", "getHandleAlpha");
+    return animation.handleAlpha;
+  }
+
+  public boolean isSelectionAnimationEnabled() {
+    FunctionLog.f("SelectionState", "isSelectionAnimationEnabled");
+    return animation.selectionAnimationEnabled;
+  }
 
   /**
    * Set selection range
    */
   public void setSelection(int startLine, int startChar, int endLine, int endChar) {
+    FunctionLog.f("SelectionState", "setSelection", startLine, startChar, endLine, endChar);
     selStartLine = startLine;
     selStartChar = startChar;
     selEndLine = endLine;
@@ -92,6 +106,7 @@ public class SelectionState {
    * Clear selection
    */
   public void clearSelection() {
+    FunctionLog.f("SelectionState", "clearSelection");
     hasSelection = false;
     isSelectAllActive = false;
     isEntireFileSelected = false;
@@ -113,6 +128,7 @@ public class SelectionState {
    * Set selection internal (normalized)
    */
   public void setSelectionInternal(int sL, int sC, int eL, int eC) {
+    FunctionLog.f("SelectionState", "setSelectionInternal", sL, sC, eL, eC);
     int startL = sL, startC = sC, endL = eL, endC = eC;
     if (comparePos(startL, startC, endL, endC) > 0) {
       int tL = startL, tC = startC;
@@ -136,6 +152,7 @@ public class SelectionState {
    * Compare two positions
    */
   public int comparePos(int lineA, int charA, int lineB, int charB) {
+    FunctionLog.f("SelectionState", "comparePos", lineA, charA, lineB, charB);
     if (lineA != lineB) return Integer.compare(lineA, lineB);
     return Integer.compare(charA, charB);
   }
@@ -144,6 +161,7 @@ public class SelectionState {
    * Check if position is within selection
    */
   public boolean contains(int line, int ch) {
+    FunctionLog.f("SelectionState", "contains", line, ch);
     if (!hasSelection) return false;
 
     int sL = selStartLine, sC = selStartChar;
@@ -168,6 +186,7 @@ public class SelectionState {
    * Check if copy/cut should be hidden for current selection
    */
   public boolean shouldHideCopyCutForSelection() {
+    FunctionLog.f("SelectionState", "shouldHideCopyCutForSelection");
     if (!hasSelection) return true;
 
     int sL = selStartLine, eL = selEndLine;
@@ -183,27 +202,40 @@ public class SelectionState {
   /**
    * Get selection start line
    */
-  public int getStartLine() { return selStartLine; }
+  public int getStartLine() {
+    FunctionLog.f("SelectionState", "getStartLine");
+    return selStartLine;
+  }
 
   /**
    * Get selection start character
    */
-  public int getStartChar() { return selStartChar; }
+  public int getStartChar() {
+    FunctionLog.f("SelectionState", "getStartChar");
+    return selStartChar;
+  }
 
   /**
    * Get selection end line
    */
-  public int getEndLine() { return selEndLine; }
+  public int getEndLine() {
+    FunctionLog.f("SelectionState", "getEndLine");
+    return selEndLine;
+  }
 
   /**
    * Get selection end character
    */
-  public int getEndChar() { return selEndChar; }
+  public int getEndChar() {
+    FunctionLog.f("SelectionState", "getEndChar");
+    return selEndChar;
+  }
 
   /**
    * Get selection line count
    */
   public int getLineCount() {
+    FunctionLog.f("SelectionState", "getLineCount");
     if (!hasSelection) return 0;
     return Math.abs(selEndLine - selStartLine) + 1;
   }
@@ -212,23 +244,31 @@ public class SelectionState {
    * Check if selection is empty
    */
   public boolean isEmpty() {
+    FunctionLog.f("SelectionState", "isEmpty");
     return !hasSelection || (selStartLine == selEndLine && selStartChar == selEndChar);
   }
 
   /**
    * Check if selection is active
    */
-  public boolean hasSelection() { return hasSelection; }
+  public boolean hasSelection() {
+    FunctionLog.f("SelectionState", "hasSelection");
+    return hasSelection;
+  }
 
   /**
    * Check if select all is active
    */
-  public boolean isSelectAll() { return isSelectAllActive || isEntireFileSelected; }
+  public boolean isSelectAll() {
+    FunctionLog.f("SelectionState", "isSelectAll");
+    return isSelectAllActive || isEntireFileSelected;
+  }
 
   /**
    * Set selection color
    */
   public void setSelectionColor(int color) {
+    FunctionLog.f("SelectionState", "setSelectionColor", color);
     selectionColor = color;
     selectionPaint.setColor(color);
     editor.invalidate();
@@ -238,6 +278,7 @@ public class SelectionState {
    * Set selection handle color
    */
   public void setSelectionHandleColor(int color) {
+    FunctionLog.f("SelectionState", "setSelectionHandleColor", color);
     selectionHandleColor = color;
   }
 
@@ -245,6 +286,7 @@ public class SelectionState {
    * Set selection highlight color
    */
   public void setSelectionHighlightColor(int color) {
+    FunctionLog.f("SelectionState", "setSelectionHighlightColor", color);
     if (this.selectionHighlightColor == color) return;
     this.selectionHighlightColor = color;
     if (hasSelection) editor.invalidate();
@@ -254,6 +296,7 @@ public class SelectionState {
    * Set selection animation enabled
    */
   public void setSelectionAnimationEnabled(boolean enabled) {
+    FunctionLog.f("SelectionState", "setSelectionAnimationEnabled", enabled);
     animation.setSelectionAnimationEnabled(enabled);
   }
 
@@ -261,6 +304,7 @@ public class SelectionState {
    * Update selection visibility
    */
   public void updateSelectionVisibility(boolean nowHasSelection) {
+    FunctionLog.f("SelectionState", "updateSelectionVisibility", nowHasSelection);
     animation.updateSelectionVisibility(nowHasSelection);
   }
 
@@ -268,6 +312,7 @@ public class SelectionState {
    * Begin long press selection
    */
   public void beginLongPressSelection(int line, int ch) {
+    FunctionLog.f("SelectionState", "beginLongPressSelection", line, ch);
     longPressSelecting = true;
     longPressAnchorLine = Math.max(0, line);
     longPressAnchorChar = Math.max(0, ch);
@@ -277,6 +322,7 @@ public class SelectionState {
    * Update long press selection
    */
   public void updateLongPressSelection(int line, int ch) {
+    FunctionLog.f("SelectionState", "updateLongPressSelection", line, ch);
     if (!longPressSelecting) return;
     setSelectionInternal(longPressAnchorLine, longPressAnchorChar, line, ch);
     selecting = true;
@@ -287,6 +333,7 @@ public class SelectionState {
    * Used when smart selection was active before long press drag
    */
   public void updateLongPressSelectionFromSelectionEnd(int line, int ch) {
+    FunctionLog.f("SelectionState", "updateLongPressSelectionFromSelectionEnd", line, ch);
     if (!longPressSelecting) return;
     // Use the current selection end as the anchor point for extension
     setSelectionInternal(selStartLine, selStartChar, line, ch);
@@ -297,6 +344,7 @@ public class SelectionState {
    * End long press selection
    */
   public void endLongPressSelection() {
+    FunctionLog.f("SelectionState", "endLongPressSelection");
     longPressSelecting = false;
     selecting = false;
     longPressEndPointerId = -1;
@@ -306,6 +354,7 @@ public class SelectionState {
    * Clear selection state after delete
    */
   public void clearSelectionStateAfterDelete() {
+    FunctionLog.f("SelectionState", "clearSelectionStateAfterDelete");
     hasSelection = false;
     selecting = false;
     isSelectAllActive = false;
@@ -317,6 +366,7 @@ public class SelectionState {
    * Clamp line for selection
    */
   public int clampLineForSelection(int line) {
+    FunctionLog.f("SelectionState", "clampLineForSelection", line);
     if (line < 0) return 0;
     if (editor.fileIO.isEof) {
       int last = editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size() - 1;
@@ -330,6 +380,7 @@ public class SelectionState {
    * Check if line is selectable
    */
   public boolean isLineSelectable(int line) {
+    FunctionLog.f("SelectionState", "isLineSelectable", line);
     editor.fileIO.ensureLineInWindow(line, true);
     String ln = editor.windowRender.getLineTextForRender(line);
     return ln != null && ln.length() > 0;
@@ -339,6 +390,7 @@ public class SelectionState {
    * Check if position is inside selection
    */
   public boolean isPositionInsideSelection(int line, int ch) {
+    FunctionLog.f("SelectionState", "isPositionInsideSelection", line, ch);
     if (!hasSelection) return false;
     int sL = selStartLine;
     int sC = selStartChar;
@@ -358,6 +410,7 @@ public class SelectionState {
    * Restore selection
    */
   public void restoreSelection(int sL, int sC, int eL, int eC, int cursorLine, int cursorChar) {
+    FunctionLog.f("SelectionState", "restoreSelection", sL, sC, eL, eC, cursorLine, cursorChar);
     setSelectionInternal(sL, sC, eL, eC);
     int targetLine = Math.max(0, cursorLine);
     int targetChar = Math.max(0, editor.cursor.cursorChar);
@@ -377,6 +430,7 @@ public class SelectionState {
    * Paste text from clipboard
    */
   public void pasteFromClipboard() {
+    FunctionLog.f("SelectionState", "pasteFromClipboard");
     editor.fileIO.invalidatePendingIOForEdit();
     editor.editOperators.editVersion.incrementAndGet();
     editor.autoCompletion.clearActiveSuggestion();

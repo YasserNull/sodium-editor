@@ -4,6 +4,7 @@ import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.io.EditOperators;
 import com.yn.sodiumeditor.io.EditOp;
+import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * OnLongPress handles onLongPress() gesture event for SodiumEditor.
@@ -13,6 +14,7 @@ public class OnLongPress {
   private final SodiumEditor editor;
 
   public OnLongPress(SodiumEditor editor) {
+    FunctionLog.f("OnLongPress", "OnLongPress", editor);
     this.editor = editor;
   }
 
@@ -20,6 +22,7 @@ public class OnLongPress {
    * Handle onLongPress event
    */
   public void onLongPress(MotionEvent e) {
+    FunctionLog.f("OnLongPress", "onLongPress", e);
     if (editor.autoCompletion.suggestionAcceptedThisTouch) return;
     if (editor.onTouch.multiTouchActive || editor.onTouch.hadMultiTouch) return;
 
@@ -121,7 +124,6 @@ public class OnLongPress {
             editor.selection.selecting = false;
             editor.cursor.cursorLine = cursorLine;
             editor.cursor.cursorChar = charIndex;
-            editor.popup.hidePopup();
             editor.caret.resetBlink();
             editor.invalidate();
             editor.ime.showKeyboard();
@@ -211,6 +213,7 @@ public class OnLongPress {
    * Called when smart double tap selection fails - delegates to OnSingleTapUp
    */
   public void onSingleTapUpFallback(MotionEvent e, OnSingleTapUp onSingleTapUp) {
+    FunctionLog.f("OnLongPress", "onSingleTapUpFallback", e, onSingleTapUp);
     onSingleTapUp.onSingleTapUp(e);
   }
 }

@@ -2,6 +2,7 @@ package com.yn.sodiumeditor.input.events;
 
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Handles gestures and zooming for SodiumEditor.
@@ -10,10 +11,12 @@ public class GestureHandler {
     private final SodiumEditor editor;
 
     public GestureHandler(SodiumEditor editor) {
+        FunctionLog.f("GestureHandler", "GestureHandler", editor);
         this.editor = editor;
     }
 
     public void handleActionDown(MotionEvent event) {
+        FunctionLog.f("GestureHandler", "handleActionDown", event);
         editor.onTouch.multiTouchActive = false;
         editor.onTouch.hadMultiTouch = false;
         if (!editor.scroll.scroller.isFinished()) {
@@ -23,6 +26,7 @@ public class GestureHandler {
     }
 
     public void handleActionPointerDown(MotionEvent event) {
+        FunctionLog.f("GestureHandler", "handleActionPointerDown", event);
         editor.onTouch.multiTouchActive = true;
         editor.onTouch.hadMultiTouch = true;
         editor.zoom.mJustFinishedScale = true;
@@ -60,6 +64,7 @@ public class GestureHandler {
     }
 
     public void handleActionPointerUp(MotionEvent event) {
+        FunctionLog.f("GestureHandler", "handleActionPointerUp", event);
         if (editor.selection.longPressSelecting && editor.selection.state.longPressEndPointerId != -1) {
             int pointerIndex = event.getActionIndex();
             int pointerId = event.getPointerId(pointerIndex);
@@ -80,6 +85,7 @@ public class GestureHandler {
     }
 
     public boolean processGestures(MotionEvent event) {
+        FunctionLog.f("GestureHandler", "processGestures", event);
         if (editor.zoom.isZoomEnabled) {
             editor.scaleGestureDetector.onTouchEvent(event);
         }

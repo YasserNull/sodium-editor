@@ -6,6 +6,7 @@ import android.os.SystemClock;
 import android.view.View;
 import android.view.animation.PathInterpolator;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.utils.FunctionLog;
 /**
  * Manages cursor movement animation for SodiumEditor.
  * Handles smooth interpolation of cursor position when moving between locations.
@@ -45,6 +46,7 @@ public class CursorAnimation {
   public final Runnable cursorAnimStep;
 
   public CursorAnimation(SodiumEditor editor) {
+    FunctionLog.f("CursorAnimation", "CursorAnimation", editor);
     this.editor = editor;
     this.cursorAnimStep = new CursorAnimStepRunnable();
   }
@@ -54,6 +56,7 @@ public class CursorAnimation {
    * @param enabled true to enable, false to disable
    */
   public void setCursorAnimationEnabled(boolean enabled) {
+    FunctionLog.f("CursorAnimation", "setCursorAnimationEnabled", enabled);
     if (this.isCursorAnimationEnabled == enabled) return;
     this.isCursorAnimationEnabled = enabled;
     if (!enabled) {
@@ -69,6 +72,7 @@ public class CursorAnimation {
    * @return true if enabled
    */
   public boolean isCursorAnimationEnabled() {
+    FunctionLog.f("CursorAnimation", "isCursorAnimationEnabled");
     return isCursorAnimationEnabled;
   }
 
@@ -83,6 +87,7 @@ public class CursorAnimation {
   }
 
   public void setAnimationDurationMs(long durationMs) {
+    FunctionLog.f("CursorAnimation", "setAnimationDurationMs", durationMs);
     long d = Math.max(60L, Math.min(300L, durationMs));
     cursorAnimDurationMs = d;
   }
@@ -93,6 +98,7 @@ public class CursorAnimation {
    * @param targetY Target Y position in pixels
    */
   public void updateCursorDrawPosition(float targetX, float targetY) {
+    FunctionLog.f("CursorAnimation", "updateCursorDrawPosition", targetX, targetY);
     if (!isCursorAnimationEnabled) {
       editor.removeCallbacks(cursorAnimStep);
       cursorAnimRunning = false;
@@ -136,9 +142,7 @@ public class CursorAnimation {
       lastCursorAnimLine = editor.cursor.cursorLine;
       lastCursorAnimChar = editor.cursor.cursorChar;
 
-      if (SodiumEditor.DEBUG_RENDER_LOGS) {
-        editor.logRender("cursorAnimInit", "Redirect (Doc Space). Target: (" + targetX + "," + targetY + ")", 0);
-      }
+     
 
       if (!cursorAnimRunning) {
         cursorAnimRunning = true;
@@ -167,6 +171,7 @@ public class CursorAnimation {
    * @param y Y position in pixels
    */
   public void snapToPosition(float x, float y) {
+    FunctionLog.f("CursorAnimation", "snapToPosition", x, y);
     editor.removeCallbacks(cursorAnimStep);
     cursorAnimRunning = false;
     cursorAnimValid = true;
@@ -182,6 +187,7 @@ public class CursorAnimation {
    * Cancel any running animation.
    */
   public void cancelAnimation() {
+    FunctionLog.f("CursorAnimation", "cancelAnimation");
     editor.removeCallbacks(cursorAnimStep);
     cursorAnimRunning = false;
   }
@@ -191,6 +197,7 @@ public class CursorAnimation {
    * @return Current X position in pixels
    */
   public float getDrawX() {
+    FunctionLog.f("CursorAnimation", "getDrawX");
     return cursorDrawX;
   }
 
@@ -199,6 +206,7 @@ public class CursorAnimation {
    * @return Current Y position in pixels
    */
   public float getDrawY() {
+    FunctionLog.f("CursorAnimation", "getDrawY");
     return cursorDrawY;
   }
 
@@ -207,6 +215,7 @@ public class CursorAnimation {
    * @return Target X position in pixels
    */
   public float getTargetX() {
+    FunctionLog.f("CursorAnimation", "getTargetX");
     return cursorAnimTargetX;
   }
 
@@ -215,6 +224,7 @@ public class CursorAnimation {
    * @return Target Y position in pixels
    */
   public float getTargetY() {
+    FunctionLog.f("CursorAnimation", "getTargetY");
     return cursorAnimTargetY;
   }
 
@@ -223,6 +233,7 @@ public class CursorAnimation {
    * @return true if animation is running
    */
   public boolean isRunning() {
+    FunctionLog.f("CursorAnimation", "isRunning");
     return cursorAnimRunning;
   }
 
@@ -252,12 +263,7 @@ public class CursorAnimation {
       editor.cursor.invalidateCursorArea();
       if (t >= 1f) {
         cursorAnimRunning = false;
-        if (SodiumEditor.DEBUG_RENDER_LOGS) {
-          editor.logRender(
-              "cursorAnimEnd",
-              "cursorAnim end x=" + cursorAnimX + " y=" + cursorAnimY,
-              120);
-        }
+        
       } else {
         editor.postOnAnimation(this);
       }

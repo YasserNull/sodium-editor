@@ -70,6 +70,11 @@ public class View {
 
     public View(SodiumEditor editor) {
         this.editor = editor;
+        // Default to a solid white background to avoid transparent-canvas "ghosting"
+        // and to match typical editor expectations. Apps can override via
+        // setEditorBackgroundColor()/setEditorBackgroundBitmap()/clearEditorBackgroundColor().
+        hasEditorBackgroundColor = true;
+        editorBackgroundColor = 0xFFFFFFFF;
     }
 
     // ============================================================================

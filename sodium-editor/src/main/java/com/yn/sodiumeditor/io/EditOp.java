@@ -2,6 +2,7 @@ package com.yn.sodiumeditor.io;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 
@@ -49,6 +50,7 @@ public class EditOp {
     }
 
     public static JSONObject toJson(EditOp op) throws Exception {
+        FunctionLog.f("EditOp", "toJson", op);
         JSONObject obj = new JSONObject();
         obj.put("startLine", op.startLine);
         obj.put("startChar", op.startChar);
@@ -67,6 +69,7 @@ public class EditOp {
     }
 
     public static EditOp fromJson(JSONObject obj) throws Exception {
+        FunctionLog.f("EditOp", "fromJson", obj);
         EditOp op = new EditOp();
         op.startLine = obj.optInt("startLine", 0);
         op.startChar = obj.optInt("startChar", 0);
@@ -85,6 +88,7 @@ public class EditOp {
     }
 
     public static JSONArray dequeToJson(ArrayDeque<EditOp> deque) throws Exception {
+        FunctionLog.f("EditOp", "dequeToJson", deque);
         JSONArray arr = new JSONArray();
         for (EditOp op : deque) {
             arr.put(toJson(op));
@@ -93,6 +97,7 @@ public class EditOp {
     }
 
     public static ArrayList<EditOp> listFromJson(JSONArray arr) throws Exception {
+        FunctionLog.f("EditOp", "listFromJson", arr);
         ArrayList<EditOp> list = new ArrayList<>();
         if (arr == null) return list;
         for (int i = 0; i < arr.length(); i++) {

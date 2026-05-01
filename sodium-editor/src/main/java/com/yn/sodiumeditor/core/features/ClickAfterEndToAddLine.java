@@ -9,7 +9,7 @@ public class ClickAfterEndToAddLine {
   private final SodiumEditor editor;
 
   // Click after end state
-  public boolean isClickAfterEndToAddLineEnabled = true;
+  public boolean isClickAfterEndToAddLineEnabled = false;
 
   public ClickAfterEndToAddLine(SodiumEditor editor) {
     this.editor = editor;

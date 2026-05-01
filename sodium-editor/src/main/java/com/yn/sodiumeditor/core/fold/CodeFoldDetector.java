@@ -2,6 +2,7 @@ package com.yn.sodiumeditor.core.fold;
 
 import com.yn.sodiumeditor.SodiumEditor;
 import androidx.annotation.Nullable;
+import com.yn.sodiumeditor.utils.FunctionLog;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
 
@@ -18,6 +19,7 @@ public class CodeFoldDetector {
     private int bracketStackTop = 0;
 
     public CodeFoldDetector(SodiumEditor editor) {
+        FunctionLog.f("CodeFoldDetector", "CodeFoldDetector", editor);
         this.editor = editor;
     }
 
@@ -29,6 +31,7 @@ public class CodeFoldDetector {
      * Find a fold range for a line.
      */
     public CodeFold.FoldRange findFoldRangeForLine(int line) {
+        FunctionLog.f("CodeFoldDetector", "findFoldRangeForLine", line);
         if (!editor.codeFold.isCodeFoldingEnabled) return null;
         if (line < 0) return null;
 
@@ -95,6 +98,7 @@ public class CodeFoldDetector {
      * Check if a line is an indent fold candidate.
      */
     public boolean isIndentFoldCandidate(String line) {
+        FunctionLog.f("CodeFoldDetector", "isIndentFoldCandidate", line);
         if (line == null || line.isEmpty()) return false;
         String trimmed = rstripWhitespace(line);
         return !trimmed.isEmpty() && trimmed.endsWith(":");
@@ -105,6 +109,7 @@ public class CodeFoldDetector {
     // ============================================================================
 
     String getLineTextForFoldScan(int line, @Nullable RandomAccessFile raf) {
+        FunctionLog.f("CodeFoldDetector", "getLineTextForFoldScan", line, raf);
         if (line < 0) return null;
         String mod = editor.windowRender.modifiedLines.get(line);
         if (mod != null) return mod;
@@ -128,6 +133,7 @@ public class CodeFoldDetector {
     }
 
     private CodeFold.FoldRange findIndentFoldRangeForLine(int line, @Nullable RandomAccessFile raf) {
+        FunctionLog.f("CodeFoldDetector", "findIndentFoldRangeForLine", line, raf);
         if (!editor.indentGuides.isIndentationBlocksEnabled) return null;
         String ln = getLineTextForFoldScan(line, raf);
         if (ln == null) return null;
@@ -161,10 +167,12 @@ public class CodeFoldDetector {
     }
 
     private FoldToken findFoldTokenInLine(String line, int startIndex) {
+        FunctionLog.f("CodeFoldDetector", "findFoldTokenInLine", line, startIndex);
         return findLastUnclosedFoldTokenInLine(line, startIndex);
     }
 
     private FoldToken findLastUnclosedFoldTokenInLine(String line, int startIndex) {
+        FunctionLog.f("CodeFoldDetector", "findLastUnclosedFoldTokenInLine", line, startIndex);
         if (line == null || line.isEmpty()) return null;
         int len = line.length();
         int i = Math.max(0, startIndex);
@@ -256,6 +264,7 @@ public class CodeFoldDetector {
     }
 
     private int findBlockCommentEndLine(int startLine, int startChar, @Nullable RandomAccessFile raf) {
+        FunctionLog.f("CodeFoldDetector", "findBlockCommentEndLine", startLine, startChar, raf);
         String line = getLineTextForFoldScan(startLine, raf);
         if (line == null) return startLine;
         int end = editor.codeFold.utils.findBlockCommentEnd(line, startChar);
@@ -274,6 +283,7 @@ public class CodeFoldDetector {
     }
 
     private FoldMatch findMatchingBracketFrom(int startLine, int startChar, char openBracket, @Nullable RandomAccessFile raf) {
+        FunctionLog.f("CodeFoldDetector", "findMatchingBracketFrom", startLine, startChar, openBracket, raf);
         char closeBracket = getClosingBracket(openBracket);
         int depth = 1;
         String line = getLineTextForFoldScan(startLine, raf);
@@ -351,6 +361,7 @@ public class CodeFoldDetector {
     }
 
     private char getClosingBracket(char open) {
+        FunctionLog.f("CodeFoldDetector", "getClosingBracket", open);
         switch (open) {
             case '(': return ')';
             case '[': return ']';
@@ -360,6 +371,7 @@ public class CodeFoldDetector {
     }
 
     private int getIndentWidth(String line) {
+        FunctionLog.f("CodeFoldDetector", "getIndentWidth", line);
         int count = 0;
         for (int i = 0; i < line.length(); i++) {
             char c = line.charAt(i);
@@ -371,12 +383,14 @@ public class CodeFoldDetector {
     }
 
     private String rstripWhitespace(String line) {
+        FunctionLog.f("CodeFoldDetector", "rstripWhitespace", line);
         int end = line.length();
         while (end > 0 && Character.isWhitespace(line.charAt(end - 1))) end--;
         return line.substring(0, end);
     }
 
     private boolean isTokenEscaped(String line, int index) {
+        FunctionLog.f("CodeFoldDetector", "isTokenEscaped", line, index);
         if (index <= 0) return false;
         int count = 0;
         for (int i = index - 1; i >= 0 && line.charAt(i) == '\\'; i--) count++;
@@ -384,6 +398,7 @@ public class CodeFoldDetector {
     }
 
     private String readLineUtf8AtByte(RandomAccessFile raf, long offset) throws Exception {
+        FunctionLog.f("CodeFoldDetector", "readLineUtf8AtByte", raf, offset);
         raf.seek(offset);
         StringBuilder sb = new StringBuilder();
         int b;
@@ -394,8 +409,34 @@ public class CodeFoldDetector {
     }
 
     boolean shouldShowFoldMarkerFromLine(String line) {
+        FunctionLog.f("CodeFoldDetector", "shouldShowFoldMarkerFromLine", line);
         if (line == null || line.isEmpty()) return false;
         return findLastUnclosedFoldTokenInLine(line, 0) != null;
+    }
+
+    /**
+     * Potential fold start check.
+     */
+    public boolean isPotentialFoldStart(int line) {
+        FunctionLog.f("CodeFoldDetector", "isPotentialFoldStart", line);
+        String ln = editor.windowRender.getLineTextForRender(line);
+        if (ln == null) return false;
+        return shouldShowFoldMarkerFromLine(ln) || isIndentFoldCandidate(ln);
+    }
+
+    /**
+     * Async detect fold range.
+     */
+    public void detectFoldRangeAsync(int line, com.yn.sodiumeditor.core.fold.CodeFoldDetector.OnFoldDetectedListener listener) {
+        FunctionLog.f("CodeFoldDetector", "detectFoldRangeAsync", line, listener);
+        editor.fileIO.ioHandler.post(() -> {
+            CodeFold.FoldRange range = findFoldRangeForLine(line);
+            editor.caret.mainHandler.post(() -> listener.onFoldDetected(range));
+        });
+    }
+
+    public interface OnFoldDetectedListener {
+        void onFoldDetected(@Nullable CodeFold.FoldRange range);
     }
 
     // --- FoldToken class ---

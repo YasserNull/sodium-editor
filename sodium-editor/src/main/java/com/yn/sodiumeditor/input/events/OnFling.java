@@ -2,6 +2,7 @@ package com.yn.sodiumeditor.input.events;
 
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * OnFling handles onFling() gesture event for SodiumEditor.
@@ -11,6 +12,7 @@ public class OnFling {
   private final SodiumEditor editor;
 
   public OnFling(SodiumEditor editor) {
+    FunctionLog.f("OnFling", "OnFling", editor);
     this.editor = editor;
   }
 
@@ -18,6 +20,7 @@ public class OnFling {
    * Handle onFling event
    */
   public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+    FunctionLog.f("OnFling", "onFling", e1, e2, velocityX, velocityY);
     if (editor.zoom.isScaling || editor.scaleGestureDetector.isInProgress()) return true;
     if (editor.zoom.mJustFinishedScale) return true;
     if (editor.wordWrap.isWordWrapEnabled && editor.wordWrap.wrapPrefixBuilding) {

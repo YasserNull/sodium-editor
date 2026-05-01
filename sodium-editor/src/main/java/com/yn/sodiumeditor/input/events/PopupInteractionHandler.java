@@ -4,6 +4,7 @@ import android.graphics.RectF;
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.scroll.Popup;
+import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Handles interactions with the popup menu for SodiumEditor.
@@ -12,10 +13,12 @@ public class PopupInteractionHandler {
     private final SodiumEditor editor;
 
     public PopupInteractionHandler(SodiumEditor editor) {
+        FunctionLog.f("PopupInteractionHandler", "PopupInteractionHandler", editor);
         this.editor = editor;
     }
 
     public boolean handleActionDown(MotionEvent event) {
+        FunctionLog.f("PopupInteractionHandler", "handleActionDown", event);
         if (editor.popup.showPopup) {
             float ex = event.getX();
             float ey = event.getY();
@@ -30,6 +33,7 @@ public class PopupInteractionHandler {
     }
 
     public boolean handleActionMove(MotionEvent event) {
+        FunctionLog.f("PopupInteractionHandler", "handleActionMove", event);
         if (editor.popup.popupPressedAction != 0) {
             float ex = event.getX();
             float ey = event.getY();
@@ -44,10 +48,12 @@ public class PopupInteractionHandler {
     }
 
     public boolean handleActionUp(MotionEvent event) {
+        FunctionLog.f("PopupInteractionHandler", "handleActionUp", event);
         if (editor.popup.popupPressedAction != 0) {
             float ex = event.getX();
             float ey = event.getY();
             int actionForTap = editor.popup.popupPressedAction;
+            boolean wasRippleHoldActive = editor.popup.popupRippleHoldActive;
             editor.popup.popupPressedAction = 0;
             RectF r = editor.popup.getPopupRectForAction(actionForTap);
             
@@ -59,11 +65,11 @@ public class PopupInteractionHandler {
                     return true;
                 }
                 
+                // 1. Perform action immediately
                 if (actionForTap == Popup.POPUP_ACTION_COPY) {
                     editor.selection.copyOrCutSelection(false);
                     editor.selection.hasSelection = false;
                     editor.selection.isSelectAllActive = false;
-                    editor.popup.hidePopup();
                     editor.invalidate();
                 } else if (actionForTap == Popup.POPUP_ACTION_CUT) {
                     editor.selection.copyOrCutSelection(true);
@@ -72,13 +78,24 @@ public class PopupInteractionHandler {
                 } else if (actionForTap == Popup.POPUP_ACTION_DELETE) {
                     editor.selection.deleteSelection();
                 } else if (actionForTap == Popup.POPUP_ACTION_SELECT_ALL) {
-                    if (!editor.selection.isSelectAllActive) editor.selection.selectAll();
-                    else editor.popup.hidePopup();
+                    if (!editor.selection.isSelectAllActive) {
+                        editor.selection.selectAll();
+                        // Special case: select all often needs popup to stay visible but refresh
+                        editor.popup.showPopupAtSelection(); 
+                        return true; 
+                    }
                 }
+
+                if (wasRippleHoldActive) {
+                    // For long-press: keep ripple visible until finger lifts, then fade out immediately.
+                    editor.popup.cancelPopupRipple();
+                    editor.popup.hidePopup();
+                } else {
+                    // For taps: hide after ripple ends (prevents instant dismiss from selection state changes).
+                    editor.popup.popupHideAfterRipple = true;
+                }
+
             } else {
-                editor.popup.cancelPopupRipple();
-            }
-            if (editor.popup.popupRippleHoldActive) {
                 editor.popup.cancelPopupRipple();
             }
             return true;
@@ -87,6 +104,7 @@ public class PopupInteractionHandler {
     }
 
     public void handleActionCancel() {
+        FunctionLog.f("PopupInteractionHandler", "handleActionCancel");
         editor.popup.popupPressedAction = 0;
         editor.popup.cancelPopupRipple();
     }

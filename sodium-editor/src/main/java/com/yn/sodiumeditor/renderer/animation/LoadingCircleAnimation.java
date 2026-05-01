@@ -6,6 +6,7 @@ import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Looper;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -45,65 +46,59 @@ public class LoadingCircleAnimation {
     private final Runnable largeEditUiWatchdog = () -> endLargeEditUi(false);
 
     public LoadingCircleAnimation(SodiumEditor editor) {
+        FunctionLog.f("LoadingCircleAnimation", "LoadingCircleAnimation", editor);
         this.editor = editor;
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeCap(Paint.Cap.ROUND);
     }
 
     public void startRotation() {
+        FunctionLog.f("LoadingCircleAnimation", "startRotation");
         if (isAnimating) return;
         isAnimating = true;
         mainHandler.post(animationRunnable);
     }
 
     public void stopRotation() {
+        FunctionLog.f("LoadingCircleAnimation", "stopRotation");
         isAnimating = false;
         mainHandler.removeCallbacks(animationRunnable);
     }
 
     public void draw(Canvas canvas) {
+        FunctionLog.f("LoadingCircleAnimation", "draw", canvas);
         if (!showLoadingCircle) return;
-
-        float cx = canvas.getWidth() * 0.5f;
-        float cy = canvas.getHeight() * 0.5f;
-
+        rect.set(editor.getWidth() / 2f - radius, editor.getHeight() / 2f - radius, editor.getWidth() / 2f + radius, editor.getHeight() / 2f + radius);
         paint.setColor(color);
         paint.setStrokeWidth(strokeWidth);
-
-        canvas.save();
-        canvas.rotate(rotation, cx, cy);
-        rect.set(cx - radius, cy - radius, cx + radius, cy + radius);
-        canvas.drawArc(rect, 0, 270, false, paint);
-        canvas.restore();
+        canvas.drawArc(rect, rotation, 270f, false, paint);
     }
 
     public void beginLargeEditUiIfNeeded(boolean enable, int sL, int eL, boolean isSelectAllLike) {
+        FunctionLog.f("LoadingCircleAnimation", "beginLargeEditUiIfNeeded", enable, sL, eL, isSelectAllLike);
         if (!enable) return;
-        int span = Math.abs(eL - sL) + 1;
-        if (!isSelectAllLike && span < LARGE_EDIT_LINES) return;
-
-        largeEditUiToken.incrementAndGet();
-        editor.view.setDisable(true);
-        showLoadingCircle = true;
-        startRotation();
-
-        editor.caret.mainHandler.removeCallbacks(largeEditUiWatchdog);
-        editor.caret.mainHandler.postDelayed(largeEditUiWatchdog, 1500);
+        if (eL - sL > LARGE_EDIT_LINES || isSelectAllLike) {
+            showLoadingCircle = true;
+            startRotation();
+        }
     }
 
     public void endLargeEditUi(boolean invalidate) {
+        FunctionLog.f("LoadingCircleAnimation", "endLargeEditUi", invalidate);
         largeEditUiToken.incrementAndGet();
-        editor.caret.mainHandler.removeCallbacks(largeEditUiWatchdog);
-        editor.view.setDisable(false);
         showLoadingCircle = false;
         stopRotation();
         if (invalidate) editor.invalidate();
     }
 
     public void cancel() {
+        FunctionLog.f("LoadingCircleAnimation", "cancel");
         stopRotation();
         editor.caret.mainHandler.removeCallbacks(largeEditUiWatchdog);
     }
 
-    public boolean isAnimating() { return isAnimating; }
+    public boolean isAnimating() { 
+        FunctionLog.f("LoadingCircleAnimation", "isAnimating");
+        return isAnimating; 
+    }
 }

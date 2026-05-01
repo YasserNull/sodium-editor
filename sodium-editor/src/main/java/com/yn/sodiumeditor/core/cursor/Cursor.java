@@ -2,6 +2,7 @@ package com.yn.sodiumeditor.core.cursor;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.utils.FunctionLog;
 /**
  * Cursor handles cursor state and position for SodiumEditor.
  * This includes:
@@ -20,6 +21,7 @@ public float baseCursorWidthPx = cursorWidth;
   private final SodiumEditor editor;
 
   public Cursor(SodiumEditor editor) {
+    FunctionLog.f("Cursor", "Cursor", editor);
     this.editor = editor;
   }
 
@@ -27,6 +29,7 @@ public float baseCursorWidthPx = cursorWidth;
    * Set cursor position
    */
    public void setCursorWidth(float width) {
+    FunctionLog.f("Cursor", "setCursorWidth", width);
     if (baseCursorWidthPx == width && baseCursorTextSizePx == editor.textRender.paint.getTextSize()) return;
     baseCursorWidthPx = width;
     baseCursorTextSizePx = editor.textRender.paint.getTextSize();
@@ -34,6 +37,7 @@ public float baseCursorWidthPx = cursorWidth;
     editor.invalidate();
   }
   public void setCursorPosition(int line, int col) {
+    FunctionLog.f("Cursor", "setCursorPosition", line, col);
     int targetLine = Math.max(0, line);
     int targetCol = Math.max(0, col);
     if (editor.selection.hasSelection) {
@@ -41,7 +45,6 @@ public float baseCursorWidthPx = cursorWidth;
       editor.selection.isSelectAllActive = false;
       editor.selection.isEntireFileSelected = false;
       editor.selection.selecting = false;
-      editor.popup.hidePopup();
     }
     cursorLine = targetLine;
     if (cursorLine >= editor.windowRender.windowStartLine && cursorLine < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) {
@@ -63,6 +66,7 @@ public float baseCursorWidthPx = cursorWidth;
    * Move cursor to line
    */
   public void moveToLine(int line) {
+    FunctionLog.f("Cursor", "moveToLine", line);
     cursorLine = line;
   }
 
@@ -70,6 +74,7 @@ public float baseCursorWidthPx = cursorWidth;
    * Move cursor to character position
    */
   public void moveToChar(int ch) {
+    FunctionLog.f("Cursor", "moveToChar", ch);
     cursorChar = ch;
   }
 
@@ -77,6 +82,7 @@ public float baseCursorWidthPx = cursorWidth;
    * Clamp cursor to valid document bounds
    */
   public void clampToDocument() {
+    FunctionLog.f("Cursor", "clampToDocument");
     int totalLines = editor.view.getLinesCount();
     if (totalLines <= 0) {
       cursorLine = 0;
@@ -101,6 +107,7 @@ public float baseCursorWidthPx = cursorWidth;
    * Get cursor line
    */
   public int getLine() {
+    FunctionLog.f("Cursor", "getLine");
     return cursorLine;
   }
 
@@ -108,6 +115,7 @@ public float baseCursorWidthPx = cursorWidth;
    * Get cursor character
    */
   public int getChar() {
+    FunctionLog.f("Cursor", "getChar");
     return cursorChar;
   }
 
@@ -115,6 +123,7 @@ public float baseCursorWidthPx = cursorWidth;
    * Reset cursor to beginning
    */
   public void reset() {
+    FunctionLog.f("Cursor", "reset");
     cursorLine = 0;
     cursorChar = 0;
   }
@@ -123,6 +132,7 @@ public float baseCursorWidthPx = cursorWidth;
    * Check if cursor is at end of line
    */
   public boolean isAtEndOfLine() {
+    FunctionLog.f("Cursor", "isAtEndOfLine");
     String lineText = editor.windowRender.getLineTextForRender(cursorLine);
     return lineText == null || cursorChar >= lineText.length();
   }
@@ -131,6 +141,7 @@ public float baseCursorWidthPx = cursorWidth;
    * Check if cursor is at start of line
    */
   public boolean isAtStartOfLine() {
+    FunctionLog.f("Cursor", "isAtStartOfLine");
     return cursorChar <= 0;
   }
 
@@ -138,6 +149,7 @@ public float baseCursorWidthPx = cursorWidth;
    * Check if cursor is at end of document
    */
   public boolean isAtEndOfDocument() {
+    FunctionLog.f("Cursor", "isAtEndOfDocument");
     int totalLines = editor.view.getLinesCount();
     if (totalLines <= 0) return true;
     
@@ -151,6 +163,7 @@ public float baseCursorWidthPx = cursorWidth;
    * Check if cursor is at start of document
    */
   public boolean isAtStartOfDocument() {
+    FunctionLog.f("Cursor", "isAtStartOfDocument");
     return cursorLine <= 0 && cursorChar <= 0;
   }
     /**
@@ -159,6 +172,7 @@ public float baseCursorWidthPx = cursorWidth;
    * If at beginning of line, moves to end of previous line.
    */
   public void moveCursorLeft() {
+    FunctionLog.f("Cursor", "moveCursorLeft");
     editor.autoCompletion.clearActiveSuggestion();
     
     if (editor.selection.hasSelection) {
@@ -205,6 +219,7 @@ public float baseCursorWidthPx = cursorWidth;
    * If at end of line, moves to beginning of next line.
    */
   public void moveCursorRight() {
+    FunctionLog.f("Cursor", "moveCursorRight");
     editor.autoCompletion.clearActiveSuggestion();
     
     if (editor.selection.hasSelection) {
@@ -255,6 +270,7 @@ public float baseCursorWidthPx = cursorWidth;
    * Maintains column position when possible.
    */
   public void moveCursorUp() {
+    FunctionLog.f("Cursor", "moveCursorUp");
     editor.autoCompletion.clearActiveSuggestion();
 
     if (editor.selection.hasSelection) {
@@ -299,6 +315,7 @@ public float baseCursorWidthPx = cursorWidth;
    * Maintains column position when possible.
    */
   public void moveCursorDown() {
+    FunctionLog.f("Cursor", "moveCursorDown");
     editor.autoCompletion.clearActiveSuggestion();
 
     if (editor.selection.hasSelection) {
@@ -350,6 +367,7 @@ public float baseCursorWidthPx = cursorWidth;
    * Set cursor position without clearing caches
    */
   public void setCursorPositionNoClear(int line, int col) {
+    FunctionLog.f("Cursor", "setCursorPositionNoClear", line, col);
     int targetLine = Math.max(0, line);
     int targetCol = Math.max(0, col);
     cursorLine = targetLine;
@@ -367,6 +385,7 @@ public float baseCursorWidthPx = cursorWidth;
   }
 
   private void skipForbiddenBracePositions(boolean movingRight) {
+    FunctionLog.f("Cursor", "skipForbiddenBracePositions", movingRight);
     if (editor.binaryRender.isBinarySafeRenderingEnabled()) return;
     String ln = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
     if (ln == null) return;
@@ -401,6 +420,7 @@ public float baseCursorWidthPx = cursorWidth;
    * Invalidate cursor area for redraw
    */
   public void invalidateCursorArea() {
+    FunctionLog.f("Cursor", "invalidateCursorArea");
     // Update animation target immediately regardless of current state
     // The animation system now handles redirection internally.
     float targetX = editor.caret.getCaretDocumentX();

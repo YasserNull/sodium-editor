@@ -1,5 +1,6 @@
 package com.yn.sodiumeditor.core.guides.bracket;
 
+import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.List;
 
 /**
@@ -27,6 +28,7 @@ public class BracketGuideCache {
   public int bracketGuidePendingConfigHash = 0;
 
   public BracketGuideCache(BracketGuides editor) {
+    FunctionLog.f("BracketGuideCache", "BracketGuideCache", editor);
     this.editor = editor;
   }
 
@@ -34,6 +36,7 @@ public class BracketGuideCache {
    * Invalidates the main cache.
    */
   public void invalidateCache() {
+    FunctionLog.f("BracketGuideCache", "invalidateCache");
     bracketGuideCacheStartLine = -1;
     bracketGuideCacheEndLine = -1;
     bracketGuideCacheEditVersion = -1;
@@ -54,6 +57,7 @@ public class BracketGuideCache {
    * Checks if the main cache is valid.
    */
   public boolean isCacheValid(int startLine, int endLine, int editVersion, int configHash) {
+    FunctionLog.f("BracketGuideCache", "isCacheValid", startLine, endLine, editVersion, configHash);
     return startLine == bracketGuideCacheStartLine
         && endLine == bracketGuideCacheEndLine
         && editVersion == bracketGuideCacheEditVersion
@@ -74,6 +78,7 @@ public class BracketGuideCache {
       BracketGuideState stateAtEnd,
       BracketGuideState stateBeforeStart,
       BracketGuideFallbackCache fallbackCache) {
+    FunctionLog.f("BracketGuideCache", "swapCache", newTokens, newStates, startLine, endLine, editVersion, configHash, stateAtStart, stateAtEnd, stateBeforeStart, fallbackCache);
 
     // Save old cache to fallback before swapping (prevents flickering)
     fallbackCache.mergeWithMainCache(
@@ -111,6 +116,7 @@ public class BracketGuideCache {
       BracketGuideState stateAtEnd,
       BracketGuideState stateBeforeStart,
       BracketGuideFallbackCache fallbackCache) {
+    FunctionLog.f("BracketGuideCache", "swapCachePartial", newTokens, newStates, startLine, endLine, editVersion, configHash, stateAtStart, stateAtEnd, stateBeforeStart, fallbackCache);
 
     // If no existing cache, treat as full swap
     if (bracketGuideCacheStartLine < 0 || bracketGuideCacheEndLine < bracketGuideCacheStartLine) {
@@ -186,6 +192,7 @@ public class BracketGuideCache {
    * Gets tokens for a line from the main cache.
    */
   public List<BracketGuideToken> getTokensForLine(int globalLine) {
+    FunctionLog.f("BracketGuideCache", "getTokensForLine", globalLine);
     if (globalLine >= bracketGuideCacheStartLine && globalLine <= bracketGuideCacheEndLine) {
       int idx = globalLine - bracketGuideCacheStartLine;
       if (idx >= 0 && idx < bracketGuideTokensWindow.size()) {
@@ -199,6 +206,7 @@ public class BracketGuideCache {
    * Gets state for a line from the main cache.
    */
   public BracketGuideState getStateForLine(int globalLine) {
+    FunctionLog.f("BracketGuideCache", "getStateForLine", globalLine);
     if (globalLine >= bracketGuideCacheStartLine && globalLine <= bracketGuideCacheEndLine) {
       int idx = globalLine - bracketGuideCacheStartLine;
       if (idx >= 0 && idx < bracketGuideStatesWindow.size()) {
@@ -206,5 +214,29 @@ public class BracketGuideCache {
       }
     }
     return null;
+  }
+
+  public void shiftCache(int startLine, int delta) {
+    FunctionLog.f("BracketGuideCache", "shiftCache", startLine, delta);
+    if (delta == 0 || bracketGuideCacheStartLine < 0) return;
+
+    if (startLine > bracketGuideCacheEndLine) {
+        // Shift occurs after our window
+        return;
+    }
+
+    if (startLine <= bracketGuideCacheStartLine) {
+        // Shift affects our window start
+        if (delta < 0 && startLine - delta > bracketGuideCacheStartLine) {
+            // Deletion overlaps or eats part of our window
+            invalidateCache();
+        } else {
+            bracketGuideCacheStartLine += delta;
+            bracketGuideCacheEndLine += delta;
+        }
+    } else {
+        // Shift occurs inside our window
+        invalidateCache(); // Too complex to shift internal ArrayLists accurately without propagate, just invalidate
+    }
   }
 }

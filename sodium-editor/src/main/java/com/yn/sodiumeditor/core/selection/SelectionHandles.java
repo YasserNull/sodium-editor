@@ -6,6 +6,7 @@ import android.graphics.Path;
 import android.graphics.RectF;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.animation.SelectionHandlesAnimation;
+import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * SelectionHandles handles the left and right selection handles for SodiumEditor.
@@ -43,12 +44,14 @@ public class SelectionHandles {
     private final Selection selection;
 
     public SelectionHandles(SodiumEditor editor, Selection selection) {
+        FunctionLog.f("SelectionHandles", "SelectionHandles", editor, selection);
         this.editor = editor;
         this.selection = selection;
         this.animation = new SelectionHandlesAnimation();
     }
 
     public void drawTeardropHandle(Canvas canvas, float cx, float cy, Paint paint) {
+        FunctionLog.f("SelectionHandles", "drawTeardropHandle", canvas, cx, cy, paint);
         Paint.Style prevStyle = paint.getStyle();
         int prevColor = paint.getColor();
         float prevStroke = paint.getStrokeWidth();
@@ -74,6 +77,7 @@ public class SelectionHandles {
      * Get animated handle position (delegated to animation class).
      */
     public float[] getAnimatedHandlePosition(boolean isLeft, float targetX, float targetY) {
+        FunctionLog.f("SelectionHandles", "getAnimatedHandlePosition", isLeft, targetX, targetY);
         return animation.getAnimatedHandlePosition(isLeft, targetX, targetY);
     }
 
@@ -81,10 +85,12 @@ public class SelectionHandles {
      * Enable or disable handle move animation (delegated).
      */
     public void setHandleMoveAnimationEnabled(boolean enabled) {
+        FunctionLog.f("SelectionHandles", "setHandleMoveAnimationEnabled", enabled);
         animation.setHandleMoveAnimationEnabled(enabled);
     }
 
     public void setSelectionAnimationEnabled(boolean enabled) {
+        FunctionLog.f("SelectionHandles", "setSelectionAnimationEnabled", enabled);
         selection.setSelectionAnimationEnabled(enabled);
         setHandleMoveAnimationEnabled(enabled);
     }
@@ -93,6 +99,7 @@ public class SelectionHandles {
    * Update selection handles positions
    */
   public void updateHandlesPosition() {
+    FunctionLog.f("SelectionHandles", "updateHandlesPosition");
     if (!selection.hasSelection) {
       return;
     }
@@ -149,6 +156,7 @@ public class SelectionHandles {
    * Draw selection handles
    */
   public void drawHandles(Canvas canvas) {
+    FunctionLog.f("SelectionHandles", "drawHandles", canvas);
     if (!selection.hasSelection) {
       return;
     }
@@ -179,6 +187,7 @@ public class SelectionHandles {
    * Check if point hits left handle
    */
   public boolean hitTestLeft(float x, float y) {
+    FunctionLog.f("SelectionHandles", "hitTestLeft", x, y);
     updateHandlesPosition();
     // Expand hit area for easier grabbing
     float expand = 20f;
@@ -195,6 +204,7 @@ public class SelectionHandles {
    * Check if point hits right handle
    */
   public boolean hitTestRight(float x, float y) {
+    FunctionLog.f("SelectionHandles", "hitTestRight", x, y);
     updateHandlesPosition();
     // Expand hit area for easier grabbing
     float expand = 20f;
@@ -211,6 +221,7 @@ public class SelectionHandles {
    * Get character X position
    */
   public float getCharX(int line, int ch) {
+    FunctionLog.f("SelectionHandles", "getCharX", line, ch);
     String lineText = editor.windowRender.getLineTextForRender(line);
     if (lineText == null) return editor.layout.getTextStartX();
 
@@ -224,6 +235,7 @@ public class SelectionHandles {
    * Get line Y position
    */
   public float getLineY(int line) {
+    FunctionLog.f("SelectionHandles", "getLineY", line);
     int visualLine = line;
     if (editor.wordWrap.isWordWrapEnabled) {
       visualLine = editor.wordWrap.getVisualIndexForLineAndChar(line, 0);
@@ -235,6 +247,7 @@ public class SelectionHandles {
    * Compare two positions
    */
   public int comparePos(int lineA, int charA, int lineB, int charB) {
+    FunctionLog.f("SelectionHandles", "comparePos", lineA, charA, lineB, charB);
     if (lineA != lineB) return Integer.compare(lineA, lineB);
     return Integer.compare(charA, charB);
   }
@@ -243,6 +256,7 @@ public class SelectionHandles {
    * Check if handles should be shown
    */
   public boolean shouldShow() {
+    FunctionLog.f("SelectionHandles", "shouldShow");
     return selection.hasSelection;
   }
 
@@ -250,6 +264,7 @@ public class SelectionHandles {
    * Start dragging left handle
    */
   public void startDragLeft() {
+    FunctionLog.f("SelectionHandles", "startDragLeft");
     draggingHandle = 1;
   }
 
@@ -257,6 +272,7 @@ public class SelectionHandles {
    * Start dragging right handle
    */
   public void startDragRight() {
+    FunctionLog.f("SelectionHandles", "startDragRight");
     draggingHandle = 2;
   }
 
@@ -264,6 +280,7 @@ public class SelectionHandles {
    * Stop dragging
    */
   public void stopDrag() {
+    FunctionLog.f("SelectionHandles", "stopDrag");
     draggingHandle = 0;
   }
 
@@ -271,6 +288,7 @@ public class SelectionHandles {
    * Check if currently dragging a handle
    */
   public boolean isDragging() {
+    FunctionLog.f("SelectionHandles", "isDragging");
     return draggingHandle != 0;
   }
 
@@ -278,6 +296,7 @@ public class SelectionHandles {
    * Check if dragging left handle
    */
   public boolean isDraggingLeft() {
+    FunctionLog.f("SelectionHandles", "isDraggingLeft");
     return draggingHandle == 1;
   }
 
@@ -285,36 +304,43 @@ public class SelectionHandles {
    * Check if dragging right handle
    */
   public boolean isDraggingRight() {
+    FunctionLog.f("SelectionHandles", "isDraggingRight");
     return draggingHandle == 2;
   }
 
   // Getters and Setters
 
   public void setHandleSize(float width, float height) {
+    FunctionLog.f("SelectionHandles", "setHandleSize", width, height);
     if (width <= 0f || height <= 0f) return;
     handleWidth = width;
     handleHeight = height;
   }
 
   public void setHandleColor(int color) {
+    FunctionLog.f("SelectionHandles", "setHandleColor", color);
     handleColor = color;
   }
 
 public void setSelectionHandleColor(int color) {
+    FunctionLog.f("SelectionHandles", "setSelectionHandleColor", color);
     selectionHandleColor = color;
     editor.invalidate();
   }
   public void setHandleRadius(float radius) {
+    FunctionLog.f("SelectionHandles", "setHandleRadius", radius);
     if (radius < 0f) return;
     handleRadius = radius;
   }
 
   public RectF getLeftHandleRect() {
+    FunctionLog.f("SelectionHandles", "getLeftHandleRect");
     updateHandlesPosition();
     return leftHandleRect;
   }
 
   public RectF getRightHandleRect() {
+    FunctionLog.f("SelectionHandles", "getRightHandleRect");
     updateHandlesPosition();
     return rightHandleRect;
   }

@@ -5,6 +5,7 @@ import android.os.HandlerThread;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.StreamedCharSlice;
+import com.yn.sodiumeditor.utils.FunctionLog;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -67,6 +68,9 @@ public class FileIO {
             return true;
           }
         };
+
+    // Track when we need to clear modifiedLines after a file rewrite + window reload
+    public volatile boolean clearModifiedLinesAfterRewrite = false;
     
     // Indexing disabled tracking (moved from component to here for central access)
     public volatile boolean isIndexDisabled = false;
@@ -74,6 +78,7 @@ public class FileIO {
     public volatile long indexDisabledFileLength = -1L;
 
     public FileIO(SodiumEditor editor) {
+        FunctionLog.f("FileIO", "FileIO", editor);
         this.editor = editor;
         this.ioThread = new HandlerThread("SodiumEditor-IO");
         this.ioThread.start();
@@ -99,6 +104,7 @@ public class FileIO {
     // ==============================
 
     public void loadFromFile(File file) {
+        FunctionLog.f("FileIO", "loadFromFile", file);
         invalidatePendingIOForEdit();
         isFileCleared = false;
         sourceFile = file;
@@ -129,6 +135,7 @@ public class FileIO {
     }
 
     public void clearContent() {
+        FunctionLog.f("FileIO", "clearContent");
         invalidatePendingIOForEdit();
         sourceFile = null; isFileCleared = true;
         editor.selection.clearSelection();
@@ -154,15 +161,34 @@ public class FileIO {
     // ==============================
 
     public void checkAndLoadWindow() { windowLoader.checkAndLoadWindow(); }
-    public void loadWindowAround(int sL, Runnable cb, boolean sync) { windowLoader.loadWindowAround(sL, cb, sync); }
-    public void buildFileIndex() { indexer.buildFileIndex(); }
-    public void populateDirectLinesForRange(int s, int e, Map<Integer, String> out) { cache.populateDirectLinesForRange(s, e, out); }
-    public String readRangeText(int sL, int sC, int eL, int eC) { return metadata.readRangeText(sourceFile, sL, sC, eL, eC); }
+    public void loadWindowAround(int sL, Runnable cb, boolean sync) { 
+        FunctionLog.f("FileIO", "loadWindowAround", sL, cb, sync);
+        windowLoader.loadWindowAround(sL, cb, sync); 
+    }
+    public void buildFileIndex() { 
+        FunctionLog.f("FileIO", "buildFileIndex");
+        indexer.buildFileIndex(); 
+    }
+    public void populateDirectLinesForRange(int s, int e, Map<Integer, String> out) { 
+        FunctionLog.f("FileIO", "populateDirectLinesForRange", s, e, out);
+        cache.populateDirectLinesForRange(s, e, out); 
+    }
+    public String readRangeText(int sL, int sC, int eL, int eC) { 
+        FunctionLog.f("FileIO", "readRangeText", sL, sC, eL, eC);
+        return metadata.readRangeText(sourceFile, sL, sC, eL, eC); 
+    }
     public void ensureLineInWindow(int gL, boolean block) { windowLoader.loadWindowAround(Math.max(0, gL - editor.windowRender.prefetchLines), null, false); }
-    public void invalidatePendingIO() { ioTaskVersion.incrementAndGet(); ioHandler.removeCallbacksAndMessages(null); }
-    public void invalidatePendingIOForEdit() { invalidatePendingIO(); editor.highlite.clearHighlightCaches(); }
+    public void invalidatePendingIO() { 
+        FunctionLog.f("FileIO", "invalidatePendingIO");
+        ioTaskVersion.incrementAndGet(); ioHandler.removeCallbacksAndMessages(null); 
+    }
+    public void invalidatePendingIOForEdit() { 
+        FunctionLog.f("FileIO", "invalidatePendingIOForEdit");
+        invalidatePendingIO(); editor.highlite.clearHighlightCaches(); 
+    }
 
     public BufferedReader reopenReaderAtStart() {
+        FunctionLog.f("FileIO", "reopenReaderAtStart");
         try {
             if (readerForFile != null) { try { readerForFile.close(); } catch (Exception ignored) {} readerForFile = null; }
             if (sourceFile != null) {
@@ -174,6 +200,7 @@ public class FileIO {
     }
 
     public void cancelAndCloseReader() {
+        FunctionLog.f("FileIO", "cancelAndCloseReader");
         ioHandler.post(() -> {
             try { if (readerForFile != null) { readerForFile.close(); readerForFile = null; }
             } catch (Exception e) { e.printStackTrace(); }
@@ -181,6 +208,7 @@ public class FileIO {
     }
 
     public void countTotalLines(LineCountCallback callback) {
+        FunctionLog.f("FileIO", "countTotalLines", callback);
         final int taskVersion = ioTaskVersion.get();
         ioHandler.post(() -> {
             if (taskVersion != ioTaskVersion.get()) { editor.post(() -> callback.onResult(-1)); return; }
@@ -211,6 +239,7 @@ public class FileIO {
     // ==============================
 
     public String readLineUtf8AtByte(RandomAccessFile raf, long offset) throws Exception {
+        FunctionLog.f("FileIO", "readLineUtf8AtByte", raf, offset);
         raf.seek(offset);
         ByteArrayOutputStream baos = new ByteArrayOutputStream(128);
         byte[] buf = new byte[1024];
@@ -232,6 +261,7 @@ public class FileIO {
     }
 
     public String readLineSliceAtByte(RandomAccessFile raf, long lineStart, long lineByteLen, int startChar, int endChar) throws Exception {
+        FunctionLog.f("FileIO", "readLineSliceAtByte", raf, lineStart, lineByteLen, startChar, endChar);
         int s = Math.max(0, Math.min(startChar, (int) Math.min(Integer.MAX_VALUE, lineByteLen)));
         int e = Math.max(s, Math.min(endChar, (int) Math.min(Integer.MAX_VALUE, lineByteLen)));
         int len = e - s; if (len <= 0) return "";
@@ -241,6 +271,7 @@ public class FileIO {
     }
 
     public StreamedCharSlice readLineSliceByChars(RandomAccessFile raf, long lineStart, int sC, int eC, boolean needTotal) throws Exception {
+        FunctionLog.f("FileIO", "readLineSliceByChars", raf, lineStart, sC, eC, needTotal);
         return editor.binaryRender.readLineSliceByChars(raf, lineStart, sC, eC, needTotal, fileCharset);
     }
 
@@ -289,20 +320,23 @@ public class FileIO {
         }
         if (snapshot.isEmpty()) return;
         editor.post(new Runnable() {
-            int idx = 0; float mx = 0f;
+            int idx = 0; float currentMax = 0f;
             @Override public void run() {
                 if (token != editor.loadingCircle.maxWidthRecalcToken) return;
                 int end = Math.min(snapshot.size(), idx + 120);
                 for (int i = idx; i < end; i++) {
                     float w = editor.view.getWidthForLine(start + i, snapshot.get(i));
-                    synchronized (editor.windowRender.lineWidthCache) { editor.windowRender.lineWidthCache.put(start + i, w); }
-                    if (w > mx) mx = w;
+                    if (w > currentMax) currentMax = w;
                 }
-                editor.windowRender.currentMaxWindowLineWidth = mx;
-                editor.windowRender.globalMaxLineWidth = Math.max(editor.windowRender.globalMaxLineWidth, mx);
                 idx = end;
-                if (idx < snapshot.size()) editor.post(this);
-                else { editor.scroll.clampScrollX(); editor.invalidate(); }
+                if (idx < snapshot.size()) {
+                    editor.post(this);
+                } else {
+                    editor.windowRender.currentMaxWindowLineWidth = currentMax;
+                    editor.windowRender.globalMaxLineWidth = currentMax;
+                    editor.scroll.clampScrollX();
+                    editor.invalidate();
+                }
             }
         });
     }

@@ -10,6 +10,7 @@ import android.os.SystemClock;
 import android.view.View;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.utils.FunctionLog;
 /**
  * Manages character fade animations for SodiumEditor.
  * Handles animations for typed characters and deleted characters.
@@ -43,6 +44,7 @@ public class CharAnimation {
   private final SodiumEditor editor;
 
   public CharAnimation(SodiumEditor editor) {
+    FunctionLog.f("CharAnimation", "CharAnimation", editor);
     this.editor = editor;
   }
 
@@ -52,6 +54,7 @@ public class CharAnimation {
    * @param durationMs Animation duration in milliseconds
    */
   public void setCharAnimation(boolean enabled, int durationMs) {
+    FunctionLog.f("CharAnimation", "setCharAnimation", enabled, durationMs);
     isCharAnimationEnabled = enabled;
     if (durationMs > 0) charAnimationDurationMs = durationMs;
     if (!enabled) {
@@ -65,6 +68,7 @@ public class CharAnimation {
    * @return true if enabled
    */
   public boolean isCharAnimationEnabled() {
+    FunctionLog.f("CharAnimation", "isCharAnimationEnabled");
     return isCharAnimationEnabled;
   }
 
@@ -75,6 +79,7 @@ public class CharAnimation {
    * @param fastThresholdMs Threshold for detecting fast typing (ms)
    */
   public void setAnimationParameters(int normalDurationMs, int fastDurationMs, long fastThresholdMs) {
+    FunctionLog.f("CharAnimation", "setAnimationParameters", normalDurationMs, fastDurationMs, fastThresholdMs);
     this.charAnimationDurationMs = normalDurationMs;
     this.charAnimFastDurationMs = fastDurationMs;
     this.charAnimFastThresholdMs = fastThresholdMs;
@@ -85,6 +90,7 @@ public class CharAnimation {
    * @param committedText The text that was committed
    */
   public void startCharAnimationFromText(CharSequence committedText) {
+    FunctionLog.f("CharAnimation", "startCharAnimationFromText", committedText);
     if (!isCharAnimationEnabled) return;
     if (committedText == null) return;
 
@@ -173,6 +179,7 @@ public class CharAnimation {
    */
   public void startDeleteAnimation(
       int targetLine, int atChar, @Nullable String removedText, @Nullable Paint paintToUse) {
+    FunctionLog.f("CharAnimation", "startDeleteAnimation", targetLine, atChar, removedText, paintToUse);
     if (!isCharAnimationEnabled) return;
     if (removedText == null || removedText.isEmpty()) return;
 
@@ -247,6 +254,7 @@ public class CharAnimation {
    * Cancel all character animations.
    */
   public void cancelAllAnimations() {
+    FunctionLog.f("CharAnimation", "cancelAllAnimations");
     if (charAnimAnimator != null) {
       charAnimAnimator.cancel();
       charAnimAnimator = null;
@@ -271,6 +279,7 @@ public class CharAnimation {
    * Cancel the typed character animation.
    */
   public void cancelCharAnimation() {
+    FunctionLog.f("CharAnimation", "cancelCharAnimation");
     if (charAnimAnimator != null) {
       charAnimAnimator.cancel();
       charAnimAnimator = null;
@@ -285,6 +294,7 @@ public class CharAnimation {
    * Cancel the delete animation.
    */
   public void cancelDeleteAnimation() {
+    FunctionLog.f("CharAnimation", "cancelDeleteAnimation");
     if (delAnimAnimator != null) {
       delAnimAnimator.cancel();
       delAnimAnimator = null;
@@ -301,6 +311,7 @@ public class CharAnimation {
    * @return true if running
    */
   public boolean isCharAnimationRunning() {
+    FunctionLog.f("CharAnimation", "isCharAnimationRunning");
     return charAnimAnimator != null && charAnimAlpha > 0f;
   }
 
@@ -309,6 +320,7 @@ public class CharAnimation {
    * @return true if running
    */
   public boolean isDeleteAnimationRunning() {
+    FunctionLog.f("CharAnimation", "isDeleteAnimationRunning");
     return delAnimAnimator != null && delAnimAlpha > 0f;
   }
 
@@ -317,6 +329,7 @@ public class CharAnimation {
    * @return Alpha value (0.0 to 1.0)
    */
   public float getCharAnimAlpha() {
+    FunctionLog.f("CharAnimation", "getCharAnimAlpha");
     return charAnimAlpha;
   }
 
@@ -325,6 +338,7 @@ public class CharAnimation {
    * @return Alpha value (0.0 to 1.0)
    */
   public float getDelAnimAlpha() {
+    FunctionLog.f("CharAnimation", "getDelAnimAlpha");
     return delAnimAlpha;
   }
 
@@ -333,6 +347,7 @@ public class CharAnimation {
    * @return Line number, or -1 if no animation
    */
   public int getCharAnimLine() {
+    FunctionLog.f("CharAnimation", "getCharAnimLine");
     return charAnimLine;
   }
 
@@ -341,6 +356,7 @@ public class CharAnimation {
    * @return Line number, or -1 if no animation
    */
   public int getDelAnimLine() {
+    FunctionLog.f("CharAnimation", "getDelAnimLine");
     return delAnimLine;
   }
 }

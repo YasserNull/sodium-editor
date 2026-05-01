@@ -8,6 +8,7 @@ import com.yn.sodiumeditor.core.guides.bracket.BracketMatch;
 import com.yn.sodiumeditor.core.fold.CodeFold;
 import com.yn.sodiumeditor.core.wordwrap.WordWrap;
 import com.yn.sodiumeditor.core.guides.bracket.BracketGuides;
+import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.List;
 import java.util.HashMap;
 
@@ -20,6 +21,7 @@ public class ViewRender {
   private int frameCounter = 0;
 
   public ViewRender(SodiumEditor editor) {
+    FunctionLog.f("ViewRender", "ViewRender", editor);
     this.editor = editor;
     this.selectionPaint = new Paint();
     this.selectionPaint.setStyle(Paint.Style.FILL);
@@ -27,6 +29,7 @@ public class ViewRender {
   }
 
   public void drawContent(Canvas canvas) {
+    FunctionLog.f("ViewRender", "drawContent", canvas);
     int windowStart = editor.windowRender.windowStartLine;
     int windowEnd = windowStart + editor.windowRender.linesWindow.size() - 1;
     boolean fastScroll = editor.scroll.scrollerIsScrolling || editor.scroll.flingStopAnimator != null;
@@ -57,13 +60,16 @@ public class ViewRender {
       // For now, assume it's part of drawTextContent or similar
       drawContentUnfolded(canvas, shouldDrawBracketGuides); 
       editor.bracketGuides.endRenderFrameMaybeLog();
+      editor.scroll.bar.draw(canvas);
       return;
     }
     drawContentUnfolded(canvas, shouldDrawBracketGuides);
     editor.bracketGuides.endRenderFrameMaybeLog();
+    editor.scroll.bar.draw(canvas);
   }
   
   private void drawContentUnfolded(Canvas canvas, boolean drawBracketGuides) {
+    FunctionLog.f("ViewRender", "drawContentUnfolded", canvas, drawBracketGuides);
     final boolean drawDecorations = editor.zoom.shouldDrawDecorations();
     
     int firstVisibleIndex = (int) (editor.scroll.scrollY / editor.textRender.lineHeight);
@@ -145,6 +151,7 @@ public class ViewRender {
 
   private void drawTextContent(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex,
                                 int firstVisibleLine, int lastVisibleLine, boolean drawDecorations, boolean drawBracketGuides, boolean shouldLog) {
+    FunctionLog.f("ViewRender", "drawTextContent", canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine, drawDecorations, drawBracketGuides, shouldLog);
     Paint selPaint = null;
     if (editor.selection.hasSelection) {
         selPaint = editor.selection.selectionPaint;
@@ -152,6 +159,18 @@ public class ViewRender {
 
     HashMap<Integer, String> directLines = null;
     if (editor.fileIO.sourceFile != null) {
+      // IMPORTANT: don't read "direct lines" from disk while there are pending in-memory edits.
+      // Doing so can make deleted text reappear visually ("phantom render") because the file on
+      // disk hasn't been rewritten yet.
+      boolean hasPendingEdits = editor.editOperators.lineCountDelta != 0;
+      if (!hasPendingEdits) {
+          synchronized (editor.windowRender.modifiedLines) {
+              hasPendingEdits = !editor.windowRender.modifiedLines.isEmpty();
+          }
+      }
+      if (hasPendingEdits) {
+          directLines = null;
+      } else {
       int winStart = editor.windowRender.windowStartLine;
       int winEnd = winStart + editor.windowRender.linesWindow.size() - 1;
       java.util.HashSet<Integer> needed = new java.util.HashSet<>();
@@ -174,9 +193,10 @@ public class ViewRender {
           directLines = editor.windowRender.directLinesTmp;
           for (Integer gl : needed) {
               if (gl < winStart || gl > winEnd) {
-                  editor.fileIO.populateDirectLinesForRange(gl, gl, directLines);
+                  editor.fileIO.populateDirectLinesForRange(gl, gl, directLines); // guard: modifiedLines / lineCountDelta
               }
           }
+      }
       }
     }
 
@@ -293,14 +313,17 @@ public class ViewRender {
   }
 
   public void drawColorCodeBackgrounds(Canvas canvas, String line, int globalLine) {
+      FunctionLog.f("ViewRender", "drawColorCodeBackgrounds", canvas, line, globalLine);
       editor.colorCodeHighlight.drawColorCodeBackgrounds(canvas, line, globalLine);
   }
 
   public void drawSearchHighlightsForLine(Canvas canvas, String line, int globalLine, float top, float bottom) {
+      FunctionLog.f("ViewRender", "drawSearchHighlightsForLine", canvas, line, globalLine, top, bottom);
       editor.search.drawSearchHighlightsForLine(canvas, line, globalLine, top, bottom);
   }
 
   public void drawSelectionForLine(Canvas canvas, int globalLine, String line, float baseX, float width, Paint selPaint) {
+      FunctionLog.f("ViewRender", "drawSelectionForLine", canvas, globalLine, line, baseX, width, selPaint);
       // Logic for selection highlight per line
       float lineTop = editor.textRender.getDrawLineTop(globalLine);
       float lineBottom = lineTop + editor.textRender.lineHeight;
@@ -308,5 +331,8 @@ public class ViewRender {
       canvas.drawRect(editor.selection.selectionHighlightRect, selPaint);
   }
 
-  public SodiumEditor getEditor() { return editor; }
+  public SodiumEditor getEditor() { 
+      FunctionLog.f("ViewRender", "getEditor");
+      return editor; 
+  }
 }
