@@ -30,7 +30,7 @@ public class OnKeyDown {
       return handleReadOnlyKey(keyCode, event);
     }
 
-    if (editor.selection.hasSelection && event.isPrintingKey()) {
+    if (editor.selection.hasSelection && getPrintingText(event) != null) {
       return handleSelectionWithPrintingKey(event);
     }
 
@@ -60,18 +60,10 @@ public class OnKeyDown {
       case KeyEvent.KEYCODE_ENTER:
         return true;
     }
-    if (event.isPrintingKey()) {
-      int uc = event.getUnicodeChar();
-      if (uc != 0) {
-        editor.editOperators.insertCharAtCursor((char) uc);
-        return true;
-      }
-      // Some non-ASCII input arrives via getCharacters() (while getUnicodeChar() is 0).
-      String chars = event.getCharacters();
-      if (chars != null && !chars.isEmpty()) {
-        editor.editOperators.insertTextAtCursor(chars);
-        return true;
-      }
+    String text = getPrintingText(event);
+    if (text != null) {
+      editor.editOperators.insertTextAtCursor(text);
+      return true;
     }
     return false;
   }
@@ -81,13 +73,11 @@ public class OnKeyDown {
    */
   private boolean handleSelectionWithPrintingKey(KeyEvent event) {
     FunctionLog.f("OnKeyDown", "handleSelectionWithPrintingKey", event);
-    int uc = event.getUnicodeChar();
-    if (uc != 0) {
-      String s = String.valueOf((char) uc);
-      editor.selection.replaceSelectionWithText(s);
-      editor.charAnimation.startCharAnimationFromText(s);
-    } else {
-      editor.selection.replaceSelectionWithText("");
+    String text = getPrintingText(event);
+    if (text != null) {
+      editor.selection.replaceSelectionWithText(text);
+      editor.charAnimation.startCharAnimationFromText(text);
+      return true;
     }
     return true;
   }
@@ -135,19 +125,22 @@ public class OnKeyDown {
         }
         return true;
     }
-    if (event.isPrintingKey()) {
-      int uc = event.getUnicodeChar();
-      if (uc != 0) {
-        editor.editOperators.insertCharAtCursor((char) uc);
-        return true;
-      }
-      // Some non-ASCII input arrives via getCharacters() (while getUnicodeChar() is 0).
-      String chars = event.getCharacters();
-      if (chars != null && !chars.isEmpty()) {
-        editor.editOperators.insertTextAtCursor(chars);
-        return true;
-      }
+    String text = getPrintingText(event);
+    if (text != null) {
+      editor.editOperators.insertTextAtCursor(text);
+      return true;
     }
     return false;
+  }
+
+  private String getPrintingText(KeyEvent event) {
+    FunctionLog.f("OnKeyDown", "getPrintingText", event);
+    int uc = event.getUnicodeChar();
+    if (uc != 0 && Character.isValidCodePoint(uc)) {
+      return new String(Character.toChars(uc));
+    }
+    // Some non-ASCII input arrives via getCharacters() while getUnicodeChar() is 0.
+    String chars = event.getCharacters();
+    return (chars == null || chars.isEmpty()) ? null : chars;
   }
 }

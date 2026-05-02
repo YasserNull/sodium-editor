@@ -56,24 +56,26 @@ public class EditorActions {
             if (base == null) base = "";
 
             if (editor.cursor.cursorChar < base.length()) {
-                String removed = base.substring(editor.cursor.cursorChar, editor.cursor.cursorChar + 1);
-                String modified = base.substring(0, editor.cursor.cursorChar) + base.substring(editor.cursor.cursorChar + 1);
+                int safeCursorChar = Math.max(0, Math.min(editor.cursor.cursorChar, base.length()));
+                int deleteEnd = nextCodePointEnd(base, safeCursorChar);
+                String removed = base.substring(safeCursorChar, deleteEnd);
+                String modified = base.substring(0, safeCursorChar) + base.substring(deleteEnd);
                 editor.view.updateLocalLine(localIdx, modified);
                 editor.windowRender.modifiedLines.put(editor.cursor.cursorLine, modified);
                 
                 if (editor.codeFold.isCodeFoldingEnabled) {
                     if (com.yn.sodiumeditor.utils.TextUtils.containsBracketChars(removed)) editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
-                    editor.codeFold.adjustFoldRangeForLineEdit(editor.cursor.cursorLine, editor.cursor.cursorChar, -1, 1);
+                    editor.codeFold.adjustFoldRangeForLineEdit(editor.cursor.cursorLine, safeCursorChar, safeCursorChar - deleteEnd, deleteEnd - safeCursorChar);
                 }
                 editor.highlite.invalidateHighlightCacheForLine(editor.cursor.cursorLine);
                 editor.view.computeWidthForLine(editor.cursor.cursorLine, modified);
                 editor.view.invalidateLineGlobal(editor.cursor.cursorLine);
 
                 EditOp op = new EditOp();
-                op.startLine = beforeLine; op.startChar = beforeChar;
-                op.endLine = beforeLine; op.endChar = beforeChar + 1;
+                op.startLine = beforeLine; op.startChar = safeCursorChar;
+                op.endLine = beforeLine; op.endChar = deleteEnd;
                 op.removedText = removed; op.insertedText = "";
-                op.insertedEndLine = beforeLine; op.insertedEndChar = beforeChar;
+                op.insertedEndLine = beforeLine; op.insertedEndChar = safeCursorChar;
                 op.cursorLineBefore = beforeLine; op.cursorCharBefore = beforeChar;
                 op.cursorLineAfter = editor.cursor.cursorLine; op.cursorCharAfter = editor.cursor.cursorChar;
                 op.timestamp = System.currentTimeMillis();
@@ -279,7 +281,7 @@ public class EditorActions {
             int safeCursorChar = Math.max(0, Math.min(editor.cursor.cursorChar, base.length()));
 
             if (safeCursorChar > 0) {
-                int safeStart = safeCursorChar - 1;
+                int safeStart = previousCodePointStart(base, safeCursorChar);
                 String removed = base.substring(safeStart, safeCursorChar);
                 
                 // Binary token logic omitted for brevity, same as original
@@ -289,7 +291,7 @@ public class EditorActions {
                 
                 if (editor.codeFold.isCodeFoldingEnabled) {
                     if (com.yn.sodiumeditor.utils.TextUtils.containsBracketChars(removed)) editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
-                    editor.codeFold.adjustFoldRangeForLineEdit(editor.cursor.cursorLine, safeStart, -1, 1);
+                    editor.codeFold.adjustFoldRangeForLineEdit(editor.cursor.cursorLine, safeStart, safeStart - safeCursorChar, safeCursorChar - safeStart);
                 }
                 editor.highlite.invalidateHighlightCacheForLine(editor.cursor.cursorLine);
                 editor.cursor.cursorChar = safeStart;
@@ -373,6 +375,20 @@ public class EditorActions {
         }
         editor.ime.updateImeSelection();
         editor.autoCompletion.updateSuggestion();
+    }
+
+    private int previousCodePointStart(String text, int offset) {
+        FunctionLog.f("EditorActions", "previousCodePointStart", text, offset);
+        int safeOffset = Math.max(0, Math.min(offset, text.length()));
+        if (safeOffset <= 0) return 0;
+        return text.offsetByCodePoints(safeOffset, -1);
+    }
+
+    private int nextCodePointEnd(String text, int offset) {
+        FunctionLog.f("EditorActions", "nextCodePointEnd", text, offset);
+        int safeOffset = Math.max(0, Math.min(offset, text.length()));
+        if (safeOffset >= text.length()) return text.length();
+        return text.offsetByCodePoints(safeOffset, 1);
     }
 
     private void handleCodeFoldBeforeEdit() {

@@ -157,4 +157,12 @@ public class SodiumInputConnection extends BaseInputConnection {
         if (editor.zoom.isZoomGestureActive()) return true;
         return ime.onDeleteSurroundingText(beforeLength, afterLength);
     }
+
+    @Override
+    public boolean deleteSurroundingTextInCodePoints(int beforeLength, int afterLength) {
+        FunctionLog.f("SodiumInputConnection", "deleteSurroundingTextInCodePoints", beforeLength, afterLength);
+        if (editor.view.isDisabled || editor.view.isReadOnly) return true;
+        if (editor.zoom.isZoomGestureActive()) return true;
+        return ime.onDeleteSurroundingTextInCodePoints(beforeLength, afterLength);
+    }
 }

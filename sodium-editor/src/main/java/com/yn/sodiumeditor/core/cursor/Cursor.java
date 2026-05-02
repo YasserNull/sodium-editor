@@ -185,9 +185,11 @@ public float baseCursorWidthPx = cursorWidth;
       editor.cursor.cursorLine = sL;
       editor.cursor.cursorChar = sC;
     } else if (editor.cursor.cursorChar > 0) {
-      editor.cursor.cursorChar--;
+      String ln = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
+      if (ln == null) ln = "";
+      int safeChar = Math.max(0, Math.min(editor.cursor.cursorChar, ln.length()));
+      editor.cursor.cursorChar = safeChar > 0 ? ln.offsetByCodePoints(safeChar, -1) : 0;
       if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
-        String ln = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
         int[] span = new int[2];
         if (editor.binaryRender.findBinaryTokenSpanInSpans(
                 editor.binaryRender.getBinaryTokenSpans(editor.cursor.cursorLine),
@@ -233,8 +235,10 @@ public float baseCursorWidthPx = cursorWidth;
       editor.cursor.cursorChar = eC;
     } else {
       String ln = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
+      if (ln == null) ln = "";
       if (editor.cursor.cursorChar < ln.length()) {
-        editor.cursor.cursorChar++;
+        int safeChar = Math.max(0, Math.min(editor.cursor.cursorChar, ln.length()));
+        editor.cursor.cursorChar = ln.offsetByCodePoints(safeChar, 1);
         if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
           int[] span = new int[2];
           if (editor.binaryRender.findBinaryTokenSpanInSpans(

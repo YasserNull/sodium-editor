@@ -34,6 +34,16 @@ public class OnKeyDownNonAsciiGuardTest {
                 hasCharactersFallback);
     }
 
+    @Test
+    public void onKeyDown_shouldNotTruncateSupplementaryUnicodeCodePoints() throws Exception {
+        Path path = findPath("sodium-editor/src/main/java/com/yn/sodiumeditor/input/events/OnKeyDown.java");
+        String src = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+
+        assertTrue(
+                "BUG: casting getUnicodeChar() to char truncates emoji and other supplementary code points.",
+                src.contains("Character.toChars(uc)"));
+    }
+
     private static Path findPath(String rel) {
         Path cwd = new File(System.getProperty("user.dir", ".")).toPath().toAbsolutePath().normalize();
         for (int i = 0; i < 8; i++) {
@@ -48,4 +58,3 @@ public class OnKeyDownNonAsciiGuardTest {
         throw new IllegalStateException("Could not locate file: " + rel);
     }
 }
-

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.yn.sodiumeditor.core.view.events.OnDrawClearPolicyTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-05-01T09:55:16.744Z" hostname="localhost" time="0.001">
+  <properties/>
+  <testcase name="shouldClear_whenBackgroundIsTransparent" classname="com.yn.sodiumeditor.core.view.events.OnDrawClearPolicyTest" time="0.001"/>
+  <testcase name="shouldNotClear_whenBackgroundColorSet" classname="com.yn.sodiumeditor.core.view.events.OnDrawClearPolicyTest" time="0.0"/>
+  <testcase name="shouldNotClear_whenBackgroundBitmapSet" classname="com.yn.sodiumeditor.core.view.events.OnDrawClearPolicyTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

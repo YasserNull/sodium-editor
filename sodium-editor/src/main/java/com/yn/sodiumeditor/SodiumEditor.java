@@ -323,6 +323,16 @@ onSizeChanged.onSizeChanged(w, h, oldw, oldh);
   }
 
   @Override
+  public boolean onCheckIsTextEditor() {
+  return !view.isDisabled && !view.isReadOnly;
+  }
+
+  @Override
+  public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
+  return ime.onCreateInputConnection(outAttrs);
+  }
+
+  @Override
   public boolean onTouchEvent(MotionEvent event) {
   return onTouch.onTouchEvent(event);
   }

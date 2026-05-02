@@ -15,10 +15,10 @@
         android:padding="8dp">
 
         <Button
-            android:id="@+id/gotoBtn"
+            android:id="@+id/openFileBtn"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Go"
+            android:text="Open"
             android:textAllCaps="false" />
 
         <Button
@@ -27,9 +27,16 @@
             android:layout_height="wrap_content"
             android:text="Settings"
             android:textAllCaps="false" />
+
+        <Button
+            android:id="@+id/copyLogBtn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Log"
+            android:textAllCaps="false" />
     </LinearLayout>
 
-    <com.yn.sodiumeditor.view.SodiumEditorView
+    <com.yn.sodiumeditor.SodiumEditor
         android:id="@+id/editor"
         android:layout_width="match_parent"
         android:layout_height="0dp"

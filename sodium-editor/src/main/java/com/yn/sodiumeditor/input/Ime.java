@@ -1,6 +1,7 @@
 package com.yn.sodiumeditor.input;
 
 import android.text.Editable;
+import android.text.InputType;
 import android.util.Log;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.ExtractedText;
@@ -54,10 +55,10 @@ public class Ime {
     if (editor.view.isDisabled || editor.view.isReadOnly) return null;
     
     outAttrs.inputType =
-        EditorInfo.TYPE_CLASS_TEXT
-            | EditorInfo.TYPE_TEXT_FLAG_MULTI_LINE
-            | EditorInfo.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-            | EditorInfo.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD;
+        InputType.TYPE_CLASS_TEXT
+            | InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            | InputType.TYPE_TEXT_VARIATION_NORMAL;
     outAttrs.imeOptions =
         EditorInfo.IME_ACTION_NONE
             | EditorInfo.IME_FLAG_NO_EXTRACT_UI
@@ -281,6 +282,18 @@ public class Ime {
 
   public boolean onDeleteSurroundingText(int beforeLength, int afterLength) {
     FunctionLog.f("Ime", "onDeleteSurroundingText", beforeLength, afterLength);
+    int beforeCodePoints = countCodePointsBeforeCursorForCharUnits(beforeLength);
+    int afterCodePoints = countCodePointsAfterCursorForCharUnits(afterLength);
+    return deleteSurroundingCodePoints(beforeCodePoints, afterCodePoints);
+  }
+
+  public boolean onDeleteSurroundingTextInCodePoints(int beforeLength, int afterLength) {
+    FunctionLog.f("Ime", "onDeleteSurroundingTextInCodePoints", beforeLength, afterLength);
+    return deleteSurroundingCodePoints(Math.max(0, beforeLength), Math.max(0, afterLength));
+  }
+
+  private boolean deleteSurroundingCodePoints(int beforeLength, int afterLength) {
+    FunctionLog.f("Ime", "deleteSurroundingCodePoints", beforeLength, afterLength);
     if (editor.selection.hasSelection) {
       editor.selection.replaceSelectionWithText("");
       updateImeSelection();
@@ -292,6 +305,40 @@ public class Ime {
     updateImeSelection();
     editor.autoCompletion.updateSuggestion();
     return true;
+  }
+
+  private int countCodePointsBeforeCursorForCharUnits(int charUnits) {
+    FunctionLog.f("Ime", "countCodePointsBeforeCursorForCharUnits", charUnits);
+    int remaining = Math.max(0, charUnits);
+    if (remaining == 0) return 0;
+    String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
+    if (line == null || line.isEmpty()) return remaining;
+    int offset = Math.max(0, Math.min(editor.cursor.cursorChar, line.length()));
+    int count = 0;
+    while (remaining > 0 && offset > 0) {
+      int next = line.offsetByCodePoints(offset, -1);
+      remaining -= offset - next;
+      offset = next;
+      count++;
+    }
+    return count + Math.max(0, remaining);
+  }
+
+  private int countCodePointsAfterCursorForCharUnits(int charUnits) {
+    FunctionLog.f("Ime", "countCodePointsAfterCursorForCharUnits", charUnits);
+    int remaining = Math.max(0, charUnits);
+    if (remaining == 0) return 0;
+    String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
+    if (line == null || line.isEmpty()) return remaining;
+    int offset = Math.max(0, Math.min(editor.cursor.cursorChar, line.length()));
+    int count = 0;
+    while (remaining > 0 && offset < line.length()) {
+      int next = line.offsetByCodePoints(offset, 1);
+      remaining -= next - offset;
+      offset = next;
+      count++;
+    }
+    return count + Math.max(0, remaining);
   }
 
   // --- End of methods called by SodiumInputConnection ---
