@@ -249,7 +249,7 @@ public class SodiumEditor extends View {
       HighliteRender.HighlightRuleType.BLOCK_COMMENT);
 
   selection.selectionPaint.setStyle(Paint.Style.FILL);
-  caret.caretPaint.setStyle(Paint.Style.STROKE);
+  caret.caretPaint.setStyle(Paint.Style.FILL);
   caret.caretPaint.setStrokeCap(Paint.Cap.BUTT);
   selectionHandles.handlePaint.setStyle(Paint.Style.FILL);
   loadingCircle.loadingCirclePaint.setStyle(Paint.Style.STROKE);

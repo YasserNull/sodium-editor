@@ -24,7 +24,7 @@ public class Caret {
   public long caretBlinkPeriodMs = 500;
 
   // Caret appearance
-  public float caretWidth = 8f;
+  public float caretWidth = 4f;
   public int caretColor = 0xFF000000;
 
   public final Runnable blinkRunnable;
