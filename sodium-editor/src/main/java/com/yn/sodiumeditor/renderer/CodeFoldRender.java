@@ -316,7 +316,8 @@ public class CodeFoldRender {
                     bracketState = editor.bracketGuides.calculateBracketGuideStateForLine(line, globalLine, bracketState);
                     // If collapsed, use cached bracket state or compute once and cache
                     if (isCollapsed && range.endLine > globalLine) {
-                        BracketGuideState cachedState = editor.codeFold.cachedBracketStateAfterFold.get(range.startLine);                        if (cachedState != null) {
+                        BracketGuideState cachedState = editor.codeFold.cachedBracketStateAfterFold.get(range.startLine);
+                        if (cachedState != null) {
                             bracketState = cachedState;
                         } else {
                             // Compute once and cache
@@ -329,13 +330,15 @@ public class CodeFoldRender {
                     }
                 }
 
-                if (drawDecorations) {
-                    editor.textRender.drawWhitespaceGuidesForLine(canvas, line, globalLine, y);
-                    editor.indentGuides.drawIndentGuidesForLine(canvas, line, globalLine);
+                if (isCollapsed) {
+                    if (drawDecorations) {
+                        editor.textRender.drawWhitespaceGuidesForLine(canvas, line, globalLine, y);
+                        editor.indentGuides.drawIndentGuidesForLine(canvas, line, globalLine);
+                    }
+                    drawFoldedLine(canvas, line, globalLine, directLines);
+                    canvas.restore();
+                    continue;
                 }
-                drawFoldedLine(canvas, line, globalLine, directLines);
-                canvas.restore();
-                continue;
             }
 
             float lineTop = Math.round(editor.textRender.getDrawLineTop(globalLine));

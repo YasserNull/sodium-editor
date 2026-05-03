@@ -59,7 +59,8 @@ public class CodeFold {
             foldIntervals.clear();
         } else {
             animation.foldMarkerTextScale = 1f;
-            animation.foldMarkerPaint.setTextSize(editor.textRender.paint.getTextSize());
+            animation.foldMarkerPaint.setTextSize(editor.textRender.paint.getTextSize() * animation.foldMarkerSizeMultiplier);
+            animation.foldMarkerPendingPaint.setTextSize(editor.textRender.paint.getTextSize() * animation.foldMarkerSizeMultiplier);
         }
         foldIntervalsDirty = true;
         editor.windowRender.recalculateMaxLineWidth();
@@ -375,11 +376,19 @@ public class CodeFold {
     public String getFoldMarkerForLine(int line, String text) {
         if (!isCodeFoldingEnabled) return null;
         FoldRange range = foldRanges.get(line);
+        boolean isRtl = editor.textRender.isRtl;
         if (range != null) {
-            return range.collapsed ? "+" : "-";
+            if (range.collapsed) {
+                // Closed/Collapsed -> Down (v)
+                return "v";
+            } else {
+                // Open/Expanded -> > (or < in RTL)
+                return isRtl ? "<" : ">";
+            }
         }
         if (detector.isPotentialFoldStart(line)) {
-            return "-";
+            // Default state is "open", so show >
+            return isRtl ? "<" : ">";
         }
         return null;
     }

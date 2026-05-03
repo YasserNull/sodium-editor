@@ -11,7 +11,7 @@ public class FunctionLog {
      * Minimum time between logs for the same call-site key.
      * Set to 0 to disable throttling (useful for debugging key input).
      */
-    public static volatile long THROTTLE_MS = 0;
+    public static volatile long THROTTLE_MS = 1000;
     private static final Map<String, Long> lastLogTime = new ConcurrentHashMap<>();
 
     public static void f(String className, String methodName, Object... args) {

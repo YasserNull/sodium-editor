@@ -18,6 +18,7 @@ public class CodeFoldAnimation {
     // Fold marker appearance
     public float foldMarkerGutterWidth = 0f;
     public float foldMarkerTextScale = 1f;
+    public float foldMarkerSizeMultiplier = 1.1f;
     public float foldMarkerSpacing = 0f;
     public float foldMarkerEdgePadding = 4f;
     public float foldPlaceholderCorner = 3f;
@@ -51,11 +52,13 @@ public class CodeFoldAnimation {
         foldPlaceholderPaint.setColor(0xFFE0E0E0);
         foldPlaceholderPaint.setStyle(Paint.Style.FILL);
         foldMarkerPaint.setColor(foldMarkerColor);
+        foldMarkerPaint.setFakeBoldText(true);
         foldMarkerPaint.setTextAlign(editor.textRender.isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
-        foldMarkerPaint.setTextSize(editor.textRender.paint.getTextSize());
+        foldMarkerPaint.setTextSize(editor.textRender.paint.getTextSize() * foldMarkerSizeMultiplier);
         foldMarkerPendingPaint.setColor(foldMarkerPendingColor);
+        foldMarkerPendingPaint.setFakeBoldText(true);
         foldMarkerPendingPaint.setTextAlign(editor.textRender.isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
-        foldMarkerPendingPaint.setTextSize(editor.textRender.paint.getTextSize());
+        foldMarkerPendingPaint.setTextSize(editor.textRender.paint.getTextSize() * foldMarkerSizeMultiplier);
         foldRipplePaint.setStyle(Paint.Style.FILL);
     }
 
