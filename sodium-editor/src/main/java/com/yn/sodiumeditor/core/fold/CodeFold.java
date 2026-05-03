@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CodeFold {
 
     // --- Code Fold State ---
-    public boolean isCodeFoldingEnabled = false;
+    public boolean isCodeFoldingEnabled = true;
     public final ConcurrentHashMap<Integer, FoldRange> foldRanges = new ConcurrentHashMap<>();
     public final ConcurrentHashMap<Integer, Boolean> pendingFoldComputations = new ConcurrentHashMap<>();
     public final ArrayList<int[]> foldIntervals = new ArrayList<>();
@@ -24,12 +24,6 @@ public class CodeFold {
 
     // Fold marker visibility cache — avoids per-frame full parse of each visible line
     private final android.util.SparseArray<Byte> foldMarkerVisibilityCache = new android.util.SparseArray<>();
-
-    // Visible-to-global line lookup — O(1) instead of O(intervals) per call
-    // visibleToGlobalLookup[vi] = globalLine
-    private int[] visibleToGlobalLookup = new int[0];
-    private int[] globalToVisibleLookup = new int[0];
-    private int visibleToGlobalLookupVersion = -1;
 
     // Cached bracket state after each collapsed fold range — avoids per-frame re-scan of hidden lines
     public final java.util.HashMap<Integer, com.yn.sodiumeditor.core.guides.bracket.BracketGuideState> cachedBracketStateAfterFold = new java.util.HashMap<>();
@@ -146,7 +140,7 @@ public class CodeFold {
         rebuildFoldIntervalsIfNeeded();
         if (foldIntervals.isEmpty()) return editor.view.getLinesCount();
         int[] last = foldIntervals.get(foldIntervals.size() - 1);
-        return last[1];
+        return last[3] + 1;
     }
 
     /**
@@ -158,12 +152,7 @@ public class CodeFold {
         rebuildFoldIntervalsIfNeeded();
         if (foldIntervals.isEmpty()) return visibleIndex;
         
-        // Fast O(1) lookup
-        if (visibleIndex >= 0 && visibleIndex < visibleToGlobalLookup.length) {
-            return visibleToGlobalLookup[visibleIndex];
-        }
-
-        // Binary search fallback (for large documents where lookup array might be sparse/incomplete)
+        // Binary search over visible intervals. Avoids line-count-sized lookup arrays.
         int lo = 0, hi = foldIntervals.size() - 1;
         while (lo <= hi) {
             int mid = (lo + hi) >>> 1;
@@ -188,12 +177,7 @@ public class CodeFold {
         rebuildFoldIntervalsIfNeeded();
         if (foldIntervals.isEmpty()) return globalLine;
 
-        // Fast O(1) lookup
-        if (globalLine >= 0 && globalLine < globalToVisibleLookup.length) {
-            return globalToVisibleLookup[globalLine];
-        }
-
-        // Binary search fallback
+        // Binary search over global intervals. Lines inside collapsed folds are absent.
         int lo = 0, hi = foldIntervals.size() - 1;
         while (lo <= hi) {
             int mid = (lo + hi) >>> 1;
@@ -308,26 +292,6 @@ public class CodeFold {
         if (currentLine < total) {
             int len = total - currentLine;
             foldIntervals.add(new int[]{currentLine, total - 1, currentVisible, currentVisible + len - 1});
-        }
-
-        // Rebuild fast O(1) lookup arrays
-        int totalVisible = getVisibleLineCount();
-        if (visibleToGlobalLookup.length < totalVisible) {
-            visibleToGlobalLookup = new int[totalVisible + 256];
-        }
-        if (globalToVisibleLookup.length < total) {
-            globalToVisibleLookup = new int[total + 256];
-        }
-        java.util.Arrays.fill(globalToVisibleLookup, -1);
-
-        for (int[] interval : foldIntervals) {
-            int gStart = interval[0], gEnd = interval[1];
-            int vStart = interval[2], vEnd = interval[3];
-            int len = gEnd - gStart + 1;
-            for (int i = 0; i < len; i++) {
-                visibleToGlobalLookup[vStart + i] = gStart + i;
-                globalToVisibleLookup[gStart + i] = vStart + i;
-            }
         }
 
         foldIntervalsDirty = false;

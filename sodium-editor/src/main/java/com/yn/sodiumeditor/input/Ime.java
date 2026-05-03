@@ -528,7 +528,9 @@ public class Ime {
     String core = insert.substring(0, end);
     String trailing = insert.substring(end);
     if (core.length() <= 1) return false;
-    for (int i = 0; i < core.length(); i++) if (Character.isWhitespace(core.charAt(i))) return false;
+    for (int i = 0; i < core.length(); i++) {
+      if (!editor.view.isWordChar(core.charAt(i))) return false;
+    }
     int[] bounds = getWordBoundsAtCursor();
     if (bounds == null) return false;
     String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.yn.sodiumeditor.test.EmojiBugReproductionTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-05-03T07:58:58.484Z" hostname="localhost" time="1.889">
+  <properties/>
+  <testcase name="testTextDisappearingAfterEmojis" classname="com.yn.sodiumeditor.test.EmojiBugReproductionTest" time="1.889"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

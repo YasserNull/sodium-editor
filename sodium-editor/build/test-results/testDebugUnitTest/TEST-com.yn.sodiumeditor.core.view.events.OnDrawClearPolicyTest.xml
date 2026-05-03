@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.yn.sodiumeditor.core.view.events.OnDrawClearPolicyTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-05-02T13:18:29.801Z" hostname="localhost" time="0.002">
+<testsuite name="com.yn.sodiumeditor.core.view.events.OnDrawClearPolicyTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-05-03T07:58:58.361Z" hostname="localhost" time="0.002">
   <properties/>
   <testcase name="shouldClear_whenBackgroundIsTransparent" classname="com.yn.sodiumeditor.core.view.events.OnDrawClearPolicyTest" time="0.001"/>
   <testcase name="shouldNotClear_whenBackgroundColorSet" classname="com.yn.sodiumeditor.core.view.events.OnDrawClearPolicyTest" time="0.0"/>
