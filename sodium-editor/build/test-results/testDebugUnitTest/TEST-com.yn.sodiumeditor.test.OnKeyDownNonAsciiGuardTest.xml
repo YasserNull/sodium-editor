@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.yn.sodiumeditor.test.OnKeyDownNonAsciiGuardTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-05-03T07:59:00.377Z" hostname="localhost" time="0.0">
-  <properties/>
-  <testcase name="onKeyDown_shouldNotTruncateSupplementaryUnicodeCodePoints" classname="com.yn.sodiumeditor.test.OnKeyDownNonAsciiGuardTest" time="0.0"/>
-  <testcase name="onKeyDown_shouldHandleKeyEventCharactersFallback" classname="com.yn.sodiumeditor.test.OnKeyDownNonAsciiGuardTest" time="0.0"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

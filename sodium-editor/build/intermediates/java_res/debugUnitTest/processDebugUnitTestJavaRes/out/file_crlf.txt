@@ -1,4 +1,0 @@
-alpha\r
-beta\r
-gamma\r
-

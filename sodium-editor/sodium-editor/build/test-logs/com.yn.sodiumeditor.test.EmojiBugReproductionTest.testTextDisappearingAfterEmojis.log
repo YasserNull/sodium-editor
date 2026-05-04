@@ -1,9 +1,0 @@
-START testTextDisappearingAfterEmojis(com.yn.sodiumeditor.test.EmojiBugReproductionTest)
-Simulating: type 'Hello'
-Simulating: type emoji '😀' (composing)
-Simulating: commit emoji '😀'
-Simulating: type second emoji '😃' (composing)
-Simulating: type text ' world' after emojis (composing)
-Result: Hello😀😃 world
-Simulating: commit everything
-OK testTextDisappearingAfterEmojis(com.yn.sodiumeditor.test.EmojiBugReproductionTest)
