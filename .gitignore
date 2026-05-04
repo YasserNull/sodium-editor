@@ -1,1 +1,5 @@
-.aider*
+.gradle/
+local.properties
+build/
+*/build
+**/build
