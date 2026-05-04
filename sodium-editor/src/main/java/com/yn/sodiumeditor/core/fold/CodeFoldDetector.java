@@ -101,7 +101,11 @@ public class CodeFoldDetector {
         FunctionLog.f("CodeFoldDetector", "isIndentFoldCandidate", line);
         if (line == null || line.isEmpty()) return false;
         String trimmed = rstripWhitespace(line);
-        return !trimmed.isEmpty() && trimmed.endsWith(":");
+        if (trimmed.isEmpty() || !trimmed.endsWith(":")) return false;
+        if (trimmed.length() < 2) return false;
+        char beforeColon = trimmed.charAt(trimmed.length() - 2);
+        if (beforeColon == '}' || beforeColon == ']' || beforeColon == ')') return false;
+        return true;
     }
 
     // ============================================================================

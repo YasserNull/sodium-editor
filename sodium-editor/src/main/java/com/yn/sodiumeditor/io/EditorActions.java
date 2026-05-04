@@ -188,7 +188,7 @@ public class EditorActions {
                 editor.windowRender.modifiedLines.put(editor.cursor.cursorLine, before);
                 editor.windowRender.modifiedLines.put(editor.cursor.cursorLine + 1, after);
                 
-                handleCodeFoldNewline(beforeLine);
+                handleCodeFoldNewline(beforeLine, beforeChar);
 
                 editor.view.computeWidthForLine(editor.cursor.cursorLine, before);
                 editor.view.computeWidthForLine(editor.cursor.cursorLine + 1, after);
@@ -415,15 +415,21 @@ public class EditorActions {
         editor.cursor.cursorChar = Math.max(editor.cursor.cursorChar, Math.min(closeIdx + 1, (endText == null ? 0 : endText.length())));
     }
 
-    private void handleCodeFoldNewline(int beforeLine) {
-        FunctionLog.f("EditorActions", "handleCodeFoldNewline", beforeLine);
+    private void handleCodeFoldNewline(int beforeLine, int beforeChar) {
+        FunctionLog.f("EditorActions", "handleCodeFoldNewline", beforeLine, beforeChar);
         if (!editor.codeFold.isCodeFoldingEnabled) return;
         CodeFold.FoldRange foldAtStart = editor.codeFold.foldRanges.get(beforeLine);
         if (foldAtStart != null) {
-            CodeFold.FoldRange updated = new CodeFold.FoldRange(beforeLine + 1, foldAtStart.endLine + 1, foldAtStart.openCharIndex, foldAtStart.openChar, foldAtStart.closeChar, foldAtStart.closeCharIndex, foldAtStart.isBlockComment, foldAtStart.isIndentFold);
-            updated.collapsed = foldAtStart.collapsed;
-            editor.codeFold.foldRanges.remove(beforeLine);
-            editor.codeFold.foldRanges.put(beforeLine + 1, updated);
+            if (beforeChar <= foldAtStart.openCharIndex) {
+                CodeFold.FoldRange updated = new CodeFold.FoldRange(beforeLine + 1, foldAtStart.endLine + 1, foldAtStart.openCharIndex, foldAtStart.openChar, foldAtStart.closeChar, foldAtStart.closeCharIndex, foldAtStart.isBlockComment, foldAtStart.isIndentFold);
+                updated.collapsed = foldAtStart.collapsed;
+                editor.codeFold.foldRanges.remove(beforeLine);
+                editor.codeFold.foldRanges.put(beforeLine + 1, updated);
+            } else {
+                CodeFold.FoldRange updated = new CodeFold.FoldRange(beforeLine, foldAtStart.endLine + 1, foldAtStart.openCharIndex, foldAtStart.openChar, foldAtStart.closeChar, foldAtStart.closeCharIndex, foldAtStart.isBlockComment, foldAtStart.isIndentFold);
+                updated.collapsed = foldAtStart.collapsed;
+                editor.codeFold.foldRanges.put(beforeLine, updated);
+            }
             editor.codeFold.foldIntervalsDirty = true;
         } else {
             editor.codeFold.adjustFoldRangesForLineEdit(beforeLine, 1);
