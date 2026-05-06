@@ -3,6 +3,7 @@ package com.yn.sodiumeditor.renderer.animation;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.util.Log;
 import android.view.View;
 import android.view.animation.PathInterpolator;
 import com.yn.sodiumeditor.SodiumEditor;
@@ -17,7 +18,7 @@ public class CursorAnimation {
   private final PathInterpolator smoothInterpolator = new PathInterpolator(0.4f, 0f, 0.2f, 1f);
 
   // Animation configuration
-  public boolean isCursorAnimationEnabled = true;
+  public boolean isCursorAnimationEnabled = false;
   public long cursorAnimDurationMs = 80; // Reduced from 140ms for faster response
 
   // Animation state
@@ -109,6 +110,17 @@ public class CursorAnimation {
       cursorAnimTargetY = targetY;
       cursorDrawX = targetX;
       cursorDrawY = targetY;
+      Log.i(
+          "CursorDbg",
+          "animSnap"
+              + " targetX="
+              + targetX
+              + " targetY="
+              + targetY
+              + " drawX="
+              + cursorDrawX
+              + " drawY="
+              + cursorDrawY);
       return;
     }
 
@@ -148,6 +160,19 @@ public class CursorAnimation {
         cursorAnimRunning = true;
         editor.postOnAnimation(cursorAnimStep);
       }
+      Log.i(
+          "CursorDbg",
+          "animRedirect"
+              + " targetX="
+              + targetX
+              + " targetY="
+              + targetY
+              + " drawX="
+              + cursorDrawX
+              + " drawY="
+              + cursorDrawY
+              + " running="
+              + cursorAnimRunning);
     }
 
     // Keep track of scroll but Document Space doesn't need compensation
@@ -261,6 +286,19 @@ public class CursorAnimation {
       cursorDrawX = cursorAnimX;
       cursorDrawY = cursorAnimY;
       editor.cursor.invalidateCursorArea();
+      Log.i(
+          "CursorDbg",
+          "animFrame"
+              + " drawX="
+              + cursorDrawX
+              + " drawY="
+              + cursorDrawY
+              + " targetX="
+              + cursorAnimTargetX
+              + " targetY="
+              + cursorAnimTargetY
+              + " t="
+              + t);
       if (t >= 1f) {
         cursorAnimRunning = false;
         

@@ -1,4 +1,5 @@
 package com.yn.sodiumeditor.core.cursor; 
+import android.util.Log;
 import com.yn.sodiumeditor.SodiumEditor;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -40,8 +41,11 @@ public class CursorHandle {
   public void updateCursorHandlePosition() {
     FunctionLog.f("CursorHandle", "updateCursorHandlePosition");
     float docX, docY;
-    // Use animated Document position if available
-    if (editor.cursorAnimation.cursorAnimValid && !Float.isNaN(editor.cursorAnimation.cursorDrawX)) {
+    // Only follow cursorAnimation while cursor animation is actually enabled.
+    // Otherwise stale cached draw coordinates can lag behind the real caret position.
+    if (editor.cursorAnimation.isCursorAnimationEnabled
+        && editor.cursorAnimation.cursorAnimValid
+        && !Float.isNaN(editor.cursorAnimation.cursorDrawX)) {
       docX = editor.cursorAnimation.cursorDrawX;
       docY = editor.cursorAnimation.cursorDrawY;
     } else {
@@ -65,6 +69,29 @@ public class CursorHandle {
         handleLeft + cursorHandleWidth,
         handleTop + cursorHandleHeight
     );
+    Log.i(
+        "CursorDbg",
+        "update"
+            + " docX="
+            + docX
+            + " docY="
+            + docY
+            + " screenX="
+            + x
+            + " screenY="
+            + y
+            + " rect="
+            + cursorHandleRect.left
+            + ","
+            + cursorHandleRect.top
+            + ","
+            + cursorHandleRect.right
+            + ","
+            + cursorHandleRect.bottom
+            + " animValid="
+            + editor.cursorAnimation.cursorAnimValid
+            + " animRunning="
+            + editor.cursorAnimation.cursorAnimRunning);
   }
 
   /**
@@ -77,6 +104,21 @@ public class CursorHandle {
     }
 
     updateCursorHandlePosition();
+    Log.i(
+        "CursorDbg",
+        "draw"
+            + " rect="
+            + cursorHandleRect.left
+            + ","
+            + cursorHandleRect.top
+            + ","
+            + cursorHandleRect.right
+            + ","
+            + cursorHandleRect.bottom
+            + " cursorLine="
+            + cursor.cursorLine
+            + " cursorChar="
+            + cursor.cursorChar);
 
     Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     paint.setColor(cursorHandleColor);

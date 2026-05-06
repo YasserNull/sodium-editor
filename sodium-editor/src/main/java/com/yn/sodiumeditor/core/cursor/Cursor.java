@@ -432,11 +432,13 @@ public float baseCursorWidthPx = cursorWidth;
    */
   public void invalidateCursorArea() {
     FunctionLog.f("Cursor", "invalidateCursorArea");
+    RectF oldHandleRect = new RectF(editor.cursorHandle.cursorHandleRect);
     // Update animation target immediately regardless of current state
     // The animation system now handles redirection internally.
     float targetX = editor.caret.getCaretDocumentX();
     float targetY = editor.caret.getCaretDocumentY();
     editor.cursorAnimation.updateCursorDrawPosition(targetX, targetY);
+    editor.cursorHandle.updateCursorHandlePosition();
     
     if (editor.wordWrap.isWordWrapEnabled) {
       editor.invalidate();
@@ -444,7 +446,66 @@ public float baseCursorWidthPx = cursorWidth;
     }
     int idx = editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.getVisibleIndexForGlobalLine(cursorLine) : cursorLine;
     float top = (idx * editor.textRender.lineHeight) - editor.scroll.scrollY;
-    editor.invalidate(0, (int) Math.floor(top), editor.getWidth(), (int) Math.ceil(top + editor.textRender.lineHeight));
+    Rect dirty = new Rect(
+            0,
+            (int) Math.floor(top),
+            editor.getWidth(),
+            (int) Math.ceil(top + editor.textRender.lineHeight));
+    dirty.union(
+            (int) Math.floor(oldHandleRect.left),
+            (int) Math.floor(oldHandleRect.top),
+            (int) Math.ceil(oldHandleRect.right),
+            (int) Math.ceil(oldHandleRect.bottom));
+    RectF newHandleRect = editor.cursorHandle.cursorHandleRect;
+    dirty.union(
+            (int) Math.floor(newHandleRect.left),
+            (int) Math.floor(newHandleRect.top),
+            (int) Math.ceil(newHandleRect.right),
+            (int) Math.ceil(newHandleRect.bottom));
+    Log.i(
+            "CursorDbg",
+            "invalidate"
+                    + " cursorLine="
+                    + cursorLine
+                    + " cursorChar="
+                    + cursorChar
+                    + " targetX="
+                    + targetX
+                    + " targetY="
+                    + targetY
+                    + " idx="
+                    + idx
+                    + " dirty="
+                    + dirty.left
+                    + ","
+                    + dirty.top
+                    + ","
+                    + dirty.right
+                    + ","
+                    + dirty.bottom
+                    + " oldHandle="
+                    + oldHandleRect.left
+                    + ","
+                    + oldHandleRect.top
+                    + ","
+                    + oldHandleRect.right
+                    + ","
+                    + oldHandleRect.bottom
+                    + " newHandle="
+                    + newHandleRect.left
+                    + ","
+                    + newHandleRect.top
+                    + ","
+                    + newHandleRect.right
+                    + ","
+                    + newHandleRect.bottom
+                    + " animEnabled="
+                    + editor.cursorAnimation.isCursorAnimationEnabled
+                    + " animValid="
+                    + editor.cursorAnimation.cursorAnimValid
+                    + " animRunning="
+                    + editor.cursorAnimation.cursorAnimRunning);
+    editor.invalidate(dirty);
   }
 
 }

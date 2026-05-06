@@ -320,6 +320,19 @@ public class EditorActions {
                 editor.cursor.cursorChar = safeStart;
                 editor.view.computeWidthForLine(editor.cursor.cursorLine, modified);
                 editor.view.invalidateLineGlobal(editor.cursor.cursorLine);
+                editor.cursor.invalidateCursorArea();
+                Log.i(
+                        "CursorDbg",
+                        "deleteBack"
+                                + " line="
+                                + editor.cursor.cursorLine
+                                + " char="
+                                + editor.cursor.cursorChar
+                                + " removed='"
+                                + removed
+                                + "' modified='"
+                                + modified
+                                + "'");
 
                 EditOp op = new EditOp();
                 op.startLine = beforeLine; op.startChar = safeStart;
@@ -382,6 +395,16 @@ public class EditorActions {
                 editor.view.computeWidthForLine(prevGlobal, merged);
                 operators.lineCountDelta -= 1;
                 Log.i(
+                        "CursorDbg",
+                        "deleteMerge"
+                                + " line="
+                                + editor.cursor.cursorLine
+                                + " char="
+                                + editor.cursor.cursorChar
+                                + " merged='"
+                                + merged
+                                + "'");
+                Log.i(
                         "LineNumber",
                         "deleteCharAtCursor mergeLines"
                                 + " prevGlobal="
@@ -399,6 +422,7 @@ public class EditorActions {
                                 + "'");
                 editor.wordWrap.onLineCountChanged();
                 editor.lineNumber.invalidateLineNumberCache();
+                editor.cursor.invalidateCursorArea();
                 editor.invalidate();
 
                 EditOp op = new EditOp();

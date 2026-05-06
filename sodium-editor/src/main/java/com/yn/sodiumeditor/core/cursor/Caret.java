@@ -6,6 +6,7 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import com.yn.sodiumeditor.core.fold.CodeFold;
 import com.yn.sodiumeditor.utils.FunctionLog;
 
@@ -129,6 +130,25 @@ public class Caret {
       right += editor.lineNumber.lineNumbersGutterWidth;
     }
 
+    Log.i(
+        "CursorDbg",
+        "caretDraw"
+            + " docX="
+            + cx
+            + " docY="
+            + cy
+            + " left="
+            + left
+            + " top="
+            + top
+            + " right="
+            + right
+            + " bottom="
+            + bottom
+            + " cursorLine="
+            + cursor.cursorLine
+            + " cursorChar="
+            + cursor.cursorChar);
     caretPaint.setColor(caretColor);
     canvas.drawRect(left, top, right, bottom, caretPaint);
   }
