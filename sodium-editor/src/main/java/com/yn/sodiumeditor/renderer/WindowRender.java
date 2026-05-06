@@ -2,6 +2,7 @@ package com.yn.sodiumeditor.renderer;
 
 import android.util.SparseIntArray;
 import android.util.SparseArray;
+import android.util.Log;
 
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.StreamedCharSlice;
@@ -404,6 +405,7 @@ public class WindowRender {
             int oldRangeLineCount = eL - sL + 1;
             int newRangeLineCount = parts.length;
             int delta = newRangeLineCount - oldRangeLineCount;
+            int expectedNewLineCount = Math.max(1, oldLineCount + delta);
 
             if (delta != 0) {
                 editor.editOperators.shifter.shiftModifiedLines(sL + 1, delta);
@@ -427,13 +429,16 @@ public class WindowRender {
             editor.cursor.cursorLine = Math.max(0, target.line);
             editor.cursor.cursorChar = Math.max(0, target.ch);
 
-            int newLineCount = editor.view.getLinesCount();
+            int newLineCount = expectedNewLineCount;
             if (editor.lineNumber.showLineNumbers
                     && oldLineCount > 0
                     && String.valueOf(oldLineCount).length() != String.valueOf(newLineCount).length()) {
                 editor.requestLayout();
             }
-            editor.wordWrap.onLineCountChanged();
+            if (delta != 0) {
+                editor.wordWrap.onLineCountChanged();
+            }
+            editor.lineNumber.invalidateLineNumberCache();
 
             recalculateMaxLineWidth(); // Corrected this.editor.windowRender.recalculateMaxLineWidth to local call
         }
@@ -459,6 +464,8 @@ public class WindowRender {
             String right = endLine.substring(endIdx);
 
             String merged = left + right;
+            int delta = sL - eL;
+            int expectedNewLineCount = Math.max(1, oldLineCount + delta);
 
             linesWindow.set(sLocal, merged);
             if (eLocal > sLocal) {
@@ -472,10 +479,33 @@ public class WindowRender {
             editor.cursor.cursorChar = left.length();
 
             recalculateMaxLineWidth(); // Corrected this.editor.windowRender.recalculateMaxLineWidth to local call
-            int newLineCount = editor.view.getLinesCount();
-            if (oldLineCount != newLineCount) {
+            if (editor.lineNumber.showLineNumbers
+                    && oldLineCount > 0
+                    && String.valueOf(oldLineCount).length() != String.valueOf(expectedNewLineCount).length()) {
+                editor.requestLayout();
+            }
+            if (delta != 0) {
                 editor.wordWrap.onLineCountChanged();
             }
+            editor.lineNumber.invalidateLineNumberCache();
+            Log.i(
+                    "LineNumber",
+                    "applyMultiLineDeleteInWindowNow"
+                            + " sL="
+                            + sL
+                            + " eL="
+                            + eL
+                            + " windowSize="
+                            + linesWindow.size()
+                            + " delta="
+                            + delta
+                            + " merged='"
+                            + merged
+                            + "' line0='"
+                            + getLineTextForRender(0)
+                            + "' line1='"
+                            + getLineTextForRender(1)
+                            + "'");
         }
     }
 

@@ -1,6 +1,7 @@
 package com.yn.sodiumeditor.core.selection;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.inputmethod.InputMethodManager;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
@@ -218,6 +219,21 @@ public class SelectionActionHandler {
     private void finalizeAction(int remNl, int insNl, int sL, int sC, int eL, int eC, String rem, String ins, int bL, int bC) {
         FunctionLog.f("SelectionActionHandler", "finalizeAction", remNl, insNl, sL, sC, eL, eC, rem, ins, bL, bC);
         editor.autoCompletion.updateSuggestion(); editor.editOperators.lineCountDelta += (insNl - remNl);
+        Log.i(
+                "LineNumber",
+                "finalizeAction"
+                        + " remNl="
+                        + remNl
+                        + " insNl="
+                        + insNl
+                        + " newDelta="
+                        + editor.editOperators.lineCountDelta
+                        + " line0='"
+                        + editor.windowRender.getLineTextForRender(0)
+                        + "' line1='"
+                        + editor.windowRender.getLineTextForRender(1)
+                        + "' windowSize="
+                        + editor.windowRender.linesWindow.size());
         selection.recordReplaceSelectionEdit(sL, sC, eL, eC, rem, ins, bL, bC);
     }
 }

@@ -1,5 +1,6 @@
 package com.yn.sodiumeditor.core.linenumber;
 
+import android.util.Log;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.utils.FunctionLog;
 
@@ -32,9 +33,8 @@ public class LineNumberSelection {
         editor.selection.state.isLineNumberSelecting = true;
         editor.selection.state.lineNumberSelectAnchorLine = clamped;
         editor.selection.syncFromState();
-        
-        String text = editor.windowRender.getLineTextForRender(clamped);
-        if (text != null) editor.selection.setSelectionInternal(clamped, 0, clamped, text.length());
+
+        applyWholeLineSelection(clamped, clamped, total);
         editor.invalidate();
     }
 
@@ -48,9 +48,8 @@ public class LineNumberSelection {
         int anchor = editor.selection.state.lineNumberSelectAnchorLine;
         int startLine = Math.min(anchor, clamped);
         int endLine = Math.max(anchor, clamped);
-        
-        String endText = editor.windowRender.getLineTextForRender(endLine);
-        editor.selection.setSelectionInternal(startLine, 0, endLine, (endText != null ? endText.length() : 0));
+
+        applyWholeLineSelection(startLine, endLine, total);
         editor.invalidate();
     }
 
@@ -59,5 +58,54 @@ public class LineNumberSelection {
         editor.selection.state.isLineNumberSelecting = false;
         editor.selection.state.lineNumberSelectAnchorLine = -1;
         editor.selection.syncFromState();
+    }
+
+    private void applyWholeLineSelection(int startLine, int endLine, int totalLines) {
+        int safeStart = Math.max(0, Math.min(startLine, totalLines - 1));
+        int safeEnd = Math.max(safeStart, Math.min(endLine, totalLines - 1));
+
+        if (safeEnd < totalLines - 1) {
+            editor.selection.setSelectionInternal(safeStart, 0, safeEnd + 1, 0);
+            Log.i(
+                    "LineNumber",
+                    "applyWholeLineSelection forward startLine="
+                            + safeStart
+                            + " endLine="
+                            + safeEnd
+                            + " selectEndLine="
+                            + (safeEnd + 1)
+                            + " selectEndChar=0");
+            return;
+        }
+
+        if (safeStart > 0) {
+            String prevText = editor.windowRender.getLineTextForRender(safeStart - 1);
+            int prevLen = (prevText != null) ? prevText.length() : 0;
+            String endText = editor.windowRender.getLineTextForRender(safeEnd);
+            int endLen = (endText != null) ? endText.length() : 0;
+            editor.selection.setSelectionInternal(safeStart - 1, prevLen, safeEnd, endLen);
+            Log.i(
+                    "LineNumber",
+                    "applyWholeLineSelection lastLine startLine="
+                            + safeStart
+                            + " endLine="
+                            + safeEnd
+                            + " selectStartLine="
+                            + (safeStart - 1)
+                            + " selectStartChar="
+                            + prevLen
+                            + " selectEndChar="
+                            + endLen);
+            return;
+        }
+
+        String endText = editor.windowRender.getLineTextForRender(safeEnd);
+        editor.selection.setSelectionInternal(safeStart, 0, safeEnd, (endText != null ? endText.length() : 0));
+        Log.i(
+                "LineNumber",
+                "applyWholeLineSelection singleLine startLine="
+                        + safeStart
+                        + " endLine="
+                        + safeEnd);
     }
 }

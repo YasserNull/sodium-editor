@@ -26,7 +26,9 @@ android {
       if (!runRobolectric) {
         t.filter {
           setFailOnNoMatchingTests(false)
+          excludeTestsMatching "com.yn.sodiumeditor.test.CodeFoldSimulationTest"
           excludeTestsMatching "com.yn.sodiumeditor.test.DeepEditorTest"
+          excludeTestsMatching "com.yn.sodiumeditor.test.EmojiBugReproductionTest"
           excludeTestsMatching "com.yn.sodiumeditor.test.RealFileDeleteLineTest"
         }
       }

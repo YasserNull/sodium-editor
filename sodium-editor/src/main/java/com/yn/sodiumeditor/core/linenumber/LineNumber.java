@@ -4,6 +4,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Typeface;
+import android.util.Log;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.LineNumberCache;
@@ -269,8 +270,31 @@ public class LineNumber {
     public void drawLineNumbersCachedUnwrapped(Canvas canvas, int fI, int lI, int fL, int lL) {
         FunctionLog.f("LineNumber", "drawLineNumbersCachedUnwrapped", canvas, fI, lI, fL, lL);
         if (!cache.shouldUseCache()) { render.drawLineNumbersDirectUnwrapped(canvas, fI, lI, fL, lL); return; }
-        int drawLastI = editor.codeFold.isCodeFoldingEnabled ? Math.min(lI + 1, Math.max(0, editor.codeFold.getVisibleLineCount() - 1)) : lI;
-        int drawLastL = !editor.codeFold.isCodeFoldingEnabled ? Math.min(lL + 1, Math.max(0, editor.view.getLinesCount() - 1)) : lL;
+        int totalLines = Math.max(1, editor.view.getLinesCount());
+        int safeVisibleCount = Math.max(1, Math.min(editor.codeFold.getVisibleLineCount(), totalLines));
+        int drawLastI = editor.codeFold.isCodeFoldingEnabled
+                ? Math.min(lI, safeVisibleCount - 1)
+                : Math.min(lI, totalLines - 1);
+        int drawLastL = Math.min(lL, totalLines - 1);
+        Log.i(
+                "LineNumber",
+                "draw cached unwrapped"
+                        + " fI="
+                        + fI
+                        + " lI="
+                        + lI
+                        + " fL="
+                        + fL
+                        + " lL="
+                        + lL
+                        + " drawLastI="
+                        + drawLastI
+                        + " drawLastL="
+                        + drawLastL
+                        + " totalLines="
+                        + totalLines
+                        + " visibleCount="
+                        + safeVisibleCount);
         int gw = Math.max(1, Math.round(lineNumbersGutterWidth));
         float pad = editor.textRender.lineHeight;
         int h = editor.getHeight() + Math.round(pad * 2f);

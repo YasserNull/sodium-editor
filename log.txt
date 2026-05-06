@@ -1,0 +1,554 @@
+SDK: 35
+PRODUCT_NAME: sapphire_global
+DEVICE_NAME: sapphire
+BOARD_NAME: bengal
+SUPPORTED_ABIS: arm64-v8a, armeabi-v7a, armeabi
+MANUFACTURER: Xiaomi
+BRAND: Redmi
+MODEL: 23129RAA4G
+
+1778041914.821 10478  1245  1245 I getCaretDocumentX: Caret.getCaretDocumentX []
+1778041914.822 10478  1245  1245 I measureTextWithVisualSpaces: TextRender.measureTextWithVisualSpaces [console.log(1), 0, 0, android.graphics.Paint@4901ebc]
+1778041914.822 10478  1245  1245 I getCaretDocumentY: Caret.getCaretDocumentY []
+1778041914.822 10478  1245  1245 I getTextStartX: Layout.getTextStartX []
+1778041915.324 10478  1245  1245 I invalidateCursorArea: Cursor.invalidateCursorArea []
+1778041915.324 10478  1245  1245 I getLineTextForRender: WindowRender.getLineTextForRender [0]
+1778041915.324 10478  1245  1245 I getLineFromWindowLocal: WindowRender.getLineFromWindowLocal [0]
+1778041915.325 10478  1245  1245 I getVisibleIndexForGlobalLine: CodeFold.getVisibleIndexForGlobalLine [0]
+1778041915.325 10478  1245  1245 I rebuildFoldIntervalsIfNeeded: CodeFold.rebuildFoldIntervalsIfNeeded []
+1778041915.325 10478  1245  1245 I updateCursorDrawPosition: CursorAnimation.updateCursorDrawPosition [0.0, 0.0]
+1778041915.827 10478  1245  1245 I getCaretDocumentX: Caret.getCaretDocumentX []
+1778041915.827 10478  1245  1245 I measureTextWithVisualSpaces: TextRender.measureTextWithVisualSpaces [console.log(1), 0, 0, android.graphics.Paint@4901ebc]
+1778041915.827 10478  1245  1245 I getCaretDocumentY: Caret.getCaretDocumentY []
+1778041915.827 10478  1245  1245 I getTextStartX: Layout.getTextStartX []
+1778041915.885 10478  1245  1245 I ForceDarkHelperStubImpl: setViewRootImplForceDark: false for com.yn.simplesodiumeditor.MainActivity@c95d8cd, reason: AppDarkModeEnable
+1778041915.903 10478  1245  1258 D AppScoutStateMachine: 1245-ScoutStateMachinecreated
+1778041915.904 10478  1245  1258 D ActivityThread: handleBoundsCompatInfoChanged remove: name=com.yn.simplesodiumeditor
+1778041915.942 10478  1245  1245 D SecurityManager: checkAccessControl flag1
+1778041915.988 10478  1245  1245 W libc    : Access denied finding property "vendor.display.enable_optimal_refresh_rate"
+1778041915.987 10478  1245  1245 W plesodiumeditor: type=1400 audit(0.0:185927): avc:  denied  { read } for  name="u:object_r:vendor_display_prop:s0" dev="tmpfs" ino=550 scontext=u:r:untrusted_app:s0:c222,c257,c512,c768 tcontext=u:object_r:vendor_display_prop:s0 tclass=file permissive=0 app=com.yn.simplesodiumeditor
+1778041915.992 10478  1245  1245 D VRI[MainActivity]: vri.reportNextDraw android.view.ViewRootImpl.performTraversals:4923 android.view.ViewRootImpl.doTraversal:3553 android.view.ViewRootImpl$TraversalRunnable.run:11520 android.view.Choreographer$CallbackRecord.run:1730 android.view.Choreographer$CallbackRecord.run:1739
+1778041915.992 10478  1245  1245 D VRI[MainActivity]: vri.Setup new sync=wmsSync-VRI[MainActivity]#8
+1778041916.003 10478  1245  1245 I computeScroll: Scroll.computeScroll []
+1778041916.004 10478  1245  1245 I drawContent: ViewRender.drawContent [android.graphics.RecordingCanvas@39b6826]
+1778041916.004 10478  1245  1245 I getVisibleLineCount: CodeFold.getVisibleLineCount []
+1778041916.005 10478  1245  1245 I beginRenderFrame: BracketGuides.beginRenderFrame [0, 1, 0, 1]
+1778041916.005 10478  1245  1245 I beginRenderFrame: BracketGuideDraw.beginRenderFrame [0, 1, 0, 1]
+1778041916.005 10478  1245  1245 I ensureBracketGuideCacheForWindow: BracketGuides.ensureBracketGuideCacheForWindow [0, 1, 0, 1, null]
+1778041916.005 10478  1245  1245 I setFrameFastScroll: BracketGuides.setFrameFastScroll [false]
+1778041916.005 10478  1245  1245 I setFrameFastScroll: BracketGuideDraw.setFrameFastScroll [false]
+1778041916.006 10478  1245  1245 I drawContentUnfolded: ViewRender.drawContentUnfolded [android.graphics.RecordingCanvas@39b6826, false]
+1778041916.006 10478  1245  1245 I mapVisibleIndexToGlobal: CodeFold.mapVisibleIndexToGlobal [0]
+1778041916.007 10478  1245  1245 I getGutterStartX: LineNumber.getGutterStartX []
+1778041916.007 10478  1245  1245 I drawlineNumbersCachedUnwrapped: TextRender.drawlineNumbersCachedUnwrapped [android.graphics.RecordingCanvas@39b6826, 0, 1, 0, 1]
+1778041916.007 10478  1245  1245 I drawLineNumbersCachedUnwrapped: LineNumber.drawLineNumbersCachedUnwrapped [android.graphics.RecordingCanvas@39b6826, 0, 1, 0, 1]
+1778041916.007 10478  1245  1245 I shouldUseCache: LineNumberCache.shouldUseCache []
+1778041916.008 10478  1245  1245 I needsRebuild: LineNumberCache.needsRebuild [86, 2292, 0, 1, -42.1875, false]
+1778041916.009 10478  1245  1245 I drawCurrentLineNumberUnwrapped: LineNumber.drawCurrentLineNumberUnwrapped [android.graphics.RecordingCanvas@39b6826, 0, 1]
+1778041916.009 10478  1245  1245 I isLineHidden: CodeFold.isLineHidden [0]
+1778041916.009 10478  1245  1245 I drawFoldMarkersForVisibleLines: CodeFoldRender.drawFoldMarkersForVisibleLines [android.graphics.RecordingCanvas@39b6826, 0, 1]
+1778041916.010 10478  1245  1245 I isPotentialFoldStart: CodeFoldDetector.isPotentialFoldStart [0]
+1778041916.010 10478  1245  1245 I shouldShowFoldMarkerFromLine: CodeFoldDetector.shouldShowFoldMarkerFromLine [console.log(1)]
+1778041916.010 10478  1245  1245 I findLastUnclosedFoldTokenInLine: CodeFoldDetector.findLastUnclosedFoldTokenInLine [console.log(1), 0]
+1778041916.010 10478  1245  1245 I isLineCommentStart: Highlite.isLineCommentStart [console.log(1), 0]
+1778041916.011 10478  1245  1245 I isLineCommentStart: HighlightParser.isLineCommentStart [console.log(1), 0]
+1778041916.011 10478  1245  1245 I isIndentFoldCandidate: CodeFoldDetector.isIndentFoldCandidate [console.log(1)]
+1778041916.011 10478  1245  1245 I rstripWhitespace: CodeFoldDetector.rstripWhitespace [console.log(1)]
+1778041916.013 10478  1245  1245 I getAnimatedVisualIndex: CurrentLineHighlight.getAnimatedVisualIndex []
+1778041916.013 10478  1245  1245 I getAnimatedVisualIndex: CurrentLineHighlightAnimation.getAnimatedVisualIndex []
+1778041916.013 10478  1245  1245 I checkAndStartAnimation: CurrentLineHighlightAnimation.checkAndStartAnimation []
+1778041916.013 10478  1245  1245 I getTargetVisualIndex: CurrentLineHighlightAnimation.getTargetVisualIndex []
+1778041916.014 10478  1245  1245 I getEffectiveScrollX: Scroll.getEffectiveScrollX []
+1778041916.014 10478  1245  1245 I drawTextContent: ViewRender.drawTextContent [android.graphics.RecordingCanvas@39b6826, 0, 1, 0, 1, true, false, false]
+1778041916.014 10478  1245  1245 I getFoldRangeAtStart: CodeFold.getFoldRangeAtStart [0]
+1778041916.015 10478  1245  1245 I drawFoldedContent: CodeFoldRender.drawFoldedContent [android.graphics.RecordingCanvas@39b6826, 0, 1, 0, 1, null, null, null, true, false, null]
+1778041916.015 10478  1245  1245 I rebuildIndentGuideIntervalsIfNeeded: IndentGuides.rebuildIndentGuideIntervalsIfNeeded []
+1778041916.015 10478  1245  1245 I getLineTextForRenderWithDirect: CodeFoldRender.getLineTextForRenderWithDirect [0, null]
+1778041916.015 10478  1245  1245 I getDrawLineTop: TextRender.getDrawLineTop [0]
+1778041916.016 10478  1245  1245 I drawColorCodeBackgrounds: ViewRender.drawColorCodeBackgrounds [android.graphics.RecordingCanvas@39b6826, console.log(1), 0]
+1778041916.016 10478  1245  1245 I drawColorCodeBackgrounds: ColorCodeHighlight.drawColorCodeBackgrounds [android.graphics.RecordingCanvas@39b6826, console.log(1), 0]
+1778041916.016 10478  1245  1245 I getDrawLineBottom: TextRender.getDrawLineBottom [0]
+1778041916.017 10478  1245  1245 I drawSearchHighlightsForLine: ViewRender.drawSearchHighlightsForLine [android.graphics.RecordingCanvas@39b6826, console.log(1), 0, 0.0, 42.0]
+1778041916.017 10478  1245  1245 I drawHighlightedLine: TextRender.drawHighlightedLine [android.graphics.RecordingCanvas@39b6826, console.log(1), 0, 33.0]
+1778041916.017 10478  1245  1245 I drawHighlightedLine: HighliteRender.drawHighlightedLine [android.graphics.RecordingCanvas@39b6826, console.log(1), 0, 33.0]
+1778041916.017 10478  1245  1245 I getVisibleCharRangeForLine: TextRender.getVisibleCharRangeForLine [console.log(1), 0, [I@9c9f5ef]
+1778041916.018 10478  1245  1245 I getStreamedLineLength: WindowRender.getStreamedLineLength [0]
+1778041916.018 10478  1245  1245 I isUrlUnderliningActive: UrlUnderline.isUrlUnderliningActive []
+1778041916.018 10478  1245  1245 I getUrlUnderlineSpansForLine: UrlUnderline.getUrlUnderlineSpansForLine [console.log(1), 0]
+1778041916.019 10478  1245  1245 I isPathUnderliningActive: PathUnderline.isPathUnderliningActive []
+1778041916.019 10478  1245  1245 I getPathUnderlineSpansForLine: PathUnderline.getPathUnderlineSpansForLine [console.log(1), 0]
+1778041916.019 10478  1245  1245 I drawTextSegmentWithFadeAndUnderlines: TextRender.drawTextSegmentWithFadeAndUnderlines [android.graphics.RecordingCanvas@39b6826, console.log(1), 0, 14, 0.0, 33.0, android.graphics.Paint@4901ebc, -1, -1, 1.0, [], 0.0, 42.1875]
+1778041916.019 10478  1245  1245 I drawTextSegmentWithFadeAndUnderlines: TextLineDraw.drawTextSegmentWithFadeAndUnderlines [android.graphics.RecordingCanvas@39b6826, console.log(1), 0, 14, 0.0, 33.0, android.graphics.Paint@4901ebc, -1, -1, 1.0, [], 0.0, 42.1875]
+1778041916.020 10478  1245  1245 I drawTextSegmentWithFade: TextLineDraw.drawTextSegmentWithFade [android.graphics.RecordingCanvas@39b6826, console.log(1), 0, 14, 0.0, 33.0, android.graphics.Paint@4901ebc, -1, -1, 1.0]
+1778041916.021 10478  1245  1245 I getVisualSpaceScale: TextRender.getVisualSpaceScale []
+1778041916.022 10478  1245  1245 I drawErrorUnderlinesForLine: ErrorUnderline.drawErrorUnderlinesForLine [android.graphics.RecordingCanvas@39b6826, console.log(1), 0, 33.0, 0.0, 42.1875]
+1778041916.022 10478  1245  1245 I drawWhitespaceGuidesForLine: TextRender.drawWhitespaceGuidesForLine [android.graphics.RecordingCanvas@39b6826, console.log(1), 0, 33.0]
+1778041916.022 10478  1245  1245 I drawWhitespaceGuidesForLine: WhitespaceGuides.drawWhitespaceGuidesForLine [android.graphics.RecordingCanvas@39b6826, console.log(1), 0, 33.0]
+1778041916.022 10478  1245  1245 I drawIndentGuidesForLine: IndentGuides.drawIndentGuidesForLine [android.graphics.RecordingCanvas@39b6826, console.log(1), 0]
+1778041916.022 10478  1245  1245 I drawAutoSuggestion: AutoCompletion.drawAutoSuggestion [android.graphics.RecordingCanvas@39b6826, console.log(1), 0, 33.0]
+1778041916.022 10478  1245  1245 I drawBracketMatchForLine: BracketMatchManager.drawBracketMatchForLine [android.graphics.RecordingCanvas@39b6826, console.log(1), 0, null]
+1778041916.023 10478  1245  1245 I drawCaret: Caret.drawCaret [android.graphics.RecordingCanvas@39b6826]
+1778041916.023 10478  1245  1245 I drawCursorHandle: CursorHandle.drawCursorHandle [android.graphics.RecordingCanvas@39b6826]
+1778041916.023 10478  1245  1245 I updateCursorHandlePosition: CursorHandle.updateCursorHandlePosition []
+1778041916.024 10478  1245  1245 I endRenderFrameMaybeLog: BracketGuides.endRenderFrameMaybeLog []
+1778041916.024 10478  1245  1245 I endRenderFrameMaybeLog: BracketGuideDraw.endRenderFrameMaybeLog []
+1778041916.024 10478  1245  1245 I draw    : ScrollBar.draw [android.graphics.RecordingCanvas@39b6826]
+1778041916.024 10478  1245  1245 I drawStretch: Scroll.drawStretch [android.graphics.RecordingCanvas@39b6826]
+1778041916.024 10478  1245  1245 I drawStretch: Stretch.drawStretch [android.graphics.RecordingCanvas@39b6826]
+1778041916.024 10478  1245  1245 I drawEdge: Scroll.drawEdge [android.graphics.RecordingCanvas@39b6826]
+1778041916.024 10478  1245  1245 I draw    : Edge.draw [android.graphics.RecordingCanvas@39b6826]
+1778041916.024 10478  1245  1245 I drawScrollBar: Scroll.drawScrollBar [android.graphics.RecordingCanvas@39b6826]
+1778041916.029 10478  1245  1245 D VRI[MainActivity]: vri.reportDrawFinished
+1778041916.075 10478  1245  1245 I HandWritingStubImpl: refreshLastKeyboardType: 1
+1778041916.076 10478  1245  1245 I onCreateInputConnection: Ime.onCreateInputConnection [android.view.inputmethod.EditorInfo@75360d8]
+1778041916.076 10478  1245  1245 I buildImeContext: ImeScanner.buildImeContext [2048, 2048]
+1778041916.076 10478  1245  1245 I openImeRandomAccessFile: ImeScanner.openImeRandomAccessFile []
+1778041916.079 10478  1245  1245 I moveCursorByCharsForIme: ImeScanner.moveCursorByCharsForIme [0, 0, -2048, java.io.RandomAccessFile@5123c31]
+1778041916.080 10478  1245  1245 I clampLineCharToDocument: ImeScanner.clampLineCharToDocument [0, 0, java.io.RandomAccessFile@5123c31]
+1778041916.080 10478  1245  1245 I getLineTextForImeScan: ImeScanner.getLineTextForImeScan [0, java.io.RandomAccessFile@5123c31]
+1778041916.080 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.080 10478  1245  1245 I CursorTarget: CursorTarget.CursorTarget [0, 0]
+1778041916.080 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.080 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.080 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.080 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from linesWindow: 'console.log(2)'
+1778041916.080 10478  1245  1245 I buildRangeTextForIme: ImeScanner.buildRangeTextForIme [com.yn.sodiumeditor.input.CursorTarget@600bf16, com.yn.sodiumeditor.input.CursorTarget@98e4097, java.io.RandomAccessFile@5123c31]
+1778041916.080 10478  1245  1245 I comparePos: ImeScanner.comparePos [0, 0, 1, 14]
+1778041916.080 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.080 10478  1245  1245 I ImeContext: buildRangeTextForIme: line 0 = 'console.log(1)' (modifiedLines.contains=false)
+1778041916.081 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from linesWindow: 'console.log(2)'
+1778041916.081 10478  1245  1245 I ImeContext: buildRangeTextForIme: line 1 = 'console.log(2)' (modifiedLines.contains=false)
+1778041916.081 10478  1245  1245 I ImeContext: buildImeContext: cursor=(0,0) text.length=29 text preview: 'console.log(1)
+1778041916.081 10478  1245  1245 I ImeContext: console.log(2)'
+1778041916.081 10478  1245  1245 I ImeContext: ImeContext.ImeContext [0, 0, console.log(1)
+1778041916.081 10478  1245  1245 I ImeContext: console.log(2)]
+1778041916.081 10478  1245  1245 I buildExtractedTextFromContext: ImeScanner.buildExtractedTextFromContext [com.yn.sodiumeditor.input.ImeContext@509b284]
+1778041916.082 10478  1245  1245 I lineCharToOffsetInContext: ImeScanner.lineCharToOffsetInContext [com.yn.sodiumeditor.input.ImeContext@509b284, 0, 0]
+1778041916.083 10478  1245  1245 I SodiumInputConnection: SodiumInputConnection.SodiumInputConnection [com.yn.sodiumeditor.SodiumEditor{38f128e VFED..... .F...... 0,192-1080,2400 #7f080053 app:id/editor aid=1073741824}, com.yn.sodiumeditor.input.Ime@65a9bdb]
+1778041916.083 10478  1245  1245 I HandWritingStubImpl: getCurrentKeyboardType: 1
+1778041916.138 10478  1245  1245 I getSurroundingText: SodiumInputConnection.getSurroundingText [600, 600, 1]
+1778041916.142 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.142 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.142 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.142 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.142 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from linesWindow: 'console.log(2)'
+1778041916.142 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.142 10478  1245  1245 I ImeContext: buildRangeTextForIme: line 0 = 'console.log(1)' (modifiedLines.contains=false)
+1778041916.143 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from linesWindow: 'console.log(2)'
+1778041916.143 10478  1245  1245 I ImeContext: buildRangeTextForIme: line 1 = 'console.log(2)' (modifiedLines.contains=false)
+1778041916.143 10478  1245  1245 I ImeContext: buildImeContext: cursor=(0,0) text.length=29 text preview: 'console.log(1)
+1778041916.143 10478  1245  1245 I ImeContext: console.log(2)'
+1778041916.170 10478  1245  1245 I finishComposingText: SodiumInputConnection.finishComposingText []
+1778041916.171 10478  1245  1245 I onFinishComposingText: Ime.onFinishComposingText []
+1778041916.171 10478  1245  1245 I commitComposing: Ime.commitComposing [true]
+1778041916.293 10478  1245  1245 D InsetsController: show(ime(), fromIme=true)
+1778041916.317 10478  1245  1538 D ViewRootImplStubImpl: requestedTypes: 8
+1778041916.326 10478  1245  1245 I keepCursorVisibleHorizontally: Scroll.keepCursorVisibleHorizontally []
+1778041916.326 10478  1245  1245 I rebuildFoldIntervalsIfNeeded: CodeFold.rebuildFoldIntervalsIfNeeded []
+1778041916.326 10478  1245  1245 I getVisibleIndexForGlobalLine: CodeFold.getVisibleIndexForGlobalLine [0]
+1778041916.326 10478  1245  1245 I getKeyboardBarrierPadding: Scroll.getKeyboardBarrierPadding []
+1778041916.326 10478  1245  1245 I getKeyboardBarrierPadding: ScrollBounds.getKeyboardBarrierPadding []
+1778041916.326 10478  1245  1245 I getLineTextForRender: WindowRender.getLineTextForRender [0]
+1778041916.326 10478  1245  1245 I getLineFromWindowLocal: WindowRender.getLineFromWindowLocal [0]
+1778041916.326 10478  1245  1245 I getCaretXForLine: Caret.getCaretXForLine [console.log(1), 0, 0]
+1778041916.326 10478  1245  1245 I getMaxScrollXForClamp: Scroll.getMaxScrollXForClamp []
+1778041916.327 10478  1245  1245 I getMaxScrollXForClamp: ScrollBounds.getMaxScrollXForClamp []
+1778041916.327 10478  1245  1245 I invalidateCursorArea: Cursor.invalidateCursorArea []
+1778041916.328 10478  1245  1245 I updateCursorDrawPosition: CursorAnimation.updateCursorDrawPosition [0.0, 0.0]
+1778041916.329 10478  1245  1538 D ViewRootImplStubImpl: onAnimationStart
+1778041916.347 10478  1245  1538 W InteractionJankMonitor: Initializing without READ_DEVICE_CONFIG permission. enabled=false, interval=1, missedFrameThreshold=3, frameTimeThreshold=64, package=com.yn.simplesodiumeditor
+1778041916.360 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.0
+1778041916.373 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.01191358
+1778041916.382 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.044019386
+1778041916.390 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.089874975
+1778041916.398 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.14451735
+1778041916.407 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.20417123
+1778041916.415 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.2660043
+1778041916.423 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.32792902
+1778041916.432 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.38844135
+1778041916.440 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.44650167
+1778041916.448 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.50141454
+1778041916.457 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.55275697
+1778041916.465 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.6003111
+1778041916.473 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.6440094
+1778041916.482 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.68389404
+1778041916.492 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.72008854
+1778041916.499 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.7527674
+1778041916.508 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.78213966
+1778041916.516 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.80843824
+1778041916.525 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.8319034
+1778041916.532 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.8527714
+1778041916.542 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.87127703
+1778041916.549 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.88764274
+1778041916.558 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.9020818
+1778041916.566 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.91479135
+1778041916.575 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.9259552
+1778041916.582 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.9357422
+1778041916.591 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.94430655
+1778041916.599 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.95178825
+1778041916.608 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.95831335
+1778041916.610 10478  1245  1245 I MIUIInput: [MotionEvent] ViewRootImpl windowName 'com.yn.simplesodiumeditor/com.yn.simplesodiumeditor.MainActivity', { action=ACTION_DOWN, id[0]=0, pointerCount=1, eventTime=101257883, downTime=101257883, phoneEventTime=05:31:56.608 } moveCount:0
+1778041916.611 10478  1245  1245 I onTouchEvent: OnTouch.onTouchEvent [MotionEvent { action=ACTION_DOWN, actionButton=0, id[0]=0, x[0]=434.875, y[0]=40.875, toolType[0]=TOOL_TYPE_FINGER, buttonState=0, classification=NONE, metaState=0, flags=0x0, edgeFlags=0x0, pointerCount=1, historySize=0, eventTime=101257883, downTime=101257883, deviceId=5, source=0x1002, displayId=0, eventId=99298118 }]
+1778041916.611 10478  1245  1245 I handleActionDown: GestureHandler.handleActionDown [MotionEvent { action=ACTION_DOWN, actionButton=0, id[0]=0, x[0]=434.875, y[0]=40.875, toolType[0]=TOOL_TYPE_FINGER, buttonState=0, classification=NONE, metaState=0, flags=0x0, edgeFlags=0x0, pointerCount=1, historySize=0, eventTime=101257883, downTime=101257883, deviceId=5, source=0x1002, displayId=0, eventId=99298118 }]
+1778041916.612 10478  1245  1245 I processGestures: GestureHandler.processGestures [MotionEvent { action=ACTION_DOWN, actionButton=0, id[0]=0, x[0]=434.875, y[0]=40.875, toolType[0]=TOOL_TYPE_FINGER, buttonState=0, classification=NONE, metaState=0, flags=0x0, edgeFlags=0x0, pointerCount=1, historySize=0, eventTime=101257883, downTime=101257883, deviceId=5, source=0x1002, displayId=0, eventId=99298118 }]
+1778041916.612 10478  1245  1245 I resetBlink: Caret.resetBlink []
+1778041916.612 10478  1245  1245 I stopBlink: Caret.stopBlink []
+1778041916.612 10478  1245  1245 I startBlink: Caret.startBlink []
+1778041916.612 10478  1245  1245 I showScrollBar: Scroll.showScrollBar []
+1778041916.612 10478  1245  1245 I show    : ScrollBar.show []
+1778041916.612 10478  1245  1245 I cancelFade: ScrollBar.cancelFade []
+1778041916.613 10478  1245  1245 I handleActionDown: PopupInteractionHandler.handleActionDown [MotionEvent { action=ACTION_DOWN, actionButton=0, id[0]=0, x[0]=434.875, y[0]=40.875, toolType[0]=TOOL_TYPE_FINGER, buttonState=0, classification=NONE, metaState=0, flags=0x0, edgeFlags=0x0, pointerCount=1, historySize=0, eventTime=101257883, downTime=101257883, deviceId=5, source=0x1002, displayId=0, eventId=99298118 }]
+1778041916.613 10478  1245  1245 I handleActionDown: ScrollBarHandler.handleActionDown [MotionEvent { action=ACTION_DOWN, actionButton=0, id[0]=0, x[0]=434.875, y[0]=40.875, toolType[0]=TOOL_TYPE_FINGER, buttonState=0, classification=NONE, metaState=0, flags=0x0, edgeFlags=0x0, pointerCount=1, historySize=0, eventTime=101257883, downTime=101257883, deviceId=5, source=0x1002, displayId=0, eventId=99298118 }]
+1778041916.613 10478  1245  1245 I cancelFlingStopAnimation: Scroll.cancelFlingStopAnimation []
+1778041916.613 10478  1245  1245 I handleActionDown: DragSelectionHandler.handleActionDown [MotionEvent { action=ACTION_DOWN, actionButton=0, id[0]=0, x[0]=434.875, y[0]=40.875, toolType[0]=TOOL_TYPE_FINGER, buttonState=0, classification=NONE, metaState=0, flags=0x0, edgeFlags=0x0, pointerCount=1, historySize=0, eventTime=101257883, downTime=101257883, deviceId=5, source=0x1002, displayId=0, eventId=99298118 }]
+1778041916.613 10478  1245  1245 I hitTest : CursorHandle.hitTest [434.875, 40.875]
+1778041916.613 10478  1245  1245 I onDown  : OnScroll.onDown [MotionEvent { action=ACTION_DOWN, actionButton=0, id[0]=0, x[0]=434.875, y[0]=40.875, toolType[0]=TOOL_TYPE_FINGER, buttonState=0, classification=NONE, metaState=0, flags=0x0, edgeFlags=0x0, pointerCount=1, historySize=0, eventTime=101257883, downTime=101257883, deviceId=5, source=0x1002, displayId=0, eventId=99298118 }]
+1778041916.613 10478  1245  1245 I onDown  : OnDown.onDown [MotionEvent { action=ACTION_DOWN, actionButton=0, id[0]=0, x[0]=434.875, y[0]=40.875, toolType[0]=TOOL_TYPE_FINGER, buttonState=0, classification=NONE, metaState=0, flags=0x0, edgeFlags=0x0, pointerCount=1, historySize=0, eventTime=101257883, downTime=101257883, deviceId=5, source=0x1002, displayId=0, eventId=99298118 }]
+1778041916.615 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.9639955
+1778041916.618 10478  1245  1245 I getMaxScrollYForClamp: Scroll.getMaxScrollYForClamp []
+1778041916.618 10478  1245  1245 I getMaxScrollYForClamp: ScrollBounds.getMaxScrollYForClamp []
+1778041916.624 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.9689366
+1778041916.632 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.9732275
+1778041916.640 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.97694886
+1778041916.649 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.9801723
+1778041916.657 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.98296106
+1778041916.666 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.9853713
+1778041916.674 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.98745173
+1778041916.682 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.98924595
+1778041916.684 10478  1245  1245 I MIUIInput: [MotionEvent] ViewRootImpl windowName 'com.yn.simplesodiumeditor/com.yn.simplesodiumeditor.MainActivity', { action=ACTION_UP, id[0]=0, pointerCount=1, eventTime=101257957, downTime=101257883, phoneEventTime=05:31:56.681 } moveCount:0
+1778041916.685 10478  1245  1245 I handleActionUpOrCancel: DragSelectionHandler.handleActionUpOrCancel []
+1778041916.685 10478  1245  1245 I handleActionUpOrCancel: ScrollBarHandler.handleActionUpOrCancel []
+1778041916.685 10478  1245  1245 I releaseAll: Edge.releaseAll []
+1778041916.685 10478  1245  1245 I releaseStretch: Stretch.releaseStretch []
+1778041916.685 10478  1245  1245 I handleActionUp: PopupInteractionHandler.handleActionUp [MotionEvent { action=ACTION_UP, actionButton=0, id[0]=0, x[0]=434.875, y[0]=40.875, toolType[0]=TOOL_TYPE_FINGER, buttonState=0, classification=NONE, metaState=0, flags=0x0, edgeFlags=0x0, pointerCount=1, historySize=0, eventTime=101257957, downTime=101257883, deviceId=5, source=0x1002, displayId=0, eventId=462415673 }]
+1778041916.685 10478  1245  1245 I handleSuggestionTap: OnTouch.handleSuggestionTap [434.875, 40.875]
+1778041916.685 10478  1245  1245 I getLineTextForRenderWithDirect: WindowRender.getLineTextForRenderWithDirect [0, null]
+1778041916.686 10478  1245  1245 I viewToTextX: Scroll.viewToTextX [434.875]
+1778041916.686 10478  1245  1245 I getCharIndexForX: TextRender.getCharIndexForX [console.log(1), 348.875, 0]
+1778041916.687 10478  1245  1245 I onSingleTapUp: OnScroll.onSingleTapUp [MotionEvent { action=ACTION_UP, actionButton=0, id[0]=0, x[0]=434.875, y[0]=40.875, toolType[0]=TOOL_TYPE_FINGER, buttonState=0, classification=NONE, metaState=0, flags=0x0, edgeFlags=0x0, pointerCount=1, historySize=0, eventTime=101257957, downTime=101257883, deviceId=5, source=0x1002, displayId=0, eventId=462415673 }]
+1778041916.687 10478  1245  1245 I onSingleTapUp: OnSingleTapUp.onSingleTapUp [MotionEvent { action=ACTION_UP, actionButton=0, id[0]=0, x[0]=434.875, y[0]=40.875, toolType[0]=TOOL_TYPE_FINGER, buttonState=0, classification=NONE, metaState=0, flags=0x0, edgeFlags=0x0, pointerCount=1, historySize=0, eventTime=101257957, downTime=101257883, deviceId=5, source=0x1002, displayId=0, eventId=462415673 }]
+1778041916.687 10478  1245  1245 I isInLineNumberGutter: LineNumber.isInLineNumberGutter [434.875]
+1778041916.687 10478  1245  1245 I isInLineNumberGutter: LineNumberSelection.isInLineNumberGutter [434.875]
+1778041916.687 10478  1245  1245 I isFoldPlaceholderHit: CodeFold.isFoldPlaceholderHit [0, console.log(1), 348.875]
+1778041916.688 10478  1245  1245 I setCursorPosition: Cursor.setCursorPosition [0, 14]
+1778041916.689 10478  1245  1245 I showKeyboard: Ime.showKeyboard []
+1778041916.690 10478  1245  1282 I getLineByteLengthFromIndex: FileIndexer.getLineByteLengthFromIndex [java.io.RandomAccessFile@50777fa, 0, 29]
+1778041916.690 10478  1245  1282 I shouldStreamLineLength: WindowRender.shouldStreamLineLength [14]
+1778041916.690 10478  1245  1282 I getStreamLineThreshold: WindowRender.getStreamLineThreshold []
+1778041916.690 10478  1245  1282 I readLineUtf8AtByte: FileIO.readLineUtf8AtByte [java.io.RandomAccessFile@50777fa, 0]
+1778041916.690 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.99079156
+1778041916.692 10478  1245  1245 I ImeTracker: com.yn.simplesodiumeditor:59ad0425: onRequestShow at ORIGIN_CLIENT reason SHOW_SOFT_INPUT fromUser true
+1778041916.692 10478  1245  1245 D InputMethodManager: showSoftInput() view=com.yn.sodiumeditor.SodiumEditor{38f128e VFED..... .F....ID 0,192-1080,2400 #7f080053 app:id/editor aid=1073741824} flags=0 reason=SHOW_SOFT_INPUT
+1778041916.695 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.695 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.695 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.695 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.695 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from linesWindow: 'console.log(2)'
+1778041916.695 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.695 10478  1245  1245 I ImeContext: buildRangeTextForIme: line 0 = 'console.log(1)' (modifiedLines.contains=false)
+1778041916.695 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from linesWindow: 'console.log(2)'
+1778041916.695 10478  1245  1245 I ImeContext: buildRangeTextForIme: line 1 = 'console.log(2)' (modifiedLines.contains=false)
+1778041916.695 10478  1245  1245 I ImeContext: buildImeContext: cursor=(0,14) text.length=29 text preview: 'console.log(1)
+1778041916.695 10478  1245  1245 I ImeContext: console.log(2)'
+1778041916.696 10478  1245  1245 I HandWritingStubImpl: getCurrentKeyboardType: 1
+1778041916.698 10478  1245  1245 I updateSuggestion: AutoCompletion.updateSuggestion []
+1778041916.698 10478  1245  1245 I updateImeSelection: Ime.updateImeSelection []
+1778041916.699 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.99212164
+1778041916.700 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.700 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.700 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.700 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.700 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from linesWindow: 'console.log(2)'
+1778041916.700 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.700 10478  1245  1245 I ImeContext: buildRangeTextForIme: line 0 = 'console.log(1)' (modifiedLines.contains=false)
+1778041916.700 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from linesWindow: 'console.log(2)'
+1778041916.700 10478  1245  1245 I ImeContext: buildRangeTextForIme: line 1 = 'console.log(2)' (modifiedLines.contains=false)
+1778041916.701 10478  1245  1245 I ImeContext: buildImeContext: cursor=(0,14) text.length=29 text preview: 'console.log(1)
+1778041916.701 10478  1245  1245 I ImeContext: console.log(2)'
+1778041916.701 10478  1245  1245 I updateSuggestionInternal: AutoCompletion.updateSuggestionInternal []
+1778041916.701 10478  1245  1245 I getCurrentWordFragment: AutoCompletion.getCurrentWordFragment []
+1778041916.701 10478  1245  1245 I clearActiveSuggestion: AutoCompletion.clearActiveSuggestion []
+1778041916.707 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.9932652
+1778041916.708 10478  1245  1245 I invalidateLineNumberCache: LineNumber.invalidateLineNumberCache []
+1778041916.708 10478  1245  1245 I invalidate: LineNumberCache.invalidate []
+1778041916.708 10478  1245  1245 I invalidateHighlightEnsureRange: Highlite.invalidateHighlightEnsureRange []
+1778041916.708 10478  1245  1245 D InsetsController: show(ime(), fromIme=true)
+1778041916.708 10478  1245  1245 I ImeTracker: com.yn.simplesodiumeditor:59ad0425: onCancelled at PHASE_CLIENT_APPLY_ANIMATION
+1778041916.714 10478  1245  1245 I ensureBitmap: LineNumberCache.ensureBitmap [86, 2292]
+1778041916.715 10478  1245  1245 I updateMetadata: LineNumberCache.updateMetadata [0, 1, -42.1875, false]
+1778041916.715 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.9942475
+1778041916.720 10478  1245  1245 I clampScrollX: Scroll.clampScrollX []
+1778041916.720 10478  1245  1245 I clampScrollX: ScrollBounds.clampScrollX []
+1778041916.722 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.722 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.722 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.722 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.722 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from linesWindow: 'console.log(2)'
+1778041916.722 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from linesWindow: 'console.log(1)'
+1778041916.722 10478  1245  1245 I ImeContext: buildRangeTextForIme: line 0 = 'console.log(1)' (modifiedLines.contains=false)
+1778041916.722 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from linesWindow: 'console.log(2)'
+1778041916.722 10478  1245  1245 I ImeContext: buildRangeTextForIme: line 1 = 'console.log(2)' (modifiedLines.contains=false)
+1778041916.722 10478  1245  1245 I ImeContext: buildImeContext: cursor=(0,14) text.length=29 text preview: 'console.log(1)
+1778041916.722 10478  1245  1245 I ImeContext: console.log(2)'
+1778041916.724 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.9950904
+1778041916.732 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.9958132
+1778041916.741 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.99643236
+1778041916.749 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.9969623
+1778041916.757 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.99741554
+1778041916.762 10478  1245  1245 D InsetsController: show(ime(), fromIme=true)
+1778041916.762 10478  1245  1245 I ImeTracker: com.yn.simplesodiumeditor:8d25d7de: onCancelled at PHASE_CLIENT_APPLY_ANIMATION
+1778041916.766 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.99780285
+1778041916.774 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.99813354
+1778041916.782 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.99841565
+1778041916.791 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.99865615
+1778041916.799 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 0.998861
+1778041916.807 10478  1245  1538 D ViewRootImplStubImpl: onAnimationUpdate, value: 1.0
+1778041916.808 10478  1245  1538 D ViewRootImplStubImpl: onAnimationEnd,canceled: false
+1778041916.812 10478  1245  1245 I ImeTracker: com.yn.simplesodiumeditor:e9ce6bae: onShown
+1778041917.190 10478  1245  1245 I getCaretDocumentX: Caret.getCaretDocumentX []
+1778041917.190 10478  1245  1245 I measureTextWithVisualSpaces: TextRender.measureTextWithVisualSpaces [console.log(1), 0, 14, android.graphics.Paint@4901ebc]
+1778041917.190 10478  1245  1245 I getCaretDocumentY: Caret.getCaretDocumentY []
+1778041917.190 10478  1245  1245 I getTextStartX: Layout.getTextStartX []
+1778041917.200 10478  1245  1245 I computeScroll: Scroll.computeScroll []
+1778041917.201 10478  1245  1245 I drawContent: ViewRender.drawContent [android.graphics.RecordingCanvas@75dc151]
+1778041917.201 10478  1245  1245 I getVisibleLineCount: CodeFold.getVisibleLineCount []
+1778041917.201 10478  1245  1245 I beginRenderFrame: BracketGuides.beginRenderFrame [0, 1, 0, 1]
+1778041917.201 10478  1245  1245 I beginRenderFrame: BracketGuideDraw.beginRenderFrame [0, 1, 0, 1]
+1778041917.201 10478  1245  1245 I ensureBracketGuideCacheForWindow: BracketGuides.ensureBracketGuideCacheForWindow [0, 1, 0, 1, null]
+1778041917.201 10478  1245  1245 I setFrameFastScroll: BracketGuides.setFrameFastScroll [false]
+1778041917.201 10478  1245  1245 I setFrameFastScroll: BracketGuideDraw.setFrameFastScroll [false]
+1778041917.201 10478  1245  1245 I drawContentUnfolded: ViewRender.drawContentUnfolded [android.graphics.RecordingCanvas@75dc151, false]
+1778041917.201 10478  1245  1245 I mapVisibleIndexToGlobal: CodeFold.mapVisibleIndexToGlobal [0]
+1778041917.201 10478  1245  1245 I getGutterStartX: LineNumber.getGutterStartX []
+1778041917.201 10478  1245  1245 I drawlineNumbersCachedUnwrapped: TextRender.drawlineNumbersCachedUnwrapped [android.graphics.RecordingCanvas@75dc151, 0, 1, 0, 1]
+1778041917.201 10478  1245  1245 I drawLineNumbersCachedUnwrapped: LineNumber.drawLineNumbersCachedUnwrapped [android.graphics.RecordingCanvas@75dc151, 0, 1, 0, 1]
+1778041917.201 10478  1245  1245 I shouldUseCache: LineNumberCache.shouldUseCache []
+1778041917.202 10478  1245  1245 I needsRebuild: LineNumberCache.needsRebuild [86, 2292, 0, 1, -42.1875, false]
+1778041917.202 10478  1245  1245 I drawCurrentLineNumberUnwrapped: LineNumber.drawCurrentLineNumberUnwrapped [android.graphics.RecordingCanvas@75dc151, 0, 1]
+1778041917.202 10478  1245  1245 I isLineHidden: CodeFold.isLineHidden [0]
+1778041917.202 10478  1245  1245 I drawFoldMarkersForVisibleLines: CodeFoldRender.drawFoldMarkersForVisibleLines [android.graphics.RecordingCanvas@75dc151, 0, 1]
+1778041917.202 10478  1245  1245 I isPotentialFoldStart: CodeFoldDetector.isPotentialFoldStart [0]
+1778041917.202 10478  1245  1245 I shouldShowFoldMarkerFromLine: CodeFoldDetector.shouldShowFoldMarkerFromLine [console.log(1)]
+1778041917.202 10478  1245  1245 I findLastUnclosedFoldTokenInLine: CodeFoldDetector.findLastUnclosedFoldTokenInLine [console.log(1), 0]
+1778041917.202 10478  1245  1245 I isLineCommentStart: Highlite.isLineCommentStart [console.log(1), 0]
+1778041917.203 10478  1245  1245 I isLineCommentStart: HighlightParser.isLineCommentStart [console.log(1), 0]
+1778041917.203 10478  1245  1245 I isIndentFoldCandidate: CodeFoldDetector.isIndentFoldCandidate [console.log(1)]
+1778041917.203 10478  1245  1245 I rstripWhitespace: CodeFoldDetector.rstripWhitespace [console.log(1)]
+1778041917.203 10478  1245  1245 I getAnimatedVisualIndex: CurrentLineHighlight.getAnimatedVisualIndex []
+1778041917.203 10478  1245  1245 I getAnimatedVisualIndex: CurrentLineHighlightAnimation.getAnimatedVisualIndex []
+1778041917.204 10478  1245  1245 I checkAndStartAnimation: CurrentLineHighlightAnimation.checkAndStartAnimation []
+1778041917.204 10478  1245  1245 I getTargetVisualIndex: CurrentLineHighlightAnimation.getTargetVisualIndex []
+1778041917.204 10478  1245  1245 I getEffectiveScrollX: Scroll.getEffectiveScrollX []
+1778041917.204 10478  1245  1245 I drawTextContent: ViewRender.drawTextContent [android.graphics.RecordingCanvas@75dc151, 0, 1, 0, 1, true, false, false]
+1778041917.204 10478  1245  1245 I getFoldRangeAtStart: CodeFold.getFoldRangeAtStart [0]
+1778041917.204 10478  1245  1245 I drawFoldedContent: CodeFoldRender.drawFoldedContent [android.graphics.RecordingCanvas@75dc151, 0, 1, 0, 1, null, null, null, true, false, null]
+1778041917.204 10478  1245  1245 I rebuildIndentGuideIntervalsIfNeeded: IndentGuides.rebuildIndentGuideIntervalsIfNeeded []
+1778041917.204 10478  1245  1245 I getLineTextForRenderWithDirect: CodeFoldRender.getLineTextForRenderWithDirect [0, null]
+1778041917.204 10478  1245  1245 I getDrawLineTop: TextRender.getDrawLineTop [0]
+1778041917.204 10478  1245  1245 I drawColorCodeBackgrounds: ViewRender.drawColorCodeBackgrounds [android.graphics.RecordingCanvas@75dc151, console.log(1), 0]
+1778041917.204 10478  1245  1245 I drawColorCodeBackgrounds: ColorCodeHighlight.drawColorCodeBackgrounds [android.graphics.RecordingCanvas@75dc151, console.log(1), 0]
+1778041917.205 10478  1245  1245 I getDrawLineBottom: TextRender.getDrawLineBottom [0]
+1778041917.205 10478  1245  1245 I drawSearchHighlightsForLine: ViewRender.drawSearchHighlightsForLine [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 0.0, 42.0]
+1778041917.205 10478  1245  1245 I drawHighlightedLine: TextRender.drawHighlightedLine [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 33.0]
+1778041917.205 10478  1245  1245 I drawHighlightedLine: HighliteRender.drawHighlightedLine [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 33.0]
+1778041917.205 10478  1245  1245 I getVisibleCharRangeForLine: TextRender.getVisibleCharRangeForLine [console.log(1), 0, [I@9c9f5ef]
+1778041917.205 10478  1245  1245 I getStreamedLineLength: WindowRender.getStreamedLineLength [0]
+1778041917.205 10478  1245  1245 I isUrlUnderliningActive: UrlUnderline.isUrlUnderliningActive []
+1778041917.205 10478  1245  1245 I getUrlUnderlineSpansForLine: UrlUnderline.getUrlUnderlineSpansForLine [console.log(1), 0]
+1778041917.205 10478  1245  1245 I isPathUnderliningActive: PathUnderline.isPathUnderliningActive []
+1778041917.205 10478  1245  1245 I getPathUnderlineSpansForLine: PathUnderline.getPathUnderlineSpansForLine [console.log(1), 0]
+1778041917.205 10478  1245  1245 I drawTextSegmentWithFadeAndUnderlines: TextRender.drawTextSegmentWithFadeAndUnderlines [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 14, 0.0, 33.0, android.graphics.Paint@4901ebc, -1, -1, 1.0, [], 0.0, 42.1875]
+1778041917.206 10478  1245  1245 I drawTextSegmentWithFadeAndUnderlines: TextLineDraw.drawTextSegmentWithFadeAndUnderlines [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 14, 0.0, 33.0, android.graphics.Paint@4901ebc, -1, -1, 1.0, [], 0.0, 42.1875]
+1778041917.206 10478  1245  1245 I drawTextSegmentWithFade: TextLineDraw.drawTextSegmentWithFade [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 14, 0.0, 33.0, android.graphics.Paint@4901ebc, -1, -1, 1.0]
+1778041917.206 10478  1245  1245 I getVisualSpaceScale: TextRender.getVisualSpaceScale []
+1778041917.206 10478  1245  1245 I drawErrorUnderlinesForLine: ErrorUnderline.drawErrorUnderlinesForLine [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 33.0, 0.0, 42.1875]
+1778041917.206 10478  1245  1245 I drawWhitespaceGuidesForLine: TextRender.drawWhitespaceGuidesForLine [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 33.0]
+1778041917.206 10478  1245  1245 I drawWhitespaceGuidesForLine: WhitespaceGuides.drawWhitespaceGuidesForLine [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 33.0]
+1778041917.206 10478  1245  1245 I drawIndentGuidesForLine: IndentGuides.drawIndentGuidesForLine [android.graphics.RecordingCanvas@75dc151, console.log(1), 0]
+1778041917.206 10478  1245  1245 I drawAutoSuggestion: AutoCompletion.drawAutoSuggestion [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 33.0]
+1778041917.206 10478  1245  1245 I drawBracketMatchForLine: BracketMatchManager.drawBracketMatchForLine [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, null]
+1778041917.207 10478  1245  1245 I drawCaret: Caret.drawCaret [android.graphics.RecordingCanvas@75dc151]
+1778041917.207 10478  1245  1245 I drawCursorHandle: CursorHandle.drawCursorHandle [android.graphics.RecordingCanvas@75dc151]
+1778041917.207 10478  1245  1245 I updateCursorHandlePosition: CursorHandle.updateCursorHandlePosition []
+1778041917.207 10478  1245  1245 I endRenderFrameMaybeLog: BracketGuides.endRenderFrameMaybeLog []
+1778041917.207 10478  1245  1245 I endRenderFrameMaybeLog: BracketGuideDraw.endRenderFrameMaybeLog []
+1778041917.207 10478  1245  1245 I draw    : ScrollBar.draw [android.graphics.RecordingCanvas@75dc151]
+1778041917.207 10478  1245  1245 I drawStretch: Scroll.drawStretch [android.graphics.RecordingCanvas@75dc151]
+1778041917.207 10478  1245  1245 I drawStretch: Stretch.drawStretch [android.graphics.RecordingCanvas@75dc151]
+1778041917.207 10478  1245  1245 I drawEdge: Scroll.drawEdge [android.graphics.RecordingCanvas@75dc151]
+1778041917.207 10478  1245  1245 I draw    : Edge.draw [android.graphics.RecordingCanvas@75dc151]
+1778041917.207 10478  1245  1245 I drawScrollBar: Scroll.drawScrollBar [android.graphics.RecordingCanvas@75dc151]
+1778041917.561 10478  1245  1245 I commitText: SodiumInputConnection.commitText [
+1778041917.561 10478  1245  1245 I commitText: , 1]
+1778041917.561 10478  1245  1245 I onCommitText: Ime.onCommitText [
+1778041917.561 10478  1245  1245 I onCommitText: , 1]
+1778041917.561 10478  1245  1245 I getLineTextForRender: WindowRender.getLineTextForRender [0]
+1778041917.561 10478  1245  1245 I getLineFromWindowLocal: WindowRender.getLineFromWindowLocal [0]
+1778041917.562 10478  1245  1245 I insertCharAtCursor: EditOperators.insertCharAtCursor [
+1778041917.562 10478  1245  1245 I insertCharAtCursor: ]
+1778041917.562 10478  1245  1245 I insertCharAtCursor: EditorActions.insertCharAtCursor [
+1778041917.562 10478  1245  1245 I insertCharAtCursor: ]
+1778041917.562 10478  1245  1245 I invalidatePendingIOForEdit: FileIO.invalidatePendingIOForEdit []
+1778041917.562 10478  1245  1245 I invalidatePendingIO: FileIO.invalidatePendingIO []
+1778041917.562 10478  1245  1245 I clearHighlightCaches: Highlite.clearHighlightCaches []
+1778041917.562 10478  1245  1245 I clearColorCodeCaches: ColorCodeHighlight.clearColorCodeCaches []
+1778041917.562 10478  1245  1245 I clearUrlUnderlineCache: UrlUnderline.clearUrlUnderlineCache []
+1778041917.562 10478  1245  1245 I clearPathUnderlineCache: PathUnderline.clearPathUnderlineCache []
+1778041917.562 10478  1245  1245 I handleCodeFoldBeforeEdit: EditorActions.handleCodeFoldBeforeEdit []
+1778041917.562 10478  1245  1245 I isLineInLoadedWindow: EditorActions.isLineInLoadedWindow [0]
+1778041917.562 10478  1245  1245 I clearStreamedLineInfo: WindowRender.clearStreamedLineInfo [0]
+1778041917.562 10478  1245  1245 I shiftModifiedLines: LineCacheShifter.shiftModifiedLines [1, 1]
+1778041917.563 10478  1245  1245 I shiftTextRenderCaches: LineCacheShifter.shiftTextRenderCaches [1, 1]
+1778041917.563 10478  1245  1245 I shiftStreamedLineCaches: LineCacheShifter.shiftStreamedLineCaches [1, 1]
+1778041917.563 10478  1245  1245 I shiftBinaryTokenSpans: BinaryRender.shiftBinaryTokenSpans [1, 1]
+1778041917.563 10478  1245  1245 I shiftBracketGuideCaches: BracketGuides.shiftBracketGuideCaches [1, 1]
+1778041917.563 10478  1245  1245 I shiftCache: BracketGuideCache.shiftCache [1, 1]
+1778041917.563 10478  1245  1245 I shiftCache: BracketGuideFallbackCache.shiftCache [1, 1]
+1778041917.563 10478  1245  1245 I shiftCheckpoints: BracketGuideCheckpoint.shiftCheckpoints [1, 1]
+1778041917.563 10478  1245  1245 I invalidate: BracketGuideSpanCache.invalidate []
+1778041917.563 10478  1245  1245 I handleCodeFoldNewline: EditorActions.handleCodeFoldNewline [0, 14]
+1778041917.563 10478  1245  1245 I adjustFoldRangesForLineEdit: CodeFold.adjustFoldRangesForLineEdit [0, 1]
+1778041917.564 10478  1245  1245 I updateGutterWidth: LineNumber.updateGutterWidth []
+1778041917.565 10478  1245  1245 I keepCursorVisibleHorizontally: Scroll.keepCursorVisibleHorizontally []
+1778041917.565 10478  1245  1245 I rebuildFoldIntervalsIfNeeded: CodeFold.rebuildFoldIntervalsIfNeeded []
+1778041917.565 10478  1245  1245 I getVisibleIndexForGlobalLine: CodeFold.getVisibleIndexForGlobalLine [1]
+1778041917.565 10478  1245  1245 I getKeyboardBarrierPadding: Scroll.getKeyboardBarrierPadding []
+1778041917.565 10478  1245  1245 I getKeyboardBarrierPadding: ScrollBounds.getKeyboardBarrierPadding []
+1778041917.565 10478  1245  1245 I getCaretXForLine: Caret.getCaretXForLine [, 1, 0]
+1778041917.565 10478  1245  1245 I getMaxScrollXForClamp: Scroll.getMaxScrollXForClamp []
+1778041917.565 10478  1245  1245 I getMaxScrollXForClamp: ScrollBounds.getMaxScrollXForClamp []
+1778041917.565 10478  1245  1245 I invalidateCursorArea: Cursor.invalidateCursorArea []
+1778041917.565 10478  1245  1245 I updateCursorDrawPosition: CursorAnimation.updateCursorDrawPosition [0.0, 42.1875]
+1778041917.566 10478  1245  1245 I buildImeContext: ImeScanner.buildImeContext [2048, 2048]
+1778041917.566 10478  1245  1245 I openImeRandomAccessFile: ImeScanner.openImeRandomAccessFile []
+1778041917.566 10478  1245  1245 I ImeScanner: openImeRandomAccessFile: returning null because modifiedLines is not empty
+1778041917.566 10478  1245  1245 I moveCursorByCharsForIme: ImeScanner.moveCursorByCharsForIme [1, 0, -2048, null]
+1778041917.566 10478  1245  1245 I clampLineCharToDocument: ImeScanner.clampLineCharToDocument [1, 0, null]
+1778041917.566 10478  1245  1245 I getLineTextForImeScan: ImeScanner.getLineTextForImeScan [1, null]
+1778041917.566 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from modifiedLines: ''
+1778041917.566 10478  1245  1245 I CursorTarget: CursorTarget.CursorTarget [1, 0]
+1778041917.566 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from modifiedLines: ''
+1778041917.566 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from modifiedLines: 'console.log(1)'
+1778041917.566 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from modifiedLines: 'console.log(1)'
+1778041917.566 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from modifiedLines: ''
+1778041917.566 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from modifiedLines: ''
+1778041917.566 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 2 from linesWindow: 'console.log(2)'
+1778041917.566 10478  1245  1245 I buildRangeTextForIme: ImeScanner.buildRangeTextForIme [com.yn.sodiumeditor.input.CursorTarget@87ac8dd, com.yn.sodiumeditor.input.CursorTarget@d690c52, null]
+1778041917.566 10478  1245  1245 I comparePos: ImeScanner.comparePos [0, 0, 2, 14]
+1778041917.566 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from modifiedLines: 'console.log(1)'
+1778041917.566 10478  1245  1245 I ImeContext: buildRangeTextForIme: line 0 = 'console.log(1)' (modifiedLines.contains=true)
+1778041917.566 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from modifiedLines: ''
+1778041917.566 10478  1245  1245 I ImeContext: buildRangeTextForIme: line 1 = '' (modifiedLines.contains=true)
+1778041917.566 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 2 from linesWindow: 'console.log(2)'
+1778041917.566 10478  1245  1245 I ImeContext: buildRangeTextForIme: line 2 = 'console.log(2)' (modifiedLines.contains=false)
+1778041917.566 10478  1245  1245 I ImeContext: buildImeContext: cursor=(1,0) text.length=30 text preview: 'console.log(1)
+1778041917.566 10478  1245  1245 I ImeContext: console.log(2)'
+1778041917.566 10478  1245  1245 I ImeContext: ImeContext.ImeContext [0, 0, console.log(1)
+1778041917.566 10478  1245  1245 I ImeContext: console.log(2)]
+1778041917.567 10478  1245  1245 I lineCharToOffsetInContext: ImeScanner.lineCharToOffsetInContext [com.yn.sodiumeditor.input.ImeContext@e76b23, 1, 0]
+1778041917.567 10478  1245  1245 I computeCursorAfterInsert: EditRecordManager.computeCursorAfterInsert [0, 14,
+1778041917.567 10478  1245  1245 I computeCursorAfterInsert: ]
+1778041917.567 10478  1245  1245 I recordEdit: EditRecordManager.recordEdit [com.yn.sodiumeditor.io.EditOp@53f7820]
+1778041917.567 10478  1245  1245 I markTyping: Highlite.markTyping []
+1778041917.567 10478  1245  1245 I pushUndo: UndoRedoHistory.pushUndo [com.yn.sodiumeditor.io.EditOp@53f7820]
+1778041917.568 10478  1245  1245 I commitComposing: Ime.commitComposing [true]
+1778041917.568 10478  1245  1245 I startCharAnimationFromText: CharAnimation.startCharAnimationFromText [
+1778041917.568 10478  1245  1245 I startCharAnimationFromText: ]
+1778041917.568 10478  1245  1245 I ImeScanner: openImeRandomAccessFile: returning null because modifiedLines is not empty
+1778041917.568 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from modifiedLines: ''
+1778041917.568 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from modifiedLines: ''
+1778041917.568 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from modifiedLines: 'console.log(1)'
+1778041917.568 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from modifiedLines: 'console.log(1)'
+1778041917.568 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from modifiedLines: ''
+1778041917.568 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from modifiedLines: ''
+1778041917.568 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 2 from linesWindow: 'console.log(2)'
+1778041917.568 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 0 from modifiedLines: 'console.log(1)'
+1778041917.568 10478  1245  1245 I ImeContext: buildRangeTextForIme: line 0 = 'console.log(1)' (modifiedLines.contains=true)
+1778041917.568 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 1 from modifiedLines: ''
+1778041917.568 10478  1245  1245 I ImeContext: buildRangeTextForIme: line 1 = '' (modifiedLines.contains=true)
+1778041917.568 10478  1245  1245 I ImeScanner: getLineTextForImeScan: line 2 from linesWindow: 'console.log(2)'
+1778041917.568 10478  1245  1245 I ImeContext: buildRangeTextForIme: line 2 = 'console.log(2)' (modifiedLines.contains=false)
+1778041917.568 10478  1245  1245 I ImeContext: buildImeContext: cursor=(1,0) text.length=30 text preview: 'console.log(1)
+1778041917.568 10478  1245  1245 I ImeContext: console.log(2)'
+1778041917.572 10478  1245  1245 I cancelAnimation: CurrentLineHighlightAnimation.cancelAnimation []
+1778041917.613 10478  1245  1245 I startFadeOut: ScrollBar.startFadeOut []
+1778041917.620 10478  1245  1245 I getMaxScrollYForClamp: Scroll.getMaxScrollYForClamp []
+1778041917.621 10478  1245  1245 I getMaxScrollYForClamp: ScrollBounds.getMaxScrollYForClamp []
+1778041918.192 10478  1245  1245 I getCaretDocumentX: Caret.getCaretDocumentX []
+1778041918.192 10478  1245  1245 I measureTextWithVisualSpaces: TextRender.measureTextWithVisualSpaces [, 0, 0, android.graphics.Paint@4901ebc]
+1778041918.192 10478  1245  1245 I getCaretDocumentY: Caret.getCaretDocumentY []
+1778041918.192 10478  1245  1245 I getTextStartX: Layout.getTextStartX []
+1778041918.696 10478  1245  1245 I invalidateCursorArea: Cursor.invalidateCursorArea []
+1778041918.697 10478  1245  1245 I getLineTextForRender: WindowRender.getLineTextForRender [1]
+1778041918.697 10478  1245  1245 I getVisibleIndexForGlobalLine: CodeFold.getVisibleIndexForGlobalLine [1]
+1778041918.697 10478  1245  1245 I rebuildFoldIntervalsIfNeeded: CodeFold.rebuildFoldIntervalsIfNeeded []
+1778041918.697 10478  1245  1245 I updateCursorDrawPosition: CursorAnimation.updateCursorDrawPosition [0.0, 42.1875]
+1778041918.704 10478  1245  1245 I computeScroll: Scroll.computeScroll []
+1778041918.704 10478  1245  1245 I drawContent: ViewRender.drawContent [android.graphics.RecordingCanvas@75dc151]
+1778041918.705 10478  1245  1245 I getVisibleLineCount: CodeFold.getVisibleLineCount []
+1778041918.705 10478  1245  1245 I beginRenderFrame: BracketGuides.beginRenderFrame [0, 1, 0, 1]
+1778041918.705 10478  1245  1245 I beginRenderFrame: BracketGuideDraw.beginRenderFrame [0, 1, 0, 1]
+1778041918.705 10478  1245  1245 I ensureBracketGuideCacheForWindow: BracketGuides.ensureBracketGuideCacheForWindow [0, 1, 0, 1, null]
+1778041918.705 10478  1245  1245 I setFrameFastScroll: BracketGuides.setFrameFastScroll [false]
+1778041918.705 10478  1245  1245 I setFrameFastScroll: BracketGuideDraw.setFrameFastScroll [false]
+1778041918.705 10478  1245  1245 I drawContentUnfolded: ViewRender.drawContentUnfolded [android.graphics.RecordingCanvas@75dc151, false]
+1778041918.705 10478  1245  1245 I mapVisibleIndexToGlobal: CodeFold.mapVisibleIndexToGlobal [0]
+1778041918.705 10478  1245  1245 I getGutterStartX: LineNumber.getGutterStartX []
+1778041918.705 10478  1245  1245 I drawlineNumbersCachedUnwrapped: TextRender.drawlineNumbersCachedUnwrapped [android.graphics.RecordingCanvas@75dc151, 0, 1, 0, 1]
+1778041918.705 10478  1245  1245 I drawLineNumbersCachedUnwrapped: LineNumber.drawLineNumbersCachedUnwrapped [android.graphics.RecordingCanvas@75dc151, 0, 1, 0, 1]
+1778041918.705 10478  1245  1245 I shouldUseCache: LineNumberCache.shouldUseCache []
+1778041918.705 10478  1245  1245 I needsRebuild: LineNumberCache.needsRebuild [86, 2292, 0, 1, -42.1875, false]
+1778041918.705 10478  1245  1245 I drawCurrentLineNumberUnwrapped: LineNumber.drawCurrentLineNumberUnwrapped [android.graphics.RecordingCanvas@75dc151, 0, 1]
+1778041918.705 10478  1245  1245 I isLineHidden: CodeFold.isLineHidden [1]
+1778041918.706 10478  1245  1245 I drawFoldMarkersForVisibleLines: CodeFoldRender.drawFoldMarkersForVisibleLines [android.graphics.RecordingCanvas@75dc151, 0, 1]
+1778041918.706 10478  1245  1245 I isPotentialFoldStart: CodeFoldDetector.isPotentialFoldStart [0]
+1778041918.706 10478  1245  1245 I shouldShowFoldMarkerFromLine: CodeFoldDetector.shouldShowFoldMarkerFromLine [console.log(1)]
+1778041918.706 10478  1245  1245 I findLastUnclosedFoldTokenInLine: CodeFoldDetector.findLastUnclosedFoldTokenInLine [console.log(1), 0]
+1778041918.706 10478  1245  1245 I isLineCommentStart: Highlite.isLineCommentStart [console.log(1), 0]
+1778041918.706 10478  1245  1245 I isLineCommentStart: HighlightParser.isLineCommentStart [console.log(1), 0]
+1778041918.706 10478  1245  1245 I isIndentFoldCandidate: CodeFoldDetector.isIndentFoldCandidate [console.log(1)]
+1778041918.706 10478  1245  1245 I rstripWhitespace: CodeFoldDetector.rstripWhitespace [console.log(1)]
+1778041918.706 10478  1245  1245 I getAnimatedVisualIndex: CurrentLineHighlight.getAnimatedVisualIndex []
+1778041918.706 10478  1245  1245 I getAnimatedVisualIndex: CurrentLineHighlightAnimation.getAnimatedVisualIndex []
+1778041918.706 10478  1245  1245 I checkAndStartAnimation: CurrentLineHighlightAnimation.checkAndStartAnimation []
+1778041918.706 10478  1245  1245 I getTargetVisualIndex: CurrentLineHighlightAnimation.getTargetVisualIndex []
+1778041918.707 10478  1245  1245 I getEffectiveScrollX: Scroll.getEffectiveScrollX []
+1778041918.707 10478  1245  1245 I drawTextContent: ViewRender.drawTextContent [android.graphics.RecordingCanvas@75dc151, 0, 1, 0, 1, true, false, false]
+1778041918.707 10478  1245  1245 I drawFoldedContent: CodeFoldRender.drawFoldedContent [android.graphics.RecordingCanvas@75dc151, 0, 1, 0, 1, null, null, null, true, false, null]
+1778041918.707 10478  1245  1245 I rebuildIndentGuideIntervalsIfNeeded: IndentGuides.rebuildIndentGuideIntervalsIfNeeded []
+1778041918.707 10478  1245  1245 I getLineTextForRenderWithDirect: CodeFoldRender.getLineTextForRenderWithDirect [0, null]
+1778041918.707 10478  1245  1245 I getFoldRangeAtStart: CodeFold.getFoldRangeAtStart [0]
+1778041918.707 10478  1245  1245 I getDrawLineTop: TextRender.getDrawLineTop [0]
+1778041918.707 10478  1245  1245 I drawColorCodeBackgrounds: ViewRender.drawColorCodeBackgrounds [android.graphics.RecordingCanvas@75dc151, console.log(1), 0]
+1778041918.707 10478  1245  1245 I drawColorCodeBackgrounds: ColorCodeHighlight.drawColorCodeBackgrounds [android.graphics.RecordingCanvas@75dc151, console.log(1), 0]
+1778041918.707 10478  1245  1245 I getDrawLineBottom: TextRender.getDrawLineBottom [0]
+1778041918.707 10478  1245  1245 I drawSearchHighlightsForLine: ViewRender.drawSearchHighlightsForLine [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 0.0, 42.0]
+1778041918.707 10478  1245  1245 I drawHighlightedLine: TextRender.drawHighlightedLine [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 33.0]
+1778041918.707 10478  1245  1245 I drawHighlightedLine: HighliteRender.drawHighlightedLine [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 33.0]
+1778041918.707 10478  1245  1245 I getVisibleCharRangeForLine: TextRender.getVisibleCharRangeForLine [console.log(1), 0, [I@9c9f5ef]
+1778041918.707 10478  1245  1245 I isUrlUnderliningActive: UrlUnderline.isUrlUnderliningActive []
+1778041918.707 10478  1245  1245 I getUrlUnderlineSpansForLine: UrlUnderline.getUrlUnderlineSpansForLine [console.log(1), 0]
+1778041918.707 10478  1245  1245 I isPathUnderliningActive: PathUnderline.isPathUnderliningActive []
+1778041918.707 10478  1245  1245 I getPathUnderlineSpansForLine: PathUnderline.getPathUnderlineSpansForLine [console.log(1), 0]
+1778041918.708 10478  1245  1245 I drawTextSegmentWithFadeAndUnderlines: TextRender.drawTextSegmentWithFadeAndUnderlines [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 14, 0.0, 33.0, android.graphics.Paint@4901ebc, -1, -1, 1.0, [], 0.0, 42.1875]
+1778041918.708 10478  1245  1245 I drawTextSegmentWithFadeAndUnderlines: TextLineDraw.drawTextSegmentWithFadeAndUnderlines [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 14, 0.0, 33.0, android.graphics.Paint@4901ebc, -1, -1, 1.0, [], 0.0, 42.1875]
+1778041918.708 10478  1245  1245 I drawTextSegmentWithFade: TextLineDraw.drawTextSegmentWithFade [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 14, 0.0, 33.0, android.graphics.Paint@4901ebc, -1, -1, 1.0]
+1778041918.708 10478  1245  1245 I getVisualSpaceScale: TextRender.getVisualSpaceScale []
+1778041918.708 10478  1245  1245 I drawErrorUnderlinesForLine: ErrorUnderline.drawErrorUnderlinesForLine [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 33.0, 0.0, 42.1875]
+1778041918.708 10478  1245  1245 I drawWhitespaceGuidesForLine: TextRender.drawWhitespaceGuidesForLine [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 33.0]
+1778041918.708 10478  1245  1245 I drawWhitespaceGuidesForLine: WhitespaceGuides.drawWhitespaceGuidesForLine [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 33.0]
+1778041918.708 10478  1245  1245 I drawIndentGuidesForLine: IndentGuides.drawIndentGuidesForLine [android.graphics.RecordingCanvas@75dc151, console.log(1), 0]
+1778041918.708 10478  1245  1245 I drawAutoSuggestion: AutoCompletion.drawAutoSuggestion [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, 33.0]
+1778041918.708 10478  1245  1245 I drawBracketMatchForLine: BracketMatchManager.drawBracketMatchForLine [android.graphics.RecordingCanvas@75dc151, console.log(1), 0, null]
+1778041918.709 10478  1245  1245 I drawCaret: Caret.drawCaret [android.graphics.RecordingCanvas@75dc151]
+1778041918.709 10478  1245  1245 I drawCursorHandle: CursorHandle.drawCursorHandle [android.graphics.RecordingCanvas@75dc151]
+1778041918.709 10478  1245  1245 I updateCursorHandlePosition: CursorHandle.updateCursorHandlePosition []
+1778041918.709 10478  1245  1245 I endRenderFrameMaybeLog: BracketGuides.endRenderFrameMaybeLog []
+1778041918.710 10478  1245  1245 I endRenderFrameMaybeLog: BracketGuideDraw.endRenderFrameMaybeLog []
+1778041918.710 10478  1245  1245 I draw    : ScrollBar.draw [android.graphics.RecordingCanvas@75dc151]
+1778041918.710 10478  1245  1245 I drawStretch: Scroll.drawStretch [android.graphics.RecordingCanvas@75dc151]
+1778041918.710 10478  1245  1245 I drawStretch: Stretch.drawStretch [android.graphics.RecordingCanvas@75dc151]
+1778041918.710 10478  1245  1245 I drawEdge: Scroll.drawEdge [android.graphics.RecordingCanvas@75dc151]
+1778041918.710 10478  1245  1245 I draw    : Edge.draw [android.graphics.RecordingCanvas@75dc151]
+1778041918.710 10478  1245  1245 I drawScrollBar: Scroll.drawScrollBar [android.graphics.RecordingCanvas@75dc151]
+1778041919.185 10478  1245  1245 D VRI[MainActivity]: visibilityChanged oldVisibility=true newVisibility=false

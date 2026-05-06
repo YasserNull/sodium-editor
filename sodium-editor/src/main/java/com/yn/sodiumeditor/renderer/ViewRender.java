@@ -83,16 +83,46 @@ public class ViewRender {
       firstVisibleLine = editor.wordWrap.getVisualPositionForIndex(firstVisibleIndex).line;
       lastVisibleLine = editor.wordWrap.getVisualPositionForIndex(lastVisibleIndex).line;
     } else if (editor.codeFold.isCodeFoldingEnabled) {
-      int visibleCount = editor.codeFold.getVisibleLineCount();
+      int totalLines = Math.max(1, editor.view.getLinesCount());
+      int visibleCount = Math.min(editor.codeFold.getVisibleLineCount(), totalLines);
       if (visibleCount <= 0) visibleCount = 1;
       firstVisibleIndex = Math.max(0, Math.min(firstVisibleIndex, visibleCount - 1));
       lastVisibleIndex = Math.max(firstVisibleIndex, Math.min(lastVisibleIndex, visibleCount - 1));
-      firstVisibleLine = editor.codeFold.mapVisibleIndexToGlobal(firstVisibleIndex);
-      lastVisibleLine = editor.codeFold.mapVisibleIndexToGlobal(lastVisibleIndex);
+      firstVisibleLine = Math.max(0, Math.min(editor.codeFold.mapVisibleIndexToGlobal(firstVisibleIndex), totalLines - 1));
+      lastVisibleLine = Math.max(firstVisibleLine, Math.min(editor.codeFold.mapVisibleIndexToGlobal(lastVisibleIndex), totalLines - 1));
     } else {
+      int totalLines = Math.max(1, editor.view.getLinesCount());
+      firstVisibleIndex = Math.max(0, Math.min(firstVisibleIndex, totalLines - 1));
+      lastVisibleIndex = Math.max(firstVisibleIndex, Math.min(lastVisibleIndex, totalLines - 1));
       firstVisibleLine = firstVisibleIndex;
       lastVisibleLine = lastVisibleIndex;
     }
+
+    FunctionLog.d(
+        "render",
+        "firstVisibleIndex="
+            + firstVisibleIndex
+            + " lastVisibleIndex="
+            + lastVisibleIndex
+            + " firstVisibleLine="
+            + firstVisibleLine
+            + " lastVisibleLine="
+            + lastVisibleLine
+            + " visibleCount="
+            + editor.codeFold.getVisibleLineCount()
+            + " totalLines="
+            + editor.view.getLinesCount()
+            + " windowStart="
+            + editor.windowRender.windowStartLine
+            + " windowSize="
+            + editor.windowRender.linesWindow.size()
+            + " l0='"
+            + editor.windowRender.getLineTextForRender(0)
+            + "' l1='"
+            + editor.windowRender.getLineTextForRender(1)
+            + "' l2='"
+            + editor.windowRender.getLineTextForRender(2)
+            + "'");
 
     drawBaseLine = firstVisibleLine;
     float baseY = firstVisibleIndex * editor.textRender.lineHeight;

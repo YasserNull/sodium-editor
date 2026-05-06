@@ -1,6 +1,7 @@
 package com.yn.sodiumeditor.core.cursor; 
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.util.Log;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.utils.FunctionLog;
 /**
@@ -38,8 +39,11 @@ public float baseCursorWidthPx = cursorWidth;
   }
   public void setCursorPosition(int line, int col) {
     FunctionLog.f("Cursor", "setCursorPosition", line, col);
-    int targetLine = Math.max(0, line);
+    int totalLines = editor.view.getLinesCount();
+    int maxLine = Math.max(0, totalLines - 1);
+    int targetLine = Math.max(0, Math.min(line, maxLine));
     int targetCol = Math.max(0, col);
+    Log.i("LineNumber", "setCursorPosition requestLine=" + line + " clampedLine=" + targetLine + " totalLines=" + totalLines);
     if (editor.selection.hasSelection) {
       editor.selection.hasSelection = false;
       editor.selection.isSelectAllActive = false;
@@ -372,8 +376,11 @@ public float baseCursorWidthPx = cursorWidth;
    */
   public void setCursorPositionNoClear(int line, int col) {
     FunctionLog.f("Cursor", "setCursorPositionNoClear", line, col);
-    int targetLine = Math.max(0, line);
+    int totalLines = editor.view.getLinesCount();
+    int maxLine = Math.max(0, totalLines - 1);
+    int targetLine = Math.max(0, Math.min(line, maxLine));
     int targetCol = Math.max(0, col);
+    Log.i("LineNumber", "setCursorPositionNoClear requestLine=" + line + " clampedLine=" + targetLine + " totalLines=" + totalLines);
     cursorLine = targetLine;
     if (cursorLine >= editor.windowRender.windowStartLine && cursorLine < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) {
       String lineText = editor.windowRender.getLineTextForRender(cursorLine);

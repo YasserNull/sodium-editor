@@ -575,7 +575,17 @@ public class View {
             }
             int count = editor.fileIO.lineOffsets.length + editor.editOperators.lineCountDelta;
             if (count < 1) count = 1;
-            return Math.max(count, windowCount);
+            Log.i(
+                    "LineNumber",
+                    "getLinesCount indexReady count="
+                            + count
+                            + " windowCount="
+                            + windowCount
+                            + " lineCountDelta="
+                            + editor.editOperators.lineCountDelta
+                            + " modifiedLines="
+                            + editor.windowRender.modifiedLines.size());
+            return count;
         }
         if (editor.fileIO.isEof) return editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size();
         if (!editor.windowRender.linesWindow.isEmpty()) return editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size();

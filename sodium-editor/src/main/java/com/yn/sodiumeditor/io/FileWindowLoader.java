@@ -24,7 +24,7 @@ public class FileWindowLoader {
     public void checkAndLoadWindow() {
         // While there are pending structural edits (line insert/delete), the in-memory window
         // does not match the on-disk file. Reloading from disk reintroduces deleted lines.
-        if (editor.editOperators.lineCountDelta != 0) return;
+        if (hasPendingInMemoryEdits()) return;
         if (fileIO.sourceFile == null || fileIO.isFileCleared || editor.getWidth() == 0 || editor.getHeight() == 0 || fileIO.isWindowLoading) return;
         int firstIdx = (int) (editor.scroll.scrollY / editor.textRender.lineHeight);
         int lastIdx = firstIdx + (int) Math.ceil(editor.getHeight() / editor.textRender.lineHeight);
@@ -50,7 +50,7 @@ public class FileWindowLoader {
     }
 
     public void loadWindowAround(int startLine, @Nullable Runnable onComplete, boolean recalcWidthSync) {
-        if (editor.editOperators.lineCountDelta != 0) { if (onComplete != null) editor.post(onComplete); return; }
+        if (hasPendingInMemoryEdits()) { if (onComplete != null) editor.post(onComplete); return; }
         if (fileIO.isWindowLoading) return;
         editor.loadingCircle.maxWidthRecalcToken++;
         if (fileIO.isFileCleared || fileIO.sourceFile == null) { if (onComplete != null) editor.post(onComplete); return; }
@@ -141,6 +141,25 @@ public class FileWindowLoader {
         editor.post(() -> {
             fileIO.isWindowLoading = false;
             if (taskVersion != fileIO.ioTaskVersion.get()) { checkAndLoadWindow(); return; }
+            if (hasPendingInMemoryEdits()) {
+                com.yn.sodiumeditor.utils.FunctionLog.d(
+                        "window",
+                        "drop async window apply due pending in-memory edits"
+                                + " start="
+                                + fStart
+                                + " loadedSize="
+                                + newWin.size()
+                                + " lineCountDelta="
+                                + editor.editOperators.lineCountDelta
+                                + " modifiedLines="
+                                + editor.windowRender.modifiedLines.size()
+                                + " currentWindowStart="
+                                + editor.windowRender.windowStartLine
+                                + " currentWindowSize="
+                                + editor.windowRender.linesWindow.size());
+                if (onComplete != null) onComplete.run();
+                return;
+            }
             synchronized (editor.windowRender.linesWindow) {
                 editor.windowRender.linesWindow.clear(); editor.windowRender.linesWindow.addAll(newWin);
                 editor.windowRender.windowStartLine = fStart; fileIO.isEof = finalEof;
@@ -166,6 +185,13 @@ public class FileWindowLoader {
             editor.invalidate();
             if (onComplete != null) onComplete.run();
         });
+    }
+
+    private boolean hasPendingInMemoryEdits() {
+        if (editor.editOperators.lineCountDelta != 0) return true;
+        synchronized (editor.windowRender.modifiedLines) {
+            return !editor.windowRender.modifiedLines.isEmpty();
+        }
     }
 
     private void applyStreamedInfo(SparseIntArray lengths, SparseIntArray starts) {

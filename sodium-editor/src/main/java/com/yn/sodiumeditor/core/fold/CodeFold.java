@@ -21,6 +21,7 @@ public class CodeFold {
     public final ConcurrentHashMap<Integer, Boolean> pendingFoldComputations = new ConcurrentHashMap<>();
     public final ArrayList<int[]> foldIntervals = new ArrayList<>();
     public boolean foldIntervalsDirty = true;
+    private int foldIntervalsBuiltForTotalLines = -1;
 
     // Fold marker visibility cache — avoids per-frame full parse of each visible line
     private final android.util.SparseArray<Byte> foldMarkerVisibilityCache = new android.util.SparseArray<>();
@@ -120,6 +121,7 @@ public class CodeFold {
     public void invalidateFoldCaches() {
         FunctionLog.f("CodeFold", "invalidateFoldCaches");
         foldIntervalsDirty = true;
+        foldIntervalsBuiltForTotalLines = -1;
         foldMarkerVisibilityCache.clear();
         cachedBracketStateAfterFold.clear();
     }
@@ -137,11 +139,12 @@ public class CodeFold {
      */
     public int getVisibleLineCount() {
         FunctionLog.f("CodeFold", "getVisibleLineCount");
-        if (!isCodeFoldingEnabled) return editor.view.getLinesCount();
+        int totalLines = Math.max(1, editor.view.getLinesCount());
+        if (!isCodeFoldingEnabled) return totalLines;
         rebuildFoldIntervalsIfNeeded();
-        if (foldIntervals.isEmpty()) return editor.view.getLinesCount();
+        if (foldIntervals.isEmpty()) return totalLines;
         int[] last = foldIntervals.get(foldIntervals.size() - 1);
-        return last[3] + 1;
+        return Math.max(1, Math.min(last[3] + 1, totalLines));
     }
 
     /**
@@ -149,9 +152,10 @@ public class CodeFold {
      */
     public int mapVisibleIndexToGlobal(int visibleIndex) {
         FunctionLog.f("CodeFold", "mapVisibleIndexToGlobal", visibleIndex);
-        if (!isCodeFoldingEnabled) return visibleIndex;
+        int totalLines = Math.max(1, editor.view.getLinesCount());
+        if (!isCodeFoldingEnabled) return Math.max(0, Math.min(visibleIndex, totalLines - 1));
         rebuildFoldIntervalsIfNeeded();
-        if (foldIntervals.isEmpty()) return visibleIndex;
+        if (foldIntervals.isEmpty()) return Math.max(0, Math.min(visibleIndex, totalLines - 1));
         
         // Binary search over visible intervals. Avoids line-count-sized lookup arrays.
         int lo = 0, hi = foldIntervals.size() - 1;
@@ -163,10 +167,10 @@ public class CodeFold {
             } else if (visibleIndex > interval[3]) {
                 lo = mid + 1;
             } else {
-                return interval[0] + (visibleIndex - interval[2]);
+                return Math.max(0, Math.min(interval[0] + (visibleIndex - interval[2]), totalLines - 1));
             }
         }
-        return visibleIndex;
+        return Math.max(0, Math.min(visibleIndex, totalLines - 1));
     }
 
     /**
@@ -257,13 +261,15 @@ public class CodeFold {
      */
     public void rebuildFoldIntervalsIfNeeded() {
         FunctionLog.f("CodeFold", "rebuildFoldIntervalsIfNeeded");
-        if (!foldIntervalsDirty) return;
+        int currentTotal = editor.view.getLinesCount();
+        if (!foldIntervalsDirty && foldIntervalsBuiltForTotalLines == currentTotal) return;
         
         long startMs = SystemClock.uptimeMillis();
         foldIntervals.clear();
-        int total = editor.view.getLinesCount();
+        int total = currentTotal;
         if (total <= 0) {
             foldIntervalsDirty = false;
+            foldIntervalsBuiltForTotalLines = total;
             return;
         }
 
@@ -296,6 +302,17 @@ public class CodeFold {
         }
 
         foldIntervalsDirty = false;
+        foldIntervalsBuiltForTotalLines = total;
+        FunctionLog.d(
+                "codefold",
+                "rebuild total="
+                        + total
+                        + " intervals="
+                        + foldIntervals.size()
+                        + " visibleCount="
+                        + (foldIntervals.isEmpty() ? total : (foldIntervals.get(foldIntervals.size() - 1)[3] + 1))
+                        + " foldRanges="
+                        + foldRanges.size());
         
         if (editor.DEBUG_RENDER_LOGS) {
             Log.d("SodiumRender", "rebuildFoldIntervals dtMs=" + (SystemClock.uptimeMillis() - startMs) + " count=" + foldIntervals.size());
@@ -416,7 +433,13 @@ public class CodeFold {
      */
     public void adjustFoldRangesForLineEdit(int startLine, int lineDelta) {
         FunctionLog.f("CodeFold", "adjustFoldRangesForLineEdit", startLine, lineDelta);
-        if (lineDelta == 0 || foldRanges.isEmpty()) return;
+        if (lineDelta == 0) return;
+        if (foldRanges.isEmpty()) {
+            // Structural edits still change visible-line mapping even when no folds exist yet.
+            invalidateFoldCaches();
+            rebuildFoldIntervalsIfNeeded();
+            return;
+        }
 
         ConcurrentHashMap<Integer, FoldRange> newRanges = new ConcurrentHashMap<>();
         boolean changed = false;

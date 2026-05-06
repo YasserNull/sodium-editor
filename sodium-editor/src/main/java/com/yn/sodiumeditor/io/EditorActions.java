@@ -204,6 +204,29 @@ public class EditorActions {
                 }
                 editor.lineNumber.updateGutterWidth();
                 editor.wordWrap.onLineCountChanged();
+                FunctionLog.d(
+                        "newline",
+                        "beforeLine="
+                                + beforeLine
+                                + " beforeChar="
+                                + beforeChar
+                                + " oldLineCount="
+                                + oldLineCount
+                                + " newLineCount="
+                                + editor.view.getLinesCount()
+                                + " visibleCount="
+                                + editor.codeFold.getVisibleLineCount()
+                                + " windowStart="
+                                + editor.windowRender.windowStartLine
+                                + " windowSize="
+                                + editor.windowRender.linesWindow.size()
+                                + " line0='"
+                                + editor.windowRender.getLineTextForRender(beforeLine)
+                                + "' line1='"
+                                + editor.windowRender.getLineTextForRender(beforeLine + 1)
+                                + "' line2='"
+                                + editor.windowRender.getLineTextForRender(beforeLine + 2)
+                                + "'");
             } else {
                 int pos = Math.max(0, Math.min(editor.cursor.cursorChar, base.length()));
                 String modified = base.substring(0, pos) + c + base.substring(pos);
@@ -358,6 +381,22 @@ public class EditorActions {
                 editor.cursor.cursorChar = prev.length();
                 editor.view.computeWidthForLine(prevGlobal, merged);
                 operators.lineCountDelta -= 1;
+                Log.i(
+                        "LineNumber",
+                        "deleteCharAtCursor mergeLines"
+                                + " prevGlobal="
+                                + prevGlobal
+                                + " deletedLine="
+                                + deletedLine
+                                + " windowSize="
+                                + editor.windowRender.linesWindow.size()
+                                + " lineCountDelta="
+                                + operators.lineCountDelta
+                                + " line0='"
+                                + editor.windowRender.getLineTextForRender(prevGlobal)
+                                + "' line1='"
+                                + editor.windowRender.getLineTextForRender(prevGlobal + 1)
+                                + "'");
                 editor.wordWrap.onLineCountChanged();
                 editor.lineNumber.invalidateLineNumberCache();
                 editor.invalidate();
