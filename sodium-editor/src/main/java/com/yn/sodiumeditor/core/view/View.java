@@ -602,6 +602,10 @@ public class View {
 
     public void computeWidthForLine(int globalIndex, String line) {
         String safe = (line == null) ? "" : line;
+        Float oldWidth = null;
+        synchronized (editor.windowRender.lineWidthCache) {
+            oldWidth = editor.windowRender.lineWidthCache.get(globalIndex);
+        }
         float w;
         int logicalLen = getLogicalLineLength(globalIndex, safe);
         if (logicalLen > editor.highliteRender.maxSyntaxLineLength) {
@@ -611,6 +615,20 @@ public class View {
         }
         synchronized (editor.windowRender.lineWidthCache) {
             editor.windowRender.lineWidthCache.put(globalIndex, w);
+        }
+        if (w > editor.windowRender.currentMaxWindowLineWidth) {
+            editor.windowRender.currentMaxWindowLineWidth = w;
+        }
+        if (w > editor.windowRender.globalMaxLineWidth) {
+            editor.windowRender.globalMaxLineWidth = w;
+        }
+        if (w > editor.scroll.maxLineWidthForScroll) {
+            editor.scroll.maxLineWidthForScroll = w;
+        }
+        if (oldWidth != null
+                && oldWidth >= editor.windowRender.globalMaxLineWidth
+                && w < oldWidth) {
+            editor.windowRender.recalculateMaxLineWidth();
         }
     }
 

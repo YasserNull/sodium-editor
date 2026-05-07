@@ -290,7 +290,13 @@ public class Scroll {
             float max = getMaxScrollXForClamp(); eSX = Math.max(editor.textRender.isRtl ? -max : 0f, Math.min(eSX, editor.textRender.isRtl ? 0f : max));
             nX = editor.textRender.isRtl ? -eSX : eSX;
         } else nX = 0f;
-        if (Math.abs(nX - oldX) > 1f || Math.abs(nY - oldY) > 1f) smoothScrollTo(nX, nY); else editor.cursor.invalidateCursorArea();
+        if (Math.abs(nX - oldX) > 1f || Math.abs(nY - oldY) > 1f) {
+            scrollTo(nX, nY);
+            editor.invalidate();
+            editor.cursor.invalidateCursorArea();
+        } else {
+            editor.cursor.invalidateCursorArea();
+        }
     }
 
     public float getEffectiveScrollX() {

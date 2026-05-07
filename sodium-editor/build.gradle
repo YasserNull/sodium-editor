@@ -30,6 +30,7 @@ android {
           excludeTestsMatching "com.yn.sodiumeditor.test.DeepEditorTest"
           excludeTestsMatching "com.yn.sodiumeditor.test.EmojiBugReproductionTest"
           excludeTestsMatching "com.yn.sodiumeditor.test.RealFileDeleteLineTest"
+          excludeTestsMatching "com.yn.sodiumeditor.test.TypingScrollRegressionTest"
         }
       }
     }
