@@ -239,9 +239,7 @@ public class ViewRender {
       editor.codeFoldRender.drawFoldedContent(canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine,
                         directLines, selPaint, bracketMatchResult, drawDecorations, drawBracketGuides, null);
     } else {
-      // Unfolded content rendering - draw selection highlights first, then text
       if (editor.selection.hasSelection && selPaint != null) {
-          // Normalize selection bounds
           int selStartLine = editor.selection.selStartLine;
           int selStartChar = editor.selection.selStartChar;
           int selEndLine = editor.selection.selEndLine;
@@ -255,8 +253,9 @@ public class ViewRender {
               selEndChar = tmpC;
           }
 
-          // Canvas is already translated, so use relative coordinates
           float textStartX = editor.layout.getTextStartX() - editor.lineNumber.lineNumbersGutterWidth;
+          float viewportLeft = editor.scroll.getEffectiveScrollX();
+          float viewportRight = viewportLeft + editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth;
 
           for (int i = firstVisibleLine; i <= lastVisibleLine; i++) {
               if (i >= selStartLine && i <= selEndLine) {
@@ -264,37 +263,37 @@ public class ViewRender {
                   if (line != null) {
                       float lineTop = editor.textRender.getDrawLineTop(i);
                       float lineBottom = lineTop + editor.textRender.lineHeight;
-
                       int startChar = (i == selStartLine) ? selStartChar : 0;
                       int endChar = (i == selEndLine) ? selEndChar : line.length();
-
-                      float startX = editor.textRender.measureTextWithVisualSpaces(line, 0, startChar, editor.textRender.paint);
-                      float endX = editor.textRender.measureTextWithVisualSpaces(line, 0, endChar, editor.textRender.paint);
-
-                      float left = textStartX + startX;
-                      float top = lineTop;
-                      float right = textStartX + endX;
-                      float bottom = lineBottom;
-
-                      // Determine which corners should be rounded based on selection boundaries
                       boolean isFirstLine = (i == selStartLine);
                       boolean isLastLine = (i == selEndLine);
                       boolean isSingleLine = (selStartLine == selEndLine);
+                      boolean fillsWholeLine = !isSingleLine && !isFirstLine && !isLastLine;
+                      float startX = textStartX + editor.textRender.measureTextWithVisualSpaces(line, 0, startChar, editor.textRender.paint);
+                      float endX = textStartX + editor.textRender.measureTextWithVisualSpaces(line, 0, endChar, editor.textRender.paint);
+                      float left = isSingleLine
+                              ? startX
+                              : isFirstLine && !isSingleLine
+                              ? startX
+                              : fillsWholeLine
+                              ? viewportLeft
+                              : Math.min(textStartX, viewportLeft);
+                      float top = lineTop;
+                      float right = (isFirstLine && !isSingleLine) || fillsWholeLine
+                              ? viewportRight
+                              : endX;
+                      float bottom = lineBottom;
 
                       if (isSingleLine) {
-                          // Single line selection: round all corners
                           editor.onTouch.drawSelectionSegment(canvas, left, top, right, bottom,
                               true, true, true, true, selPaint);
                       } else if (isFirstLine) {
-                          // First line of multi-line selection: round top corners only
                           editor.onTouch.drawSelectionSegment(canvas, left, top, right, bottom,
                               true, true, false, false, selPaint);
                       } else if (isLastLine) {
-                          // Last line of multi-line selection: round bottom corners only
                           editor.onTouch.drawSelectionSegment(canvas, left, top, right, bottom,
                               false, false, true, true, selPaint);
                       } else {
-                          // Middle lines: no rounded corners
                           editor.onTouch.drawSelectionSegment(canvas, left, top, right, bottom,
                               false, false, false, false, selPaint);
                       }

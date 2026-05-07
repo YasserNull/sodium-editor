@@ -259,19 +259,27 @@ public class CodeFoldRender {
                     int startChar = (globalLine == selStartLine) ? selStartChar : 0;
                     int endChar = (globalLine == selEndLine) ? selEndChar : line.length();
 
-                    float startX = editor.textRender.measureTextWithVisualSpaces(line, 0, startChar, editor.textRender.paint);
-                    float endX = editor.textRender.measureTextWithVisualSpaces(line, 0, endChar, editor.textRender.paint);
-
                     float textStartX = editor.layout.getTextStartX() - editor.lineNumber.lineNumbersGutterWidth;
-                    float left = textStartX + startX;
-                    float top = lineTop;
-                    float right = textStartX + endX;
-                    float bottom = lineBottom;
-
-                    // Determine which corners should be rounded based on selection boundaries
+                    float viewportLeft = editor.scroll.getEffectiveScrollX();
+                    float viewportRight = viewportLeft + editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth;
                     boolean isFirstLine = (globalLine == selStartLine);
                     boolean isLastLine = (globalLine == selEndLine);
                     boolean isSingleLine = (selStartLine == selEndLine);
+                    boolean fillsWholeLine = !isSingleLine && !isFirstLine && !isLastLine;
+                    float startX = textStartX + editor.textRender.measureTextWithVisualSpaces(line, 0, startChar, editor.textRender.paint);
+                    float endX = textStartX + editor.textRender.measureTextWithVisualSpaces(line, 0, endChar, editor.textRender.paint);
+                    float left = isSingleLine
+                            ? startX
+                            : isFirstLine && !isSingleLine
+                            ? startX
+                            : fillsWholeLine
+                            ? viewportLeft
+                            : Math.min(textStartX, viewportLeft);
+                    float top = lineTop;
+                    float right = (isFirstLine && !isSingleLine) || fillsWholeLine
+                            ? viewportRight
+                            : endX;
+                    float bottom = lineBottom;
 
                     if (isSingleLine) {
                         editor.onTouch.drawSelectionSegment(canvas, left, top, right, bottom,
