@@ -7,11 +7,12 @@ import com.yn.sodiumeditor.utils.FunctionLog;
  * SelectionHandlesAnimation handles the animation logic for selection handles.
  */
 public class SelectionHandlesAnimation {
+    private static final String SELECTION_HANDLE_DBG = "SelectionHandleDbg";
 
     // Animation duration in ms
     private static final long ANIM_DURATION = 120;
 
-    public boolean handleMoveAnimationEnabled = true;
+    public boolean handleMoveAnimationEnabled = false;
     
     private float leftStartX = Float.NaN, leftStartY = Float.NaN;
     private float leftTargetX = Float.NaN, leftTargetY = Float.NaN;
@@ -24,6 +25,14 @@ public class SelectionHandlesAnimation {
     public float[] getAnimatedHandlePosition(boolean isLeft, float targetX, float targetY) {
         FunctionLog.f("SelectionHandlesAnimation", "getAnimatedHandlePosition", isLeft, targetX, targetY);
         if (!handleMoveAnimationEnabled) {
+            android.util.Log.i(
+                SELECTION_HANDLE_DBG,
+                "anim bypass side="
+                    + (isLeft ? "left" : "right")
+                    + " targetX="
+                    + targetX
+                    + " targetY="
+                    + targetY);
             return new float[] {targetX, targetY};
         }
         
@@ -68,6 +77,22 @@ public class SelectionHandlesAnimation {
             animRightX = ax;
             animRightY = ay;
         }
+        android.util.Log.i(
+            SELECTION_HANDLE_DBG,
+            "anim side="
+                + (isLeft ? "left" : "right")
+                + " targetX="
+                + targetX
+                + " targetY="
+                + targetY
+                + " drawX="
+                + ax
+                + " drawY="
+                + ay
+                + " t="
+                + t
+                + " enabled="
+                + handleMoveAnimationEnabled);
         
         return new float[] {ax, ay};
     }

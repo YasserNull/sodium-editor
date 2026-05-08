@@ -10,6 +10,7 @@ import com.yn.sodiumeditor.utils.FunctionLog;
  * Handles selection dragging and auto-scroll for SodiumEditor.
  */
 public class DragSelectionHandler {
+    private static final String SELECTION_HANDLE_DBG = "SelectionHandleDbg";
     private final SodiumEditor editor;
 
     public DragSelectionHandler(SodiumEditor editor) {
@@ -27,12 +28,15 @@ public class DragSelectionHandler {
 
         if (editor.selection.hasSelection && editor.selectionHandles.hitTestLeft(ex, ey)) {
             editor.selectionHandles.draggingHandle = 1;
+            android.util.Log.i(SELECTION_HANDLE_DBG, "down left touchX=" + ex + " touchY=" + ey);
             return true;
         } else if (editor.selection.hasSelection && editor.selectionHandles.hitTestRight(ex, ey)) {
             editor.selectionHandles.draggingHandle = 2;
+            android.util.Log.i(SELECTION_HANDLE_DBG, "down right touchX=" + ex + " touchY=" + ey);
             return true;
         } else if (editor.isFocused() && !editor.selection.hasSelection && editor.cursorHandle.hitTest(ex, ey)) {
             editor.selectionHandles.draggingHandle = 3;
+            android.util.Log.i(SELECTION_HANDLE_DBG, "down cursor touchX=" + ex + " touchY=" + ey);
             return true;
         }
         return false;
@@ -89,7 +93,24 @@ public class DragSelectionHandler {
         }
 
         if (editor.selectionHandles.draggingHandle != 0) {
+            int handle = editor.selectionHandles.draggingHandle;
             updateHandlePosition(ex, ey);
+            android.util.Log.i(
+                SELECTION_HANDLE_DBG,
+                "move handle="
+                    + handle
+                    + " touchX="
+                    + ex
+                    + " touchY="
+                    + ey
+                    + " sel="
+                    + editor.selection.selStartLine
+                    + ":"
+                    + editor.selection.selStartChar
+                    + "->"
+                    + editor.selection.selEndLine
+                    + ":"
+                    + editor.selection.selEndChar);
             if (editor.selectionHandles.draggingHandle == 1 || editor.selectionHandles.draggingHandle == 2) {
                 editor.popup.showPopupAtSelection();
             }
@@ -103,6 +124,22 @@ public class DragSelectionHandler {
     public void handleActionUpOrCancel() {
         FunctionLog.f("DragSelectionHandler", "handleActionUpOrCancel");
         editor.caret.mainHandler.removeCallbacks(editor.scroll.autoScrollRunnable);        if (editor.selectionHandles.draggingHandle != 0) {
+            android.util.Log.i(
+                SELECTION_HANDLE_DBG,
+                "up handle="
+                    + editor.selectionHandles.draggingHandle
+                    + " lastTouchX="
+                    + editor.onTouch.lastTouchX
+                    + " lastTouchY="
+                    + editor.onTouch.lastTouchY
+                    + " sel="
+                    + editor.selection.selStartLine
+                    + ":"
+                    + editor.selection.selStartChar
+                    + "->"
+                    + editor.selection.selEndLine
+                    + ":"
+                    + editor.selection.selEndChar);
             if (editor.selectionHandles.draggingHandle == 3) {
                 updateHandlePosition(editor.onTouch.lastTouchX, editor.onTouch.lastTouchY);
                 editor.cursorAnimation.snapToPosition(editor.caret.getCaretDocumentX(), editor.caret.getCaretDocumentY());
@@ -213,15 +250,63 @@ public class DragSelectionHandler {
         editor.selectionHandles.lastDragAtLineEnd = (ln != null && clamped == ln.length());
 
         if (editor.selectionHandles.draggingHandle == 1) {
+            if (editor.editOperators.comparePos(line, clamped, editor.selection.selEndLine, editor.selection.selEndChar) >= 0) {
+                int[] beforeEnd = getPreviousSelectionPosition(editor.selection.selEndLine, editor.selection.selEndChar);
+                line = beforeEnd[0];
+                clamped = beforeEnd[1];
+            }
             if (editor.textRender.isRtl) { editor.selection.selEndLine = line; editor.selection.selEndChar = clamped; }
             else { editor.selection.selStartLine = line; editor.selection.selStartChar = clamped; }
         } else if (editor.selectionHandles.draggingHandle == 2) {
+            if (editor.editOperators.comparePos(line, clamped, editor.selection.selStartLine, editor.selection.selStartChar) <= 0) {
+                int[] afterStart = getNextSelectionPosition(editor.selection.selStartLine, editor.selection.selStartChar);
+                line = afterStart[0];
+                clamped = afterStart[1];
+            }
             if (editor.textRender.isRtl) { editor.selection.selStartLine = line; editor.selection.selStartChar = clamped; }
             else { editor.selection.selEndLine = line; editor.selection.selEndChar = clamped; }
         } else if (editor.selectionHandles.draggingHandle == 3) {
             editor.cursor.setCursorPosition(line, clamped);
             editor.scroll.keepCursorVisibleHorizontally();
         }
+        android.util.Log.i(
+            SELECTION_HANDLE_DBG,
+            "target handle="
+                + editor.selectionHandles.draggingHandle
+                + " touchX="
+                + touchX
+                + " touchY="
+                + touchY
+                + " targetLine="
+                + target.line
+                + " targetChar="
+                + target.ch
+                + " appliedLine="
+                + line
+                + " appliedChar="
+                + clamped
+                + " scrollX="
+                + editor.scroll.scrollX
+                + " scrollY="
+                + editor.scroll.scrollY);
+    }
+
+    private int[] getPreviousSelectionPosition(int line, int ch) {
+        if (ch > 0) return new int[] {line, ch - 1};
+        if (line <= 0) return new int[] {line, ch};
+        int prevLine = line - 1;
+        String prevText = editor.windowRender.getLineTextForRender(prevLine);
+        return new int[] {prevLine, prevText == null ? 0 : prevText.length()};
+    }
+
+    private int[] getNextSelectionPosition(int line, int ch) {
+        String lineText = editor.windowRender.getLineTextForRender(line);
+        int lineLength = lineText == null ? 0 : lineText.length();
+        if (ch < lineLength) return new int[] {line, ch + 1};
+        int nextLine = line + 1;
+        int maxLine = editor.view.getLinesCount() - 1;
+        if (nextLine > maxLine) return new int[] {line, ch};
+        return new int[] {nextLine, 0};
     }
 
     private int handleCodeFoldSelection(int line, String ln, float moveX, int clamped) {

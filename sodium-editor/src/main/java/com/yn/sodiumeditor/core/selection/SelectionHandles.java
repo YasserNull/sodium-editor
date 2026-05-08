@@ -16,6 +16,7 @@ import com.yn.sodiumeditor.utils.FunctionLog;
  * - Handle position updates
  */
 public class SelectionHandles {
+    private static final String SELECTION_HANDLE_DBG = "SelectionHandleDbg";
     public final Paint handlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     // Selection handle appearance
@@ -127,9 +128,46 @@ public class SelectionHandles {
     float endX = getCharX(endLine, endChar);
     float endY = getLineY(endLine);
 
-    // Apply animation if enabled
-    float[] leftPos = animation.getAnimatedHandlePosition(true, startX, startY + editor.textRender.lineHeight);
-    float[] rightPos = animation.getAnimatedHandlePosition(false, endX, endY + editor.textRender.lineHeight);
+    float leftTargetY = startY + editor.textRender.lineHeight;
+    float rightTargetY = endY + editor.textRender.lineHeight;
+    float[] leftPos = (draggingHandle == 1)
+        ? new float[] {startX, leftTargetY}
+        : animation.getAnimatedHandlePosition(true, startX, leftTargetY);
+    float[] rightPos = (draggingHandle == 2)
+        ? new float[] {endX, rightTargetY}
+        : animation.getAnimatedHandlePosition(false, endX, rightTargetY);
+    android.util.Log.i(
+        SELECTION_HANDLE_DBG,
+        "update targetStart="
+            + startLine
+            + ":"
+            + startChar
+            + " targetEnd="
+            + endLine
+            + ":"
+            + endChar
+            + " startX="
+            + startX
+            + " startY="
+            + startY
+            + " endX="
+            + endX
+            + " endY="
+            + endY
+            + " leftDrawX="
+            + leftPos[0]
+            + " leftDrawY="
+            + leftPos[1]
+            + " rightDrawX="
+            + rightPos[0]
+            + " rightDrawY="
+            + rightPos[1]
+            + " dragging="
+            + draggingHandle
+            + " animEnabled="
+            + animation.handleMoveAnimationEnabled
+            + " animating="
+            + animation.isAnimating());
 
     // Update left handle (start) - position below the line
     float leftHandleLeft = leftPos[0] - handleWidth / 2;
@@ -180,6 +218,26 @@ public class SelectionHandles {
     float rightCenterX = rightHandleRect.centerX();
     float rightCenterY = rightHandleRect.centerY();
     float rightRadius = Math.min(rightHandleRect.width(), rightHandleRect.height()) / 2f;
+    android.util.Log.i(
+        SELECTION_HANDLE_DBG,
+        "draw dragging="
+            + draggingHandle
+            + " leftRect="
+            + leftHandleRect.left
+            + ","
+            + leftHandleRect.top
+            + ","
+            + leftHandleRect.right
+            + ","
+            + leftHandleRect.bottom
+            + " rightRect="
+            + rightHandleRect.left
+            + ","
+            + rightHandleRect.top
+            + ","
+            + rightHandleRect.right
+            + ","
+            + rightHandleRect.bottom);
     canvas.drawCircle(rightCenterX, rightCenterY, rightRadius, paint);
   }
 
