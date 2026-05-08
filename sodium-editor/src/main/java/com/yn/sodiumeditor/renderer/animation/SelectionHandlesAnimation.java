@@ -12,7 +12,7 @@ public class SelectionHandlesAnimation {
     // Animation duration in ms
     private static final long ANIM_DURATION = 120;
 
-    public boolean handleMoveAnimationEnabled = false;
+    public boolean handleMoveAnimationEnabled = true;
     
     private float leftStartX = Float.NaN, leftStartY = Float.NaN;
     private float leftTargetX = Float.NaN, leftTargetY = Float.NaN;
@@ -95,6 +95,36 @@ public class SelectionHandlesAnimation {
                 + handleMoveAnimationEnabled);
         
         return new float[] {ax, ay};
+    }
+
+    public void snapHandlePosition(boolean isLeft, float targetX, float targetY) {
+        FunctionLog.f("SelectionHandlesAnimation", "snapHandlePosition", isLeft, targetX, targetY);
+        long now = SystemClock.uptimeMillis();
+        if (isLeft) {
+            leftStartX = targetX;
+            leftStartY = targetY;
+            leftTargetX = targetX;
+            leftTargetY = targetY;
+            leftStartTime = now;
+            animLeftX = targetX;
+            animLeftY = targetY;
+        } else {
+            rightStartX = targetX;
+            rightStartY = targetY;
+            rightTargetX = targetX;
+            rightTargetY = targetY;
+            rightStartTime = now;
+            animRightX = targetX;
+            animRightY = targetY;
+        }
+        android.util.Log.i(
+            SELECTION_HANDLE_DBG,
+            "anim snap side="
+                + (isLeft ? "left" : "right")
+                + " targetX="
+                + targetX
+                + " targetY="
+                + targetY);
     }
 
     private float animLeftX = Float.NaN, animLeftY = Float.NaN;

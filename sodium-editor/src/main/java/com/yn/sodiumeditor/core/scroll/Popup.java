@@ -257,6 +257,9 @@ public class Popup {
    */
   private void showPopupAnimated() {
     FunctionLog.f("Popup", "showPopupAnimated");
+    if (showPopup && !isFadingOut && popupAlpha >= 0.95f && fadeTargetAlpha >= 0.95f) {
+      return;
+    }
     if (!showPopup || popupAlpha < 0.95f) {
       android.util.Log.d("Popup", "Action: SHOW (current alpha=" + popupAlpha + ")");
       showPopup = true;

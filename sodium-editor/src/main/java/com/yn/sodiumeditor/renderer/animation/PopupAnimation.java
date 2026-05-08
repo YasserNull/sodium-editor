@@ -13,6 +13,7 @@ import com.yn.sodiumeditor.utils.FunctionLog;
  * Handles fade and ripple animations for the popup menu.
  */
 public class PopupAnimation {
+    private static final String ANIM_DBG = "AnimDbg";
     private final SodiumEditor editor;
     private final Popup popup;
 
@@ -24,6 +25,16 @@ public class PopupAnimation {
 
     public void startFade(float targetAlpha) {
         FunctionLog.f("PopupAnimation", "startFade", targetAlpha);
+        android.util.Log.i(
+                ANIM_DBG,
+                "popupFade request target="
+                        + targetAlpha
+                        + " current="
+                        + popup.popupAlpha
+                        + " show="
+                        + popup.showPopup
+                        + " minimal="
+                        + popup.isMinimalPopup);
         if (popup.popupFadeAnimator != null) {
             if (popup.fadeTargetAlpha == targetAlpha && popup.popupFadeAnimator.isRunning()) return;
             popup.popupFadeAnimator.cancel();
@@ -31,6 +42,16 @@ public class PopupAnimation {
         popup.fadeTargetAlpha = targetAlpha;
 
         float startAlpha = popup.popupAlpha;
+        if (Math.abs(startAlpha - targetAlpha) < 0.001f) {
+            popup.popupAlpha = targetAlpha;
+            if (targetAlpha <= 0.01f) {
+                popup.showPopup = false;
+                popup.isMinimalPopup = false;
+                editor.invalidate();
+            }
+            android.util.Log.i(ANIM_DBG, "popupFade skip noop alpha=" + targetAlpha);
+            return;
+        }
         long duration = (targetAlpha > startAlpha) ? Popup.POPUP_FADE_IN_MS : Popup.POPUP_FADE_OUT_MS;
         
         ValueAnimator animator = ValueAnimator.ofFloat(startAlpha, targetAlpha);
@@ -42,6 +63,7 @@ public class PopupAnimation {
                 a -> {
                     Object v = a.getAnimatedValue();
                     popup.popupAlpha = (v instanceof Float) ? (Float) v : targetAlpha;
+                    android.util.Log.i(ANIM_DBG, "popupFade frame alpha=" + popup.popupAlpha + " target=" + targetAlpha);
                     editor.invalidate();
                 });
         animator.addListener(
@@ -53,11 +75,13 @@ public class PopupAnimation {
                         popup.isFadingOut = false;
                         if (popup.popupAlpha <= 0.01f) {
                             android.util.Log.d("Popup", "State: HIDDEN");
+                            android.util.Log.i(ANIM_DBG, "popupFade end hidden");
                             popup.showPopup = false;
                             popup.isMinimalPopup = false;
                             popup.popupAlpha = 0f;
                         } else {
                             android.util.Log.d("Popup", "State: VISIBLE");
+                            android.util.Log.i(ANIM_DBG, "popupFade end visible alpha=" + popup.popupAlpha);
                         }
                         editor.invalidate();
                     }
@@ -67,6 +91,7 @@ public class PopupAnimation {
 
     public void startRipple(int action, float x, float y) {
         FunctionLog.f("PopupAnimation", "startRipple", action, x, y);
+        android.util.Log.i(ANIM_DBG, "popupRipple start action=" + action + " x=" + x + " y=" + y);
         RectF r = popup.getPopupRectForAction(action);
         if (r.isEmpty()) return;
         popup.popupRippleHoldActive = false;
@@ -87,6 +112,7 @@ public class PopupAnimation {
                     float t = (a.getAnimatedValue() instanceof Float) ? (Float) a.getAnimatedValue() : 1f;
                     popup.popupRippleRadius = popup.popupRippleMaxRadius * t;
                     popup.popupRippleAlpha = 0.22f * (1f - t);
+                    android.util.Log.i(ANIM_DBG, "popupRipple frame t=" + t + " alpha=" + popup.popupRippleAlpha);
                     editor.invalidate();
                 });
         popup.popupRippleAnimator.addListener(
@@ -123,6 +149,7 @@ public class PopupAnimation {
 
     public void startRippleHold(int action, float x, float y) {
         FunctionLog.f("PopupAnimation", "startRippleHold", action, x, y);
+        android.util.Log.i(ANIM_DBG, "popupRippleHold action=" + action + " x=" + x + " y=" + y);
         RectF r = popup.getPopupRectForAction(action);
         if (r.isEmpty()) return;
         popup.popupRippleHoldActive = true;

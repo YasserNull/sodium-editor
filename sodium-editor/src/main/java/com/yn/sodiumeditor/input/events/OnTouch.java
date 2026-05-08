@@ -126,6 +126,18 @@ public class OnTouch {
         return true;
 
       case MotionEvent.ACTION_UP:
+        android.util.Log.i(
+            "AnimDbg",
+            "touch up moved="
+                + editor.onTouch.movedSinceDown
+                + " hasSelection="
+                + editor.selection.hasSelection
+                + " draggingHandle="
+                + editor.selectionHandles.draggingHandle
+                + " scrollX="
+                + editor.scroll.scrollX
+                + " scrollY="
+                + editor.scroll.scrollY);
         boolean wasDraggingSelectionHandle =
             editor.selectionHandles.draggingHandle == 1 || editor.selectionHandles.draggingHandle == 2;
         dragSelectionHandler.handleActionUpOrCancel();

@@ -18,7 +18,7 @@ public class CursorAnimation {
   private final PathInterpolator smoothInterpolator = new PathInterpolator(0.4f, 0f, 0.2f, 1f);
 
   // Animation configuration
-  public boolean isCursorAnimationEnabled = false;
+  public boolean isCursorAnimationEnabled = true;
   public long cursorAnimDurationMs = 80; // Reduced from 140ms for faster response
 
   // Animation state

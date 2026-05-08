@@ -34,8 +34,8 @@ public class SelectionHandleNoCrossGuardTest {
                 "BUG: crossing should leave a one-character gap instead of clamping both handles to the same position.",
                 around.contains("getPreviousSelectionPosition(editor.selection.selEndLine, editor.selection.selEndChar)")
                         && around.contains("getNextSelectionPosition(editor.selection.selStartLine, editor.selection.selStartChar)")
-                        && around.contains("private int[] getPreviousSelectionPosition")
-                        && around.contains("private int[] getNextSelectionPosition"));
+                        && src.contains("private int[] getPreviousSelectionPosition")
+                        && src.contains("private int[] getNextSelectionPosition"));
     }
 
     private static String readSource(String relativePath) throws Exception {

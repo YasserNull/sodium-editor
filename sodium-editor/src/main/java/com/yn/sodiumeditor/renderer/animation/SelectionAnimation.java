@@ -9,6 +9,7 @@ import com.yn.sodiumeditor.utils.FunctionLog;
  * highlights and handles.
  */
 public class SelectionAnimation {
+    private static final String ANIM_DBG = "AnimDbg";
 
     private final SodiumEditor editor;
 
@@ -48,6 +49,18 @@ public class SelectionAnimation {
      */
     public void updateSelectionVisibility(boolean nowHasSelection) {
         FunctionLog.f("SelectionAnimation", "updateSelectionVisibility", nowHasSelection);
+        android.util.Log.i(
+                ANIM_DBG,
+                "selectionVisibility requested="
+                        + nowHasSelection
+                        + " last="
+                        + lastHasSelection
+                        + " enabled="
+                        + selectionAnimationEnabled
+                        + " alpha="
+                        + selectionAlpha
+                        + " handleAlpha="
+                        + handleAlpha);
         if (nowHasSelection == lastHasSelection) return;
         lastHasSelection = nowHasSelection;
         if (!selectionAnimationEnabled) {
@@ -66,8 +79,21 @@ public class SelectionAnimation {
             float v = (float) a.getAnimatedValue();
             selectionAlpha = v;
             handleAlpha = v;
+            android.util.Log.i(
+                    ANIM_DBG,
+                    "selectionFade frame value="
+                            + v
+                            + " nowHasSelection="
+                            + nowHasSelection
+                            + " selectionAlpha="
+                            + selectionAlpha
+                            + " handleAlpha="
+                            + handleAlpha);
             editor.invalidate();
         });
+        android.util.Log.i(
+                ANIM_DBG,
+                "selectionFade start from=" + start + " to=" + end + " duration=140");
         selectionFadeAnimator.start();
     }
 
@@ -77,6 +103,7 @@ public class SelectionAnimation {
     public void cancelAnimation() {
         FunctionLog.f("SelectionAnimation", "cancelAnimation");
         if (selectionFadeAnimator != null) {
+            android.util.Log.i(ANIM_DBG, "selectionFade cancel");
             selectionFadeAnimator.cancel();
         }
     }

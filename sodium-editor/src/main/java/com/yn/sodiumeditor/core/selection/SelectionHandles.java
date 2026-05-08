@@ -37,6 +37,8 @@ public class SelectionHandles {
     public int draggingHandle = 0; // 0 = none, 1 = left, 2 = right
     public boolean lastDragAtLineStart = false;
     public boolean lastDragAtLineEnd = false;
+    public float lastHandleScrollX = Float.NaN;
+    public float lastHandleScrollY = Float.NaN;
 
     // Animation delegate
     public final SelectionHandlesAnimation animation;
@@ -130,12 +132,26 @@ public class SelectionHandles {
 
     float leftTargetY = startY + editor.textRender.lineHeight;
     float rightTargetY = endY + editor.textRender.lineHeight;
-    float[] leftPos = (draggingHandle == 1)
-        ? new float[] {startX, leftTargetY}
-        : animation.getAnimatedHandlePosition(true, startX, leftTargetY);
-    float[] rightPos = (draggingHandle == 2)
-        ? new float[] {endX, rightTargetY}
-        : animation.getAnimatedHandlePosition(false, endX, rightTargetY);
+    boolean scrollChanged =
+        lastHandleScrollX != editor.scroll.scrollX || lastHandleScrollY != editor.scroll.scrollY;
+    boolean bypassLeftAnimation = draggingHandle == 1 || scrollChanged;
+    boolean bypassRightAnimation = draggingHandle == 2 || scrollChanged;
+    if (bypassLeftAnimation) {
+      animation.snapHandlePosition(true, startX, leftTargetY);
+    }
+    if (bypassRightAnimation) {
+      animation.snapHandlePosition(false, endX, rightTargetY);
+    }
+    float[] leftPos =
+        bypassLeftAnimation
+            ? new float[] {startX, leftTargetY}
+            : animation.getAnimatedHandlePosition(true, startX, leftTargetY);
+    float[] rightPos =
+        bypassRightAnimation
+            ? new float[] {endX, rightTargetY}
+            : animation.getAnimatedHandlePosition(false, endX, rightTargetY);
+    lastHandleScrollX = editor.scroll.scrollX;
+    lastHandleScrollY = editor.scroll.scrollY;
     android.util.Log.i(
         SELECTION_HANDLE_DBG,
         "update targetStart="

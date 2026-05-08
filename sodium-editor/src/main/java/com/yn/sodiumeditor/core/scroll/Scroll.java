@@ -239,6 +239,18 @@ public class Scroll {
             showScrollBar(); editor.postInvalidateOnAnimation();
         } else if (scrollerIsScrolling) {
             scrollerIsScrolling = false; showScrollBar();
+            android.util.Log.i(
+                "AnimDbg",
+                "scroll end scrollX="
+                    + scrollX
+                    + " scrollY="
+                    + scrollY
+                    + " stretchX="
+                    + stretch.stretchX
+                    + " stretchY="
+                    + stretch.stretchY
+                    + " hasSelection="
+                    + editor.selection.hasSelection);
             if (stretch.stretchOverscrollEnabled) stretch.releaseStretch();
             edge.releaseAll();
             if (flingBounceEnabled) {

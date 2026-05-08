@@ -10,6 +10,7 @@ import com.yn.sodiumeditor.utils.FunctionLog;
  * Stretch handles all stretch/overscroll effects for SodiumEditor.
  */
 public class Stretch {
+  private static final String ANIM_DBG = "AnimDbg";
 
   public boolean stretchOverscrollEnabled = true;
   public float stretchOverscrollStrength = 1f;
@@ -32,28 +33,42 @@ public class Stretch {
   public void pullStretchX(float deltaPx, boolean toRight) {
     FunctionLog.f("Stretch", "pullStretchX", deltaPx, toRight);
     if (!stretchOverscrollEnabled) return;
+    if (editor.selection.hasSelection) {
+      reset();
+      return;
+    }
     cancelStretchRelease();
     float norm = Math.abs(deltaPx) / (float) editor.getWidth();
     float gain = norm * 0.4f * stretchOverscrollStrength;
     stretchDirX = toRight ? 1 : -1;
     stretchX = Math.min(1f, stretchX + gain);
+    android.util.Log.i(ANIM_DBG, "stretch pullX delta=" + deltaPx + " toRight=" + toRight + " stretchX=" + stretchX);
     editor.invalidate();
   }
 
   public void pullStretchY(float deltaPx, boolean toBottom) {
     FunctionLog.f("Stretch", "pullStretchY", deltaPx, toBottom);
     if (!stretchOverscrollEnabled) return;
+    if (editor.selection.hasSelection) {
+      reset();
+      return;
+    }
     cancelStretchRelease();
     float norm = Math.abs(deltaPx) / (float) editor.getHeight();
     float gain = norm * 0.4f * stretchOverscrollStrength;
     stretchDirY = toBottom ? 1 : -1;
     stretchY = Math.min(1f, stretchY + gain);
+    android.util.Log.i(ANIM_DBG, "stretch pullY delta=" + deltaPx + " toBottom=" + toBottom + " stretchY=" + stretchY);
     editor.invalidate();
   }
 
   public void absorbStretchX(float velocity, boolean toRight) {
     FunctionLog.f("Stretch", "absorbStretchX", velocity, toRight);
     if (!stretchOverscrollEnabled) return;
+    if (editor.selection.hasSelection) {
+      reset();
+      return;
+    }
     stretchDirX = toRight ? 1 : -1;
     stretchX = Math.min(0.5f, Math.abs(velocity) / 10000f);
     releaseStretch();
@@ -62,6 +77,10 @@ public class Stretch {
   public void absorbStretchY(float velocity, boolean toBottom) {
     FunctionLog.f("Stretch", "absorbStretchY", velocity, toBottom);
     if (!stretchOverscrollEnabled) return;
+    if (editor.selection.hasSelection) {
+      reset();
+      return;
+    }
     stretchDirY = toBottom ? 1 : -1;
     stretchY = Math.min(0.5f, Math.abs(velocity) / 10000f);
     releaseStretch();
@@ -72,7 +91,16 @@ public class Stretch {
     if (stretchReleaseAnimator != null) {
       stretchReleaseAnimator.cancel();
     }
+    if (editor.selection.hasSelection) {
+      stretchX = 0f;
+      stretchY = 0f;
+      stretchDirX = 0;
+      stretchDirY = 0;
+      editor.invalidate();
+      return;
+    }
     if (stretchX <= 0f && stretchY <= 0f) return;
+    android.util.Log.i(ANIM_DBG, "stretch release start x=" + stretchX + " y=" + stretchY);
 
     stretchReleaseAnimator = ValueAnimator.ofFloat(1f, 0f);
     stretchReleaseAnimator.setDuration(300); // مدة الارتداد السلس
@@ -81,6 +109,7 @@ public class Stretch {
       float t = (float) animation.getAnimatedValue();
       stretchX *= t;
       stretchY *= t;
+      android.util.Log.i(ANIM_DBG, "stretch release frame t=" + t + " x=" + stretchX + " y=" + stretchY);
       editor.invalidate();
     });
     stretchReleaseAnimator.start();
