@@ -126,6 +126,8 @@ public class OnTouch {
         return true;
 
       case MotionEvent.ACTION_UP:
+        boolean wasDraggingSelectionHandle =
+            editor.selectionHandles.draggingHandle == 1 || editor.selectionHandles.draggingHandle == 2;
         dragSelectionHandler.handleActionUpOrCancel();
         scrollBarHandler.handleActionUpOrCancel();
         editor.scroll.edge.releaseAll();
@@ -153,6 +155,12 @@ public class OnTouch {
 
         editor.onTouch.pointerDown = false;
         editor.selection.selecting = false;
+
+        if (wasDraggingSelectionHandle) {
+          if (editor.selection.hasSelection) editor.popup.showPopupAtSelection();
+          editor.view.restartInput();
+          return true;
+        }
 
         if (editor.onTouch.movedSinceDown && editor.scroll.scroller.isFinished()) {
           if (editor.selection.hasSelection) editor.popup.showPopupAtSelection();
