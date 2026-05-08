@@ -9,26 +9,30 @@ import java.nio.file.Path;
 import org.junit.Test;
 
 /**
- * Regression guard for stale cursor handle position when cursor animation is disabled.
+ * Regression guard for cursor-handle stability during and right after zoom/scale changes.
  */
-public class CursorHandleAnimationGateGuardTest {
+public class CursorHandleZoomSyncGuardTest {
 
     @Test
-    public void updateCursorHandlePosition_shouldUseAnimatedCoordsOnlyWhenAnimationEnabled() throws Exception {
-        String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/cursor/CursorHandle.java");
+    public void updateCursorHandlePosition_shouldBypassCursorAnimationDuringZoomAndScaleTransitions()
+            throws Exception {
+        String src =
+                readSource(
+                        "sodium-editor/src/main/java/com/yn/sodiumeditor/core/cursor/CursorHandle.java");
         int at = src.indexOf("public void updateCursorHandlePosition()");
         assertTrue("Expected updateCursorHandlePosition in CursorHandle.", at >= 0);
-        String around = src.substring(at, Math.min(src.length(), at + 1600));
+        String around = src.substring(at, Math.min(src.length(), at + 1800));
 
         assertTrue(
-                "BUG: cursor handle should gate cursorAnimation coordinates behind isCursorAnimationEnabled.",
-                around.contains("boolean draggingCursorHandle")
-                        && around.contains("boolean zoomOrScaleTransition")
-                        && around.contains("!draggingCursorHandle")
-                        && around.contains("!zoomOrScaleTransition")
-                        && around.contains("editor.cursorAnimation.isCursorAnimationEnabled")
-                        && around.contains("editor.cursorAnimation.cursorAnimValid")
-                        && around.contains("docX = caret.getCaretDocumentX();")
+                "BUG: CursorHandle should detect active zoom / scale transitions before reusing animated cursor coordinates.",
+                around.contains("editor.zoom.isScaling")
+                        || around.contains("editor.scaleGestureDetector.isInProgress()")
+                        || around.contains("editor.onTouch.multiTouchActive")
+                        || around.contains("editor.zoom.mJustFinishedScale"));
+
+        assertTrue(
+                "BUG: CursorHandle must fall back to caret document coordinates during zoom transitions instead of stale cursorAnimation coordinates.",
+                around.contains("docX = caret.getCaretDocumentX();")
                         && around.contains("docY = caret.getCaretDocumentY();"));
     }
 

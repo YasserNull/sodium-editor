@@ -18,11 +18,13 @@ public class CursorHandleRegressionGuardTest {
         String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/cursor/CursorHandle.java");
         int at = src.indexOf("public void updateCursorHandlePosition()");
         assertTrue("Expected updateCursorHandlePosition in CursorHandle.", at >= 0);
-        String around = src.substring(at, Math.min(src.length(), at + 1000));
+        String around = src.substring(at, Math.min(src.length(), at + 1600));
 
         assertTrue(
                 "BUG: CursorHandle must ignore stale cursorAnimation coordinates when animation is disabled.",
-                around.contains("editor.cursorAnimation.isCursorAnimationEnabled")
+                around.contains("boolean draggingCursorHandle")
+                        && around.contains("boolean zoomOrScaleTransition")
+                        && around.contains("editor.cursorAnimation.isCursorAnimationEnabled")
                         && around.contains("docX = caret.getCaretDocumentX();")
                         && around.contains("docY = caret.getCaretDocumentY();"));
     }
