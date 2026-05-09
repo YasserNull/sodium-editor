@@ -476,6 +476,11 @@ public class EditorActions {
         if (closeIdx < 0) closeIdx = (endText == null ? 0 : endText.length());
         editor.cursor.cursorLine = fold.endLine;
         editor.cursor.cursorChar = Math.max(editor.cursor.cursorChar, Math.min(closeIdx + 1, (endText == null ? 0 : endText.length())));
+        // This is an internal cursor correction before editing, not a user-visible move.
+        // Snap immediately so fast typing after a collapsed fold does not inherit a lagging
+        // animation from the hidden end line to the folded visual line.
+        editor.cursorAnimation.snapToPosition(
+            editor.caret.getCaretDocumentX(), editor.caret.getCaretDocumentY());
     }
 
     private void handleCodeFoldNewline(int beforeLine, int beforeChar) {

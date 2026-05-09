@@ -35,10 +35,10 @@ public class OnSingleTapUp {
     if (editor.codeFold.isCodeFoldingEnabled && editor.lineNumber.isInLineNumberGutter(e.getX())) {
       float gy = e.getY() + editor.scroll.scrollY;
       int line = editor.wordWrap.getGlobalLineForY(gy);
-      if (editor.codeFold.toggleFoldAtLine(line)) {
-        editor.codeFold.startFoldMarkerRipple(line);
-        editor.invalidate();
-        return true;
+        if (editor.codeFold.toggleFoldAtLine(line)) {
+          editor.codeFold.startFoldMarkerRipple(line);
+          editor.invalidate();
+          return true;
       }
     }
     float y = e.getY() + editor.scroll.scrollY;
@@ -123,11 +123,7 @@ public class OnSingleTapUp {
             editor.cursor.setCursorPosition(range.endLine, Math.max(suffixStart, Math.min(idx, endLineText.length())));
           }
 
-          editor.invalidate();
-          editor.caret.resetBlink();
-          editor.ime.showKeyboard();
-          editor.view.restartInput();
-          editor.autoCompletion.updateSuggestion();
+          finishTapCursorPlacement(false);
           return true;
         }
       }
@@ -145,12 +141,20 @@ public class OnSingleTapUp {
       editor.cursor.setCursorPosition(line, Math.max(0, Math.min(target.ch, (ln == null) ? 0 : ln.length())));
     }
 
+    finishTapCursorPlacement(afterEnd);
+    return true;
+  }
+
+  private void finishTapCursorPlacement(boolean snapCursorAnimation) {
+    if (snapCursorAnimation) {
+      editor.cursorAnimation.snapToPosition(
+          editor.caret.getCaretDocumentX(), editor.caret.getCaretDocumentY());
+    }
     editor.selection.selecting = false;
     editor.invalidate();
     editor.caret.resetBlink();
     editor.ime.showKeyboard();
     editor.view.restartInput();
     editor.autoCompletion.updateSuggestion();
-    return true;
   }
 }

@@ -278,9 +278,7 @@ public class Scroll {
         FunctionLog.f("Scroll", "keepCursorVisibleHorizontally");
         if (editor.zoom.isScaling || (editor.scaleGestureDetector != null && editor.scaleGestureDetector.isInProgress()) || editor.onTouch.multiTouchActive) return;
         float oldX = scrollX, oldY = scrollY;
-        if (editor.codeFold.isCodeFoldingEnabled) editor.codeFold.rebuildFoldIntervalsIfNeeded();
-        int vIdx = editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.getVisibleIndexForGlobalLine(editor.cursor.cursorLine) : editor.wordWrap.getVisualIndexForLineAndChar(editor.cursor.cursorLine, editor.cursor.cursorChar);
-        if (vIdx < 0) return;
+        int vIdx = Math.max(0, Math.round(editor.caret.getCaretDocumentY() / editor.textRender.lineHeight));
         float yT = vIdx * editor.textRender.lineHeight, yB = yT + editor.textRender.lineHeight;
         int vH = editor.getHeight() - editor.view.keyboardHeight; if (vH <= 0) vH = editor.getHeight();
         float bP = (editor.view.keyboardHeight > 0) ? getKeyboardBarrierPadding() : getBottomBarrierPadding();
@@ -293,8 +291,7 @@ public class Scroll {
         }
         float nX = scrollX;
         if (!editor.wordWrap.isWordWrapEnabled) {
-            String ln = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
-            float cX = editor.caret.getCaretXForLine(ln, editor.cursor.cursorLine, Math.min(editor.cursor.cursorChar, editor.view.getLogicalLineLength(editor.cursor.cursorLine, ln)));
+            float cX = editor.caret.getCaretDocumentX();
             float vL = editor.textRender.isRtl ? 0f : editor.lineNumber.lineNumbersGutterWidth;
             float vR = editor.textRender.isRtl ? (editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth) : editor.getWidth();
             float sM = 50f, eSX = getEffectiveScrollX(), cVX = editor.layout.getTextStartX() + cX - eSX, minV = vL + sM, maxV = vR - sM;

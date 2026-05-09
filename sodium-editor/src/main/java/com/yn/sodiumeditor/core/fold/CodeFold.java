@@ -356,6 +356,52 @@ public class CodeFold {
     }
 
     /**
+     * Measure the visual width of a collapsed fold line as it is actually rendered.
+     */
+    public float getCollapsedFoldVisualWidth(FoldRange range, @Nullable String startLineText, @Nullable String endLineText) {
+        if (range == null || !range.collapsed) return 0f;
+
+        String startText = (startLineText != null) ? startLineText : editor.windowRender.getLineTextForRender(range.startLine);
+        if (startText == null) startText = "";
+
+        int prefixEnd =
+                range.isBlockComment
+                        ? Math.min(range.openCharIndex + 2, startText.length())
+                        : range.isIndentFold
+                                ? startText.length()
+                                : Math.min(range.openCharIndex + 1, startText.length());
+
+        float width = editor.highlite.measureHighlightedSegmentWidth(startText, range.startLine, 0, prefixEnd);
+        width += Math.max(0f, editor.textRender.paint.measureText(FOLD_PLACEHOLDER_TEXT));
+
+        if (range.isIndentFold) {
+            return width;
+        }
+
+        String close = range.isBlockComment ? "*/" : String.valueOf(range.closeChar);
+        width += editor.textRender.paint.measureText(close);
+
+        String endText = (endLineText != null) ? endLineText : editor.windowRender.getLineTextForRender(range.endLine);
+        if (endText == null) endText = "";
+
+        int closeIdx = resolveCloseCharIndex(range, endText);
+        if (closeIdx < 0) closeIdx = range.closeCharIndex;
+
+        int suffixStart;
+        if (range.isBlockComment) {
+            suffixStart = Math.min(endText.length(), Math.max(0, closeIdx + 2));
+        } else {
+            suffixStart = Math.min(endText.length(), Math.max(0, closeIdx + 1));
+        }
+
+        if (suffixStart < endText.length()) {
+            width += editor.highlite.measureHighlightedSegmentWidth(
+                    endText, range.endLine, suffixStart, endText.length());
+        }
+        return width;
+    }
+
+    /**
      * Resolve the actual character index of the closing bracket in the end line.
      */
     public int resolveCloseCharIndex(FoldRange range, String endLineText) {

@@ -29,24 +29,18 @@ public class SelectionHandleFreshSelectionGuardTest {
         readSource(
             "sodium-editor/src/main/java/com/yn/sodiumeditor/core/selection/SelectionActionHandler.java");
 
-    int setSelectionAt =
-        stateSrc.indexOf(
-            "public void setSelection(int startLine, int startChar, int endLine, int endChar)");
-    assertTrue("Expected setSelection in SelectionState.", setSelectionAt >= 0);
     String setSelectionAround =
-        stateSrc.substring(setSelectionAt, Math.min(stateSrc.length(), setSelectionAt + 1200));
+        methodBody(
+            stateSrc,
+            "setSelection(int startLine, int startChar, int endLine, int endChar)");
     assertTrue(
         "BUG: starting a new selection must clear stale handle animation state before the next frame is computed.",
         setSelectionAround.contains("editor.selectionHandles.animation.resetAnimationState();")
             && setSelectionAround.contains("editor.selectionHandles.updateHandlesPosition();")
             && setSelectionAround.contains("editor.invalidate();"));
 
-    int setSelectionInternalAt =
-        stateSrc.indexOf("public void setSelectionInternal(int sL, int sC, int eL, int eC)");
-    assertTrue("Expected setSelectionInternal in SelectionState.", setSelectionInternalAt >= 0);
     String setSelectionInternalAround =
-        stateSrc.substring(
-            setSelectionInternalAt, Math.min(stateSrc.length(), setSelectionInternalAt + 1400));
+        methodBody(stateSrc, "setSelectionInternal(int sL, int sC, int eL, int eC)");
     assertTrue(
         "BUG: replacing one selection with another must clear stale handle animation state before visibility/geometry updates.",
         setSelectionInternalAround.contains("editor.selectionHandles.animation.resetAnimationState();")
@@ -62,13 +56,15 @@ public class SelectionHandleFreshSelectionGuardTest {
     assertTrue("Expected resetAnimationState in SelectionHandlesAnimation.", resetAt >= 0);
     String resetAround = animSrc.substring(resetAt, Math.min(animSrc.length(), resetAt + 800));
     assertTrue(
-        "BUG: resetting handle animation state must discard both previous animated draw positions so the first frame of a new selection cannot reuse the old handle location.",
+        "BUG: resetting handle animation state must discard stale animated draw positions and the X start anchors used to redirect from the previous selection.",
         resetAround.contains("animLeftX = Float.NaN;")
             && resetAround.contains("animLeftY = Float.NaN;")
             && resetAround.contains("animRightX = Float.NaN;")
             && resetAround.contains("animRightY = Float.NaN;")
             && resetAround.contains("leftStartX = Float.NaN;")
-            && resetAround.contains("rightStartX = Float.NaN;"));
+            && resetAround.contains("rightStartX = Float.NaN;")
+            && resetAround.contains("leftAnimDuration = ANIM_DURATION;")
+            && resetAround.contains("rightAnimDuration = ANIM_DURATION;"));
 
     int animatedAt =
         animSrc.indexOf(
@@ -146,5 +142,28 @@ public class SelectionHandleFreshSelectionGuardTest {
       return new String(Files.readAllBytes(fallback), StandardCharsets.UTF_8);
     }
     throw new IllegalStateException("Could not locate source file: " + relativePath);
+  }
+
+  private static String methodBody(String src, String methodSignatureFragment) {
+    int method = src.indexOf(methodSignatureFragment);
+    if (method < 0) {
+      throw new IllegalStateException("Method not found: " + methodSignatureFragment);
+    }
+    int start = src.indexOf('{', method);
+    if (start < 0) {
+      throw new IllegalStateException("Method body not found: " + methodSignatureFragment);
+    }
+    int depth = 0;
+    for (int i = start; i < src.length(); i++) {
+      char c = src.charAt(i);
+      if (c == '{') depth++;
+      if (c == '}') {
+        depth--;
+        if (depth == 0) {
+          return src.substring(start, i + 1);
+        }
+      }
+    }
+    throw new IllegalStateException("Unclosed method body: " + methodSignatureFragment);
   }
 }

@@ -602,6 +602,48 @@ public class View {
 
     public void computeWidthForLine(int globalIndex, String line) {
         String safe = (line == null) ? "" : line;
+        if (editor.codeFold.isCodeFoldingEnabled) {
+            com.yn.sodiumeditor.core.fold.CodeFold.FoldRange hidden =
+                    editor.codeFold.getCollapsedRangeContainingLine(globalIndex);
+            if (hidden != null) {
+                String startLineText = editor.windowRender.getLineTextForRender(hidden.startLine);
+                float foldedWidth = editor.codeFold.getCollapsedFoldVisualWidth(hidden, startLineText, safe);
+                synchronized (editor.windowRender.lineWidthCache) {
+                    editor.windowRender.lineWidthCache.put(hidden.startLine, foldedWidth);
+                }
+                if (foldedWidth > editor.windowRender.currentMaxWindowLineWidth) {
+                    editor.windowRender.currentMaxWindowLineWidth = foldedWidth;
+                }
+                if (foldedWidth > editor.windowRender.globalMaxLineWidth) {
+                    editor.windowRender.globalMaxLineWidth = foldedWidth;
+                }
+                if (foldedWidth > editor.scroll.maxLineWidthForScroll) {
+                    editor.scroll.maxLineWidthForScroll = foldedWidth;
+                }
+                return;
+            }
+            com.yn.sodiumeditor.core.fold.CodeFold.FoldRange start =
+                    editor.codeFold.getFoldRangeAtStart(globalIndex);
+            if (start != null && start.collapsed) {
+                String endLineText = (start.endLine == globalIndex)
+                        ? safe
+                        : editor.windowRender.getLineTextForRender(start.endLine);
+                float foldedWidth = editor.codeFold.getCollapsedFoldVisualWidth(start, safe, endLineText);
+                synchronized (editor.windowRender.lineWidthCache) {
+                    editor.windowRender.lineWidthCache.put(globalIndex, foldedWidth);
+                }
+                if (foldedWidth > editor.windowRender.currentMaxWindowLineWidth) {
+                    editor.windowRender.currentMaxWindowLineWidth = foldedWidth;
+                }
+                if (foldedWidth > editor.windowRender.globalMaxLineWidth) {
+                    editor.windowRender.globalMaxLineWidth = foldedWidth;
+                }
+                if (foldedWidth > editor.scroll.maxLineWidthForScroll) {
+                    editor.scroll.maxLineWidthForScroll = foldedWidth;
+                }
+                return;
+            }
+        }
         Float oldWidth = null;
         synchronized (editor.windowRender.lineWidthCache) {
             oldWidth = editor.windowRender.lineWidthCache.get(globalIndex);
@@ -638,6 +680,30 @@ public class View {
             if (v != null) return v;
         }
         String safe = (line == null) ? "" : line;
+        if (editor.codeFold.isCodeFoldingEnabled) {
+            com.yn.sodiumeditor.core.fold.CodeFold.FoldRange hidden =
+                    editor.codeFold.getCollapsedRangeContainingLine(globalIndex);
+            if (hidden != null) {
+                String startLineText = editor.windowRender.getLineTextForRender(hidden.startLine);
+                float foldedWidth = editor.codeFold.getCollapsedFoldVisualWidth(hidden, startLineText, safe);
+                synchronized (editor.windowRender.lineWidthCache) {
+                    editor.windowRender.lineWidthCache.put(hidden.startLine, foldedWidth);
+                }
+                return foldedWidth;
+            }
+            com.yn.sodiumeditor.core.fold.CodeFold.FoldRange start =
+                    editor.codeFold.getFoldRangeAtStart(globalIndex);
+            if (start != null && start.collapsed) {
+                String endLineText = (start.endLine == globalIndex)
+                        ? safe
+                        : editor.windowRender.getLineTextForRender(start.endLine);
+                float foldedWidth = editor.codeFold.getCollapsedFoldVisualWidth(start, safe, endLineText);
+                synchronized (editor.windowRender.lineWidthCache) {
+                    editor.windowRender.lineWidthCache.put(globalIndex, foldedWidth);
+                }
+                return foldedWidth;
+            }
+        }
         float w;
         int logicalLen = getLogicalLineLength(globalIndex, safe);
         if (logicalLen > editor.highliteRender.maxSyntaxLineLength) {

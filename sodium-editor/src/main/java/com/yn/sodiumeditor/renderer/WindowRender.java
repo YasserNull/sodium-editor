@@ -362,7 +362,24 @@ public class WindowRender {
         float maxW = 0f;
         synchronized (linesWindow) {
             for (int i = 0; i < linesWindow.size(); i++) {
-                float w = editor.view.getWidthForLine(windowStartLine + i, linesWindow.get(i));
+                int globalLine = windowStartLine + i;
+                String line = linesWindow.get(i);
+                float w;
+                if (editor.codeFold.isCodeFoldingEnabled) {
+                    com.yn.sodiumeditor.core.fold.CodeFold.FoldRange fold =
+                            editor.codeFold.getFoldRangeAtStart(globalLine);
+                    if (fold != null && fold.collapsed) {
+                        String endLineText =
+                                (fold.endLine == globalLine)
+                                        ? line
+                                        : editor.windowRender.getLineTextForRender(fold.endLine);
+                        w = editor.codeFold.getCollapsedFoldVisualWidth(fold, line, endLineText);
+                    } else {
+                        w = editor.view.getWidthForLine(globalLine, line);
+                    }
+                } else {
+                    w = editor.view.getWidthForLine(globalLine, line);
+                }
                 if (w > maxW) maxW = w;
             }
         }
