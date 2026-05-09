@@ -20,6 +20,10 @@ public class CursorAnimation {
   // Animation configuration
   public boolean isCursorAnimationEnabled = true;
   public long cursorAnimDurationMs = 80; // Reduced from 140ms for faster response
+  public long cursorAnimFastRedirectMinDurationMs = 6;
+  public long cursorAnimFastRedirectMaxDurationMs = 72;
+  public float cursorAnimFastSpeedThresholdPxPerMs = 5.5f;
+  public float cursorAnimSnapDistanceThresholdPx = 140f;
 
   // Animation state
   public int lastCursorAnimLine = -1;
@@ -39,6 +43,7 @@ public class CursorAnimation {
   public boolean cursorAnimRunning = false;
   public float lastScrollX = Float.NaN;
   public float lastScrollY = Float.NaN;
+  public long cursorAnimActiveDurationMs = cursorAnimDurationMs;
 
   // Reference to parent editor
   private final SodiumEditor editor;
@@ -143,11 +148,42 @@ public class CursorAnimation {
     }
 
     if (targetChanged) {
+      float redirectDistance = (float) Math.hypot(targetX - cursorDrawX, targetY - cursorDrawY);
+      long timeSinceLastRedirect = Math.max(0L, now - cursorAnimStartUptime);
+      float redirectSpeed = redirectDistance / Math.max(1f, (float) timeSinceLastRedirect);
+      boolean fastDragAnimationActive = editor.selectionHandles.draggingHandle == 3;
+      if (fastDragAnimationActive && redirectDistance >= cursorAnimSnapDistanceThresholdPx) {
+        snapToPosition(targetX, targetY);
+        Log.i(
+            "CursorDbg",
+            "animSnapRedirect"
+                + " targetX="
+                + targetX
+                + " targetY="
+                + targetY
+                + " distance="
+                + redirectDistance);
+        return;
+      }
       // Smooth Redirection: Always restart from current visual position with a fresh timer.
       // This eliminates lag and ensures the cursor always heads towards the LATEST target smoothly.
       cursorAnimStartX = cursorDrawX;
       cursorAnimStartY = cursorDrawY;
       cursorAnimStartUptime = now;
+      if (fastDragAnimationActive) {
+        float speedRatio = Math.min(1f, redirectSpeed / cursorAnimFastSpeedThresholdPxPerMs);
+        cursorAnimActiveDurationMs =
+            Math.round(
+                cursorAnimFastRedirectMaxDurationMs
+                    - ((cursorAnimFastRedirectMaxDurationMs - cursorAnimFastRedirectMinDurationMs)
+                        * speedRatio));
+        cursorAnimActiveDurationMs =
+            Math.max(
+                cursorAnimFastRedirectMinDurationMs,
+                Math.min(cursorAnimFastRedirectMaxDurationMs, cursorAnimActiveDurationMs));
+      } else {
+        cursorAnimActiveDurationMs = cursorAnimDurationMs;
+      }
       
       cursorAnimTargetX = targetX;
       cursorAnimTargetY = targetY;
@@ -171,6 +207,14 @@ public class CursorAnimation {
               + cursorDrawX
               + " drawY="
               + cursorDrawY
+              + " distance="
+              + redirectDistance
+              + " speed="
+              + redirectSpeed
+              + " fastDrag="
+              + fastDragAnimationActive
+              + " duration="
+              + cursorAnimActiveDurationMs
               + " running="
               + cursorAnimRunning);
     }
@@ -206,6 +250,7 @@ public class CursorAnimation {
     cursorAnimTargetY = y;
     cursorDrawX = x;
     cursorDrawY = y;
+    cursorAnimActiveDurationMs = cursorAnimFastRedirectMinDurationMs;
   }
 
   /**
@@ -276,7 +321,10 @@ public class CursorAnimation {
       long now = SystemClock.uptimeMillis();
       if (cursorAnimStartUptime == 0L) cursorAnimStartUptime = now;
       long elapsed = Math.max(0L, now - cursorAnimStartUptime);
-      float t = Math.min(1f, (float) elapsed / (float) Math.max(1L, cursorAnimDurationMs));
+      float t =
+          Math.min(
+              1f,
+              (float) elapsed / (float) Math.max(1L, cursorAnimActiveDurationMs));
       
       // Use the same PathInterpolator as CurrentLineHighlight for sync
       float eased = smoothInterpolator.getInterpolation(t);

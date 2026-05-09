@@ -114,8 +114,23 @@ public class Caret {
       return;
     }
 
-    float cx = getCaretDocumentX();
-    float cy = getCaretDocumentY();
+    boolean zoomOrScaleTransition =
+        editor.zoom.isScaling
+            || (editor.scaleGestureDetector != null && editor.scaleGestureDetector.isInProgress())
+            || editor.onTouch.multiTouchActive
+            || editor.zoom.mJustFinishedScale;
+    float cx;
+    float cy;
+    if (!zoomOrScaleTransition
+        && editor.cursorAnimation.isCursorAnimationEnabled
+        && editor.cursorAnimation.cursorAnimValid
+        && !Float.isNaN(editor.cursorAnimation.cursorDrawX)) {
+      cx = editor.cursorAnimation.cursorDrawX;
+      cy = editor.cursorAnimation.cursorDrawY;
+    } else {
+      cx = getCaretDocumentX();
+      cy = getCaretDocumentY();
+    }
 
     float top = cy - editor.scroll.scrollY;
     float bottom = top + editor.textRender.lineHeight;

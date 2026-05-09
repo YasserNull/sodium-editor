@@ -14,23 +14,43 @@ import org.junit.Test;
 public class CursorHandleDragSyncGuardTest {
 
     @Test
-    public void updateCursorHandlePosition_shouldBypassCursorAnimationWhileDraggingCursorHandle() throws Exception {
-        String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/cursor/CursorHandle.java");
-        int at = src.indexOf("public void updateCursorHandlePosition()");
-        assertTrue("Expected updateCursorHandlePosition in CursorHandle.", at >= 0);
-        String around = src.substring(at, Math.min(src.length(), at + 1400));
+    public void cursorHandleAndCaret_shouldUseSameAnimationSourceWhileDragging() throws Exception {
+        String handleSrc = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/cursor/CursorHandle.java");
+        int handleAt = handleSrc.indexOf("public void updateCursorHandlePosition()");
+        assertTrue("Expected updateCursorHandlePosition in CursorHandle.", handleAt >= 0);
+        String handleAround = handleSrc.substring(handleAt, Math.min(handleSrc.length(), handleAt + 1600));
 
         assertTrue(
-                "BUG: cursor handle dragging should be detected explicitly before reading animated cursor coordinates.",
-                around.contains("boolean draggingCursorHandle = editor.selectionHandles.draggingHandle == 3;"));
+                "BUG: CursorHandle should keep following cursorAnimation during dragging unless zoom/scale makes animation state unsafe.",
+                !handleAround.contains("boolean draggingCursorHandle = editor.selectionHandles.draggingHandle == 3;")
+                        && handleAround.contains("editor.cursorAnimation.isCursorAnimationEnabled")
+                        && handleAround.contains("editor.cursorAnimation.cursorAnimValid")
+                        && handleAround.contains("docX = editor.cursorAnimation.cursorDrawX;")
+                        && handleAround.contains("docY = editor.cursorAnimation.cursorDrawY;"));
 
+        String caretSrc = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/cursor/Caret.java");
+        int caretAt = caretSrc.indexOf("public void drawCaret(Canvas canvas)");
+        assertTrue("Expected drawCaret in Caret.", caretAt >= 0);
+        String caretAround = caretSrc.substring(caretAt, Math.min(caretSrc.length(), caretAt + 1800));
         assertTrue(
-                "BUG: CursorHandle must ignore cursorAnimation draw coordinates while dragging the cursor handle.",
-                around.contains("if (!draggingCursorHandle")
-                        && around.contains("editor.cursorAnimation.isCursorAnimationEnabled")
-                        && around.contains("editor.cursorAnimation.cursorAnimValid")
-                        && around.contains("docX = caret.getCaretDocumentX();")
-                        && around.contains("docY = caret.getCaretDocumentY();"));
+                "BUG: Caret should use the same cursorAnimation draw coordinates as CursorHandle so both stay visually synchronized.",
+                caretAround.contains("editor.cursorAnimation.isCursorAnimationEnabled")
+                        && caretAround.contains("editor.cursorAnimation.cursorAnimValid")
+                        && caretAround.contains("cx = editor.cursorAnimation.cursorDrawX;")
+                        && caretAround.contains("cy = editor.cursorAnimation.cursorDrawY;"));
+
+        String animSrc =
+                readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/animation/CursorAnimation.java");
+        int animAt = animSrc.indexOf("if (targetChanged)");
+        assertTrue("Expected redirect logic in CursorAnimation.", animAt >= 0);
+        String animAround = animSrc.substring(animAt, Math.min(animSrc.length(), animAt + 1800));
+        assertTrue(
+                "BUG: fast cursor redirect must be limited to active cursor-handle dragging, not every normal tap move.",
+                animAround.contains("boolean fastDragAnimationActive = editor.selectionHandles.draggingHandle == 3;")
+                        && animAround.contains("cursorAnimActiveDurationMs =")
+                        && animAround.contains("fastDragAnimationActive")
+                        && animAround.contains("? cursorAnimFastRedirectDurationMs")
+                        && animAround.contains(": cursorAnimDurationMs;"));
     }
 
     private static String readSource(String relativePath) throws Exception {

@@ -11,8 +11,13 @@ public class SelectionHandlesAnimation {
 
     // Animation duration in ms
     private static final long ANIM_DURATION = 120;
+    private static final long FAST_REDIRECT_MIN_DURATION = 18;
+    private static final long FAST_REDIRECT_MAX_DURATION = 68;
+    private static final float SNAP_DISTANCE_THRESHOLD_PX = 420f;
+    private static final float FAST_SPEED_THRESHOLD_PX_PER_MS = 3.8f;
 
     public boolean handleMoveAnimationEnabled = true;
+    public boolean fastDragAnimationActive = false;
     
     private float leftStartX = Float.NaN, leftStartY = Float.NaN;
     private float leftTargetX = Float.NaN, leftTargetY = Float.NaN;
@@ -21,6 +26,8 @@ public class SelectionHandlesAnimation {
     private float rightStartX = Float.NaN, rightStartY = Float.NaN;
     private float rightTargetX = Float.NaN, rightTargetY = Float.NaN;
     private long rightStartTime = 0;
+    private long leftAnimDuration = ANIM_DURATION;
+    private long rightAnimDuration = ANIM_DURATION;
 
     public float[] getAnimatedHandlePosition(boolean isLeft, float targetX, float targetY) {
         FunctionLog.f("SelectionHandlesAnimation", "getAnimatedHandlePosition", isLeft, targetX, targetY);
@@ -43,25 +50,49 @@ public class SelectionHandlesAnimation {
         long curStartTime = isLeft ? leftStartTime : rightStartTime;
 
         if (Float.isNaN(curStartX) || curTargetX != targetX || curTargetY != targetY) {
+            float currentDrawX = isLeft ? animLeftX : animRightX;
+            float currentDrawY = isLeft ? animLeftY : animRightY;
+            float drawX = Float.isNaN(currentDrawX) ? targetX : currentDrawX;
+            float drawY = Float.isNaN(currentDrawY) ? targetY : currentDrawY;
+            float redirectDistance = (float) Math.hypot(targetX - drawX, targetY - drawY);
+            long timeSinceLastRedirect = Math.max(0L, now - curStartTime);
+            float redirectSpeed = redirectDistance / Math.max(1f, (float) timeSinceLastRedirect);
+            boolean shouldSnap = redirectDistance >= SNAP_DISTANCE_THRESHOLD_PX;
+            long duration = ANIM_DURATION;
+            if (fastDragAnimationActive) {
+                float speedRatio = Math.min(1f, redirectSpeed / FAST_SPEED_THRESHOLD_PX_PER_MS);
+                duration =
+                    Math.round(
+                        FAST_REDIRECT_MAX_DURATION
+                            - ((FAST_REDIRECT_MAX_DURATION - FAST_REDIRECT_MIN_DURATION) * speedRatio));
+                duration = Math.max(FAST_REDIRECT_MIN_DURATION, Math.min(FAST_REDIRECT_MAX_DURATION, duration));
+            }
             // Target changed or first time
             if (isLeft) {
-                leftStartX = Float.isNaN(animLeftX) ? targetX : animLeftX;
-                leftStartY = Float.isNaN(animLeftY) ? targetY : animLeftY;
+                leftStartX = drawX;
+                leftStartY = drawY;
                 leftTargetX = targetX;
                 leftTargetY = targetY;
                 leftStartTime = now;
+                leftAnimDuration = duration;
             } else {
-                rightStartX = Float.isNaN(animRightX) ? targetX : animRightX;
-                rightStartY = Float.isNaN(animRightY) ? targetY : animRightY;
+                rightStartX = drawX;
+                rightStartY = drawY;
                 rightTargetX = targetX;
                 rightTargetY = targetY;
                 rightStartTime = now;
+                rightAnimDuration = duration;
+            }
+            if (fastDragAnimationActive && shouldSnap) {
+                snapHandlePosition(isLeft, targetX, targetY);
+                return new float[] {targetX, targetY};
             }
             curStartX = isLeft ? leftStartX : rightStartX;
             curStartTime = now;
         }
 
-        float t = Math.min(1f, (float)(now - curStartTime) / ANIM_DURATION);
+        long duration = isLeft ? leftAnimDuration : rightAnimDuration;
+        float t = Math.min(1f, (float)(now - curStartTime) / Math.max(1L, duration));
         // Quadratic ease-out
         float eased = 1f - (1f - t) * (1f - t);
         
@@ -91,6 +122,8 @@ public class SelectionHandlesAnimation {
                 + ay
                 + " t="
                 + t
+                + " duration="
+                + duration
                 + " enabled="
                 + handleMoveAnimationEnabled);
         
@@ -106,6 +139,7 @@ public class SelectionHandlesAnimation {
             leftTargetX = targetX;
             leftTargetY = targetY;
             leftStartTime = now;
+            leftAnimDuration = FAST_REDIRECT_MIN_DURATION;
             animLeftX = targetX;
             animLeftY = targetY;
         } else {
@@ -114,6 +148,7 @@ public class SelectionHandlesAnimation {
             rightTargetX = targetX;
             rightTargetY = targetY;
             rightStartTime = now;
+            rightAnimDuration = FAST_REDIRECT_MIN_DURATION;
             animRightX = targetX;
             animRightY = targetY;
         }
@@ -135,12 +170,17 @@ public class SelectionHandlesAnimation {
         handleMoveAnimationEnabled = enabled;
     }
 
+    public void setFastDragAnimationActive(boolean active) {
+        FunctionLog.f("SelectionHandlesAnimation", "setFastDragAnimationActive", active);
+        fastDragAnimationActive = active;
+    }
+
     public boolean isAnimating() {
         FunctionLog.f("SelectionHandlesAnimation", "isAnimating");
         if (!handleMoveAnimationEnabled) return false;
         long now = SystemClock.uptimeMillis();
-        boolean leftActive = !Float.isNaN(leftTargetX) && (now - leftStartTime < ANIM_DURATION);
-        boolean rightActive = !Float.isNaN(rightTargetX) && (now - rightStartTime < ANIM_DURATION);
+        boolean leftActive = !Float.isNaN(leftTargetX) && (now - leftStartTime < leftAnimDuration);
+        boolean rightActive = !Float.isNaN(rightTargetX) && (now - rightStartTime < rightAnimDuration);
         return leftActive || rightActive;
     }
 
@@ -152,5 +192,7 @@ public class SelectionHandlesAnimation {
         animRightY = Float.NaN;
         leftStartX = Float.NaN;
         rightStartX = Float.NaN;
+        leftAnimDuration = ANIM_DURATION;
+        rightAnimDuration = ANIM_DURATION;
     }
 }

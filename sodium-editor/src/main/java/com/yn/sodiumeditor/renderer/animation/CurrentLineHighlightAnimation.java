@@ -10,6 +10,12 @@ import com.yn.sodiumeditor.utils.FunctionLog;
  * for the current line highlight indicator.
  */
 public class CurrentLineHighlightAnimation {
+    private static final long NORMAL_MIN_DURATION_MS = 90L;
+    private static final long NORMAL_MAX_DURATION_MS = 180L;
+    private static final long DRAG_MIN_DURATION_MS = 16L;
+    private static final long DRAG_MAX_DURATION_MS = 72L;
+    private static final float NORMAL_DISTANCE_FOR_MIN_DURATION = 12f;
+    private static final float DRAG_DISTANCE_FOR_MIN_DURATION = 4f;
 
     private final SodiumEditor editor;
 
@@ -57,10 +63,31 @@ public class CurrentLineHighlightAnimation {
     public void checkAndStartAnimation() {
         FunctionLog.f("CurrentLineHighlightAnimation", "checkAndStartAnimation");
         float target = getTargetVisualIndex();
+        if (!isCurrentLineAnimationEnabled) {
+            cancelAnimation();
+            animatedVisualIndex = target;
+            lastTargetIndex = target;
+            return;
+        }
         if (Math.abs(lastTargetIndex - target) > 0.01f) {
             cancelAnimation();
-            lineAnimator = ValueAnimator.ofFloat(animatedVisualIndex < 0 ? target : animatedVisualIndex, target);
-            lineAnimator.setDuration(200);
+            float start = animatedVisualIndex < 0 ? target : animatedVisualIndex;
+            float distance = Math.abs(target - start);
+            boolean dragActive =
+                    editor.selectionHandles.draggingHandle != 0
+                            || editor.onTouch.pointerDown
+                            || editor.selection.selecting
+                            || editor.selection.longPressSelecting;
+            long duration =
+                    computeDuration(
+                            distance,
+                            dragActive ? DRAG_MIN_DURATION_MS : NORMAL_MIN_DURATION_MS,
+                            dragActive ? DRAG_MAX_DURATION_MS : NORMAL_MAX_DURATION_MS,
+                            dragActive
+                                    ? DRAG_DISTANCE_FOR_MIN_DURATION
+                                    : NORMAL_DISTANCE_FOR_MIN_DURATION);
+            lineAnimator = ValueAnimator.ofFloat(start, target);
+            lineAnimator.setDuration(duration);
             lineAnimator.setInterpolator(smoothInterpolator);
             lineAnimator.addUpdateListener(animation -> {
                 animatedVisualIndex = (float) animation.getAnimatedValue();
@@ -69,6 +96,16 @@ public class CurrentLineHighlightAnimation {
             lineAnimator.start();
             lastTargetIndex = target;
         }
+    }
+
+    private long computeDuration(
+            float distance, long minDuration, long maxDuration, float distanceForMinDuration) {
+        if (distance <= 0.01f) {
+            return minDuration;
+        }
+        float ratio = Math.min(1f, distance / Math.max(0.01f, distanceForMinDuration));
+        long duration = Math.round(maxDuration - ((maxDuration - minDuration) * ratio));
+        return Math.max(minDuration, Math.min(maxDuration, duration));
     }
     /**
      * Get the current animated visual index (starts animation if needed).

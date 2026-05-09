@@ -43,14 +43,12 @@ public class CursorHandle {
     float docX, docY;
     // Only follow cursorAnimation while cursor animation is actually enabled.
     // Otherwise stale cached draw coordinates can lag behind the real caret position.
-    boolean draggingCursorHandle = editor.selectionHandles.draggingHandle == 3;
     boolean zoomOrScaleTransition =
         editor.zoom.isScaling
             || (editor.scaleGestureDetector != null && editor.scaleGestureDetector.isInProgress())
             || editor.onTouch.multiTouchActive
             || editor.zoom.mJustFinishedScale;
-    if (!draggingCursorHandle
-        && !zoomOrScaleTransition
+    if (!zoomOrScaleTransition
         && editor.cursorAnimation.isCursorAnimationEnabled
         && editor.cursorAnimation.cursorAnimValid
         && !Float.isNaN(editor.cursorAnimation.cursorDrawX)) {
@@ -100,8 +98,6 @@ public class CursorHandle {
             + editor.cursorAnimation.cursorAnimValid
             + " animRunning="
             + editor.cursorAnimation.cursorAnimRunning
-            + " draggingCursorHandle="
-            + draggingCursorHandle
             + " zoomOrScaleTransition="
             + zoomOrScaleTransition);
   }

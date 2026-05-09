@@ -132,10 +132,11 @@ public class SelectionHandles {
 
     float leftTargetY = startY + editor.textRender.lineHeight;
     float rightTargetY = endY + editor.textRender.lineHeight;
+    animation.setFastDragAnimationActive(draggingHandle == 1 || draggingHandle == 2);
     boolean scrollChanged =
         lastHandleScrollX != editor.scroll.scrollX || lastHandleScrollY != editor.scroll.scrollY;
-    boolean bypassLeftAnimation = draggingHandle == 1 || scrollChanged;
-    boolean bypassRightAnimation = draggingHandle == 2 || scrollChanged;
+    boolean bypassLeftAnimation = scrollChanged;
+    boolean bypassRightAnimation = scrollChanged;
     if (bypassLeftAnimation) {
       animation.snapHandlePosition(true, startX, leftTargetY);
     }

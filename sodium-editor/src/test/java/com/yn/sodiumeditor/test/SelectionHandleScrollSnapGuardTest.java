@@ -23,12 +23,12 @@ public class SelectionHandleScrollSnapGuardTest {
 
         assertTrue(
                 "BUG: scroll-triggered animation bypass must snap the left handle animation state to the current target.",
-                around.contains("boolean bypassLeftAnimation = draggingHandle == 1 || scrollChanged;")
+                around.contains("boolean bypassLeftAnimation = scrollChanged;")
                         && around.contains("animation.snapHandlePosition(true, startX, leftTargetY);"));
 
         assertTrue(
                 "BUG: scroll-triggered animation bypass must snap the right handle animation state to the current target.",
-                around.contains("boolean bypassRightAnimation = draggingHandle == 2 || scrollChanged;")
+                around.contains("boolean bypassRightAnimation = scrollChanged;")
                         && around.contains("animation.snapHandlePosition(false, endX, rightTargetY);"));
 
         String animSrc =
