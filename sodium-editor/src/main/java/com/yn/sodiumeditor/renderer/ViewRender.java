@@ -185,6 +185,9 @@ public class ViewRender {
     Paint selPaint = null;
     if (editor.selection.hasSelection) {
         selPaint = editor.selection.selectionPaint;
+        int baseAlpha = editor.selection.selectionColor >>> 24;
+        float alphaProgress = Math.max(0f, Math.min(1f, editor.selection.state.getSelectionAlpha()));
+        selPaint.setAlpha((int) (baseAlpha * alphaProgress));
     }
 
     HashMap<Integer, String> directLines = null;
@@ -283,6 +286,15 @@ public class ViewRender {
                               ? viewportRight
                               : endX;
                       float bottom = lineBottom;
+                      float progress = Math.max(0f, Math.min(1f, editor.selection.state.getSelectionGeometryProgress()));
+                      float anchor = isLastLine && !isSingleLine ? right : left;
+                      if (progress < 0.999f) {
+                          if (anchor == left) {
+                              right = left + ((right - left) * progress);
+                          } else {
+                              left = right - ((right - left) * progress);
+                          }
+                      }
 
                       if (isSingleLine) {
                           editor.onTouch.drawSelectionSegment(canvas, left, top, right, bottom,

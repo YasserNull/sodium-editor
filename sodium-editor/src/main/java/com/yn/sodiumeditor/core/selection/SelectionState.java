@@ -81,6 +81,11 @@ public class SelectionState {
     return animation.handleAlpha;
   }
 
+  public float getSelectionGeometryProgress() {
+    FunctionLog.f("SelectionState", "getSelectionGeometryProgress");
+    return animation.geometryProgress;
+  }
+
   public boolean isSelectionAnimationEnabled() {
     FunctionLog.f("SelectionState", "isSelectionAnimationEnabled");
     return animation.selectionAnimationEnabled;
@@ -91,6 +96,8 @@ public class SelectionState {
    */
   public void setSelection(int startLine, int startChar, int endLine, int endChar) {
     FunctionLog.f("SelectionState", "setSelection", startLine, startChar, endLine, endChar);
+    boolean oldHasSelection = hasSelection;
+    int oldStartLine = selStartLine, oldStartChar = selStartChar, oldEndLine = selEndLine, oldEndChar = selEndChar;
     selStartLine = startLine;
     selStartChar = startChar;
     selEndLine = endLine;
@@ -100,6 +107,13 @@ public class SelectionState {
 
     // Reset handle animation state when selection changes
     editor.selectionHandles.animation.resetAnimationState();
+    animation.updateSelectionGeometry(
+        hasSelection,
+        oldHasSelection
+            && (oldStartLine != selStartLine
+                || oldStartChar != selStartChar
+                || oldEndLine != selEndLine
+                || oldEndChar != selEndChar));
   }
 
   /**
@@ -129,6 +143,8 @@ public class SelectionState {
    */
   public void setSelectionInternal(int sL, int sC, int eL, int eC) {
     FunctionLog.f("SelectionState", "setSelectionInternal", sL, sC, eL, eC);
+    boolean oldHasSelection = hasSelection;
+    int oldStartLine = selStartLine, oldStartChar = selStartChar, oldEndLine = selEndLine, oldEndChar = selEndChar;
     int startL = sL, startC = sC, endL = eL, endC = eC;
     if (comparePos(startL, startC, endL, endC) > 0) {
       int tL = startL, tC = startC;
@@ -146,6 +162,13 @@ public class SelectionState {
     isSelectAllActive = false;
     isEntireFileSelected = false;
     updateSelectionVisibility(hasSelection);
+    animation.updateSelectionGeometry(
+        hasSelection,
+        oldHasSelection
+            && (oldStartLine != selStartLine
+                || oldStartChar != selStartChar
+                || oldEndLine != selEndLine
+                || oldEndChar != selEndChar));
   }
 
   /**

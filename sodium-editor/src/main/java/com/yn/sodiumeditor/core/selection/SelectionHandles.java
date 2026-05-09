@@ -224,6 +224,7 @@ public class SelectionHandles {
     Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     paint.setColor(selectionHandleColor);
     paint.setStyle(Paint.Style.FILL);
+    paint.setAlpha((int) (255f * Math.max(0f, Math.min(1f, selection.state.getHandleAlpha()))));
 
     // Draw left handle as circle
     float leftCenterX = leftHandleRect.centerX();
