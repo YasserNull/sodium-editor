@@ -106,6 +106,14 @@ public class SelectionHandles {
     if (!selection.hasSelection) {
       return;
     }
+    float oldLeft = leftHandleRect.left;
+    float oldTop = leftHandleRect.top;
+    float oldRight = leftHandleRect.right;
+    float oldBottom = leftHandleRect.bottom;
+    float oldRLeft = rightHandleRect.left;
+    float oldRTop = rightHandleRect.top;
+    float oldRRight = rightHandleRect.right;
+    float oldRBottom = rightHandleRect.bottom;
 
     // Get start and end positions (normalized)
     int startLine, startChar, endLine, endChar;
@@ -181,6 +189,22 @@ public class SelectionHandles {
             + rightPos[1]
             + " dragging="
             + draggingHandle
+            + " oldLeftRect="
+            + oldLeft
+            + ","
+            + oldTop
+            + ","
+            + oldRight
+            + ","
+            + oldBottom
+            + " oldRightRect="
+            + oldRLeft
+            + ","
+            + oldRTop
+            + ","
+            + oldRRight
+            + ","
+            + oldRBottom
             + " animEnabled="
             + animation.handleMoveAnimationEnabled
             + " animating="

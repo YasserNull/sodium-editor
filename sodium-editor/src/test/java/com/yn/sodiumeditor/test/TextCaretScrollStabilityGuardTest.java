@@ -21,9 +21,13 @@ public class TextCaretScrollStabilityGuardTest {
         String around = src.substring(at, Math.min(src.length(), at + 2400));
 
         assertTrue(
-                "BUG: text caret should compute document coordinates before applying scroll.",
-                around.contains("float cx = getCaretDocumentX();")
-                        && around.contains("float cy = getCaretDocumentY();"));
+                "BUG: text caret should either use animated document coordinates or fall back to real caret document coordinates before applying scroll.",
+                around.contains("float cx;")
+                        && around.contains("float cy;")
+                        && around.contains("cx = editor.cursorAnimation.cursorDrawX;")
+                        && around.contains("cy = editor.cursorAnimation.cursorDrawY;")
+                        && around.contains("cx = getCaretDocumentX();")
+                        && around.contains("cy = getCaretDocumentY();"));
 
         assertTrue(
                 "BUG: text caret should apply current scroll directly at draw time for LTR.",

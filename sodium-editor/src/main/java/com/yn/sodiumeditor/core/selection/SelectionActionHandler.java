@@ -35,17 +35,16 @@ public class SelectionActionHandler {
 
         selection.isSelectAllActive = true;
         selection.isEntireFileSelected = true;
-        selection.hasSelection = true;
-        selection.selStartLine = 0; selection.selStartChar = 0;
 
         if (editor.fileIO.sourceFile == null || editor.fileIO.isFileCleared) {
             synchronized (editor.windowRender.linesWindow) {
                 if (editor.windowRender.linesWindow.isEmpty()) editor.windowRender.linesWindow.add("");
                 editor.windowRender.windowStartLine = 0; editor.fileIO.isEof = true;
             }
-            selection.selEndLine = Math.max(0, editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size() - 1);
-            String lastText = editor.windowRender.getLineTextForRender(selection.selEndLine);
-            selection.selEndChar = lastText.length();
+            int endLine = Math.max(0, editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size() - 1);
+            String lastText = editor.windowRender.getLineTextForRender(endLine);
+            int endChar = lastText.length();
+            selection.setSelection(0, 0, endLine, endChar);
             editor.cursor.cursorLine = selection.selEndLine; editor.cursor.cursorChar = selection.selEndChar;
             editor.scroll.scrollToLineFastForSelectAll(selection.selEndLine, selection.selEndChar);
             finishSelectAll(keyboardWasVisible);
@@ -54,9 +53,9 @@ public class SelectionActionHandler {
 
         if (editor.fileIO.isEof) {
             int winLast = Math.max(0, editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size() - 1);
-            selection.selEndLine = winLast;
             String lastText = editor.windowRender.getLineTextForRender(winLast);
-            selection.selEndChar = lastText.length();
+            int endChar = lastText.length();
+            selection.setSelection(0, 0, winLast, endChar);
             editor.cursor.cursorLine = winLast; editor.cursor.cursorChar = selection.selEndChar;
             editor.scroll.scrollToLineFastForSelectAll(winLast, selection.selEndChar);
             finishSelectAll(keyboardWasVisible);
@@ -66,10 +65,10 @@ public class SelectionActionHandler {
         Runnable goToEndUsingIndex = () -> {
             if (!editor.fileIO.isIndexReady || editor.fileIO.sourceFile == null) return;
             int fileLast; synchronized (editor.fileIO.lineOffsetsLock) { fileLast = Math.max(0, editor.fileIO.lineOffsets.length - 1); }
-            selection.selEndLine = fileLast;
             editor.fileIO.loadWindowAround(Math.max(0, fileLast - editor.windowRender.prefetchLines), () -> editor.post(() -> {
                 String lastText = editor.windowRender.getLineTextForRender(fileLast);
-                selection.selEndChar = (lastText != null ? lastText.length() : 0);
+                int endChar = (lastText != null ? lastText.length() : 0);
+                selection.setSelection(0, 0, fileLast, endChar);
                 editor.cursor.cursorLine = fileLast; editor.cursor.cursorChar = selection.selEndChar;
                 editor.scroll.scrollToLineFastForSelectAll(fileLast, selection.selEndChar);
                 finishSelectAll(keyboardWasVisible);
@@ -81,11 +80,11 @@ public class SelectionActionHandler {
 
         editor.fileIO.countTotalLines(total -> {
             int lastLine = Math.max(0, total > 0 ? total - 1 : 0);
-            selection.selEndLine = lastLine;
             if (editor.fileIO.isIndexDisabled) {
                 editor.fileIO.loadWindowAround(Math.max(0, lastLine - editor.windowRender.prefetchLines), () -> editor.post(() -> {
                     String lastText = editor.windowRender.getLineTextForRender(lastLine);
-                    selection.selEndChar = (lastText != null ? lastText.length() : 0);
+                    int endChar = (lastText != null ? lastText.length() : 0);
+                    selection.setSelection(0, 0, lastLine, endChar);
                     editor.cursor.cursorLine = lastLine; editor.cursor.cursorChar = selection.selEndChar;
                     editor.scroll.scrollToLineFastForSelectAll(lastLine, selection.selEndChar);
                     finishSelectAll(keyboardWasVisible);

@@ -186,6 +186,33 @@ public class SelectionHandlesAnimation {
 
     public void resetAnimationState() {
         FunctionLog.f("SelectionHandlesAnimation", "resetAnimationState");
+        android.util.Log.i(
+            SELECTION_HANDLE_DBG,
+            "resetAnimationState"
+                + " leftStart="
+                + leftStartX
+                + ","
+                + leftStartY
+                + " leftTarget="
+                + leftTargetX
+                + ","
+                + leftTargetY
+                + " leftAnim="
+                + animLeftX
+                + ","
+                + animLeftY
+                + " rightStart="
+                + rightStartX
+                + ","
+                + rightStartY
+                + " rightTarget="
+                + rightTargetX
+                + ","
+                + rightTargetY
+                + " rightAnim="
+                + animRightX
+                + ","
+                + animRightY);
         animLeftX = Float.NaN;
         animLeftY = Float.NaN;
         animRightX = Float.NaN;

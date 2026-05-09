@@ -28,9 +28,12 @@ public class SelectionHandleScrollStabilityGuardTest {
         assertTrue(
                 "BUG: selection handles should bypass move animation while scroll changes, otherwise handles lag and drift.",
                 around.contains("boolean scrollChanged")
-                        && around.contains("|| scrollChanged")
-                        && around.contains("? new float[] {startX, leftTargetY}")
-                        && around.contains("? new float[] {endX, rightTargetY}"));
+                        && around.contains("boolean bypassLeftAnimation = scrollChanged;")
+                        && around.contains("boolean bypassRightAnimation = scrollChanged;")
+                        && around.contains("animation.snapHandlePosition(true, startX, leftTargetY);")
+                        && around.contains("animation.snapHandlePosition(false, endX, rightTargetY);")
+                        && around.contains("new float[] {startX, leftTargetY}")
+                        && around.contains("new float[] {endX, rightTargetY}"));
     }
 
     @Test

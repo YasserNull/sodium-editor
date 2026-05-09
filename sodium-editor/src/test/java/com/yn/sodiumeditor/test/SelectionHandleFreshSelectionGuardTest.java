@@ -1,0 +1,150 @@
+package com.yn.sodiumeditor.test;
+
+import static org.junit.Assert.assertTrue;
+
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.junit.Test;
+
+/**
+ * Guard against the visual glitch where a fresh selection briefly renders handles at the previous
+ * selection location before the new location settles.
+ */
+public class SelectionHandleFreshSelectionGuardTest {
+
+  @Test
+  public void newSelection_shouldRenderHandlesAtFreshLocationFromFirstFrame() throws Exception {
+    String stateSrc =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/selection/SelectionState.java");
+    String animSrc =
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/animation/SelectionHandlesAnimation.java");
+    String smartSelectionSrc =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/selection/SmartSelection.java");
+    String searchSrc =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/search/Search.java");
+    String actionHandlerSrc =
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/selection/SelectionActionHandler.java");
+
+    int setSelectionAt =
+        stateSrc.indexOf(
+            "public void setSelection(int startLine, int startChar, int endLine, int endChar)");
+    assertTrue("Expected setSelection in SelectionState.", setSelectionAt >= 0);
+    String setSelectionAround =
+        stateSrc.substring(setSelectionAt, Math.min(stateSrc.length(), setSelectionAt + 1200));
+    assertTrue(
+        "BUG: starting a new selection must clear stale handle animation state before the next frame is computed.",
+        setSelectionAround.contains("editor.selectionHandles.animation.resetAnimationState();")
+            && setSelectionAround.contains("editor.selectionHandles.updateHandlesPosition();")
+            && setSelectionAround.contains("editor.invalidate();"));
+
+    int setSelectionInternalAt =
+        stateSrc.indexOf("public void setSelectionInternal(int sL, int sC, int eL, int eC)");
+    assertTrue("Expected setSelectionInternal in SelectionState.", setSelectionInternalAt >= 0);
+    String setSelectionInternalAround =
+        stateSrc.substring(
+            setSelectionInternalAt, Math.min(stateSrc.length(), setSelectionInternalAt + 1400));
+    assertTrue(
+        "BUG: replacing one selection with another must clear stale handle animation state before visibility/geometry updates.",
+        setSelectionInternalAround.contains("editor.selectionHandles.animation.resetAnimationState();")
+            && setSelectionInternalAround.contains("editor.selectionHandles.updateHandlesPosition();")
+            && setSelectionInternalAround.contains("editor.invalidate();")
+            && setSelectionInternalAround.indexOf(
+                    "editor.selectionHandles.animation.resetAnimationState();")
+                < setSelectionInternalAround.indexOf("updateSelectionVisibility(hasSelection);")
+            && setSelectionInternalAround.indexOf("editor.selectionHandles.updateHandlesPosition();")
+                < setSelectionInternalAround.indexOf("updateSelectionVisibility(hasSelection);"));
+
+    int resetAt = animSrc.indexOf("public void resetAnimationState()");
+    assertTrue("Expected resetAnimationState in SelectionHandlesAnimation.", resetAt >= 0);
+    String resetAround = animSrc.substring(resetAt, Math.min(animSrc.length(), resetAt + 800));
+    assertTrue(
+        "BUG: resetting handle animation state must discard both previous animated draw positions so the first frame of a new selection cannot reuse the old handle location.",
+        resetAround.contains("animLeftX = Float.NaN;")
+            && resetAround.contains("animLeftY = Float.NaN;")
+            && resetAround.contains("animRightX = Float.NaN;")
+            && resetAround.contains("animRightY = Float.NaN;")
+            && resetAround.contains("leftStartX = Float.NaN;")
+            && resetAround.contains("rightStartX = Float.NaN;"));
+
+    int animatedAt =
+        animSrc.indexOf(
+            "public float[] getAnimatedHandlePosition(boolean isLeft, float targetX, float targetY)");
+    assertTrue("Expected getAnimatedHandlePosition in SelectionHandlesAnimation.", animatedAt >= 0);
+    String animatedAround = animSrc.substring(animatedAt, Math.min(animSrc.length(), animatedAt + 2600));
+    assertTrue(
+        "BUG: after resetAnimationState, the first frame of a fresh selection must initialize from the new target itself, not from stale previous coordinates.",
+        animatedAround.contains("float drawX = Float.isNaN(currentDrawX) ? targetX : currentDrawX;")
+            && animatedAround.contains("float drawY = Float.isNaN(currentDrawY) ? targetY : currentDrawY;")
+            && animatedAround.contains("leftStartX = drawX;")
+            && animatedAround.contains("leftTargetX = targetX;")
+            && animatedAround.contains("rightStartX = drawX;")
+            && animatedAround.contains("rightTargetX = targetX;"));
+
+    int doubleTapAt =
+        smartSelectionSrc.indexOf(
+            "public boolean applySmartDoubleTapSelection(int line, int charIndex, String lineText)");
+    assertTrue("Expected applySmartDoubleTapSelection in SmartSelection.", doubleTapAt >= 0);
+    String doubleTapAround =
+        smartSelectionSrc.substring(
+            doubleTapAt, Math.min(smartSelectionSrc.length(), doubleTapAt + 2200));
+    assertTrue(
+        "BUG: smart double-tap selection must go through selection.setSelection(...) so handle reset logic runs before the next frame.",
+        doubleTapAround.contains("selection.setSelection(line, pick.start, line, pick.end);")
+            && !doubleTapAround.contains("selection.selStartLine = selection.selEndLine = line;")
+            && !doubleTapAround.contains("selection.hasSelection = true;"));
+
+    int selectAllSearchAt = searchSrc.indexOf("public boolean selectAllSearchMatches()");
+    assertTrue("Expected selectAllSearchMatches in Search.", selectAllSearchAt >= 0);
+    String selectAllSearchAround =
+        searchSrc.substring(
+            selectAllSearchAt, Math.min(searchSrc.length(), selectAllSearchAt + 1800));
+    assertTrue(
+        "BUG: selecting all search matches must go through selection.setSelection(...) so a fresh search selection cannot reuse stale handle positions.",
+        selectAllSearchAround.contains(
+                "editor.selection.setSelection(first.line, first.start, last.line, last.end);")
+            && !selectAllSearchAround.contains("editor.selection.selStartLine = first.line;")
+            && !selectAllSearchAround.contains("editor.selection.hasSelection = true;"));
+
+    int selectAllAt = actionHandlerSrc.indexOf("public void selectAll()");
+    assertTrue("Expected selectAll in SelectionActionHandler.", selectAllAt >= 0);
+    String selectAllAround =
+        actionHandlerSrc.substring(
+            selectAllAt, Math.min(actionHandlerSrc.length(), selectAllAt + 5200));
+    assertTrue(
+        "BUG: selectAll paths must build the new selection via selection.setSelection(...) instead of directly mutating selection bounds.",
+        selectAllAround.contains("selection.setSelection(0, 0, endLine, endChar);")
+            && selectAllAround.contains("selection.setSelection(0, 0, winLast, endChar);")
+            && selectAllAround.contains("selection.setSelection(0, 0, fileLast, endChar);")
+            && selectAllAround.contains("selection.setSelection(0, 0, lastLine, endChar);")
+            && !selectAllAround.contains("selection.hasSelection = true;")
+            && !selectAllAround.contains("selection.selStartLine = 0; selection.selStartChar = 0;"));
+  }
+
+  private static String readSource(String relativePath) throws Exception {
+    Path cwd = new File(System.getProperty("user.dir", ".")).toPath().toAbsolutePath().normalize();
+    for (int i = 0; i < 8; i++) {
+      Path candidate = cwd.resolve(relativePath);
+      if (Files.exists(candidate)) {
+        return new String(Files.readAllBytes(candidate), StandardCharsets.UTF_8);
+      }
+      Path parent = cwd.getParent();
+      if (parent == null) break;
+      cwd = parent;
+    }
+
+    Path fallback =
+        new File(".")
+            .toPath()
+            .toAbsolutePath()
+            .normalize()
+            .resolve(relativePath.replace("sodium-editor/", ""));
+    if (Files.exists(fallback)) {
+      return new String(Files.readAllBytes(fallback), StandardCharsets.UTF_8);
+    }
+    throw new IllegalStateException("Could not locate source file: " + relativePath);
+  }
+}

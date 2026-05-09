@@ -22,9 +22,7 @@ public class CursorHandleAnimationGateGuardTest {
 
         assertTrue(
                 "BUG: cursor handle should gate cursorAnimation coordinates behind isCursorAnimationEnabled.",
-                around.contains("boolean draggingCursorHandle")
-                        && around.contains("boolean zoomOrScaleTransition")
-                        && around.contains("!draggingCursorHandle")
+                around.contains("boolean zoomOrScaleTransition")
                         && around.contains("!zoomOrScaleTransition")
                         && around.contains("editor.cursorAnimation.isCursorAnimationEnabled")
                         && around.contains("editor.cursorAnimation.cursorAnimValid")

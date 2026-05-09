@@ -49,8 +49,9 @@ public class CursorHandleDragSyncGuardTest {
                 animAround.contains("boolean fastDragAnimationActive = editor.selectionHandles.draggingHandle == 3;")
                         && animAround.contains("cursorAnimActiveDurationMs =")
                         && animAround.contains("fastDragAnimationActive")
-                        && animAround.contains("? cursorAnimFastRedirectDurationMs")
-                        && animAround.contains(": cursorAnimDurationMs;"));
+                        && animAround.contains("cursorAnimFastRedirectMaxDurationMs")
+                        && animAround.contains("cursorAnimFastRedirectMinDurationMs")
+                        && animAround.contains("cursorAnimDurationMs;"));
     }
 
     private static String readSource(String relativePath) throws Exception {

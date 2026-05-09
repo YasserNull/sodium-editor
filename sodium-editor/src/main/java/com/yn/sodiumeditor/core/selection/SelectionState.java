@@ -98,6 +98,42 @@ public class SelectionState {
     FunctionLog.f("SelectionState", "setSelection", startLine, startChar, endLine, endChar);
     boolean oldHasSelection = hasSelection;
     int oldStartLine = selStartLine, oldStartChar = selStartChar, oldEndLine = selEndLine, oldEndChar = selEndChar;
+    android.util.Log.i(
+        "SelectionHandleDbg",
+        "setSelection request old="
+            + oldStartLine
+            + ":"
+            + oldStartChar
+            + "->"
+            + oldEndLine
+            + ":"
+            + oldEndChar
+            + " oldHas="
+            + oldHasSelection
+            + " new="
+            + startLine
+            + ":"
+            + startChar
+            + "->"
+            + endLine
+            + ":"
+            + endChar
+            + " leftRectBefore="
+            + editor.selectionHandles.leftHandleRect.left
+            + ","
+            + editor.selectionHandles.leftHandleRect.top
+            + ","
+            + editor.selectionHandles.leftHandleRect.right
+            + ","
+            + editor.selectionHandles.leftHandleRect.bottom
+            + " rightRectBefore="
+            + editor.selectionHandles.rightHandleRect.left
+            + ","
+            + editor.selectionHandles.rightHandleRect.top
+            + ","
+            + editor.selectionHandles.rightHandleRect.right
+            + ","
+            + editor.selectionHandles.rightHandleRect.bottom);
     selStartLine = startLine;
     selStartChar = startChar;
     selEndLine = endLine;
@@ -107,6 +143,40 @@ public class SelectionState {
 
     // Reset handle animation state when selection changes
     editor.selectionHandles.animation.resetAnimationState();
+    if (hasSelection) {
+      // Recompute handle rects immediately so the next draw cannot reuse stale rects
+      // from the previous selection for a frame.
+      editor.selectionHandles.updateHandlesPosition();
+      android.util.Log.i(
+          "SelectionHandleDbg",
+          "setSelection applied newHas="
+              + hasSelection
+              + " newSel="
+              + selStartLine
+              + ":"
+              + selStartChar
+              + "->"
+              + selEndLine
+              + ":"
+              + selEndChar
+              + " leftRectAfter="
+              + editor.selectionHandles.leftHandleRect.left
+              + ","
+              + editor.selectionHandles.leftHandleRect.top
+              + ","
+              + editor.selectionHandles.leftHandleRect.right
+              + ","
+              + editor.selectionHandles.leftHandleRect.bottom
+              + " rightRectAfter="
+              + editor.selectionHandles.rightHandleRect.left
+              + ","
+              + editor.selectionHandles.rightHandleRect.top
+              + ","
+              + editor.selectionHandles.rightHandleRect.right
+              + ","
+              + editor.selectionHandles.rightHandleRect.bottom);
+      editor.invalidate();
+    }
     animation.updateSelectionGeometry(
         hasSelection,
         oldHasSelection
@@ -145,6 +215,42 @@ public class SelectionState {
     FunctionLog.f("SelectionState", "setSelectionInternal", sL, sC, eL, eC);
     boolean oldHasSelection = hasSelection;
     int oldStartLine = selStartLine, oldStartChar = selStartChar, oldEndLine = selEndLine, oldEndChar = selEndChar;
+    android.util.Log.i(
+        "SelectionHandleDbg",
+        "setSelectionInternal request old="
+            + oldStartLine
+            + ":"
+            + oldStartChar
+            + "->"
+            + oldEndLine
+            + ":"
+            + oldEndChar
+            + " oldHas="
+            + oldHasSelection
+            + " rawNew="
+            + sL
+            + ":"
+            + sC
+            + "->"
+            + eL
+            + ":"
+            + eC
+            + " leftRectBefore="
+            + editor.selectionHandles.leftHandleRect.left
+            + ","
+            + editor.selectionHandles.leftHandleRect.top
+            + ","
+            + editor.selectionHandles.leftHandleRect.right
+            + ","
+            + editor.selectionHandles.leftHandleRect.bottom
+            + " rightRectBefore="
+            + editor.selectionHandles.rightHandleRect.left
+            + ","
+            + editor.selectionHandles.rightHandleRect.top
+            + ","
+            + editor.selectionHandles.rightHandleRect.right
+            + ","
+            + editor.selectionHandles.rightHandleRect.bottom);
     int startL = sL, startC = sC, endL = eL, endC = eC;
     if (comparePos(startL, startC, endL, endC) > 0) {
       int tL = startL, tC = startC;
@@ -161,6 +267,41 @@ public class SelectionState {
     selecting = false;
     isSelectAllActive = false;
     isEntireFileSelected = false;
+    editor.selectionHandles.animation.resetAnimationState();
+    if (hasSelection) {
+      // Recompute handle rects immediately so the next draw cannot reuse stale rects
+      // from the previous selection for a frame.
+      editor.selectionHandles.updateHandlesPosition();
+      android.util.Log.i(
+          "SelectionHandleDbg",
+          "setSelectionInternal applied newHas="
+              + hasSelection
+              + " normalized="
+              + selStartLine
+              + ":"
+              + selStartChar
+              + "->"
+              + selEndLine
+              + ":"
+              + selEndChar
+              + " leftRectAfter="
+              + editor.selectionHandles.leftHandleRect.left
+              + ","
+              + editor.selectionHandles.leftHandleRect.top
+              + ","
+              + editor.selectionHandles.leftHandleRect.right
+              + ","
+              + editor.selectionHandles.leftHandleRect.bottom
+              + " rightRectAfter="
+              + editor.selectionHandles.rightHandleRect.left
+              + ","
+              + editor.selectionHandles.rightHandleRect.top
+              + ","
+              + editor.selectionHandles.rightHandleRect.right
+              + ","
+              + editor.selectionHandles.rightHandleRect.bottom);
+      editor.invalidate();
+    }
     updateSelectionVisibility(hasSelection);
     animation.updateSelectionGeometry(
         hasSelection,

@@ -596,11 +596,7 @@ public class Search {
       count++;
     }
 
-    editor.selection.selStartLine = first.line;
-    editor.selection.selStartChar = first.start;
-    editor.selection.selEndLine = last.line;
-    editor.selection.selEndChar = last.end;
-    editor.selection.hasSelection = true;
+    editor.selection.setSelection(first.line, first.start, last.line, last.end);
     editor.selection.isSelectAllActive = false;
     editor.selection.isEntireFileSelected = false;
     editor.cursor.cursorLine = last.line;

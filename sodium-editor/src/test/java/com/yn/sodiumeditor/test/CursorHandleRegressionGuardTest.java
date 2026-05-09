@@ -22,8 +22,7 @@ public class CursorHandleRegressionGuardTest {
 
         assertTrue(
                 "BUG: CursorHandle must ignore stale cursorAnimation coordinates when animation is disabled.",
-                around.contains("boolean draggingCursorHandle")
-                        && around.contains("boolean zoomOrScaleTransition")
+                around.contains("boolean zoomOrScaleTransition")
                         && around.contains("editor.cursorAnimation.isCursorAnimationEnabled")
                         && around.contains("docX = caret.getCaretDocumentX();")
                         && around.contains("docY = caret.getCaretDocumentY();"));

@@ -90,10 +90,7 @@ public class SmartSelection {
         int nextIdx = (sameAnchor || currentIdx >= 0) ? (currentIdx >= 0 ? (currentIdx + 1) % candidates.size() : 0) : 0;
 
         SelectionTextRange pick = candidates.get(nextIdx);
-        selection.selStartLine = selection.selEndLine = line;
-        selection.selStartChar = pick.start;
-        selection.selEndChar = pick.end;
-        selection.hasSelection = true;
+        selection.setSelection(line, pick.start, line, pick.end);
         selection.isSelectAllActive = false;
         selection.isEntireFileSelected = false;
         selection.selecting = true;
@@ -103,7 +100,6 @@ public class SmartSelection {
         selection.lastDoubleTapWordStart = (wStart != -1) ? wStart : pick.start;
         selection.lastDoubleTapWordEnd = (wEnd != -1) ? wEnd : pick.end;
         selection.lastDoubleTapStage = nextIdx;
-        selection.syncToState();
         return true;
     }
 }
