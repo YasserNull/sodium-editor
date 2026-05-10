@@ -52,9 +52,7 @@ public class SelectionHandleFreshSelectionGuardTest {
             && setSelectionInternalAround.indexOf("editor.selectionHandles.updateHandlesPosition();")
                 < setSelectionInternalAround.indexOf("updateSelectionVisibility(hasSelection);"));
 
-    int resetAt = animSrc.indexOf("public void resetAnimationState()");
-    assertTrue("Expected resetAnimationState in SelectionHandlesAnimation.", resetAt >= 0);
-    String resetAround = animSrc.substring(resetAt, Math.min(animSrc.length(), resetAt + 800));
+    String resetAround = methodBody(animSrc, "resetAnimationState()");
     assertTrue(
         "BUG: resetting handle animation state must discard stale animated draw positions and the X start anchors used to redirect from the previous selection.",
         resetAround.contains("animLeftX = Float.NaN;")

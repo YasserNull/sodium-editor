@@ -108,6 +108,26 @@ public class CodeFoldCaretGuardTest {
             && finishBody.contains("editor.cursorAnimation.snapToPosition("));
   }
 
+  @Test
+  public void newlineAfterCollapsedFoldSuffix_shouldStayOutsideCollapsedRange() throws Exception {
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/EditorActions.java");
+
+    String newlineBody = methodBody(src, "handleCodeFoldNewline(int beforeLine, int beforeChar)");
+    assertTrue(
+        "BUG: pressing newline after the closing token on a collapsed fold end line must treat the new line as outside the fold, otherwise typed suffix lines disappear while collapsed.",
+        newlineBody.contains("CodeFold.FoldRange endingFold = findFoldEndingBeforeSuffixBreak(beforeLine, beforeChar);")
+            && newlineBody.contains("editor.codeFold.adjustFoldRangesForLineEdit(beforeLine + 1, 1);")
+            && newlineBody.contains("editor.codeFold.adjustFoldRangesForLineEdit(beforeLine, 1);"));
+
+    String suffixBody = methodBody(src, "findFoldEndingBeforeSuffixBreak(int beforeLine, int beforeChar)");
+    assertTrue(
+        "BUG: suffix-break detection must resolve the fold closing token and only classify newline as outside the fold after that token.",
+        suffixBody.contains("resolveCloseCharIndex")
+            && suffixBody.contains("closeEnd")
+            && suffixBody.contains("beforeChar >= closeEnd"));
+  }
+
   private static String methodBody(String src, String methodName) {
     int method = src.indexOf(methodName);
     if (method < 0) throw new IllegalStateException("Method not found: " + methodName);

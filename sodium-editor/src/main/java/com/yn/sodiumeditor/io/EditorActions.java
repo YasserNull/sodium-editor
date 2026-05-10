@@ -500,8 +500,32 @@ public class EditorActions {
             }
             editor.codeFold.foldIntervalsDirty = true;
         } else {
-            editor.codeFold.adjustFoldRangesForLineEdit(beforeLine, 1);
+            CodeFold.FoldRange endingFold = findFoldEndingBeforeSuffixBreak(beforeLine, beforeChar);
+            if (endingFold != null) {
+                // Newlines inserted after the closing token on the fold end line belong outside
+                // the collapsed range. Shift only following ranges, and keep this fold's end line.
+                editor.codeFold.adjustFoldRangesForLineEdit(beforeLine + 1, 1);
+            } else {
+                editor.codeFold.adjustFoldRangesForLineEdit(beforeLine, 1);
+            }
         }
+    }
+
+    private CodeFold.FoldRange findFoldEndingBeforeSuffixBreak(int beforeLine, int beforeChar) {
+        if (!editor.codeFold.isCodeFoldingEnabled) return null;
+        for (CodeFold.FoldRange range : editor.codeFold.foldRanges.values()) {
+            if (range == null || range.endLine != beforeLine) continue;
+            String endText = editor.windowRender.getLineTextForRender(range.endLine);
+            if (endText == null) endText = "";
+            int closeIdx = editor.codeFold.resolveCloseCharIndex(range, endText);
+            if (closeIdx < 0) closeIdx = range.closeCharIndex;
+            if (closeIdx < 0) continue;
+            int closeEnd = closeIdx + (range.isBlockComment ? 2 : (range.isIndentFold ? 0 : 1));
+            if (beforeChar >= closeEnd) {
+                return range;
+            }
+        }
+        return null;
     }
 
     private int handleWindowEdgeCase(int localIdx) {
