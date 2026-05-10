@@ -144,9 +144,28 @@ public class PopupMenu {
         if (proposedLeft < 0) proposedLeft = 0;
 
         final float popupVerticalPadding = editor.textRender.lineHeight * 0.75f;
+        final float handleClearance = Math.max(12f, editor.textRender.lineHeight * 0.35f);
 
-        float topAbove = anchorY_top - totalHeight - popupVerticalPadding;
-        float topBelow = anchorY_bottom + popupVerticalPadding;
+        float obstacleTop = anchorY_top;
+        float obstacleBottom = anchorY_bottom;
+        if (!popup.isMinimalPopup && editor.selection.hasSelection) {
+            editor.selectionHandles.updateHandlesPosition();
+            if (!editor.selectionHandles.leftHandleRect.isEmpty()) {
+                obstacleTop = Math.min(
+                        obstacleTop,
+                        Math.min(
+                                editor.selectionHandles.leftHandleRect.top,
+                                editor.selectionHandles.rightHandleRect.top));
+                obstacleBottom = Math.max(
+                        obstacleBottom,
+                        Math.max(
+                                editor.selectionHandles.leftHandleRect.bottom,
+                                editor.selectionHandles.rightHandleRect.bottom));
+            }
+        }
+
+        float topAbove = obstacleTop - totalHeight - popupVerticalPadding - handleClearance;
+        float topBelow = obstacleBottom + popupVerticalPadding + handleClearance;
 
         float finalTop;
         float visibleBottomBound = editor.getHeight() - editor.view.keyboardHeight;
