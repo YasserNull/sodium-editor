@@ -312,13 +312,13 @@ public class CodeFoldRender {
                         foldRange.isBlockComment
                             ? (closeIdx >= 0 ? closeIdx + 2 : -1)
                             : (closeIdx >= 0 ? closeIdx + 1 : -1);
-                    boolean selectionOnSuffix =
-                        selStartLine == foldRange.endLine
-                            && selEndLine == foldRange.endLine
-                            && suffixStart >= 0
-                            && selStartChar >= suffixStart
-                            && selEndChar >= suffixStart;
-                    if (selectionOnSuffix) {
+                    boolean selectionTouchesSuffix =
+                        suffixStart >= 0
+                            && selEndLine >= foldRange.endLine
+                            && selStartLine <= foldRange.endLine
+                            && (selEndLine > foldRange.endLine || selEndChar > suffixStart)
+                            && (selStartLine < foldRange.endLine || selStartChar >= suffixStart);
+                    if (selectionTouchesSuffix) {
                         float lineTop = editor.textRender.getDrawLineTop(globalLine);
                         float lineBottom = lineTop + editor.textRender.lineHeight;
                         int prefixEnd =
@@ -338,26 +338,47 @@ public class CodeFoldRender {
                             foldRange.isBlockComment ? "*/" : String.valueOf(foldRange.closeChar);
                         float closeWidth = editor.textRender.paint.measureText(closeText);
                         float suffixBase = xStart + placeholderWidth + closeWidth;
+                        float textStartX = editor.layout.getTextStartX() - editor.lineNumber.lineNumbersGutterWidth;
+                        float viewportRight = editor.scroll.getEffectiveScrollX() + editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth;
+                        int visibleStartChar =
+                            (selStartLine == foldRange.endLine)
+                                ? Math.max(suffixStart, Math.min(selStartChar, endLineText.length()))
+                                : suffixStart;
                         float left =
-                            editor.layout.getTextStartX()
-                                - editor.lineNumber.lineNumbersGutterWidth
+                            textStartX
                                 + suffixBase
                                 + editor.highlite.measureHighlightedSegmentWidth(
                                     endLineText,
                                     foldRange.endLine,
                                     suffixStart,
-                                    Math.max(suffixStart, Math.min(selStartChar, endLineText.length())));
-                        float right =
-                            editor.layout.getTextStartX()
-                                - editor.lineNumber.lineNumbersGutterWidth
-                                + suffixBase
-                                + editor.highlite.measureHighlightedSegmentWidth(
-                                    endLineText,
-                                    foldRange.endLine,
-                                    suffixStart,
-                                    Math.max(suffixStart, Math.min(selEndChar, endLineText.length())));
+                                    visibleStartChar);
+                        boolean selectionContinuesPastSuffixLine = selEndLine > foldRange.endLine;
+                        float right;
+                        if (selectionContinuesPastSuffixLine) {
+                            right = viewportRight;
+                        } else {
+                            int visibleEndChar =
+                                Math.max(suffixStart, Math.min(selEndChar, endLineText.length()));
+                            right =
+                                textStartX
+                                    + suffixBase
+                                    + editor.highlite.measureHighlightedSegmentWidth(
+                                        endLineText,
+                                        foldRange.endLine,
+                                        suffixStart,
+                                        visibleEndChar);
+                        }
                         editor.onTouch.drawSelectionSegment(
-                            canvas, left, lineTop, right, lineBottom, true, true, true, true, selPaint);
+                            canvas,
+                            left,
+                            lineTop,
+                            right,
+                            lineBottom,
+                            true,
+                            true,
+                            !selectionContinuesPastSuffixLine,
+                            !selectionContinuesPastSuffixLine,
+                            selPaint);
                     }
                 }
             }

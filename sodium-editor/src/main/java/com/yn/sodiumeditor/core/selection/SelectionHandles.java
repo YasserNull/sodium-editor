@@ -359,8 +359,9 @@ public class SelectionHandles {
     int visualLine = lineForVisual;
     if (editor.wordWrap.isWordWrapEnabled) {
       visualLine = editor.wordWrap.getVisualIndexForLineAndChar(lineForVisual, 0);
+      return (visualLine * editor.textRender.lineHeight) - editor.scroll.scrollY;
     }
-    return (visualLine * editor.textRender.lineHeight) - editor.scroll.scrollY;
+    return editor.textRender.getDrawLineTop(lineForVisual);
   }
 
   private float getCollapsedFoldCharDocumentX(
