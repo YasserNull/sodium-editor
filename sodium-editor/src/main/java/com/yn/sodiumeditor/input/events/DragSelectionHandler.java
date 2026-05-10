@@ -230,8 +230,10 @@ public class DragSelectionHandler {
                 int suffixStart = range.isBlockComment ? (closeIdx >= 0 ? closeIdx + 2 : (endLineText != null ? endLineText.length() : 0)) : (closeIdx >= 0 ? closeIdx + 1 : (endLineText != null ? endLineText.length() : 0));
 
                 if (x <= xStart) {
+                    int prefixLimit = Math.max(0, Math.min(prefixEnd, (ln == null) ? 0 : ln.length()));
+                    int idx = editor.wordWrap.getCharIndexForXInRange(ln, range.startLine, 0, prefixLimit, Math.max(0f, x));
                     line = range.startLine;
-                    clamped = Math.max(0, range.openCharIndex);
+                    clamped = Math.max(0, Math.min(idx, prefixLimit));
                 } else if (x <= closeStart + closeWidth || endLineText == null) {
                     line = range.endLine;
                     clamped = (closeIdx >= 0) ? (closeIdx + 1) : 0;
@@ -330,7 +332,20 @@ public class DragSelectionHandler {
                 int closeIdx = editor.codeFold.resolveCloseCharIndex(range, endLineText);
                 int suffixStart = range.isBlockComment ? (closeIdx >= 0 ? closeIdx + 2 : -1) : (closeIdx >= 0 ? closeIdx + 1 : -1);
                 
-                if (x <= xStart) return Math.max(0, range.openCharIndex);
+                if (x <= xStart) {
+                    int prefixLimit;
+                    if (range.isBlockComment) {
+                        prefixLimit = Math.min(range.openCharIndex + 2, (ln == null) ? 0 : ln.length());
+                    } else if (range.isIndentFold) {
+                        prefixLimit = (ln == null) ? 0 : ln.length();
+                    } else {
+                        prefixLimit = Math.min(range.openCharIndex + 1, (ln == null) ? 0 : ln.length());
+                    }
+                    int idx =
+                        editor.wordWrap.getCharIndexForXInRange(
+                            ln, range.startLine, 0, Math.max(0, prefixLimit), Math.max(0f, x));
+                    return Math.max(0, Math.min(idx, prefixLimit));
+                }
                 else if (x <= closeStart + closeWidth || suffixStart < 0 || endLineText == null) return (closeIdx >= 0) ? (closeIdx + 1) : 0;
                 else {
                     float xSuffix = Math.max(0f, x - (closeStart + closeWidth));
