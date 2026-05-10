@@ -128,6 +128,42 @@ public class CodeFoldCaretGuardTest {
             && suffixBody.contains("beforeChar >= closeEnd"));
   }
 
+  @Test
+  public void collapsedFoldSuffixSelection_shouldUseFoldAwareHandleGeometry() throws Exception {
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/selection/SelectionHandles.java");
+
+    String charXBody = methodBody(src, "getCharX(int line, int ch)");
+    assertTrue(
+        "BUG: selection handles for suffix text after a collapsed fold must map hidden end-line positions through fold-aware X geometry, or the handles render far below or away from the visible suffix.",
+        charXBody.contains("getCollapsedRangeContainingLine(line)")
+            && charXBody.contains("getCollapsedFoldCharDocumentX(hidden, ch)")
+            && charXBody.contains("getCollapsedFoldCharDocumentX(start, ch)"));
+
+    String lineYBody = methodBody(src, "getLineY(int line)");
+    assertTrue(
+        "BUG: selection handles for collapsed-fold suffix text must map hidden end-line Y back to the fold start line.",
+        lineYBody.contains("lineForVisual = hidden.startLine;"));
+  }
+
+  @Test
+  public void collapsedFoldSuffixSelection_shouldDrawVisibleHighlightOnFoldedLine() throws Exception {
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/CodeFoldRender.java");
+
+    String body =
+        methodBody(
+            src,
+            "drawFoldedContent(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex,");
+    assertTrue(
+        "BUG: selecting suffix text after a collapsed fold must render the blue highlight on the visible folded line instead of only on the hidden end line.",
+        body.contains("selectionOnSuffix")
+            && body.contains("selStartLine == foldRange.endLine")
+            && body.contains("selEndLine == foldRange.endLine")
+            && body.contains("suffixBase")
+            && body.contains("drawSelectionSegment("));
+  }
+
   private static String methodBody(String src, String methodName) {
     int method = src.indexOf(methodName);
     if (method < 0) throw new IllegalStateException("Method not found: " + methodName);

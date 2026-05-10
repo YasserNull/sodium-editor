@@ -81,6 +81,7 @@ public class OnLongPress {
               range.isBlockComment ? (closeIdx >= 0 ? closeIdx + 2 : -1)
                   : (closeIdx >= 0 ? closeIdx + 1 : -1);
           if (x <= xStart) {
+            cursorLine = range.startLine;
             charIndex = Math.max(0, range.openCharIndex);
           } else if (x <= closeStart + closeWidth || suffixStart < 0 || endLineText == null) {
             cursorLine = range.endLine;
@@ -130,6 +131,12 @@ public class OnLongPress {
             editor.view.restartInput();
             return;
           }
+
+          if (cursorLine != line) {
+            line = cursorLine;
+            ln = editor.windowRender.getLineTextForRender(cursorLine);
+            if (ln == null) ln = "";
+          }
         }
       }
     }
@@ -139,10 +146,10 @@ public class OnLongPress {
       // Correctly clear selection and sync state
       editor.selection.clearSelection();
       
-      editor.cursor.setCursorPosition(line, charIndex);
+      editor.cursor.setCursorPosition(cursorLine, charIndex);
       
       // Record anchor point so finger movement can start selection from here
-      editor.selection.beginLongPressSelection(line, charIndex);
+      editor.selection.beginLongPressSelection(cursorLine, charIndex);
       editor.selection.state.longPressFreeForm = false; // Require movement threshold
       editor.selection.syncFromState();
       
@@ -166,18 +173,18 @@ public class OnLongPress {
       isOnText = !Character.isWhitespace(c);
     }
 
-    boolean isInsideSelection = editor.selection.isPositionInsideSelection(line, charIndex);
+    boolean isInsideSelection = editor.selection.isPositionInsideSelection(cursorLine, charIndex);
 
     // Only try smart selection if pressing directly on text OR inside an existing selection,
     // AND the finger hasn't moved yet.
     boolean smartSelected = false;
     if ((isOnText || isInsideSelection) && !editor.onTouch.movedSinceDown) {
-      smartSelected = editor.selection.applySmartDoubleTapSelection(line, charIndex, ln);
+      smartSelected = editor.selection.applySmartDoubleTapSelection(cursorLine, charIndex, ln);
     }
 
     // Always begin long press selection tracking so finger movement extends selection
     // The long press anchor is set to the touch point for free-form selection
-    editor.selection.beginLongPressSelection(line, charIndex);
+    editor.selection.beginLongPressSelection(cursorLine, charIndex);
 
     // If smart selection was active, the selection is already set to the word/quote/bracket
     if (smartSelected) {

@@ -250,7 +250,7 @@ public class CodeFoldRender {
                     selEndLine = tmpL;
                     selEndChar = tmpC;
                 }
-                
+
                 // Check if this line is within selection
                 if (globalLine >= selStartLine && globalLine <= selEndLine) {
                     float lineTop = editor.textRender.getDrawLineTop(globalLine);
@@ -302,6 +302,62 @@ public class CodeFoldRender {
                     } else {
                         editor.onTouch.drawSelectionSegment(canvas, left, top, right, bottom,
                             false, false, false, false, selPaint);
+                    }
+                }
+                if (foldRange != null && foldRange.collapsed) {
+                    String endLineText = editor.windowRender.getLineTextForRender(foldRange.endLine);
+                    if (endLineText == null) endLineText = "";
+                    int closeIdx = editor.codeFold.resolveCloseCharIndex(foldRange, endLineText);
+                    int suffixStart =
+                        foldRange.isBlockComment
+                            ? (closeIdx >= 0 ? closeIdx + 2 : -1)
+                            : (closeIdx >= 0 ? closeIdx + 1 : -1);
+                    boolean selectionOnSuffix =
+                        selStartLine == foldRange.endLine
+                            && selEndLine == foldRange.endLine
+                            && suffixStart >= 0
+                            && selStartChar >= suffixStart
+                            && selEndChar >= suffixStart;
+                    if (selectionOnSuffix) {
+                        float lineTop = editor.textRender.getDrawLineTop(globalLine);
+                        float lineBottom = lineTop + editor.textRender.lineHeight;
+                        int prefixEnd =
+                            foldRange.isBlockComment
+                                ? Math.min(foldRange.openCharIndex + 2, line.length())
+                                : foldRange.isIndentFold
+                                    ? line.length()
+                                    : Math.min(foldRange.openCharIndex + 1, line.length());
+                        float xStart =
+                            editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, prefixEnd);
+                        float placeholderWidth =
+                            Math.max(
+                                0f,
+                                editor.textRender.paint.measureText(
+                                    com.yn.sodiumeditor.core.fold.CodeFold.FOLD_PLACEHOLDER_TEXT));
+                        String closeText =
+                            foldRange.isBlockComment ? "*/" : String.valueOf(foldRange.closeChar);
+                        float closeWidth = editor.textRender.paint.measureText(closeText);
+                        float suffixBase = xStart + placeholderWidth + closeWidth;
+                        float left =
+                            editor.layout.getTextStartX()
+                                - editor.lineNumber.lineNumbersGutterWidth
+                                + suffixBase
+                                + editor.highlite.measureHighlightedSegmentWidth(
+                                    endLineText,
+                                    foldRange.endLine,
+                                    suffixStart,
+                                    Math.max(suffixStart, Math.min(selStartChar, endLineText.length())));
+                        float right =
+                            editor.layout.getTextStartX()
+                                - editor.lineNumber.lineNumbersGutterWidth
+                                + suffixBase
+                                + editor.highlite.measureHighlightedSegmentWidth(
+                                    endLineText,
+                                    foldRange.endLine,
+                                    suffixStart,
+                                    Math.max(suffixStart, Math.min(selEndChar, endLineText.length())));
+                        editor.onTouch.drawSelectionSegment(
+                            canvas, left, lineTop, right, lineBottom, true, true, true, true, selPaint);
                     }
                 }
             }
