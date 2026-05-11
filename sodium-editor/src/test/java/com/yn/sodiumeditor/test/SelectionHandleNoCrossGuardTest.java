@@ -16,9 +16,7 @@ public class SelectionHandleNoCrossGuardTest {
     @Test
     public void draggingSelectionHandles_shouldClampBeforeCrossingOppositeHandle() throws Exception {
         String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/input/events/DragSelectionHandler.java");
-        int at = src.indexOf("public void updateHandlePosition(float touchX, float touchY)");
-        assertTrue("Expected updateHandlePosition in DragSelectionHandler.", at >= 0);
-        String around = src.substring(at, Math.min(src.length(), at + 5200));
+        String around = methodBody(src, "public void updateHandlePosition(float touchX, float touchY)");
 
         assertTrue(
                 "BUG: left/start handle must compare proposed position against current end handle before applying.",
@@ -36,6 +34,23 @@ public class SelectionHandleNoCrossGuardTest {
                         && around.contains("getNextSelectionPosition(editor.selection.selStartLine, editor.selection.selStartChar)")
                         && src.contains("private int[] getPreviousSelectionPosition")
                         && src.contains("private int[] getNextSelectionPosition"));
+    }
+
+    private static String methodBody(String src, String signature) {
+        int method = src.indexOf(signature);
+        if (method < 0) throw new IllegalStateException("Method not found: " + signature);
+        int start = src.indexOf('{', method);
+        if (start < 0) throw new IllegalStateException("Method body not found: " + signature);
+        int depth = 0;
+        for (int i = start; i < src.length(); i++) {
+            char c = src.charAt(i);
+            if (c == '{') depth++;
+            if (c == '}') {
+                depth--;
+                if (depth == 0) return src.substring(start, i + 1);
+            }
+        }
+        throw new IllegalStateException("Unclosed method body: " + signature);
     }
 
     private static String readSource(String relativePath) throws Exception {

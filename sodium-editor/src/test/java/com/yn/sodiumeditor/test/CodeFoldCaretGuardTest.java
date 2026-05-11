@@ -157,9 +157,9 @@ public class CodeFoldCaretGuardTest {
             "drawFoldedContent(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex,");
     assertTrue(
         "BUG: selecting suffix text after a collapsed fold must render the blue highlight on the visible folded line instead of only on the hidden end line.",
-        body.contains("selectionOnSuffix")
-            && body.contains("selStartLine == foldRange.endLine")
-            && body.contains("selEndLine == foldRange.endLine")
+        body.contains("selectionTouchesSuffix")
+            && body.contains("selEndLine >= foldRange.endLine")
+            && body.contains("selStartLine <= foldRange.endLine")
             && body.contains("suffixBase")
             && body.contains("drawSelectionSegment("));
   }

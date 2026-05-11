@@ -182,6 +182,7 @@ public class CodeFoldDetector {
         int i = Math.max(0, startIndex);
         boolean inLineComment = false;
         boolean inBlockComment = false;
+        String tripleQuoteDelimiter = null;
         char quoteChar = 0;
         bracketStackTop = 0;
 
@@ -196,6 +197,14 @@ public class CodeFoldDetector {
                 continue;
             }
 
+            if (tripleQuoteDelimiter != null) {
+                int end = line.indexOf(tripleQuoteDelimiter, i);
+                if (end < 0) break;
+                i = end + 3;
+                tripleQuoteDelimiter = null;
+                continue;
+            }
+
             if (quoteChar != 0) {
                 char qc = line.charAt(i);
                 if (qc == quoteChar && !isTokenEscaped(line, i)) {
@@ -205,11 +214,7 @@ public class CodeFoldDetector {
                 continue;
             }
 
-            if (editor.highlite.isLineCommentStart(line, i)) {
-                inLineComment = true;
-                break;
-            }
-            if (line.charAt(i) == '#' && !editor.highlite.isEscaped(line, i)) {
+            if (isLineCommentStartForFold(line, i)) {
                 inLineComment = true;
                 break;
             }
@@ -226,8 +231,12 @@ public class CodeFoldDetector {
             }
 
             if (editor.highlite.isTripleQuoteStringsEnabled && editor.highlite.isTripleQuoteStart(line, i) && !editor.highlite.isEscaped(line, i)) {
+                String delimiter = line.substring(i, Math.min(i + 3, len));
                 int end = editor.highlite.findTripleQuoteEnd(line, i + 3);
-                if (end < 0) break;
+                if (end < 0) {
+                    tripleQuoteDelimiter = delimiter;
+                    break;
+                }
                 i = end + 3;
                 continue;
             }
@@ -296,6 +305,7 @@ public class CodeFoldDetector {
         int i = startChar + 1;
         boolean inLineComment = false;
         boolean inBlockComment = false;
+        String tripleQuoteDelimiter = null;
         char quoteChar = 0;
 
         while (true) {
@@ -314,6 +324,16 @@ public class CodeFoldDetector {
                     inBlockComment = false;
                     continue;
                 }
+                if (tripleQuoteDelimiter != null) {
+                    int end = line.indexOf(tripleQuoteDelimiter, i);
+                    if (end < 0) {
+                        i = line.length();
+                        break;
+                    }
+                    i = end + 3;
+                    tripleQuoteDelimiter = null;
+                    continue;
+                }
                 if (quoteChar != 0) {
                     char qc = line.charAt(i);
                     if (qc == quoteChar && !isTokenEscaped(line, i)) {
@@ -323,17 +343,30 @@ public class CodeFoldDetector {
                     continue;
                 }
 
-                if (editor.highlite.isLineCommentStart(line, i)) {
+                if (isLineCommentStartForFold(line, i)) {
                     inLineComment = true;
                     continue;
                 }
-                if (line.charAt(i) == '#' && !editor.highlite.isEscaped(line, i)) {
-                    inLineComment = true;
-                    continue;
-                }
-                if (editor.highlite.isBlockCommentsEnabled && i + 1 < line.length() && line.charAt(i) == '/' && line.charAt(i + 1) == '*') {
+                if (editor.highlite.isBlockCommentsEnabled
+                        && i + 1 < line.length()
+                        && line.charAt(i) == '/'
+                        && line.charAt(i + 1) == '*'
+                        && !isTokenEscaped(line, i)) {
                     inBlockComment = true;
                     i += 2;
+                    continue;
+                }
+                if (editor.highlite.isTripleQuoteStringsEnabled
+                        && editor.highlite.isTripleQuoteStart(line, i)
+                        && !editor.highlite.isEscaped(line, i)) {
+                    tripleQuoteDelimiter = line.substring(i, Math.min(i + 3, line.length()));
+                    int end = editor.highlite.findTripleQuoteEnd(line, i + 3);
+                    if (end < 0) {
+                        i = line.length();
+                        break;
+                    }
+                    i = end + 3;
+                    tripleQuoteDelimiter = null;
                     continue;
                 }
 
@@ -391,6 +424,16 @@ public class CodeFoldDetector {
         int end = line.length();
         while (end > 0 && Character.isWhitespace(line.charAt(end - 1))) end--;
         return line.substring(0, end);
+    }
+
+    private boolean isLineCommentStartForFold(String line, int index) {
+        if (line == null || index < 0 || index >= line.length()) return false;
+        if (editor.highlite.isLineCommentStart(line, index)) return true;
+        if (line.charAt(index) == '#' && !editor.highlite.isEscaped(line, index)) return true;
+        return index + 1 < line.length()
+                && line.charAt(index) == '/'
+                && line.charAt(index + 1) == '/'
+                && !editor.highlite.isEscaped(line, index);
     }
 
     private boolean isTokenEscaped(String line, int index) {
