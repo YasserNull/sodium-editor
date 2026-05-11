@@ -227,6 +227,25 @@ public class HighliteRender {
             return;
         }
 
+        boolean hasCharFade =
+                globalLine == editor.charAnimation.charAnimLine
+                        && editor.charAnimation.charAnimEndChar > editor.charAnimation.charAnimStartChar
+                        && editor.charAnimation.charAnimAlpha < 1f;
+        boolean hasDeleteGhost =
+                globalLine == editor.charAnimation.delAnimLine
+                        && editor.charAnimation.delAnimText != null
+                        && !editor.charAnimation.delAnimText.isEmpty()
+                        && editor.charAnimation.delAnimAlpha > 0f;
+        if (editor.highlite.highlightRules.isEmpty()
+                && !editor.urlUnderline.isUrlUnderliningActive()
+                && !editor.pathUnderline.isPathUnderliningActive()
+                && !editor.errorUnderline.errorUnderlineEnabled
+                && !hasCharFade
+                && !hasDeleteGhost) {
+            canvas.drawText(line, 0, line.length(), 0f, y, editor.textRender.paint);
+            return;
+        }
+
         // Collect underlines
         ArrayList<TextRender.UnderlineSpan> combinedUnderlines = TextRender.TL_UNDERLINES.get();
         combinedUnderlines.clear();
@@ -246,9 +265,7 @@ public class HighliteRender {
         int fadeStart = -1;
         int fadeEnd = -1;
         float fadeAlpha = 1f;
-        if (globalLine == editor.charAnimation.charAnimLine
-                && editor.charAnimation.charAnimEndChar > editor.charAnimation.charAnimStartChar
-                && editor.charAnimation.charAnimAlpha < 1f) {
+        if (hasCharFade) {
             fadeStart = Math.max(0, Math.min(editor.charAnimation.charAnimStartChar, line.length()));
             fadeEnd = Math.max(0, Math.min(editor.charAnimation.charAnimEndChar, line.length()));
             fadeAlpha = Math.max(0f, Math.min(1f, editor.charAnimation.charAnimAlpha));

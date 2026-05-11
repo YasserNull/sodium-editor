@@ -42,7 +42,8 @@ public class TextLineDraw {
                 && !editor.binaryRender.isBinarySafeRenderingEnabled()
                 && com.yn.sodiumeditor.utils.TextArabicUtils.containsArabicScript(line, start, end)) {
             int spaceScale = editor.textRender.getVisualSpaceScale();
-            if (spaceScale > 1 || line.indexOf('\t', start) >= 0) {
+            int tabIndex = line.indexOf('\t', start);
+            if (spaceScale > 1 || (tabIndex >= 0 && tabIndex < end)) {
                 return drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, segmentPaint, 1f);
             }
             canvas.drawText(line, start, end, x, y, segmentPaint);

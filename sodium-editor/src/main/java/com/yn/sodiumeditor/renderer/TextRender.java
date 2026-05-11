@@ -526,7 +526,8 @@ public class TextRender {
     end = Math.max(start, Math.min(end, text.length()));
     if (start >= end) return 0f;
 
-    if (text.indexOf('\t', start) < 0) {
+    int tabIndex = text.indexOf('\t', start);
+    if (tabIndex < 0 || tabIndex >= end) {
       return p.measureText(text, start, end);
     }
 

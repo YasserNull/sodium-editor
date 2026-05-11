@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class FunctionLog {
-    public static boolean ENABLE_LOGGING = true;
+    public static boolean ENABLE_LOGGING = false;
     public static final String DEBUG_TAG = "SodiumDbg";
     /**
      * Minimum time between logs for the same call-site key.
@@ -29,6 +29,7 @@ public class FunctionLog {
     }
 
     public static void d(String scope, String message) {
+        if (!ENABLE_LOGGING) return;
         Log.d(DEBUG_TAG, "[" + scope + "] " + message);
     }
 }

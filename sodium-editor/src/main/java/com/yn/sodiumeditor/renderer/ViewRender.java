@@ -206,6 +206,15 @@ public class ViewRender {
       } else {
       int winStart = editor.windowRender.windowStartLine;
       int winEnd = winStart + editor.windowRender.linesWindow.size() - 1;
+      if (!editor.codeFold.isCodeFoldingEnabled) {
+        if (firstVisibleLine < winStart || lastVisibleLine > winEnd) {
+          editor.windowRender.directLinesTmp.clear();
+          directLines = editor.windowRender.directLinesTmp;
+          int directStart = Math.max(0, firstVisibleLine);
+          int directEnd = Math.max(directStart, lastVisibleLine);
+          editor.fileIO.populateDirectLinesForRange(directStart, directEnd, directLines);
+        }
+      } else {
       java.util.HashSet<Integer> needed = new java.util.HashSet<>();
       for (int v = firstVisibleIndex; v <= lastVisibleIndex; v++) {
           int gl = editor.codeFold.mapVisibleIndexToGlobal(v);
@@ -229,6 +238,7 @@ public class ViewRender {
                   editor.fileIO.populateDirectLinesForRange(gl, gl, directLines); // guard: modifiedLines / lineCountDelta
               }
           }
+      }
       }
       }
     }

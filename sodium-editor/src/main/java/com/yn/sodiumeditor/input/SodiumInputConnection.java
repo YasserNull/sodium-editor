@@ -138,6 +138,22 @@ public class SodiumInputConnection extends BaseInputConnection {
         if (editor.view.isDisabled || editor.view.isReadOnly) return true;
         if (editor.zoom.isZoomGestureActive()) return true;
         if (text == null) return super.commitText(text, newCursorPosition);
+        android.util.Log.i(
+                "FoldEditDbg",
+                "commitText"
+                        + " text='"
+                        + text
+                        + "' cursor="
+                        + editor.cursor.cursorLine
+                        + ":"
+                        + editor.cursor.cursorChar
+                        + " window="
+                        + editor.windowRender.windowStartLine
+                        + "+"
+                        + editor.windowRender.linesWindow.size()
+                        + " foldHidden="
+                        + (editor.codeFold.isCodeFoldingEnabled
+                                && editor.codeFold.getCollapsedRangeContainingLine(editor.cursor.cursorLine) != null));
         return ime.onCommitText(text, newCursorPosition);
     }
 

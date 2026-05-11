@@ -18,6 +18,8 @@ import java.util.HashMap;
  * the visual representation of collapsed code regions.
  */
 public class CodeFoldRender {
+    private static final String FOLD_RENDER_DBG = "FoldRenderDbg";
+    private static final int LARGE_COLLAPSED_FOLD_SCAN_LIMIT = 2000;
 
     // Reference to the parent SodiumEditor
     private final SodiumEditor editor;
@@ -193,6 +195,22 @@ public class CodeFoldRender {
             }
         }
         long dt = android.os.SystemClock.uptimeMillis() - startMs;
+        int foldLineCount = Math.max(0, range.endLine - range.startLine);
+        if (dt > 4 && (editor.DEBUG_RENDER_LOGS || foldLineCount > LARGE_COLLAPSED_FOLD_SCAN_LIMIT)) {
+            android.util.Log.i(
+                FOLD_RENDER_DBG,
+                "foldedLine draw"
+                    + " dtMs="
+                    + dt
+                    + " start="
+                    + range.startLine
+                    + " end="
+                    + range.endLine
+                    + " hidden="
+                    + foldLineCount
+                    + " lineLen="
+                    + line.length());
+        }
         if (dt > 4 && editor.DEBUG_RENDER_LOGS) {
             android.util.Log.d("SodiumRender", "foldedLine draw dtMs=" + dt + " line=" + globalLine);
         }
@@ -414,12 +432,43 @@ public class CodeFoldRender {
                         if (cachedState != null) {
                             bracketState = cachedState;
                         } else {
-                            // Compute once and cache
-                            for (int ln = globalLine + 1; ln <= range.endLine; ln++) {
-                                String lnText = getLineTextForRenderWithDirect(ln, directLines);
-                                bracketState = editor.bracketGuides.calculateBracketGuideStateForLine(lnText, ln, bracketState);
+                            int hiddenLineCount = range.endLine - globalLine;
+                            if (hiddenLineCount > LARGE_COLLAPSED_FOLD_SCAN_LIMIT) {
+                                editor.codeFold.cachedBracketStateAfterFold.put(range.startLine, bracketState.cloneState());
+                                android.util.Log.i(
+                                    FOLD_RENDER_DBG,
+                                    "skipHiddenBracketState"
+                                        + " start="
+                                        + range.startLine
+                                        + " end="
+                                        + range.endLine
+                                        + " hidden="
+                                        + hiddenLineCount
+                                        + " limit="
+                                        + LARGE_COLLAPSED_FOLD_SCAN_LIMIT);
+                            } else {
+                                long scanStartMs = android.os.SystemClock.uptimeMillis();
+                                // Compute once and cache for modest folds. Huge folds must not block typing.
+                                for (int ln = globalLine + 1; ln <= range.endLine; ln++) {
+                                    String lnText = getLineTextForRenderWithDirect(ln, directLines);
+                                    bracketState = editor.bracketGuides.calculateBracketGuideStateForLine(lnText, ln, bracketState);
+                                }
+                                editor.codeFold.cachedBracketStateAfterFold.put(range.startLine, bracketState.cloneState());
+                                long scanDt = android.os.SystemClock.uptimeMillis() - scanStartMs;
+                                if (scanDt > 8) {
+                                    android.util.Log.i(
+                                        FOLD_RENDER_DBG,
+                                        "hiddenBracketState"
+                                            + " dtMs="
+                                            + scanDt
+                                            + " start="
+                                            + range.startLine
+                                            + " end="
+                                            + range.endLine
+                                            + " hidden="
+                                            + hiddenLineCount);
+                                }
                             }
-                            editor.codeFold.cachedBracketStateAfterFold.put(range.startLine, bracketState.cloneState());
                         }
                     }
                 }
