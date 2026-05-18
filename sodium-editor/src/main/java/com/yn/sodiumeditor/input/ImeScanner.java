@@ -11,6 +11,7 @@ import java.io.RandomAccessFile;
  * Handles text scanning and coordinate mapping for IME.
  */
 public class ImeScanner {
+    private static final String FOLD_TYPING_PERF = "FoldTypingPerf";
     private final SodiumEditor editor;
 
     public ImeScanner(SodiumEditor editor) {
@@ -20,14 +21,55 @@ public class ImeScanner {
 
     public ImeContext buildImeContext(int beforeChars, int afterChars) {
         FunctionLog.f("ImeScanner", "buildImeContext", beforeChars, afterChars);
+        long startMs = android.os.SystemClock.uptimeMillis();
         int before = Math.max(0, beforeChars);
         int after = Math.max(0, afterChars);
+        long openStartMs = android.os.SystemClock.uptimeMillis();
         RandomAccessFile raf = openImeRandomAccessFile();
+        long openMs = android.os.SystemClock.uptimeMillis() - openStartMs;
         try {
+            long moveBeforeStartMs = android.os.SystemClock.uptimeMillis();
             CursorTarget start = moveCursorByCharsForIme(editor.cursor.cursorLine, editor.cursor.cursorChar, -before, raf);
+            long moveBeforeMs = android.os.SystemClock.uptimeMillis() - moveBeforeStartMs;
+            long moveAfterStartMs = android.os.SystemClock.uptimeMillis();
             CursorTarget end = moveCursorByCharsForIme(editor.cursor.cursorLine, editor.cursor.cursorChar, after, raf);
+            long moveAfterMs = android.os.SystemClock.uptimeMillis() - moveAfterStartMs;
+            long rangeStartMs = android.os.SystemClock.uptimeMillis();
             String text = buildRangeTextForIme(start, end, raf);
-            Log.i("ImeContext", "buildImeContext: cursor=(" + editor.cursor.cursorLine + "," + editor.cursor.cursorChar + ") text.length=" + text.length() + " text preview: '" + text.substring(0, Math.min(50, text.length())) + "'");
+            long rangeMs = android.os.SystemClock.uptimeMillis() - rangeStartMs;
+            android.util.Log.i(
+                    FOLD_TYPING_PERF,
+                    "scanner.buildContext total="
+                            + (android.os.SystemClock.uptimeMillis() - startMs)
+                            + " open="
+                            + openMs
+                            + " moveBefore="
+                            + moveBeforeMs
+                            + " moveAfter="
+                            + moveAfterMs
+                            + " range="
+                            + rangeMs
+                            + " beforeReq="
+                            + beforeChars
+                            + " afterReq="
+                            + afterChars
+                            + " start="
+                            + start.line
+                            + ":"
+                            + start.ch
+                            + " end="
+                            + end.line
+                            + ":"
+                            + end.ch
+                            + " textLen="
+                            + text.length()
+                            + " modified="
+                            + editor.windowRender.modifiedLines.size()
+                            + " raf="
+                            + (raf != null));
+            if (editor.DEBUG_RENDER_LOGS) {
+                Log.i("ImeContext", "buildImeContext: cursor=(" + editor.cursor.cursorLine + "," + editor.cursor.cursorChar + ") text.length=" + text.length() + " text preview: '" + text.substring(0, Math.min(50, text.length())) + "'");
+            }
             return new ImeContext(start.line, start.ch, text);
         } finally {
             if (raf != null) {
@@ -71,10 +113,36 @@ public class ImeScanner {
     public String getImeTextBeforeCursor(int length) {
         FunctionLog.f("ImeScanner", "getImeTextBeforeCursor", length);
         if (length <= 0) return "";
+        long startMs = android.os.SystemClock.uptimeMillis();
         RandomAccessFile raf = openImeRandomAccessFile();
         try {
+            long moveStartMs = android.os.SystemClock.uptimeMillis();
             CursorTarget start = moveCursorByCharsForIme(editor.cursor.cursorLine, editor.cursor.cursorChar, -length, raf);
-            return buildRangeTextForIme(start, new CursorTarget(editor.cursor.cursorLine, editor.cursor.cursorChar), raf);
+            long moveMs = android.os.SystemClock.uptimeMillis() - moveStartMs;
+            long rangeStartMs = android.os.SystemClock.uptimeMillis();
+            String result = buildRangeTextForIme(start, new CursorTarget(editor.cursor.cursorLine, editor.cursor.cursorChar), raf);
+            long rangeMs = android.os.SystemClock.uptimeMillis() - rangeStartMs;
+            android.util.Log.i(
+                    FOLD_TYPING_PERF,
+                    "scanner.before total="
+                            + (android.os.SystemClock.uptimeMillis() - startMs)
+                            + " move="
+                            + moveMs
+                            + " range="
+                            + rangeMs
+                            + " req="
+                            + length
+                            + " len="
+                            + result.length()
+                            + " start="
+                            + start.line
+                            + ":"
+                            + start.ch
+                            + " modified="
+                            + editor.windowRender.modifiedLines.size()
+                            + " raf="
+                            + (raf != null));
+            return result;
         } finally {
             if (raf != null) {
                 try {
@@ -87,10 +155,36 @@ public class ImeScanner {
     public String getImeTextAfterCursor(int length) {
         FunctionLog.f("ImeScanner", "getImeTextAfterCursor", length);
         if (length <= 0) return "";
+        long startMs = android.os.SystemClock.uptimeMillis();
         RandomAccessFile raf = openImeRandomAccessFile();
         try {
+            long moveStartMs = android.os.SystemClock.uptimeMillis();
             CursorTarget end = moveCursorByCharsForIme(editor.cursor.cursorLine, editor.cursor.cursorChar, length, raf);
-            return buildRangeTextForIme(new CursorTarget(editor.cursor.cursorLine, editor.cursor.cursorChar), end, raf);
+            long moveMs = android.os.SystemClock.uptimeMillis() - moveStartMs;
+            long rangeStartMs = android.os.SystemClock.uptimeMillis();
+            String result = buildRangeTextForIme(new CursorTarget(editor.cursor.cursorLine, editor.cursor.cursorChar), end, raf);
+            long rangeMs = android.os.SystemClock.uptimeMillis() - rangeStartMs;
+            android.util.Log.i(
+                    FOLD_TYPING_PERF,
+                    "scanner.after total="
+                            + (android.os.SystemClock.uptimeMillis() - startMs)
+                            + " move="
+                            + moveMs
+                            + " range="
+                            + rangeMs
+                            + " req="
+                            + length
+                            + " len="
+                            + result.length()
+                            + " end="
+                            + end.line
+                            + ":"
+                            + end.ch
+                            + " modified="
+                            + editor.windowRender.modifiedLines.size()
+                            + " raf="
+                            + (raf != null));
+            return result;
         } finally {
             if (raf != null) {
                 try {
@@ -103,14 +197,6 @@ public class ImeScanner {
     @Nullable
     private RandomAccessFile openImeRandomAccessFile() {
         FunctionLog.f("ImeScanner", "openImeRandomAccessFile");
-        // Don't use file-based random access when there are pending edits
-        // The pending edits are in modifiedLines and will be read correctly
-        // by getLineTextForImeScan() which checks modifiedLines first.
-        // Reading from the file directly would return stale content.
-        if (!editor.windowRender.modifiedLines.isEmpty()) {
-            Log.i("ImeScanner", "openImeRandomAccessFile: returning null because modifiedLines is not empty");
-            return null;
-        }
         if (!editor.fileIO.isIndexReady || editor.fileIO.sourceFile == null || !editor.fileIO.sourceFile.exists()) return null;
         try {
             return new RandomAccessFile(editor.fileIO.sourceFile, "r");
@@ -124,12 +210,16 @@ public class ImeScanner {
         if (line < 0) return "";
         String mod = editor.windowRender.modifiedLines.get(line);
         if (mod != null) {
-            Log.i("ImeScanner", "getLineTextForImeScan: line " + line + " from modifiedLines: '" + mod + "'");
+            if (editor.DEBUG_RENDER_LOGS) {
+                Log.i("ImeScanner", "getLineTextForImeScan: line " + line + " from modifiedLines: '" + mod + "'");
+            }
             return mod;
         }
         if (line >= editor.windowRender.windowStartLine && line < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) {
             String text = editor.windowRender.getLineFromWindowLocal(line - editor.windowRender.windowStartLine);
-            Log.i("ImeScanner", "getLineTextForImeScan: line " + line + " from linesWindow: '" + text + "'");
+            if (editor.DEBUG_RENDER_LOGS) {
+                Log.i("ImeScanner", "getLineTextForImeScan: line " + line + " from linesWindow: '" + text + "'");
+            }
             return (text != null) ? text : "";
         }
         if (raf != null && editor.fileIO.isIndexReady) {
@@ -140,13 +230,17 @@ public class ImeScanner {
             }
             try {
                 String fromFile = editor.fileIO.readLineUtf8AtByte(raf, offset);
-                Log.i("ImeScanner", "getLineTextForImeScan: line " + line + " from file: '" + fromFile + "'");
+                if (editor.DEBUG_RENDER_LOGS) {
+                    Log.i("ImeScanner", "getLineTextForImeScan: line " + line + " from file: '" + fromFile + "'");
+                }
                 return fromFile;
             } catch (Exception ignored) {
                 return "";
             }
         }
-        Log.i("ImeScanner", "getLineTextForImeScan: line " + line + " returning empty");
+        if (editor.DEBUG_RENDER_LOGS) {
+            Log.i("ImeScanner", "getLineTextForImeScan: line " + line + " returning empty");
+        }
         return "";
     }
 
@@ -163,16 +257,22 @@ public class ImeScanner {
 
     public CursorTarget moveCursorByCharsForIme(int line, int ch, int delta, @Nullable RandomAccessFile raf) {
         FunctionLog.f("ImeScanner", "moveCursorByCharsForIme", line, ch, delta, raf);
+        long startMs = android.os.SystemClock.uptimeMillis();
         CursorTarget base = clampLineCharToDocument(line, ch, raf);
         int curLine = base.line;
         int curChar = base.ch;
         int totalLines = editor.view.getLinesCount();
         if (totalLines <= 0) totalLines = 1;
-        if (delta == 0) return base;
+        if (delta == 0) {
+            logMoveCursor(startMs, line, ch, delta, base, totalLines, 0);
+            return base;
+        }
 
         if (delta < 0) {
             int remaining = -delta;
+            int visited = 0;
             while (remaining > 0) {
+                visited++;
                 String ln = getLineTextForImeScan(curLine, raf);
                 int len = (ln == null) ? 0 : ln.length();
                 curChar = Math.min(curChar, len);
@@ -193,11 +293,15 @@ public class ImeScanner {
                 curChar = (ln == null) ? 0 : ln.length();
                 if (remaining < 0) remaining = 0;
             }
-            return new CursorTarget(curLine, curChar);
+            CursorTarget result = new CursorTarget(curLine, curChar);
+            logMoveCursor(startMs, line, ch, delta, result, totalLines, visited);
+            return result;
         }
 
         int remaining = delta;
+        int visited = 0;
         while (remaining > 0) {
+            visited++;
             String ln = getLineTextForImeScan(curLine, raf);
             int len = (ln == null) ? 0 : ln.length();
             curChar = Math.min(curChar, len);
@@ -218,11 +322,44 @@ public class ImeScanner {
             curChar = 0;
             if (remaining < 0) remaining = 0;
         }
-        return new CursorTarget(curLine, curChar);
+        CursorTarget result = new CursorTarget(curLine, curChar);
+        logMoveCursor(startMs, line, ch, delta, result, totalLines, visited);
+        return result;
+    }
+
+    private void logMoveCursor(
+            long startMs,
+            int line,
+            int ch,
+            int delta,
+            CursorTarget result,
+            int totalLines,
+            int visitedLines) {
+        android.util.Log.i(
+                FOLD_TYPING_PERF,
+                "scanner.move total="
+                        + (android.os.SystemClock.uptimeMillis() - startMs)
+                        + " from="
+                        + line
+                        + ":"
+                        + ch
+                        + " delta="
+                        + delta
+                        + " to="
+                        + result.line
+                        + ":"
+                        + result.ch
+                        + " visited="
+                        + visitedLines
+                        + " totalLines="
+                        + totalLines
+                        + " modified="
+                        + editor.windowRender.modifiedLines.size());
     }
 
     public String buildRangeTextForIme(CursorTarget start, CursorTarget end, @Nullable RandomAccessFile raf) {
         FunctionLog.f("ImeScanner", "buildRangeTextForIme", start, end, raf);
+        long startMs = android.os.SystemClock.uptimeMillis();
         int sL = start.line, sC = start.ch, eL = end.line, eC = end.ch;
         if (comparePos(sL, sC, eL, eC) > 0) {
             int tL = sL, tC = sC;
@@ -232,16 +369,41 @@ public class ImeScanner {
             eC = tC;
         }
         StringBuilder sb = new StringBuilder();
+        int linesRead = 0;
         for (int line = sL; line <= eL; line++) {
+            linesRead++;
             String ln = getLineTextForImeScan(line, raf);
             if (ln == null) ln = "";
-            Log.i("ImeContext", "buildRangeTextForIme: line " + line + " = '" + ln + "' (modifiedLines.contains=" + editor.windowRender.modifiedLines.containsKey(line) + ")");
+            if (editor.DEBUG_RENDER_LOGS) {
+                Log.i("ImeContext", "buildRangeTextForIme: line " + line + " = '" + ln + "' (modifiedLines.contains=" + editor.windowRender.modifiedLines.containsKey(line) + ")");
+            }
             int from = (line == sL) ? Math.min(sC, ln.length()) : 0;
             int to = (line == eL) ? Math.min(eC, ln.length()) : ln.length();
             if (from < to) sb.append(ln, from, to);
             if (line < eL) sb.append('\n');
         }
-        return sb.toString();
+        String result = sb.toString();
+        android.util.Log.i(
+                FOLD_TYPING_PERF,
+                "scanner.range total="
+                        + (android.os.SystemClock.uptimeMillis() - startMs)
+                        + " lines="
+                        + linesRead
+                        + " start="
+                        + sL
+                        + ":"
+                        + sC
+                        + " end="
+                        + eL
+                        + ":"
+                        + eC
+                        + " len="
+                        + result.length()
+                        + " modified="
+                        + editor.windowRender.modifiedLines.size()
+                        + " raf="
+                        + (raf != null));
+        return result;
     }
 
     public CursorTarget offsetToLineCharInContext(ImeContext ctx, int offset) {

@@ -40,6 +40,8 @@ public class FileIO {
     public BufferedReader readerForFile = null;
     
     public volatile boolean isWindowLoading = false;
+    private volatile boolean initialWindowWarmupDone = false;
+    private volatile boolean initialBracketWarmupDone = true;
 
     // readLineSliceByChars already exists below (kept for compatibility).
     public volatile boolean isIndexReady = false;
@@ -119,10 +121,17 @@ public class FileIO {
         editor.wordWrap.wrapPrefixValidUpToLine = -1;
 
         final int token = ++editor.loadingCircle.initialFileOpenToken;
+        final boolean needsBracketWarmup = shouldWarmBracketIndexForOpen();
         editor.loadingCircle.isInitialFileOpenLoading = true;
+        if (needsBracketWarmup && editor.loadingCircle.showLoadingOnFileOpen) {
+            editor.view.setDisable(true);
+            editor.loadingCircle.showLoadingCircle(true);
+        }
         
         resetStateForNewFile();
-        loadWindowAround(0, () -> finishInitialFileOpenWarmup(token), false);
+        initialWindowWarmupDone = false;
+        initialBracketWarmupDone = !needsBracketWarmup;
+        loadWindowAround(0, () -> markInitialWindowWarmupDone(token), false);
         
         ioHandler.post(() -> {
             if (metadata.isBinaryFile(file)) {
@@ -130,6 +139,11 @@ public class FileIO {
             }
             indexer.buildFileIndex();
             checkHeavyFeatures();
+            if (needsBracketWarmup) {
+                editor.bracketCache.scanFileAsync(() -> markInitialBracketWarmupDone(token));
+            } else {
+                editor.post(() -> markInitialBracketWarmupDone(token));
+            }
         });
         editor.requestLayout(); editor.invalidate();
     }
@@ -286,6 +300,8 @@ public class FileIO {
         synchronized (editor.windowRender.lineWidthCache) { editor.windowRender.lineWidthCache.clear(); }
         synchronized (editor.windowRender.avgCharWidthCache) { editor.windowRender.avgCharWidthCache.clear(); }
         synchronized (directLineCache) { directLineCache.clear(); }
+        editor.bracketCache.clear();
+        editor.codeFold.clearFoldRanges();
         
         editor.windowRender.currentMaxWindowLineWidth = 0f;
         editor.windowRender.globalMaxLineWidth = 0f;
@@ -299,13 +315,29 @@ public class FileIO {
     private void checkHeavyFeatures() {
         int total; synchronized (lineOffsetsLock) { total = lineOffsets.length; }
         if (total > editor.view.heavyFeaturesThreshold) {
-            editor.bracketGuides.setBracketGuidesEnabled(false);
             editor.indentGuides.setIndentGuidesEnabled(false);
-        } else { editor.bracketCache.scanFileAsync(); }
+        }
     }
 
-    private void finishInitialFileOpenWarmup(final int token) {
+    private boolean shouldWarmBracketIndexForOpen() {
+        return editor.codeFold.isCodeFoldingEnabled
+                || editor.bracketGuides.isBracketGuidesEnabled
+                || editor.bracketMatchManager.isBracketMatchingEnabled;
+    }
+
+    private void markInitialWindowWarmupDone(final int token) {
+        initialWindowWarmupDone = true;
+        finishInitialFileOpenWarmupIfReady(token);
+    }
+
+    private void markInitialBracketWarmupDone(final int token) {
+        initialBracketWarmupDone = true;
+        finishInitialFileOpenWarmupIfReady(token);
+    }
+
+    private void finishInitialFileOpenWarmupIfReady(final int token) {
         if (!editor.loadingCircle.isInitialFileOpenLoading || token != editor.loadingCircle.initialFileOpenToken) return;
+        if (!initialWindowWarmupDone || !initialBracketWarmupDone) return;
         editor.loadingCircle.isInitialFileOpenLoading = false;
         editor.view.setDisable(false); editor.loadingCircle.showLoadingCircle(false);
         editor.invalidate();

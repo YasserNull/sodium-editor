@@ -23,17 +23,18 @@ public class FileCache {
     public void populateDirectLinesForRange(int startLine, int endLineInclusive, Map<Integer, String> out) {
         FunctionLog.f("FileCache", "populateDirectLinesForRange", startLine, endLineInclusive, out);
         if (out == null || fileIO.sourceFile == null || !fileIO.sourceFile.exists()) return;
-        // Avoid reading from disk while in-memory edits are pending (phantom render risk).
-        if (editor.editOperators.lineCountDelta != 0) return;
-        synchronized (editor.windowRender.modifiedLines) {
-            if (!editor.windowRender.modifiedLines.isEmpty()) return;
-        }
 
         int start = Math.max(0, startLine);
         int end = Math.max(start, endLineInclusive);
+        if (editor.editOperators.lineCountDelta != 0) {
+            int firstModifiedLine = editor.windowRender.getFirstModifiedLine();
+            if (firstModifiedLine == Integer.MAX_VALUE || start >= firstModifiedLine) return;
+            end = Math.min(end, firstModifiedLine - 1);
+        }
 
         synchronized (fileIO.directLineCache) {
             for (int l = start; l <= end; l++) {
+                if (editor.windowRender.hasModifiedLine(l)) continue;
                 String c = fileIO.directLineCache.get(l);
                 if (c != null) out.put(l, c);
             }
@@ -42,6 +43,7 @@ public class FileCache {
         try (RandomAccessFile raf = new RandomAccessFile(fileIO.sourceFile, "r")) {
             long fileLen = raf.length();
             for (int cur = start; cur <= end; cur++) {
+                if (editor.windowRender.hasModifiedLine(cur)) continue;
                 if (out.containsKey(cur)) continue;
                 long lineStart;
                 synchronized (fileIO.lineOffsetsLock) {
@@ -71,7 +73,11 @@ public class FileCache {
 
         synchronized (fileIO.directLineCache) {
             for (Map.Entry<Integer, String> e : out.entrySet()) {
-                if (e.getKey() >= start && e.getKey() <= end) fileIO.directLineCache.put(e.getKey(), e.getValue());
+                if (e.getKey() >= start
+                        && e.getKey() <= end
+                        && !editor.windowRender.hasModifiedLine(e.getKey())) {
+                    fileIO.directLineCache.put(e.getKey(), e.getValue());
+                }
             }
         }
     }

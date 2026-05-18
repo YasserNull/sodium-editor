@@ -9,6 +9,7 @@ import android.os.Looper;
 import android.util.Log;
 import com.yn.sodiumeditor.core.fold.CodeFold;
 import com.yn.sodiumeditor.utils.FunctionLog;
+import java.util.HashMap;
 
 /**
  * Caret handles caret (cursor) rendering for SodiumEditor.
@@ -126,8 +127,7 @@ public class Caret {
   }
 
   private float getCollapsedFoldCaretDocumentX(CodeFold.FoldRange fold, int cursorChar) {
-    String startLineText = editor.windowRender.getLineTextForRender(fold.startLine);
-    if (startLineText == null) startLineText = "";
+    String startLineText = getLineTextForCollapsedFoldCaret(fold.startLine);
 
     int prefixEnd;
     if (fold.isBlockComment) {
@@ -141,7 +141,11 @@ public class Caret {
     float x = editor.highlite.measureHighlightedSegmentWidth(startLineText, fold.startLine, 0, prefixEnd);
     x += Math.max(0f, editor.textRender.paint.measureText(CodeFold.FOLD_PLACEHOLDER_TEXT));
 
-    String endLineText = editor.windowRender.getLineTextForRender(fold.endLine);
+    String endLineText = getLineTextForCollapsedFoldCaret(fold.endLine);
+    if (endLineText == null || endLineText.isEmpty()) {
+      String foldEndText = editor.codeFold.utils.getEndLineTextForFold(fold);
+      if (foldEndText != null) endLineText = foldEndText;
+    }
     if (endLineText == null) endLineText = "";
 
     int closeIdx = editor.codeFold.resolveCloseCharIndex(fold, endLineText);
@@ -179,6 +183,16 @@ public class Caret {
     }
 
     return x;
+  }
+
+  private String getLineTextForCollapsedFoldCaret(int line) {
+    String text = editor.windowRender.getLineTextForRender(line);
+    if (text != null && !text.isEmpty()) return text;
+    if (line < 0 || editor.fileIO.sourceFile == null) return text == null ? "" : text;
+    HashMap<Integer, String> direct = new HashMap<>();
+    editor.fileIO.populateDirectLinesForRange(line, line, direct);
+    String directText = editor.windowRender.getLineTextForRenderWithDirect(line, direct);
+    return directText == null ? "" : directText;
   }
 
   /**

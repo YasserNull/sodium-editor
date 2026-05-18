@@ -312,13 +312,14 @@ public class CodeFoldUtils {
      */
     public int resolveCloseCharIndex(CodeFold.FoldRange range, @Nullable String endLineText) {
         if (range == null || endLineText == null) return -1;
-        if (range.isBlockComment) {
-            int idx = range.closeCharIndex;
-            if (idx < 0 || idx >= endLineText.length()) {
-                idx = findBlockCommentEnd(endLineText, Math.max(0, range.openCharIndex + 2));
-            }
-            return idx;
-        }
+	        if (range.isBlockComment) {
+	            int idx = range.closeCharIndex;
+	            if (idx < 0 || idx >= endLineText.length()) {
+	                int searchStart = range.endLine == range.startLine ? Math.max(0, range.openCharIndex + 2) : 0;
+	                idx = findBlockCommentEnd(endLineText, searchStart);
+	            }
+	            return idx;
+	        }
         if (range.closeCharIndex >= 0 && range.closeCharIndex < endLineText.length()) {
             return range.closeCharIndex;
         }

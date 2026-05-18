@@ -79,24 +79,47 @@ public class WindowRender {
             return (text != null) ? text : "";
         }
 
-        // Direct batch (during fast fling). Don't use while there are pending edits,
-        // otherwise stale file content can reappear.
-        if (direct != null && editor.editOperators.lineCountDelta == 0) {
-            synchronized (modifiedLines) {
-                if (!modifiedLines.isEmpty()) {
-                    // pending edits exist; skip disk-backed direct lines
-                    return "";
-                }
-            }
+        // Direct batch (during fast fling / folded-line render). Modified lines were
+        // checked above, so disk-backed lines are safe for unchanged positions.
+        boolean canUseFileLine = canUseFileBackedLineForRender(line);
+        if (direct != null && canUseFileLine) {
             String d = direct.get(line);
             if (d != null) return d;
         }
 
         // Cache
-        String c = editor.fileIO.directLineCache.get(line);
-        if (c != null) return c;
+        if (canUseFileLine) {
+            String c = editor.fileIO.directLineCache.get(line);
+            if (c != null) return c;
+        }
 
         return "";
+    }
+
+    public boolean canUseFileBackedLineForRender(int line) {
+        FunctionLog.f("WindowRender", "canUseFileBackedLineForRender", line);
+        if (line < 0 || !editor.fileIO.isIndexReady) return false;
+        if (editor.editOperators.lineCountDelta == 0) return true;
+        int firstModifiedLine = getFirstModifiedLine();
+        return firstModifiedLine != Integer.MAX_VALUE && line < firstModifiedLine;
+    }
+
+    public int getFirstModifiedLine() {
+        FunctionLog.f("WindowRender", "getFirstModifiedLine");
+        int first = Integer.MAX_VALUE;
+        synchronized (modifiedLines) {
+            for (Integer line : modifiedLines.keySet()) {
+                if (line != null && line < first) first = line;
+            }
+        }
+        return first;
+    }
+
+    public boolean hasModifiedLine(int line) {
+        FunctionLog.f("WindowRender", "hasModifiedLine", line);
+        synchronized (modifiedLines) {
+            return modifiedLines.containsKey(line);
+        }
     }
 
     /**

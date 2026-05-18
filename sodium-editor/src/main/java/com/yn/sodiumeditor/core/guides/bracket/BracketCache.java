@@ -6,12 +6,10 @@ import com.yn.sodiumeditor.utils.FunctionLog;
 import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.Nullable;
-import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import android.util.SparseArray;
 
 /**
@@ -35,14 +33,24 @@ public class BracketCache {
     // Cached data per line
     public static class LineBracketInfo {
         public final int line;
+        public final String text;
         public final List<BracketPosition> brackets;
         public final List<QuotePosition> quotes;
         public boolean isInBlockComment;
         public int stringState;
+        public char stringQuoteChar;
+        public boolean stringTriple;
+        public int blockCommentStartColumn = -1;
+        public int blockCommentEndColumn = -1;
 
         public LineBracketInfo(int line) {
+            this(line, "");
+        }
+
+        public LineBracketInfo(int line, String text) {
             FunctionLog.f("LineBracketInfo", "LineBracketInfo", line);
             this.line = line;
+            this.text = text == null ? "" : text;
             this.brackets = new ArrayList<>();
             this.quotes = new ArrayList<>();
         }
@@ -131,6 +139,10 @@ public class BracketCache {
      * Blocks until complete.
      */
     public void scanFileAsync() {
+        scanFileAsync(null);
+    }
+
+    public void scanFileAsync(@Nullable Runnable onComplete) {
         FunctionLog.f("BracketCache", "scanFileAsync");
         final int myToken = ++scanToken;
         isScanning = true;
@@ -138,7 +150,10 @@ public class BracketCache {
 
         editor.fileIO.ioHandler.post(() -> {
             long startMs = android.os.SystemClock.uptimeMillis();
-            if (myToken != scanToken) return;
+            if (myToken != scanToken) {
+                postScanComplete(onComplete);
+                return;
+            }
 
             SparseArray<LineBracketInfo> newCache = new SparseArray<>();
             
@@ -148,27 +163,38 @@ public class BracketCache {
                      java.io.InputStreamReader isr = new java.io.InputStreamReader(fis, editor.fileIO.fileCharset);
                      java.io.BufferedReader reader = new java.io.BufferedReader(isr, 65536)) {
                     
-                    boolean inBlockComment = false;
-                    int stringState = 0;
-                    int lineNum = 0;
-                    String line;
+	                    boolean inBlockComment = false;
+	                    int stringState = 0;
+	                    char stringQuoteChar = 0;
+	                    boolean stringTriple = false;
+	                    int lineNum = 0;
+	                    String line;
 
-                    while ((line = reader.readLine()) != null && myToken == scanToken) {
-                        LineBracketInfo info = parseLine(lineNum, line, inBlockComment, stringState);
-                        newCache.put(lineNum, info);
+	                    while ((line = reader.readLine()) != null && myToken == scanToken) {
+	                        LineBracketInfo info =
+	                            parseLineInternal(
+	                                lineNum,
+	                                line,
+	                                inBlockComment,
+	                                stringState,
+	                                stringQuoteChar,
+	                                stringTriple);
+	                        newCache.put(lineNum, info);
 
-                        inBlockComment = info.isInBlockComment;
-                        stringState = info.stringState;
-                        lineNum++;
-                    }
+	                        inBlockComment = info.isInBlockComment;
+	                        stringState = info.stringState;
+	                        stringQuoteChar = info.stringQuoteChar;
+	                        stringTriple = info.stringTriple;
+	                        lineNum++;
+	                    }
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
 
             if (myToken == scanToken && newCache.size() > 0) {
-                // Rebuild folds in background, not on UI thread
-                rebuildFoldRangesInBg(newCache);
+                ConcurrentHashMap<Integer, CodeFold.FoldRange> newFoldRanges =
+                    buildFoldRangesFromCache(newCache);
 
                 final int finalVersion = cacheVersion;
                 editor.caret.mainHandler.post(() -> {
@@ -176,32 +202,59 @@ public class BracketCache {
                     if (editor.DEBUG_RENDER_LOGS && dt > 8) {
                         android.util.Log.d("SodiumRender", "bracketScan dtMs=" + dt + " lines=" + newCache.size());
                     }
-                    if (scanToken == myToken) {
-                        lineCache.clear();
-                        for (int i = 0; i < newCache.size(); i++) {
-                            lineCache.put(newCache.keyAt(i), newCache.valueAt(i));
-                        }
+	                    if (scanToken == myToken) {
+	                        lineCache.clear();
+	                        for (int i = 0; i < newCache.size(); i++) {
+	                            lineCache.put(newCache.keyAt(i), newCache.valueAt(i));
+	                        }
+	                        ConcurrentHashMap<Integer, CodeFold.FoldRange> previousRanges =
+	                            new ConcurrentHashMap<>(editor.codeFold.foldRanges);
+	                        for (CodeFold.FoldRange range : newFoldRanges.values()) {
+	                            CodeFold.FoldRange old = previousRanges.get(range.startLine);
+	                            if (old != null
+	                                    && old.endLine == range.endLine
+	                                    && old.openCharIndex == range.openCharIndex
+	                                    && old.openChar == range.openChar
+	                                    && old.closeChar == range.closeChar
+	                                    && old.isBlockComment == range.isBlockComment
+	                                    && old.isIndentFold == range.isIndentFold) {
+	                                range.collapsed = old.collapsed;
+	                            }
+	                        }
+	                        editor.codeFold.foldRanges.clear();
+	                        if (editor.codeFold.isCodeFoldingEnabled) {
+	                            editor.codeFold.foldRanges.putAll(newFoldRanges);
+	                        }
+                        editor.codeFold.invalidateFoldCaches();
                         isScanning = false;
                         editor.invalidate();
                     }
+                    if (onComplete != null) onComplete.run();
                 });
             } else {
                 isScanning = false;
+                postScanComplete(onComplete);
             }
         });
+    }
+
+    public void ensureScannedAsync() {
+        FunctionLog.f("BracketCache", "ensureScannedAsync");
+        if (isScanning || lineCache.size() > 0) return;
+        scanFileAsync();
     }
 
     /**
      * Rebuild fold ranges in background thread using efficient O(N) stack-based matching.
      */
-    private void rebuildFoldRangesInBg(SparseArray<LineBracketInfo> cache) {
-        FunctionLog.f("BracketCache", "rebuildFoldRangesInBg", cache);
-        editor.codeFold.foldRanges.clear();
+    private ConcurrentHashMap<Integer, CodeFold.FoldRange> buildFoldRangesFromCache(
+        SparseArray<LineBracketInfo> cache) {
+        FunctionLog.f("BracketCache", "buildFoldRangesFromCache", cache);
+        ConcurrentHashMap<Integer, CodeFold.FoldRange> ranges = new ConcurrentHashMap<>();
 
-        // Use stacks for each bracket type to match them in a single pass
-        java.util.ArrayDeque<BracketPosition> curlyStack = new java.util.ArrayDeque<>();
-        java.util.ArrayDeque<BracketPosition> parenStack = new java.util.ArrayDeque<>();
-        java.util.ArrayDeque<BracketPosition> squareStack = new java.util.ArrayDeque<>();
+	        // Use one stack so cross-type nesting cannot create false fold pairs.
+	        java.util.ArrayDeque<BracketPosition> bracketStack = new java.util.ArrayDeque<>();
+	        BracketPosition blockCommentStart = null;
 
         int totalLines = cache.size();
         for (int i = 0; i < totalLines; i++) {
@@ -210,32 +263,56 @@ public class BracketCache {
             if (info == null) continue;
             
             for (BracketPosition bp : info.brackets) {
-                if (isInStringOrCommentQuick(info, bp.column)) continue;
-                
-                if (bp.isOpening) {
-                    if (bp.bracket == BRACKET_CURLY_OPEN) curlyStack.push(bp);
-                    else if (bp.bracket == BRACKET_PAREN_OPEN) parenStack.push(bp);
-                    else if (bp.bracket == BRACKET_SQUARE_OPEN) squareStack.push(bp);
-                } else {
-                    java.util.ArrayDeque<BracketPosition> stack = null;
-                    if (bp.bracket == BRACKET_CURLY_CLOSE) stack = curlyStack;
-                    else if (bp.bracket == BRACKET_PAREN_CLOSE) stack = parenStack;
-                    else if (bp.bracket == BRACKET_SQUARE_CLOSE) stack = squareStack;
-                    
-                    if (stack != null && !stack.isEmpty()) {
-                        BracketPosition open = stack.pop();
-                        if (lineNum > open.line) {
-                            CodeFold.FoldRange range = new CodeFold.FoldRange(
-                                open.line, lineNum, open.column, open.bracket, bp.bracket, bp.column, false, false
-                            );
-                            editor.codeFold.foldRanges.put(open.line, range);
-                        }
-                    }
-                }
-            }
-        }
-        
-        editor.codeFold.foldIntervalsDirty = true;
+	                if (bp.isOpening) {
+	                    bracketStack.push(bp);
+	                } else if (!bracketStack.isEmpty()) {
+	                    BracketPosition open = bracketStack.peek();
+	                    if (BracketPosition.getMatchingBracket(open.bracket) == bp.bracket) {
+	                        bracketStack.pop();
+	                        if (lineNum > open.line) {
+	                            CodeFold.FoldRange range =
+	                                new CodeFold.FoldRange(
+	                                    open.line,
+	                                    lineNum,
+	                                    open.column,
+	                                    open.bracket,
+	                                    bp.bracket,
+	                                    bp.column,
+	                                    false,
+	                                    false);
+	                            ranges.put(open.line, range);
+	                        }
+	                    }
+	                }
+	            }
+
+	            if (info.blockCommentStartColumn >= 0) {
+	                blockCommentStart = new BracketPosition(lineNum, info.blockCommentStartColumn, '/');
+	            }
+	            if (blockCommentStart != null && info.blockCommentEndColumn >= 0 && lineNum > blockCommentStart.line) {
+	                CodeFold.FoldRange range =
+	                    new CodeFold.FoldRange(
+	                        blockCommentStart.line,
+	                        lineNum,
+	                        blockCommentStart.column,
+	                        '/',
+	                        '/',
+	                        info.blockCommentEndColumn,
+	                        true,
+	                        false);
+	                ranges.putIfAbsent(blockCommentStart.line, range);
+	                blockCommentStart = null;
+	            }
+	        }
+	        if (editor.indentGuides.isIndentationBlocksEnabled) {
+	            addIndentFoldRanges(cache, ranges);
+	        }
+	        return ranges;
+	    }
+
+    private void postScanComplete(@Nullable Runnable onComplete) {
+        if (onComplete == null) return;
+        mainHandler.post(onComplete);
     }
 
     /**
@@ -256,9 +333,22 @@ public class BracketCache {
      */
     public LineBracketInfo parseLine(int lineNum, String line, boolean startInBlockComment, int startStringState) {
         FunctionLog.f("BracketCache", "parseLine", lineNum, line, startInBlockComment, startStringState);
-        LineBracketInfo info = new LineBracketInfo(lineNum);
+        return parseLineInternal(lineNum, line, startInBlockComment, startStringState, (char) 0, false);
+    }
+
+    private LineBracketInfo parseLineInternal(
+            int lineNum,
+            String line,
+            boolean startInBlockComment,
+            int startStringState,
+            char startStringQuoteChar,
+            boolean startStringTriple) {
+        if (line == null) line = "";
+        LineBracketInfo info = new LineBracketInfo(lineNum, line);
         info.isInBlockComment = startInBlockComment;
         info.stringState = startStringState;
+        info.stringQuoteChar = startStringQuoteChar;
+        info.stringTriple = startStringTriple;
 
         int len = line.length();
         int i = 0;
@@ -266,23 +356,10 @@ public class BracketCache {
         while (i < len) {
             char c = line.charAt(i);
 
-            // Check for escape
-            if (c == ESCAPE) {
-                i += 2; // Skip escaped character
-                continue;
-            }
-
-            // Check for block comment start
-            if (!info.isInBlockComment && i + 1 < len && c == '/' && line.charAt(i + 1) == '*') {
-                info.isInBlockComment = true;
-                i += 2;
-                continue;
-            }
-
-            // Check for block comment end
             if (info.isInBlockComment) {
                 if (i + 1 < len && c == '*' && line.charAt(i + 1) == '/') {
                     info.isInBlockComment = false;
+                    info.blockCommentEndColumn = i;
                     i += 2;
                 } else {
                     i++;
@@ -290,64 +367,86 @@ public class BracketCache {
                 continue;
             }
 
-            // Check for string start
+            if (info.stringState != 0) {
+                char quote = info.stringQuoteChar != 0 ? info.stringQuoteChar : QUOTE_DOUBLE;
+                if (info.stringTriple) {
+                    int end = findTripleQuoteEnd(line, i, quote);
+                    if (end < 0) {
+                        info.quotes.add(new QuotePosition(lineNum, 0, Math.max(0, len - 1), quote, true));
+                        i = len;
+                    } else {
+                        info.quotes.add(new QuotePosition(lineNum, 0, end + 2, quote, true));
+                        info.stringState = 0;
+                        info.stringQuoteChar = 0;
+                        info.stringTriple = false;
+                        i = end + 3;
+                    }
+                } else {
+                    int end = findQuoteEnd(line, i, quote);
+                    if (end < 0) {
+                        info.quotes.add(new QuotePosition(lineNum, 0, Math.max(0, len - 1), quote, false));
+                        i = len;
+                    } else {
+                        info.quotes.add(new QuotePosition(lineNum, 0, end, quote, false));
+                        info.stringState = 0;
+                        info.stringQuoteChar = 0;
+                        info.stringTriple = false;
+                        i = end + 1;
+                    }
+                }
+                continue;
+            }
+
+            if (c == ESCAPE) {
+                i += 2;
+                continue;
+            }
+
+            if (isLineCommentStart(line, i)) {
+                break;
+            }
+
+            if (i + 1 < len && c == '/' && line.charAt(i + 1) == '*') {
+                info.isInBlockComment = true;
+                info.blockCommentStartColumn = i;
+                i += 2;
+                continue;
+            }
+
             if (info.stringState == 0 && isQuoteChar(c)) {
                 int startCol = i;
                 char quoteChar = c;
                 boolean isTriple = i + 2 < len && line.charAt(i + 1) == c && line.charAt(i + 2) == c;
                 
                 if (isTriple) {
-                    // Find triple quote end
-                    int end = i + 3;
-                    while (end < len) {
-                        if (line.charAt(end) == c && end + 2 < len && 
-                            line.charAt(end + 1) == c && line.charAt(end + 2) == c) {
-                            info.quotes.add(new QuotePosition(lineNum, startCol, end + 2, quoteChar, true));
-                            i = end + 3;
-                            break;
-                        }
-                        end++;
-                    }
-                    if (end >= len) {
-                        // Multiline string continues
+                    int end = findTripleQuoteEnd(line, i + 3, quoteChar);
+                    if (end < 0) {
                         info.quotes.add(new QuotePosition(lineNum, startCol, len - 1, quoteChar, true));
                         info.stringState = getStringState(quoteChar, true);
+                        info.stringQuoteChar = quoteChar;
+                        info.stringTriple = true;
                         i = len;
+                    } else {
+                        info.quotes.add(new QuotePosition(lineNum, startCol, end + 2, quoteChar, true));
+                        i = end + 3;
                     }
                     continue;
                 } else {
-                    // Find single quote end
-                    int end = i + 1;
-                    while (end < len) {
-                        if (line.charAt(end) == quoteChar && !isEscaped(line, end)) {
-                            info.quotes.add(new QuotePosition(lineNum, startCol, end, quoteChar, false));
-                            i = end + 1;
-                            break;
-                        }
-                        end++;
-                    }
-                    if (end >= len) {
-                        // String continues to next line
+                    int end = findQuoteEnd(line, i + 1, quoteChar);
+                    if (end < 0) {
                         info.quotes.add(new QuotePosition(lineNum, startCol, len - 1, quoteChar, false));
                         info.stringState = getStringState(quoteChar, false);
+                        info.stringQuoteChar = quoteChar;
+                        info.stringTriple = false;
                         i = len;
+                    } else {
+                        info.quotes.add(new QuotePosition(lineNum, startCol, end, quoteChar, false));
+                        i = end + 1;
                     }
                     continue;
                 }
             }
 
-            // If inside multiline string, skip
-            if (info.stringState != 0) {
-                i++;
-                continue;
-            }
-
-            // Check for line comment
-            if (i + 1 < len && c == '/' && line.charAt(i + 1) == '/') {
-                break; // Rest of line is comment
-            }
-
-            // Check for brackets
             if (BracketPosition.isOpeningBracket(c) || BracketPosition.isClosingBracket(c)) {
                 info.brackets.add(new BracketPosition(lineNum, i, c));
             }
@@ -356,6 +455,91 @@ public class BracketCache {
         }
 
         return info;
+    }
+
+    private int findQuoteEnd(String line, int start, char quoteChar) {
+        int len = line == null ? 0 : line.length();
+        for (int i = Math.max(0, start); i < len; i++) {
+            if (line.charAt(i) == quoteChar && !isEscaped(line, i)) return i;
+        }
+        return -1;
+    }
+
+    private int findTripleQuoteEnd(String line, int start, char quoteChar) {
+        int len = line == null ? 0 : line.length();
+        for (int i = Math.max(0, start); i + 2 < len; i++) {
+            if (line.charAt(i) == quoteChar
+                    && line.charAt(i + 1) == quoteChar
+                    && line.charAt(i + 2) == quoteChar
+                    && !isEscaped(line, i)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private boolean isLineCommentStart(String line, int index) {
+        if (line == null || index < 0 || index >= line.length()) return false;
+        if (line.charAt(index) == '#' && !isEscaped(line, index)) return true;
+        return index + 1 < line.length()
+                && line.charAt(index) == '/'
+                && line.charAt(index + 1) == '/'
+                && !isEscaped(line, index);
+    }
+
+    private void addIndentFoldRanges(
+            SparseArray<LineBracketInfo> cache, ConcurrentHashMap<Integer, CodeFold.FoldRange> ranges) {
+        int total = cache.size();
+        for (int i = 0; i < total; i++) {
+            int lineNum = cache.keyAt(i);
+            LineBracketInfo info = cache.valueAt(i);
+            if (info == null || info.isInBlockComment || info.stringState != 0) continue;
+            String line = info.text;
+            String trimmed = rstripWhitespace(line);
+            if (!isIndentFoldCandidate(trimmed)) continue;
+            int baseIndent = getIndentWidth(line);
+            int endLine = -1;
+            for (int j = i + 1; j < total; j++) {
+                LineBracketInfo nextInfo = cache.valueAt(j);
+                if (nextInfo == null) break;
+                String next = nextInfo.text;
+                String nextTrimmed = rstripWhitespace(next);
+                if (nextTrimmed.isEmpty()) continue;
+                if (getIndentWidth(next) <= baseIndent) break;
+                endLine = cache.keyAt(j);
+            }
+            if (endLine > lineNum) {
+                int openIdx = Math.max(0, trimmed.length() - 1);
+                ranges.putIfAbsent(
+                        lineNum,
+                        new CodeFold.FoldRange(lineNum, endLine, openIdx, ':', ':', -1, false, true));
+            }
+        }
+    }
+
+    private boolean isIndentFoldCandidate(String trimmed) {
+        if (trimmed == null || trimmed.length() < 2 || !trimmed.endsWith(":")) return false;
+        char beforeColon = trimmed.charAt(trimmed.length() - 2);
+        return beforeColon != '}' && beforeColon != ']' && beforeColon != ')';
+    }
+
+    private int getIndentWidth(String line) {
+        if (line == null) return 0;
+        int count = 0;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == ' ') count++;
+            else if (c == '\t') count += 4;
+            else break;
+        }
+        return count;
+    }
+
+    private String rstripWhitespace(String line) {
+        if (line == null || line.isEmpty()) return "";
+        int end = line.length();
+        while (end > 0 && Character.isWhitespace(line.charAt(end - 1))) end--;
+        return line.substring(0, end);
     }
 
     /**
@@ -367,10 +551,10 @@ public class BracketCache {
         for (int i = startLine; i <= endLine; i++) {
             lineCache.remove(i);
         }
-        // Also invalidate any folds that might be affected
-        if (editor.codeFold.isCodeFoldingEnabled) {
-            editor.codeFold.foldIntervalsDirty = true;
-        }
+	        // Also invalidate any folds that might be affected
+	        if (editor.codeFold.isCodeFoldingEnabled) {
+	            editor.codeFold.invalidateFoldRangesIntersectingRange(startLine, endLine);
+	        }
         if (editor.DEBUG_RENDER_LOGS) {
             long dt = android.os.SystemClock.uptimeMillis() - startMs;
             if (dt > 2) {
@@ -417,9 +601,11 @@ public class BracketCache {
         if (line == null) line = "";
 
         // Get previous line's state by reading from file or cache
-        boolean inBlockComment = false;
-        int stringState = 0;
-        if (lineNum > 0) {
+	        boolean inBlockComment = false;
+	        int stringState = 0;
+	        char stringQuoteChar = 0;
+	        boolean stringTriple = false;
+	        if (lineNum > 0) {
             // Avoid deep recursion and file I/O on the main thread.
             LineBracketInfo prevInfo = null;
             int lookback = 0;
@@ -433,13 +619,15 @@ public class BracketCache {
             if (prevInfo == null && !isMainThread) {
                 prevInfo = getLineInfo(lineNum - 1);
             }
-            if (prevInfo != null) {
-                inBlockComment = prevInfo.isInBlockComment;
-                stringState = prevInfo.stringState;
-            }
-        }
+	            if (prevInfo != null) {
+	                inBlockComment = prevInfo.isInBlockComment;
+	                stringState = prevInfo.stringState;
+	                stringQuoteChar = prevInfo.stringQuoteChar;
+	                stringTriple = prevInfo.stringTriple;
+	            }
+	        }
 
-        info = parseLine(lineNum, line, inBlockComment, stringState);
+	        info = parseLineInternal(lineNum, line, inBlockComment, stringState, stringQuoteChar, stringTriple);
         lineCache.put(lineNum, info);
         if (editor.DEBUG_RENDER_LOGS) {
             long dt = android.os.SystemClock.uptimeMillis() - startMs;
@@ -531,6 +719,43 @@ public class BracketCache {
         return null;
     }
 
+    /**
+     * Find the matching opening bracket for a given closing bracket.
+     */
+    @Nullable
+    public BracketPosition findMatchingOpeningBracket(BracketPosition close) {
+        FunctionLog.f("BracketCache", "findMatchingOpeningBracket", close);
+        if (close == null || close.isOpening) return null;
+
+        char openChar = BracketPosition.getMatchingBracket(close.bracket);
+        int depth = 1;
+        int line = close.line;
+        int col = close.column - 1;
+
+        while (line >= 0) {
+            LineBracketInfo info = getLineInfo(line);
+            for (int i = info.brackets.size() - 1; i >= 0; i--) {
+                BracketPosition bp = info.brackets.get(i);
+                if (bp.line != line || bp.column > col) continue;
+                if (isInStringOrComment(bp.line, bp.column)) continue;
+
+                if (bp.bracket == close.bracket && !bp.isOpening) {
+                    depth++;
+                } else if (bp.bracket == openChar && bp.isOpening) {
+                    depth--;
+                    if (depth == 0) {
+                        return bp;
+                    }
+                }
+            }
+
+            line--;
+            col = Integer.MAX_VALUE;
+        }
+
+        return null;
+    }
+
     private boolean isQuoteChar(char c) {
         FunctionLog.f("BracketCache", "isQuoteChar", c);
         return c == QUOTE_DOUBLE || c == QUOTE_SINGLE || c == QUOTE_BACKTICK;
@@ -560,6 +785,8 @@ public class BracketCache {
      */
     public void clear() {
         FunctionLog.f("BracketCache", "clear");
+        scanToken++;
+        isScanning = false;
         lineCache.clear();
         cacheVersion++;
     }

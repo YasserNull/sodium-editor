@@ -575,7 +575,8 @@ public class View {
             }
             int count = editor.fileIO.lineOffsets.length + editor.editOperators.lineCountDelta;
             if (count < 1) count = 1;
-            Log.i(
+            if (editor.DEBUG_RENDER_LOGS) {
+                Log.i(
                     "LineNumber",
                     "getLinesCount indexReady count="
                             + count
@@ -585,6 +586,7 @@ public class View {
                             + editor.editOperators.lineCountDelta
                             + " modifiedLines="
                             + editor.windowRender.modifiedLines.size());
+            }
             return count;
         }
         if (editor.fileIO.isEof) return editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size();

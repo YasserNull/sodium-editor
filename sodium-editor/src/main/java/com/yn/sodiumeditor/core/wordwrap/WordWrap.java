@@ -106,11 +106,11 @@ public class WordWrap {
         if (total <= 0) { wrapLineCounts = null; wrapLinePrefix = null; totalWrapVisualLines = 0; wrapMetricsReady = true; return; }
         int widthPx = Math.max(1, Math.round(getWrapWidth()));
         int[] counts = (wrapLineCounts != null && wrapLineCounts.length == total) ? wrapLineCounts.clone() : null;
-        if (counts == null) { counts = new int[total]; for (int i = 0; i < total; i++) counts[i] = 1; }
+        if (counts == null) { counts = new int[total]; for (int i = 0; i < total; i++) counts[i] = getDefaultWrapCountForLine(i); }
         synchronized (editor.windowRender.linesWindow) {
             int start = editor.windowRender.windowStartLine;
             for (int i = 0; i < editor.windowRender.linesWindow.size(); i++) {
-                int gl = start + i; if (gl >= 0 && gl < total) counts[gl] = computeWrapCountForLine(editor.windowRender.linesWindow.get(i), widthPx);
+                int gl = start + i; if (gl >= 0 && gl < total) counts[gl] = getWrapCountForFoldAwareLine(gl, editor.windowRender.linesWindow.get(i), widthPx);
             }
         }
         int[] prefix = new int[total + 1]; int run = 0;
@@ -134,8 +134,8 @@ public class WordWrap {
             int total = editor.view.getLinesCount(); if (total <= 0) total = start + snap.size();
             if (total <= 0) { mainHandler.post(() -> { if (token == wrapSnapshotToken.get()) { wrapMetricsReady = true; wrapSnapshotBuilding = false; } }); return; }
             int[] c = (wrapLineCounts == null || wrapLineCounts.length != total || wrapMetricsWidth != w) ? new int[total] : wrapLineCounts.clone();
-            if (c.length != total) { c = new int[total]; for (int i = 0; i < total; i++) c[i] = 1; }
-            for (int i = 0; i < snap.size(); i++) { int gl = start + i; if (gl >= 0 && gl < total) c[gl] = calculator.computeWrapCountForLine(snap.get(i), w, p, false); }
+            if (c.length != total) { c = new int[total]; for (int i = 0; i < total; i++) c[i] = getDefaultWrapCountForLine(i); }
+            for (int i = 0; i < snap.size(); i++) { int gl = start + i; if (gl >= 0 && gl < total) c[gl] = getWrapCountForFoldAwareLine(gl, snap.get(i), w, p); }
             int[] pre = new int[total + 1]; int run = 0; for (int i = 0; i < total; i++) { run += c[i]; pre[i+1] = run; }
             final int[] finalC = c;
             final int[] finalPre = pre;
@@ -160,11 +160,11 @@ public class WordWrap {
         final Paint p = new Paint(editor.textRender.paint);
         editor.fileIO.ioHandler.post(() -> {
             if (token != wrapPrefixToken.get()) return;
-            int[] c = (base != null) ? base : new int[total]; if (base == null) for (int i = 0; i < total; i++) c[i] = 1;
+	            int[] c = (base != null) ? base : new int[total]; if (base == null) for (int i = 0; i < total; i++) c[i] = getDefaultWrapCountForLine(i);
             if (editor.fileIO.sourceFile == null || !editor.fileIO.sourceFile.exists()) {
                 synchronized (editor.windowRender.linesWindow) {
                     if (editor.windowRender.windowStartLine == 0) {
-                        for (int i = 0; i <= Math.min(target, editor.windowRender.linesWindow.size() - 1); i++) c[i] = calculator.computeWrapCountForLine(editor.windowRender.linesWindow.get(i), w, p, false);
+	                        for (int i = 0; i <= Math.min(target, editor.windowRender.linesWindow.size() - 1); i++) c[i] = getWrapCountForFoldAwareLine(i, editor.windowRender.linesWindow.get(i), w, p);
                     } else { mainHandler.post(() -> { if (token == wrapPrefixToken.get()) wrapPrefixBuilding = false; }); return; }
                 }
             } else {
@@ -174,8 +174,8 @@ public class WordWrap {
                         String fl = (br != null) ? br.readLine() : null; String line = (fl == null) ? "" : fl;
                         String mod; synchronized (editor.windowRender.modifiedLines) { mod = editor.windowRender.modifiedLines.get(i); }
                         if (mod != null) line = mod;
-                        c[i] = calculator.computeWrapCountForLine(line, w, p, false);
-                        if (fl == null && mod == null) { while (i <= target) { c[i++] = 1; } break; }
+	                        c[i] = getWrapCountForFoldAwareLine(i, line, w, p);
+	                        if (fl == null && mod == null) { while (i <= target) { c[i] = getDefaultWrapCountForLine(i); i++; } break; }
                     }
                 } catch (Exception e) { mainHandler.post(() -> { if (token == wrapPrefixToken.get()) wrapPrefixBuilding = false; }); return; }
             }
@@ -203,16 +203,35 @@ public class WordWrap {
         if (!isWordWrapEnabled) return; wrapCache.remove(gl);
         int w = Math.max(1, Math.round(getWrapWidth()));
         if (!wrapMetricsReady || wrapLineCounts == null || wrapLinePrefix == null || wrapMetricsWidth != w || gl < 0 || gl >= wrapLineCounts.length) { invalidateWrapMetrics(); return; }
-        int nc = computeWrapCountForLine(text, w); int oc = wrapLineCounts[gl]; if (nc == oc) return;
+	        int nc = getWrapCountForFoldAwareLine(gl, text, w); int oc = wrapLineCounts[gl]; if (nc == oc) return;
         int d = nc - oc; wrapLineCounts[gl] = nc; for (int i = gl + 1; i < wrapLinePrefix.length; i++) wrapLinePrefix[i] += d;
         totalWrapVisualLines += d;
     }
 
-    public void onLineCountChanged() { if (isWordWrapEnabled) invalidateWrapMetrics(); editor.lineNumber.invalidateLineNumberCache(); }
+	    public void onLineCountChanged() { if (isWordWrapEnabled) invalidateWrapMetrics(); editor.lineNumber.invalidateLineNumberCache(); }
 
-    public int computeWrapCountForLine(String line, int w) { return calculator.computeWrapCountForLine(line, w, editor.textRender.paint, true); }
-    public int[] getWrapStartsForLine(int gl, String line) {
-        if (!isWordWrapEnabled) return new int[]{0};
+	    public int computeWrapCountForLine(String line, int w) { return calculator.computeWrapCountForLine(line, w, editor.textRender.paint, true); }
+
+	    private int getDefaultWrapCountForLine(int gl) {
+	        if (editor.codeFold.isCodeFoldingEnabled && editor.codeFold.isLineHidden(gl)) return 0;
+	        return 1;
+	    }
+
+	    private int getWrapCountForFoldAwareLine(int gl, @Nullable String line, int w) {
+	        return getWrapCountForFoldAwareLine(gl, line, w, editor.textRender.paint);
+	    }
+
+	    private int getWrapCountForFoldAwareLine(int gl, @Nullable String line, int w, Paint paint) {
+	        if (editor.codeFold.isCodeFoldingEnabled) {
+	            if (editor.codeFold.isLineHidden(gl)) return 0;
+	            com.yn.sodiumeditor.core.fold.CodeFold.FoldRange range = editor.codeFold.getFoldRangeAtStart(gl);
+	            if (range != null && range.collapsed) return 1;
+	        }
+	        return Math.max(1, calculator.computeWrapCountForLine(line, w, paint, paint == editor.textRender.paint));
+	    }
+
+	    public int[] getWrapStartsForLine(int gl, String line) {
+	        if (!isWordWrapEnabled) return new int[]{0};
         int w = Math.max(1, Math.round(getWrapWidth())); if (wrapWidthPx != w) { wrapWidthPx = w; wrapCache.clear(); }
         if (!isWrapCacheableForLine(gl)) { wrapCache.remove(gl); return calculator.computeWrapStarts(line, w, editor.textRender.paint, true); }
         int[] c = wrapCache.get(gl); if (c != null) return c;
@@ -230,7 +249,10 @@ public class WordWrap {
 
     public int getTotalVisualLineCount() {
         if (!isWordWrapEnabled) return editor.codeFold.getVisibleLineCount();
-        if (!isWrapMetricsUsableForWindow(Math.max(1, Math.round(getWrapWidth())))) { int total = editor.view.getLinesCount(); if (total <= 0) total = editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size(); return Math.max(1, total); }
+	        if (!isWrapMetricsUsableForWindow(Math.max(1, Math.round(getWrapWidth())))) {
+	            int total = editor.view.getLinesCount(); if (total <= 0) total = editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size();
+	            return Math.max(1, editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.getVisibleLineCount() : total);
+	        }
         return Math.max(1, totalWrapVisualLines);
     }
 
@@ -254,7 +276,7 @@ public class WordWrap {
         final VisualLinePosition anchor = getVisualPositionForIndex(fv); boolean changed = false;
         for (int v = Math.max(0, fv); v <= Math.max(fv, lv); v++) {
             VisualLinePosition p = getVisualPositionForIndex(v); if (p.line < 0 || p.line >= wrapLineCounts.length) break;
-            int nc = Math.max(1, getWrapStartsForLine(p.line, editor.windowRender.getLineTextForRenderWithDirect(p.line, dl)).length);
+	            int nc = getWrapCountForFoldAwareLine(p.line, editor.windowRender.getLineTextForRenderWithDirect(p.line, dl), w);
             if (nc == wrapLineCounts[p.line]) continue;
             int d = nc - wrapLineCounts[p.line]; wrapLineCounts[p.line] = nc; for (int i = p.line + 1; i < wrapLinePrefix.length; i++) wrapLinePrefix[i] += d;
             totalWrapVisualLines += d; changed = true;

@@ -51,6 +51,7 @@ public class BracketMatchManager {
     FunctionLog.f("BracketMatchManager", "setBracketMatchingEnabled", enabled);
     if (this.isBracketMatchingEnabled == enabled) return;
     this.isBracketMatchingEnabled = enabled;
+    if (enabled) editor.bracketCache.ensureScannedAsync();
     clearBracketMatchCache();
     editor.invalidate();
   }

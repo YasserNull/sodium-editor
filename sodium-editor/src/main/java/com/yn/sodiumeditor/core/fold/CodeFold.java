@@ -4,6 +4,7 @@ import com.yn.sodiumeditor.SodiumEditor;
 import android.os.SystemClock;
 import android.util.Log;
 import androidx.annotation.Nullable;
+import com.yn.sodiumeditor.core.guides.bracket.BracketCache;
 import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,12 +15,16 @@ import java.util.concurrent.ConcurrentHashMap;
  * Delegates detection, animation, and utilities to specialized classes.
  */
 public class CodeFold {
+    private static final String FOLD_TYPING_PERF = "FoldTypingPerf";
+    private static final long FOLD_TYPING_LOG_THRESHOLD_MS = 8L;
 
     // --- Code Fold State ---
-    public boolean isCodeFoldingEnabled = false;
+    public boolean isCodeFoldingEnabled = true;
     public final ConcurrentHashMap<Integer, FoldRange> foldRanges = new ConcurrentHashMap<>();
     public final ConcurrentHashMap<Integer, Boolean> pendingFoldComputations = new ConcurrentHashMap<>();
     public final ArrayList<int[]> foldIntervals = new ArrayList<>();
+    private final ArrayList<FoldRange> collapsedFoldRangesByStart = new ArrayList<>();
+    private final android.util.SparseArray<FoldRange> collapsedFoldRangesByEnd = new android.util.SparseArray<>();
     public boolean foldIntervalsDirty = true;
     private int foldIntervalsBuiltForTotalLines = -1;
 
@@ -53,7 +58,8 @@ public class CodeFold {
      */
     public void setCodeFoldingEnabled(boolean enabled) {
         FunctionLog.f("CodeFold", "setCodeFoldingEnabled", enabled);
-        if (this.isCodeFoldingEnabled == enabled || editor.lineNumber.showLineNumbers) return;
+        if (this.isCodeFoldingEnabled == enabled) return;
+        if (enabled && !editor.lineNumber.showLineNumbers) return;
         this.isCodeFoldingEnabled = enabled;
         if (!enabled) {
             foldRanges.clear();
@@ -62,6 +68,7 @@ public class CodeFold {
             animation.foldMarkerTextScale = 1f;
             animation.foldMarkerPaint.setTextSize(editor.textRender.paint.getTextSize() * animation.foldMarkerSizeMultiplier);
             animation.foldMarkerPendingPaint.setTextSize(editor.textRender.paint.getTextSize() * animation.foldMarkerSizeMultiplier);
+            editor.bracketCache.ensureScannedAsync();
         }
         foldIntervalsDirty = true;
         editor.windowRender.recalculateMaxLineWidth();
@@ -97,21 +104,6 @@ public class CodeFold {
             editor.invalidate();
             return true;
         }
-        if (pendingFoldComputations.putIfAbsent(line, Boolean.TRUE) != null) {
-            return false;
-        }
-
-        detector.detectFoldRangeAsync(line, range -> {
-            pendingFoldComputations.remove(line);
-            if (range != null) {
-                range.collapsed = true;
-                foldRanges.put(line, range);
-                invalidateFoldCaches();
-                rebuildFoldIntervalsIfNeeded();
-                editor.fileIO.checkAndLoadWindow();
-                editor.invalidate();
-            }
-        });
         return false;
     }
 
@@ -124,6 +116,8 @@ public class CodeFold {
         foldIntervalsBuiltForTotalLines = -1;
         foldMarkerVisibilityCache.clear();
         cachedBracketStateAfterFold.clear();
+        collapsedFoldRangesByStart.clear();
+        collapsedFoldRangesByEnd.clear();
     }
 
     /**
@@ -137,7 +131,7 @@ public class CodeFold {
     /**
      * Get total number of visible lines (accounting for collapsed folds).
      */
-    public int getVisibleLineCount() {
+    public synchronized int getVisibleLineCount() {
         FunctionLog.f("CodeFold", "getVisibleLineCount");
         int totalLines = Math.max(1, editor.view.getLinesCount());
         if (!isCodeFoldingEnabled) return totalLines;
@@ -150,7 +144,7 @@ public class CodeFold {
     /**
      * Maps a visible line index to its global document line number.
      */
-    public int mapVisibleIndexToGlobal(int visibleIndex) {
+    public synchronized int mapVisibleIndexToGlobal(int visibleIndex) {
         FunctionLog.f("CodeFold", "mapVisibleIndexToGlobal", visibleIndex);
         int totalLines = Math.max(1, editor.view.getLinesCount());
         if (!isCodeFoldingEnabled) return Math.max(0, Math.min(visibleIndex, totalLines - 1));
@@ -176,7 +170,7 @@ public class CodeFold {
     /**
      * Maps a global line number to its visible index.
      */
-    public int getVisibleIndexForGlobalLine(int globalLine) {
+    public synchronized int getVisibleIndexForGlobalLine(int globalLine) {
         FunctionLog.f("CodeFold", "getVisibleIndexForGlobalLine", globalLine);
         if (!isCodeFoldingEnabled) return globalLine;
         rebuildFoldIntervalsIfNeeded();
@@ -201,7 +195,7 @@ public class CodeFold {
     /**
      * Check if a line is hidden by a collapsed fold.
      */
-    public boolean isLineHidden(int globalLine) {
+    public synchronized boolean isLineHidden(int globalLine) {
         FunctionLog.f("CodeFold", "isLineHidden", globalLine);
         if (!isCodeFoldingEnabled || foldRanges.isEmpty()) return false;
         return getVisibleIndexForGlobalLine(globalLine) < 0;
@@ -217,7 +211,7 @@ public class CodeFold {
         Byte cached = foldMarkerVisibilityCache.get(globalLine);
         if (cached != null) return cached == 1;
 
-        boolean isStart = foldRanges.containsKey(globalLine) || detector.isPotentialFoldStart(globalLine);
+        boolean isStart = foldRanges.containsKey(globalLine);
         foldMarkerVisibilityCache.put(globalLine, isStart ? (byte)1 : (byte)0);
         return isStart;
     }
@@ -259,13 +253,15 @@ public class CodeFold {
      * Rebuild visible intervals based on collapsed fold ranges.
      * Efficiently maps global line space to visible index space.
      */
-    public void rebuildFoldIntervalsIfNeeded() {
+    public synchronized void rebuildFoldIntervalsIfNeeded() {
         FunctionLog.f("CodeFold", "rebuildFoldIntervalsIfNeeded");
         int currentTotal = editor.view.getLinesCount();
         if (!foldIntervalsDirty && foldIntervalsBuiltForTotalLines == currentTotal) return;
         
         long startMs = SystemClock.uptimeMillis();
         foldIntervals.clear();
+        collapsedFoldRangesByStart.clear();
+        collapsedFoldRangesByEnd.clear();
         int total = currentTotal;
         if (total <= 0) {
             foldIntervalsDirty = false;
@@ -283,6 +279,8 @@ public class CodeFold {
             if (startLine < currentLine) continue;
             FoldRange range = foldRanges.get(startLine);
             if (range == null || !range.collapsed || range.endLine <= range.startLine) continue;
+            collapsedFoldRangesByStart.add(range);
+            collapsedFoldRangesByEnd.put(range.endLine, range);
 
             if (startLine > currentLine) {
                 int len = startLine - currentLine;
@@ -316,6 +314,21 @@ public class CodeFold {
         
         if (editor.DEBUG_RENDER_LOGS) {
             Log.d("SodiumRender", "rebuildFoldIntervals dtMs=" + (SystemClock.uptimeMillis() - startMs) + " count=" + foldIntervals.size());
+        }
+        long dt = SystemClock.uptimeMillis() - startMs;
+        if (dt >= FOLD_TYPING_LOG_THRESHOLD_MS) {
+            Log.i(
+                FOLD_TYPING_PERF,
+                "rebuildIntervals total="
+                    + dt
+                    + " lines="
+                    + total
+                    + " ranges="
+                    + foldRanges.size()
+                    + " collapsed="
+                    + collapsedFoldRangesByStart.size()
+                    + " intervals="
+                    + foldIntervals.size());
         }
     }
 
@@ -359,6 +372,7 @@ public class CodeFold {
      * Measure the visual width of a collapsed fold line as it is actually rendered.
      */
     public float getCollapsedFoldVisualWidth(FoldRange range, @Nullable String startLineText, @Nullable String endLineText) {
+        long startMs = SystemClock.uptimeMillis();
         if (range == null || !range.collapsed) return 0f;
 
         String startText = (startLineText != null) ? startLineText : editor.windowRender.getLineTextForRender(range.startLine);
@@ -398,6 +412,23 @@ public class CodeFold {
             width += editor.highlite.measureHighlightedSegmentWidth(
                     endText, range.endLine, suffixStart, endText.length());
         }
+        long dt = SystemClock.uptimeMillis() - startMs;
+        if (dt >= FOLD_TYPING_LOG_THRESHOLD_MS) {
+            Log.i(
+                FOLD_TYPING_PERF,
+                "foldWidth total="
+                    + dt
+                    + " fold="
+                    + range.startLine
+                    + "->"
+                    + range.endLine
+                    + " startLen="
+                    + startText.length()
+                    + " endLen="
+                    + endText.length()
+                    + " suffixStart="
+                    + suffixStart);
+        }
         return width;
     }
 
@@ -431,6 +462,13 @@ public class CodeFold {
      */
     public void setIndentationBlocksEnabled(boolean enabled) {
         FunctionLog.f("CodeFold", "setIndentationBlocksEnabled", enabled);
+        if (editor.indentGuides.isIndentationBlocksEnabled == enabled) return;
+        editor.indentGuides.isIndentationBlocksEnabled = enabled;
+        if (isCodeFoldingEnabled) {
+            editor.bracketCache.clear();
+            clearFoldRanges();
+            editor.bracketCache.scanFileAsync();
+        }
     }
 
     /**
@@ -449,10 +487,6 @@ public class CodeFold {
                 return isRtl ? "<" : ">";
             }
         }
-        if (detector.isPotentialFoldStart(line)) {
-            // Default state is "open", so show >
-            return isRtl ? "<" : ">";
-        }
         return null;
     }
 
@@ -461,7 +495,103 @@ public class CodeFold {
      */
     public void invalidateFoldRangeForLine(int line) {
         FunctionLog.f("CodeFold", "invalidateFoldRangeForLine", line);
-        if (foldRanges.remove(line) != null) {
+        boolean changed = false;
+        for (Integer start : new ArrayList<>(foldRanges.keySet())) {
+            FoldRange range = foldRanges.get(start);
+            if (range == null) continue;
+            if (line >= range.startLine && line <= range.endLine) {
+                foldRanges.remove(start);
+                changed = true;
+            }
+        }
+        if (changed) {
+            invalidateFoldCaches();
+            rebuildFoldIntervalsIfNeeded();
+        }
+    }
+
+    /**
+     * Rebuild confirmed bracket fold ranges affected by a recently edited line.
+     */
+    public void refreshFoldRangesAroundLine(int line) {
+        FunctionLog.f("CodeFold", "refreshFoldRangesAroundLine", line);
+        if (!isCodeFoldingEnabled) return;
+
+        BracketCache.LineBracketInfo info = editor.bracketCache.getLineInfo(line);
+        boolean changed = false;
+        for (BracketCache.BracketPosition bp : info.brackets) {
+            if (editor.bracketCache.isInStringOrComment(bp.line, bp.column)) continue;
+            if (bp.isOpening) {
+                BracketCache.BracketPosition close = editor.bracketCache.findMatchingBracket(bp);
+                changed |= putConfirmedBracketFoldRange(bp, close);
+            } else {
+                BracketCache.BracketPosition open = editor.bracketCache.findMatchingOpeningBracket(bp);
+                changed |= putConfirmedBracketFoldRange(open, bp);
+            }
+        }
+
+        if (changed) {
+            invalidateFoldCaches();
+            rebuildFoldIntervalsIfNeeded();
+            editor.invalidate();
+        }
+    }
+
+    private boolean putConfirmedBracketFoldRange(
+            @Nullable BracketCache.BracketPosition open,
+            @Nullable BracketCache.BracketPosition close) {
+        if (open == null || close == null) return false;
+        if (!open.isOpening || close.isOpening) return false;
+        if (BracketCache.BracketPosition.getMatchingBracket(open.bracket) != close.bracket) return false;
+        if (close.line <= open.line) return false;
+
+        FoldRange old = foldRanges.get(open.line);
+        if (old != null
+                && old.endLine == close.line
+                && old.openCharIndex == open.column
+                && old.openChar == open.bracket
+                && old.closeChar == close.bracket
+                && old.closeCharIndex == close.column
+                && !old.isBlockComment
+                && !old.isIndentFold) {
+            return false;
+        }
+
+        FoldRange updated =
+                new FoldRange(
+                        open.line,
+                        close.line,
+                        open.column,
+                        open.bracket,
+                        close.bracket,
+                        close.column,
+                        false,
+                        false);
+        if (old != null) {
+            updated.collapsed = old.collapsed;
+        }
+        foldRanges.put(open.line, updated);
+        return true;
+    }
+
+    /**
+     * Invalidates all folds that intersect a changed line range.
+     */
+    public void invalidateFoldRangesIntersectingRange(int startLine, int endLine) {
+        FunctionLog.f("CodeFold", "invalidateFoldRangesIntersectingRange", startLine, endLine);
+        if (foldRanges.isEmpty()) return;
+        int start = Math.min(startLine, endLine);
+        int end = Math.max(startLine, endLine);
+        boolean changed = false;
+        for (Integer foldStart : new ArrayList<>(foldRanges.keySet())) {
+            FoldRange range = foldRanges.get(foldStart);
+            if (range == null) continue;
+            if (range.startLine <= end && range.endLine >= start) {
+                foldRanges.remove(foldStart);
+                changed = true;
+            }
+        }
+        if (changed) {
             invalidateFoldCaches();
             rebuildFoldIntervalsIfNeeded();
         }
@@ -525,13 +655,41 @@ public class CodeFold {
     /**
      * Get the collapsed fold range that contains the specified line (exclusive of start).
      */
-    public FoldRange getCollapsedRangeContainingLine(int line) {
-        for (FoldRange range : foldRanges.values()) {
-            if (range.collapsed && line > range.startLine && line <= range.endLine) {
+    public synchronized FoldRange getCollapsedRangeContainingLine(int line) {
+        if (!isCodeFoldingEnabled || foldRanges.isEmpty()) return null;
+        rebuildFoldIntervalsIfNeeded();
+        int lo = 0;
+        int hi = collapsedFoldRangesByStart.size() - 1;
+        while (lo <= hi) {
+            int mid = (lo + hi) >>> 1;
+            FoldRange range = collapsedFoldRangesByStart.get(mid);
+            if (line <= range.startLine) {
+                hi = mid - 1;
+            } else if (line > range.endLine) {
+                lo = mid + 1;
+            } else {
                 return range;
             }
         }
         return null;
+    }
+
+    public synchronized FoldRange getCollapsedRangeEndingAtLine(int line) {
+        if (!isCodeFoldingEnabled || foldRanges.isEmpty()) return null;
+        rebuildFoldIntervalsIfNeeded();
+        return collapsedFoldRangesByEnd.get(line);
+    }
+
+    public FoldRange getFoldRangeEndingAtLine(int line) {
+        if (!isCodeFoldingEnabled || foldRanges.isEmpty()) return null;
+        FoldRange best = null;
+        for (FoldRange range : foldRanges.values()) {
+            if (range == null || range.endLine != line) continue;
+            if (best == null || range.startLine > best.startLine) {
+                best = range;
+            }
+        }
+        return best;
     }
 
     /**

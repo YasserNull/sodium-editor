@@ -16,6 +16,7 @@ import com.yn.sodiumeditor.utils.FunctionLog;
  * Implementation of InputConnection for SodiumEditor.
  */
 public class SodiumInputConnection extends BaseInputConnection {
+    private static final String FOLD_TYPING_PERF = "FoldTypingPerf";
     private final SodiumEditor editor;
     private final Ime ime;
 
@@ -36,28 +37,66 @@ public class SodiumInputConnection extends BaseInputConnection {
     public ExtractedText getExtractedText(ExtractedTextRequest request, int flags) {
         FunctionLog.f("SodiumInputConnection", "getExtractedText", request, flags);
         if (editor.view.isDisabled || editor.view.isReadOnly) return null;
-        return ime.onGetExtractedText(request, flags);
+        long startMs = android.os.SystemClock.uptimeMillis();
+        ExtractedText result = ime.onGetExtractedText(request, flags);
+        android.util.Log.i(
+                FOLD_TYPING_PERF,
+                "ic.getExtractedText total="
+                        + (android.os.SystemClock.uptimeMillis() - startMs)
+                        + " flags="
+                        + flags
+                        + " textLen="
+                        + (result == null || result.text == null ? -1 : result.text.length()));
+        return result;
     }
 
     @Override
     public CharSequence getTextBeforeCursor(int length, int flags) {
         FunctionLog.f("SodiumInputConnection", "getTextBeforeCursor", length, flags);
         if (editor.view.isDisabled || editor.view.isReadOnly) return "";
-        return ime.scanner.getImeTextBeforeCursor(length);
+        long startMs = android.os.SystemClock.uptimeMillis();
+        CharSequence result = ime.scanner.getImeTextBeforeCursor(length);
+        android.util.Log.i(
+                FOLD_TYPING_PERF,
+                "ic.getTextBefore total="
+                        + (android.os.SystemClock.uptimeMillis() - startMs)
+                        + " req="
+                        + length
+                        + " len="
+                        + (result == null ? -1 : result.length()));
+        return result;
     }
 
     @Override
     public CharSequence getTextAfterCursor(int length, int flags) {
         FunctionLog.f("SodiumInputConnection", "getTextAfterCursor", length, flags);
         if (editor.view.isDisabled || editor.view.isReadOnly) return "";
-        return ime.scanner.getImeTextAfterCursor(length);
+        long startMs = android.os.SystemClock.uptimeMillis();
+        CharSequence result = ime.scanner.getImeTextAfterCursor(length);
+        android.util.Log.i(
+                FOLD_TYPING_PERF,
+                "ic.getTextAfter total="
+                        + (android.os.SystemClock.uptimeMillis() - startMs)
+                        + " req="
+                        + length
+                        + " len="
+                        + (result == null ? -1 : result.length()));
+        return result;
     }
 
     @Override
     public CharSequence getSelectedText(int flags) {
         FunctionLog.f("SodiumInputConnection", "getSelectedText", flags);
         if (editor.view.isDisabled || editor.view.isReadOnly) return "";
-        return editor.selection.getSelectedText();
+        long startMs = android.os.SystemClock.uptimeMillis();
+        CharSequence result = editor.selection.getSelectedText();
+        android.util.Log.i(
+                FOLD_TYPING_PERF,
+                "ic.getSelected total="
+                        + (android.os.SystemClock.uptimeMillis() - startMs)
+                        + " len="
+                        + (result == null ? -1 : result.length()));
+        return result;
     }
 
     @Override
@@ -66,7 +105,10 @@ public class SodiumInputConnection extends BaseInputConnection {
         if (editor.view.isDisabled || editor.view.isReadOnly) return null;
         int before = Math.max(0, beforeLength);
         int after = Math.max(0, afterLength);
+        long startMs = android.os.SystemClock.uptimeMillis();
+        long ctxStartMs = startMs;
         ImeContext ctx = ime.scanner.buildImeContext(before, after);
+        long ctxMs = android.os.SystemClock.uptimeMillis() - ctxStartMs;
         
         int sLine = editor.cursor.cursorLine, sChar = editor.cursor.cursorChar;
         int eLine = editor.cursor.cursorLine, eChar = editor.cursor.cursorChar;
@@ -83,7 +125,20 @@ public class SodiumInputConnection extends BaseInputConnection {
         }
         int selStart = ime.scanner.lineCharToOffsetInContext(ctx, sLine, sChar);
         int selEnd = ime.scanner.lineCharToOffsetInContext(ctx, eLine, eChar);
-        return new SurroundingText(ctx.text, selStart, selEnd, 0);
+        SurroundingText result = new SurroundingText(ctx.text, selStart, selEnd, 0);
+        android.util.Log.i(
+                FOLD_TYPING_PERF,
+                "ic.getSurrounding total="
+                        + (android.os.SystemClock.uptimeMillis() - startMs)
+                        + " ctx="
+                        + ctxMs
+                        + " beforeReq="
+                        + beforeLength
+                        + " afterReq="
+                        + afterLength
+                        + " textLen="
+                        + ctx.text.length());
+        return result;
     }
 
     @Override
@@ -138,12 +193,25 @@ public class SodiumInputConnection extends BaseInputConnection {
         if (editor.view.isDisabled || editor.view.isReadOnly) return true;
         if (editor.zoom.isZoomGestureActive()) return true;
         if (text == null) return super.commitText(text, newCursorPosition);
+        int beforeLine = editor.cursor.cursorLine;
+        int beforeChar = editor.cursor.cursorChar;
+        boolean foldHidden =
+                editor.codeFold.isCodeFoldingEnabled
+                        && editor.codeFold.getCollapsedRangeContainingLine(editor.cursor.cursorLine) != null;
+        long startMs = android.os.SystemClock.uptimeMillis();
+        boolean result = ime.onCommitText(text, newCursorPosition);
+        long totalMs = android.os.SystemClock.uptimeMillis() - startMs;
         android.util.Log.i(
-                "FoldEditDbg",
-                "commitText"
-                        + " text='"
-                        + text
-                        + "' cursor="
+                FOLD_TYPING_PERF,
+                "ic.commitText total="
+                        + totalMs
+                        + " textLen="
+                        + text.length()
+                        + " before="
+                        + beforeLine
+                        + ":"
+                        + beforeChar
+                        + " after="
                         + editor.cursor.cursorLine
                         + ":"
                         + editor.cursor.cursorChar
@@ -152,9 +220,12 @@ public class SodiumInputConnection extends BaseInputConnection {
                         + "+"
                         + editor.windowRender.linesWindow.size()
                         + " foldHidden="
-                        + (editor.codeFold.isCodeFoldingEnabled
-                                && editor.codeFold.getCollapsedRangeContainingLine(editor.cursor.cursorLine) != null));
-        return ime.onCommitText(text, newCursorPosition);
+                        + foldHidden
+                        + " modified="
+                        + editor.windowRender.modifiedLines.size()
+                        + " lineDelta="
+                        + editor.editOperators.lineCountDelta);
+        return result;
     }
 
     @Override

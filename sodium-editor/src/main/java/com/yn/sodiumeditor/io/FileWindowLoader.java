@@ -188,10 +188,7 @@ public class FileWindowLoader {
     }
 
     private boolean hasPendingInMemoryEdits() {
-        if (editor.editOperators.lineCountDelta != 0) return true;
-        synchronized (editor.windowRender.modifiedLines) {
-            return !editor.windowRender.modifiedLines.isEmpty();
-        }
+        return editor.editOperators.lineCountDelta != 0;
     }
 
     private void applyStreamedInfo(SparseIntArray lengths, SparseIntArray starts) {

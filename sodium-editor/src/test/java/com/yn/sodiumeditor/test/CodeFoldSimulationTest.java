@@ -1,6 +1,9 @@
 package com.yn.sodiumeditor.test;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeNoException;
 
 import java.io.File;
@@ -20,6 +23,7 @@ import org.robolectric.annotation.Config;
 import org.robolectric.annotation.GraphicsMode;
 
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.core.fold.CodeFold;
 
 /**
  * Simulation test that reproduces the fold marker bug:
@@ -140,11 +144,54 @@ public class CodeFoldSimulationTest {
         log("Fold marker line 0: " + markerLine0);
         log("Fold marker line 1: " + markerLine1);
 
+        assertNotNull(
+                "BUG: typing a matching closing bracket on the next line must create a confirmed fold marker on the opening bracket line.",
+                markerLine0);
+
         // Line 1 has just "}" - it MUST NOT have a fold marker
         assertFalse(
                 "BUG: fold marker '" + markerLine1 + "' appeared on closing bracket line 1. "
                         + "Lines with only closing brackets should never show fold markers.",
                 markerLine1 != null);
+    }
+
+    @Test
+    public void foldingMatchedTwoLineBlock_shouldNotHideFollowingEmptyLines() throws Exception {
+        log("=== Test: fold range should stop at matching closing bracket ===");
+
+        editor.editOperators.insertTextAtCursor("{");
+        editor.editOperators.insertCharAtCursor('\n');
+        editor.editOperators.insertTextAtCursor("}");
+        editor.editOperators.insertCharAtCursor('\n');
+        editor.editOperators.insertCharAtCursor('\n');
+
+        log("Line count: " + editor.view.getLinesCount());
+        log("Line 0: [" + editor.windowRender.getLineTextForRender(0) + "]");
+        log("Line 1: [" + editor.windowRender.getLineTextForRender(1) + "]");
+        log("Line 2: [" + editor.windowRender.getLineTextForRender(2) + "]");
+        log("Line 3: [" + editor.windowRender.getLineTextForRender(3) + "]");
+
+        CodeFold.FoldRange range = editor.codeFold.getFoldRangeAtStart(0);
+        assertNotNull(
+                "BUG: typing a matching closing bracket on line 1 must create a fold range starting at line 0.",
+                range);
+        assertEquals(
+                "BUG: fold range must end on the matching closing bracket line, not include later empty lines.",
+                1,
+                range.endLine);
+
+        assertTrue(
+                "BUG: expected fold toggle on line 0 to succeed after creating the matched range.",
+                editor.codeFold.toggleFoldAtLine(0));
+        assertFalse("BUG: line 2 must remain outside the folded block.", editor.codeFold.isLineHidden(2));
+        assertFalse("BUG: line 3 must remain outside the folded block.", editor.codeFold.isLineHidden(3));
+        assertEquals(
+                "BUG: with 4 lines and only line 1 hidden, visible line count should be 3.",
+                3,
+                editor.codeFold.getVisibleLineCount());
+        assertEquals(0, editor.codeFold.mapVisibleIndexToGlobal(0));
+        assertEquals(2, editor.codeFold.mapVisibleIndexToGlobal(1));
+        assertEquals(3, editor.codeFold.mapVisibleIndexToGlobal(2));
     }
 
     @Test

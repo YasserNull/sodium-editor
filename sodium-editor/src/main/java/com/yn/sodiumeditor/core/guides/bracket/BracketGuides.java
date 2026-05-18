@@ -71,6 +71,7 @@ public class BracketGuides {
     FunctionLog.f("BracketGuides", "setBracketGuidesEnabled", enabled);
     if (this.isBracketGuidesEnabled == enabled) return;
     this.isBracketGuidesEnabled = enabled;
+    if (enabled) editor.bracketCache.ensureScannedAsync();
     invalidateBracketGuideCache();
     editor.invalidate();
   }

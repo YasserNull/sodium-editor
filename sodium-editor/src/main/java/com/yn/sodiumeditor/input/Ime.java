@@ -10,6 +10,7 @@ import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.core.fold.CodeFold;
 import com.yn.sodiumeditor.io.EditOperators;
 import com.yn.sodiumeditor.io.EditOp;
 import com.yn.sodiumeditor.utils.FunctionLog;
@@ -18,6 +19,7 @@ import com.yn.sodiumeditor.utils.FunctionLog;
  * Ime handles all Input Method Editor (IME) logic for SodiumEditor.
  */
 public class Ime {
+  private static final String FOLD_TYPING_PERF = "FoldTypingPerf";
 
   public static final int IME_CONTEXT_BEFORE_CHARS = 2048;
   public static final int IME_CONTEXT_AFTER_CHARS = 2048;
@@ -76,6 +78,7 @@ public class Ime {
 
   public ExtractedText onGetExtractedText(ExtractedTextRequest request, int flags) {
     FunctionLog.f("Ime", "onGetExtractedText", request, flags);
+    long startMs = android.os.SystemClock.uptimeMillis();
     int before = IME_CONTEXT_BEFORE_CHARS;
     int after = IME_CONTEXT_AFTER_CHARS;
     if (request != null && request.hintMaxChars > 0) {
@@ -89,8 +92,27 @@ public class Ime {
     }
     imeExtractedBeforeChars = before;
     imeExtractedAfterChars = after;
+    long ctxStartMs = android.os.SystemClock.uptimeMillis();
     ImeContext ctx = scanner.buildImeContext(before, after);
-    return scanner.buildExtractedTextFromContext(ctx);
+    long ctxMs = android.os.SystemClock.uptimeMillis() - ctxStartMs;
+    long buildStartMs = android.os.SystemClock.uptimeMillis();
+    ExtractedText result = scanner.buildExtractedTextFromContext(ctx);
+    long buildMs = android.os.SystemClock.uptimeMillis() - buildStartMs;
+    Log.i(
+        FOLD_TYPING_PERF,
+        "ime.getExtracted total="
+            + (android.os.SystemClock.uptimeMillis() - startMs)
+            + " ctx="
+            + ctxMs
+            + " build="
+            + buildMs
+            + " before="
+            + before
+            + " after="
+            + after
+            + " textLen="
+            + (result.text == null ? -1 : result.text.length()));
+    return result;
   }
 
   public boolean onSetSelection(int start, int end) {
@@ -174,6 +196,7 @@ public class Ime {
 
   public boolean onCommitText(CharSequence text, int newCursorPosition) {
     FunctionLog.f("Ime", "onCommitText", text, newCursorPosition);
+    long startMs = android.os.SystemClock.uptimeMillis();
     String str = text.toString();
     if ("\n".equals(str)) {
       editor.autoBracketNewline.insertNewlineAtCursor();
@@ -243,12 +266,62 @@ public class Ime {
       editor.autoCompletion.updateSuggestion();
       return true;
     }
+    long insertStartMs = android.os.SystemClock.uptimeMillis();
     editor.editOperators.insertTextAtCursor(str);
+    snapCollapsedFoldTypingCursor();
+    long insertMs = android.os.SystemClock.uptimeMillis() - insertStartMs;
+    long composingStartMs = android.os.SystemClock.uptimeMillis();
     commitComposing(true);
+    long composingMs = android.os.SystemClock.uptimeMillis() - composingStartMs;
+    long animStartMs = android.os.SystemClock.uptimeMillis();
     editor.charAnimation.startCharAnimationFromText(text);
+    long animMs = android.os.SystemClock.uptimeMillis() - animStartMs;
+    long pairStartMs = android.os.SystemClock.uptimeMillis();
     editor.autoBracketPair.handleAutoPairing(str);
+    long pairMs = android.os.SystemClock.uptimeMillis() - pairStartMs;
+    long completionStartMs = android.os.SystemClock.uptimeMillis();
     editor.autoCompletion.updateSuggestion();
+    long completionMs = android.os.SystemClock.uptimeMillis() - completionStartMs;
+    long totalMs = android.os.SystemClock.uptimeMillis() - startMs;
+    Log.i(
+        FOLD_TYPING_PERF,
+        "ime.commit total="
+            + totalMs
+            + " insert="
+            + insertMs
+            + " composing="
+            + composingMs
+            + " anim="
+            + animMs
+            + " pair="
+            + pairMs
+            + " completion="
+            + completionMs
+            + " textLen="
+            + str.length()
+            + " cursor="
+            + editor.cursor.cursorLine
+            + ":"
+            + editor.cursor.cursorChar
+            + " modified="
+            + editor.windowRender.modifiedLines.size()
+            + " lineDelta="
+            + editor.editOperators.lineCountDelta);
     return true;
+  }
+
+  private void snapCollapsedFoldTypingCursor() {
+    if (!editor.codeFold.isCodeFoldingEnabled) return;
+    CodeFold.FoldRange hidden = editor.codeFold.getCollapsedRangeContainingLine(editor.cursor.cursorLine);
+    CodeFold.FoldRange start = editor.codeFold.getFoldRangeAtStart(editor.cursor.cursorLine);
+    boolean foldedCaret =
+        hidden != null
+            || (start != null
+                && start.collapsed
+                && editor.cursor.cursorChar > start.openCharIndex);
+    if (!foldedCaret) return;
+    editor.cursorAnimation.snapToPosition(
+        editor.caret.getCaretDocumentX(), editor.caret.getCaretDocumentY());
   }
 
   public boolean onSetComposingText(CharSequence text, int newCursorPosition) {
@@ -345,12 +418,15 @@ public class Ime {
 
   public void updateImeSelection() {
     FunctionLog.f("Ime", "updateImeSelection");
+    long startMs = android.os.SystemClock.uptimeMillis();
     if (editor.view.isDisabled || editor.view.isReadOnly) return;
     if (!editor.isFocused()) return;
     InputMethodManager imm = (InputMethodManager) editor.getContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
     if (imm == null || !imm.isActive(editor)) return;
 
+    long ctxStartMs = android.os.SystemClock.uptimeMillis();
     ImeContext ctx = scanner.buildImeContext(imeExtractedBeforeChars, imeExtractedAfterChars);
+    long ctxMs = android.os.SystemClock.uptimeMillis() - ctxStartMs;
     int sLine = editor.cursor.cursorLine, sChar = editor.cursor.cursorChar;
     int eLine = editor.cursor.cursorLine, eChar = editor.cursor.cursorChar;
     if (editor.selection.hasSelection) {
@@ -361,6 +437,7 @@ public class Ime {
       }
     }
 
+    long mapStartMs = android.os.SystemClock.uptimeMillis();
     int selStart = scanner.lineCharToOffsetInContext(ctx, sLine, sChar);
     int selEnd = scanner.lineCharToOffsetInContext(ctx, eLine, eChar);
     int compStart = -1, compEnd = -1;
@@ -368,11 +445,37 @@ public class Ime {
       compStart = scanner.lineCharToOffsetInContext(ctx, composingLine, composingOffset);
       compEnd = scanner.lineCharToOffsetInContext(ctx, composingLine, composingOffset + composingLength);
     }
+    long mapMs = android.os.SystemClock.uptimeMillis() - mapStartMs;
+    long immStartMs = android.os.SystemClock.uptimeMillis();
     imm.updateSelection(editor, selStart, selEnd, compStart, compEnd);
+    long immMs = android.os.SystemClock.uptimeMillis() - immStartMs;
+    long extractedMs = 0L;
     if (imeExtractedTextMonitor) {
+      long extractedStartMs = android.os.SystemClock.uptimeMillis();
       ExtractedText et = scanner.buildExtractedTextFromContext(ctx);
       imm.updateExtractedText(editor, imeExtractedTextToken, et);
+      extractedMs = android.os.SystemClock.uptimeMillis() - extractedStartMs;
     }
+    Log.i(
+        FOLD_TYPING_PERF,
+        "ime.updateSelection total="
+            + (android.os.SystemClock.uptimeMillis() - startMs)
+            + " ctx="
+            + ctxMs
+            + " map="
+            + mapMs
+            + " imm="
+            + immMs
+            + " extracted="
+            + extractedMs
+            + " textLen="
+            + ctx.text.length()
+            + " sel="
+            + selStart
+            + ":"
+            + selEnd
+            + " modified="
+            + editor.windowRender.modifiedLines.size());
   }
 
   public void commitComposing(boolean keepInText) {

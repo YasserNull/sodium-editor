@@ -19,6 +19,8 @@ import java.util.HashMap;
  */
 public class CodeFoldRender {
     private static final String FOLD_RENDER_DBG = "FoldRenderDbg";
+    private static final String FOLD_TYPING_PERF = "FoldTypingPerf";
+    private static final long FOLD_TYPING_LOG_THRESHOLD_MS = 8L;
     private static final int LARGE_COLLAPSED_FOLD_SCAN_LIMIT = 2000;
 
     // Reference to the parent SodiumEditor
@@ -146,9 +148,10 @@ public class CodeFoldRender {
             int closeIdx = range.closeCharIndex;
             String endLineText = (range.endLine == globalLine) ? line : getLineTextForRenderWithDirect(range.endLine, directLines);
             if (endLineText != null) {
-                if (closeIdx < 0 || closeIdx >= endLineText.length()) {
-                    closeIdx = findBlockCommentEnd(endLineText, Math.max(0, range.openCharIndex + 2));
-                }
+	                if (closeIdx < 0 || closeIdx >= endLineText.length()) {
+	                    int searchStart = range.endLine == globalLine ? Math.max(0, range.openCharIndex + 2) : 0;
+	                    closeIdx = findBlockCommentEnd(endLineText, searchStart);
+	                }
                 if (closeIdx >= 0) {
                     int suffixStart = Math.min(endLineText.length(), closeIdx + 2);
                     if (suffixStart < endLineText.length()) {
@@ -196,7 +199,21 @@ public class CodeFoldRender {
         }
         long dt = android.os.SystemClock.uptimeMillis() - startMs;
         int foldLineCount = Math.max(0, range.endLine - range.startLine);
-        if (dt > 4 && (editor.DEBUG_RENDER_LOGS || foldLineCount > LARGE_COLLAPSED_FOLD_SCAN_LIMIT)) {
+        if (dt >= FOLD_TYPING_LOG_THRESHOLD_MS) {
+            android.util.Log.i(
+                FOLD_TYPING_PERF,
+                "drawFoldedLine total="
+                    + dt
+                    + " start="
+                    + range.startLine
+                    + " end="
+                    + range.endLine
+                    + " hidden="
+                    + foldLineCount
+                    + " lineLen="
+                    + line.length());
+        }
+        if (dt > 4 && editor.DEBUG_RENDER_LOGS) {
             android.util.Log.i(
                 FOLD_RENDER_DBG,
                 "foldedLine draw"
@@ -533,7 +550,8 @@ public class CodeFoldRender {
         String mod = editor.windowRender.modifiedLines.get(globalLine);
         if (mod != null) return mod;
 
-        if (directLines != null) {
+        boolean canUseFileLine = editor.windowRender.canUseFileBackedLineForRender(globalLine);
+        if (directLines != null && canUseFileLine) {
             String cached = directLines.get(globalLine);
             if (cached != null) return cached;
         }
@@ -552,15 +570,17 @@ public class CodeFoldRender {
         }
 
         // Try direct line cache (only for off-window lines)
-        String cached = editor.fileIO.directLineCache.get(globalLine);
-        if (cached != null) return cached;
+        if (canUseFileLine) {
+            String cached = editor.fileIO.directLineCache.get(globalLine);
+            if (cached != null) return cached;
+        }
 
-        // If this is the end line of a collapsed fold, load it from file
+        // If this is the end line of a collapsed fold, use the indexed fold lookup
+        // instead of scanning every known fold range during render.
         if (editor.codeFold.isCodeFoldingEnabled) {
-            for (CodeFold.FoldRange range : editor.codeFold.foldRanges.values()) {
-                if (range.collapsed && range.endLine == globalLine) {
-                    return editor.codeFold.utils.getEndLineTextForFold(range);
-                }
+            CodeFold.FoldRange range = editor.codeFold.getCollapsedRangeEndingAtLine(globalLine);
+            if (range != null) {
+                return editor.codeFold.utils.getEndLineTextForFold(range);
             }
         }
 

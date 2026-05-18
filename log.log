@@ -1,0 +1,576 @@
+SDK: 35
+PRODUCT_NAME: sapphire_global
+DEVICE_NAME: sapphire
+BOARD_NAME: bengal
+SUPPORTED_ABIS: arm64-v8a, armeabi-v7a, armeabi
+MANUFACTURER: Xiaomi
+BRAND: Redmi
+MODEL: 23129RAA4G
+
+1779021518.610 10480 32761 32761 I SodiumDbg: EditorActions.insertCharAtCursor [j]
+1779021518.610 10480 32761 32761 I SodiumDbg: FileIO.invalidatePendingIOForEdit []
+1779021518.610 10480 32761 32761 I SodiumDbg: FileIO.invalidatePendingIO []
+1779021518.610 10480 32761 32761 I SodiumDbg: Highlite.clearHighlightCaches []
+1779021518.610 10480 32761 32761 I SodiumDbg: ColorCodeHighlight.clearColorCodeCaches []
+1779021518.610 10480 32761 32761 I SodiumDbg: UrlUnderline.clearUrlUnderlineCache []
+1779021518.610 10480 32761 32761 I SodiumDbg: PathUnderline.clearPathUnderlineCache []
+1779021518.610 10480 32761 32761 I SodiumDbg: Highlite.invalidateHighlightEnsureRange []
+1779021518.610 10480 32761 32761 I SodiumDbg: EditorActions.handleCodeFoldBeforeEdit []
+1779021518.610 10480 32761 32761 I SodiumDbg: CodeFold.rebuildFoldIntervalsIfNeeded []
+1779021518.610 10480 32761 32761 I SodiumDbg: CodeFold.getFoldRangeAtStart [18058]
+1779021518.610 10480 32761 32761 I SodiumDbg: EditorActions.isLineInLoadedWindow [18058]
+1779021518.696 10480 32761 32761 I SodiumDbg: WindowRender.getLineTextForRender [18058]
+1779021518.696 10480 32761 32761 I SodiumDbg: Layout.getTextStartX []
+1779021518.696 10480 32761 32761 I SodiumDbg: CodeFold.getVisibleIndexForGlobalLine [18058]
+1779021518.696 10480 32761 32761 I SodiumDbg: CursorHandle.updateCursorHandlePosition []
+1779021519.196 10480 32761 32761 I SodiumDbg: Cursor.invalidateCursorArea []
+1779021519.196 10480 32761 32761 I SodiumDbg: Caret.getCaretDocumentX []
+1779021519.196 10480 32761 32761 I SodiumDbg: TextRender.measureTextWithVisualSpaces [, 0, 0, android.graphics.Paint@7dd0590]
+1779021519.196 10480 32761 32761 I SodiumDbg: Caret.getCaretDocumentY []
+1779021519.197 10480 32761 32761 I SodiumDbg: CursorAnimation.updateCursorDrawPosition [0.0, 3164.0625]
+1779021519.517 10480 32761 32761 I SodiumDbg: Scroll.computeScroll []
+1779021519.519 10480 32761 32761 I SodiumDbg: ViewRender.drawContent [android.graphics.RecordingCanvas@6416405]
+1779021519.519 10480 32761 32761 I SodiumDbg: CodeFold.getVisibleLineCount []
+1779021519.519 10480 32761 32761 I SodiumDbg: BracketGuides.beginRenderFrame [0, 299, 45, 75]
+1779021519.519 10480 32761 32761 I SodiumDbg: BracketGuideDraw.beginRenderFrame [0, 299, 45, 75]
+1779021519.519 10480 32761 32761 I SodiumDbg: BracketGuides.ensureBracketGuideCacheForWindow [0, 299, 45, 75, null]
+1779021519.519 10480 32761 32761 I SodiumDbg: BracketGuides.setFrameFastScroll [false]
+1779021519.519 10480 32761 32761 I SodiumDbg: BracketGuideDraw.setFrameFastScroll [false]
+1779021519.519 10480 32761 32761 I SodiumDbg: ViewRender.drawContentUnfolded [android.graphics.RecordingCanvas@6416405, false]
+1779021519.519 10480 32761 32761 I SodiumDbg: CodeFold.mapVisibleIndexToGlobal [45]
+1779021519.519 10480 32761 32761 I SodiumDbg: WindowRender.getLineFromWindowLocal [0]
+1779021519.519 10480 32761 32761 D SodiumDbg: [render] firstVisibleIndex=45 lastVisibleIndex=75 firstVisibleLine=45 lastVisibleLine=18058 visibleCount=76 totalLines=18059 windowStart=0 windowSize=300 l0='package com.yn.sodiumeditor.view;' l1='' l2='import android.animation.Animator;'
+1779021519.519 10480 32761 32761 I SodiumDbg: LineNumber.getGutterStartX []
+1779021519.520 10480 32761 32761 I SodiumDbg: TextRender.drawlineNumbersCachedUnwrapped [android.graphics.RecordingCanvas@6416405, 45, 75, 45, 18058]
+1779021519.520 10480 32761 32761 I SodiumDbg: LineNumber.drawLineNumbersCachedUnwrapped [android.graphics.RecordingCanvas@6416405, 45, 75, 45, 18058]
+1779021519.520 10480 32761 32761 I SodiumDbg: LineNumberCache.shouldUseCache []
+1779021519.520 10480 32761 32761 I SodiumDbg: LineNumberCache.needsRebuild [166, 2292, 45, 75, 1856.25, false]
+1779021519.521 10480 32761 32761 I SodiumDbg: LineNumber.drawCurrentLineNumberUnwrapped [android.graphics.RecordingCanvas@6416405, 45, 75]
+1779021519.521 10480 32761 32761 I SodiumDbg: CodeFold.isLineHidden [18058]
+1779021519.522 10480 32761 32761 I SodiumDbg: CodeFoldRender.drawFoldMarkersForVisibleLines [android.graphics.RecordingCanvas@6416405, 45, 75]
+1779021519.523 10480 32761 32761 I SodiumDbg: CurrentLineHighlight.getAnimatedVisualIndex []
+1779021519.523 10480 32761 32761 I SodiumDbg: CurrentLineHighlightAnimation.getAnimatedVisualIndex []
+1779021519.523 10480 32761 32761 I SodiumDbg: CurrentLineHighlightAnimation.checkAndStartAnimation []
+1779021519.523 10480 32761 32761 I SodiumDbg: CurrentLineHighlightAnimation.getTargetVisualIndex []
+1779021519.523 10480 32761 32761 I SodiumDbg: Scroll.getEffectiveScrollX []
+1779021519.523 10480 32761 32761 I SodiumDbg: ViewRender.drawTextContent [android.graphics.RecordingCanvas@6416405, 45, 75, 45, 18058, true, false, false]
+1779021519.523 10480 32761 32761 I SodiumDbg: FileIO.populateDirectLinesForRange [18057, 18057, {}]
+1779021519.524 10480 32761 32761 I SodiumDbg: FileCache.populateDirectLinesForRange [18057, 18057, {}]
+1779021519.526 10480 32761 32761 I SodiumDbg: WindowRender.hasModifiedLine [18057]
+1779021519.538 10480 32761 32761 I SodiumDbg: CodeFoldRender.drawFoldedContent [android.graphics.RecordingCanvas@6416405, 45, 75, 45, 18058, {18057=}, 18058=}, null, null, true, false, null]
+1779021519.539 10480 32761 32761 I SodiumDbg: IndentGuides.rebuildIndentGuideIntervalsIfNeeded []
+1779021519.539 10480 32761 32761 I SodiumDbg: CodeFoldRender.getLineTextForRenderWithDirect [45, {18057=}, 18058=}]
+1779021519.539 10480 32761 32761 I SodiumDbg: WindowRender.canUseFileBackedLineForRender [45]
+1779021519.539 10480 32761 32761 I SodiumDbg: TextRender.getDrawLineTop [45]
+1779021519.539 10480 32761 32761 I SodiumDbg: ViewRender.drawColorCodeBackgrounds [android.graphics.RecordingCanvas@6416405, import org.json.JSONObject;, 45]
+1779021519.539 10480 32761 32761 I SodiumDbg: ColorCodeHighlight.drawColorCodeBackgrounds [android.graphics.RecordingCanvas@6416405, import org.json.JSONObject;, 45]
+1779021519.539 10480 32761 32761 I SodiumDbg: TextRender.getDrawLineBottom [45]
+1779021519.539 10480 32761 32761 I SodiumDbg: ViewRender.drawSearchHighlightsForLine [android.graphics.RecordingCanvas@6416405, import org.json.JSONObject;, 45, 0.0, 42.0]
+1779021519.539 10480 32761 32761 I SodiumDbg: TextRender.drawHighlightedLine [android.graphics.RecordingCanvas@6416405, import org.json.JSONObject;, 45, 33.0]
+1779021519.539 10480 32761 32761 I SodiumDbg: HighliteRender.drawHighlightedLine [android.graphics.RecordingCanvas@6416405, import org.json.JSONObject;, 45, 33.0]
+1779021519.539 10480 32761 32761 I SodiumDbg: TextRender.getVisibleCharRangeForLine [import org.json.JSONObject;, 45, [I@2811bb3]
+1779021519.539 10480 32761 32761 I SodiumDbg: WindowRender.getStreamedLineLength [45]
+1779021519.539 10480 32761 32761 I SodiumDbg: UrlUnderline.isUrlUnderliningActive []
+1779021519.540 10480 32761 32761 I SodiumDbg: UrlUnderline.getUrlUnderlineSpansForLine [import org.json.JSONObject;, 45]
+1779021519.540 10480 32761 32761 I SodiumDbg: PathUnderline.isPathUnderliningActive []
+1779021519.541 10480 32761 32761 I SodiumDbg: PathUnderline.getPathUnderlineSpansForLine [import org.json.JSONObject;, 45]
+1779021519.541 10480 32761 32761 I SodiumDbg: TextRender.drawTextSegmentWithFadeAndUnderlines [android.graphics.RecordingCanvas@6416405, import org.json.JSONObject;, 0, 27, 0.0, 33.0, android.graphics.Paint@7dd0590, -1, -1, 1.0, [], 0.0, 42.1875]
+1779021519.543 10480 32761 32761 I SodiumDbg: TextLineDraw.drawTextSegmentWithFadeAndUnderlines [android.graphics.RecordingCanvas@6416405, import org.json.JSONObject;, 0, 27, 0.0, 33.0, android.graphics.Paint@7dd0590, -1, -1, 1.0, [], 0.0, 42.1875]
+1779021519.543 10480 32761 32761 I SodiumDbg: TextLineDraw.drawTextSegmentWithFade [android.graphics.RecordingCanvas@6416405, import org.json.JSONObject;, 0, 27, 0.0, 33.0, android.graphics.Paint@7dd0590, -1, -1, 1.0]
+1779021519.543 10480 32761 32761 I SodiumDbg: TextRender.getVisualSpaceScale []
+1779021519.544 10480 32761 32761 I SodiumDbg: ErrorUnderline.drawErrorUnderlinesForLine [android.graphics.RecordingCanvas@6416405, import org.json.JSONObject;, 45, 33.0, 0.0, 42.1875]
+1779021519.544 10480 32761 32761 I SodiumDbg: TextRender.drawWhitespaceGuidesForLine [android.graphics.RecordingCanvas@6416405, import org.json.JSONObject;, 45, 33.0]
+1779021519.544 10480 32761 32761 I SodiumDbg: WhitespaceGuides.drawWhitespaceGuidesForLine [android.graphics.RecordingCanvas@6416405, import org.json.JSONObject;, 45, 33.0]
+1779021519.544 10480 32761 32761 I SodiumDbg: IndentGuides.drawIndentGuidesForLine [android.graphics.RecordingCanvas@6416405, import org.json.JSONObject;, 45]
+1779021519.544 10480 32761 32761 I SodiumDbg: AutoCompletion.drawAutoSuggestion [android.graphics.RecordingCanvas@6416405, import org.json.JSONObject;, 45, 33.0]
+1779021519.544 10480 32761 32761 I SodiumDbg: BracketMatchManager.drawBracketMatchForLine [android.graphics.RecordingCanvas@6416405, import org.json.JSONObject;, 45, null]
+1779021519.554 10480 32761 32761 I SodiumDbg: CodeFoldRender.drawFoldedLine [android.graphics.RecordingCanvas@6416405, public class SodiumEditorView extends View {, 74, {18057=}, 18058=}]
+1779021519.554 10480 32761 32761 I SodiumDbg: Highlite.drawHighlightedSegment [android.graphics.RecordingCanvas@6416405, public class SodiumEditorView extends View {, 74, 0, 44, 0.0, 1256.8359]
+1779021519.554 10480 32761 32761 I SodiumDbg: Highlite.measureHighlightedSegmentWidth [public class SodiumEditorView extends View {, 74, 0, 44]
+1779021519.555 10480 32761 32761 I SodiumDbg: Caret.drawCaret [android.graphics.RecordingCanvas@6416405]
+1779021519.555 10480 32761 32761 I SodiumDbg: CursorHandle.drawCursorHandle [android.graphics.RecordingCanvas@6416405]
+1779021519.555 10480 32761 32761 I SodiumDbg: BracketGuides.endRenderFrameMaybeLog []
+1779021519.555 10480 32761 32761 I SodiumDbg: BracketGuideDraw.endRenderFrameMaybeLog []
+1779021519.555 10480 32761 32761 I SodiumDbg: ScrollBar.draw [android.graphics.RecordingCanvas@6416405]
+1779021519.555 10480 32761 32761 I SodiumDbg: Scroll.drawStretch [android.graphics.RecordingCanvas@6416405]
+1779021519.555 10480 32761 32761 I SodiumDbg: Stretch.drawStretch [android.graphics.RecordingCanvas@6416405]
+1779021519.555 10480 32761 32761 I SodiumDbg: Scroll.drawEdge [android.graphics.RecordingCanvas@6416405]
+1779021519.555 10480 32761 32761 I SodiumDbg: Edge.draw [android.graphics.RecordingCanvas@6416405]
+1779021519.555 10480 32761 32761 I SodiumDbg: Scroll.drawScrollBar [android.graphics.RecordingCanvas@6416405]
+1779021519.570 10480 32761 32761 I SodiumDbg: Scroll.keepCursorVisibleHorizontally []
+1779021519.570 10480 32761 32761 I SodiumDbg: Scroll.getBottomBarrierPadding []
+1779021519.570 10480 32761 32761 I SodiumDbg: ScrollBounds.getBottomBarrierPadding []
+1779021519.570 10480 32761 32761 I SodiumDbg: Scroll.getMaxScrollXForClamp []
+1779021519.570 10480 32761 32761 I SodiumDbg: ScrollBounds.getMaxScrollXForClamp []
+1779021519.578 10480 32761 32761 D SodiumDbg: [render] firstVisibleIndex=45 lastVisibleIndex=75 firstVisibleLine=45 lastVisibleLine=18058 visibleCount=76 totalLines=18059 windowStart=0 windowSize=300 l0='package com.yn.sodiumeditor.view;' l1='' l2='import android.animation.Animator;'
+1779021519.610 10480 32761 32761 I SodiumDbg: CodeFold.rebuildFoldIntervalsIfNeeded []
+1779021519.610 10480 32761 32761 I SodiumDbg: CodeFold.getFoldRangeAtStart [68]
+1779021519.613 10480 32761 32761 I SodiumDbg: EditorActions.insertCharAtCursor [j]
+1779021519.613 10480 32761 32761 I SodiumDbg: FileIO.invalidatePendingIOForEdit []
+1779021519.613 10480 32761 32761 I SodiumDbg: FileIO.invalidatePendingIO []
+1779021519.613 10480 32761 32761 I SodiumDbg: Highlite.clearHighlightCaches []
+1779021519.613 10480 32761 32761 I SodiumDbg: ColorCodeHighlight.clearColorCodeCaches []
+1779021519.613 10480 32761 32761 I SodiumDbg: UrlUnderline.clearUrlUnderlineCache []
+1779021519.613 10480 32761 32761 I SodiumDbg: PathUnderline.clearPathUnderlineCache []
+1779021519.613 10480 32761 32761 I SodiumDbg: Highlite.invalidateHighlightEnsureRange []
+1779021519.613 10480 32761 32761 I SodiumDbg: EditorActions.handleCodeFoldBeforeEdit []
+1779021519.613 10480 32761 32761 I SodiumDbg: EditorActions.isLineInLoadedWindow [18058]
+1779021519.636 10480 32761 32761 I SodiumDbg: Ime.onCreateInputConnection [android.view.inputmethod.EditorInfo@70f4a8]
+1779021519.636 10480 32761 32761 I SodiumDbg: ImeScanner.buildImeContext [2048, 2048]
+1779021519.636 10480 32761 32761 I SodiumDbg: ImeScanner.openImeRandomAccessFile []
+1779021519.642 10480 32761 32761 I SodiumDbg: ImeScanner.moveCursorByCharsForIme [18058, 0, -2048, java.io.RandomAccessFile@c938bc1]
+1779021519.642 10480 32761 32761 I SodiumDbg: ImeScanner.clampLineCharToDocument [18058, 0, java.io.RandomAccessFile@c938bc1]
+1779021519.642 10480 32761 32761 I SodiumDbg: ImeScanner.getLineTextForImeScan [18058, java.io.RandomAccessFile@c938bc1]
+1779021519.643 10480 32761 32761 I SodiumDbg: FileIO.readLineUtf8AtByte [java.io.RandomAccessFile@c938bc1, 637142]
+1779021519.643 10480 32761 32761 I SodiumDbg: CursorTarget.CursorTarget [18058, 0]
+1779021519.648 10480 32761 32761 I FoldTypingPerf: scanner.move total=5 from=18058:0 delta=-2048 to=17988:6 visited=71 totalLines=18059 modified=0
+1779021519.649 10480 32761 32761 I FoldTypingPerf: scanner.move total=0 from=18058:0 delta=2048 to=18058:0 visited=1 totalLines=18059 modified=0
+1779021519.649 10480 32761 32761 I SodiumDbg: ImeScanner.buildRangeTextForIme [Y.a@7ad7f66, Y.a@9482a7, java.io.RandomAccessFile@c938bc1]
+1779021519.649 10480 32761 32761 I SodiumDbg: ImeScanner.comparePos [17988, 6, 18058, 0]
+1779021519.652 10480 32761 32761 I FoldTypingPerf: scanner.range total=3 lines=71 start=17988:6 end=18058:0 len=2048 modified=0 raf=true
+1779021519.652 10480 32761 32761 I FoldTypingPerf: scanner.buildContext total=17 open=7 moveBefore=6 moveAfter=0 range=4 beforeReq=2048 afterReq=2048 start=17988:6 end=18058:0 textLen=2048 modified=0 raf=true
+1779021519.653 10480 32761 32761 I SodiumDbg: ImeContext.ImeContext [17988, 6,  (cursorMoved) {
+1779021519.653 10480 32761 32761 I SodiumDbg:       lastCursorAnimLine = cursorLine;
+1779021519.653 10480 32761 32761 I SodiumDbg:       lastCursorAnimChar = cursorChar;
+1779021519.653 10480 32761 32761 I SodiumDbg:       lastCursorMoveUptime = SystemClock.uptimeMillis();
+1779021519.653 10480 32761 32761 I SodiumDbg:     } else if (Math.abs(targetX - cursorAnimTargetX) > 0.5f
+1779021519.653 10480 32761 32761 I SodiumDbg:         || Math.abs(targetY - cursorAnimTargetY) > 0.5f) {
+1779021519.653 10480 32761 32761 I SodiumDbg:       // Layout/zoom changed while caret stayed; snap to the new target.
+1779021519.653 10480 32761 32761 I SodiumDbg:       removeCallbacks(cursorAnimStep);
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorAnimRunning = false;
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorAnimX = targetX;
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorAnimY = targetY;
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorAnimTargetX = targetX;
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorAnimTargetY = targetY;
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorAnimValid = true;
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorDrawX = targetX;
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorDrawY = targetY;
+1779021519.653 10480 32761 32761 I SodiumDbg:       return;
+1779021519.653 10480 32761 32761 I SodiumDbg:     }
+1779021519.653 10480 32761 32761 I SodiumDbg:     if (!cursorAnimValid) {
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorAnimX = targetX;
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorAnimY = targetY;
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorAnimValid = true;
+1779021519.653 10480 32761 32761 I SodiumDbg:     }
+1779021519.653 10480 32761 32761 I SodiumDbg:     cursorAnimTargetX = targetX;
+1779021519.653 10480 32761 32761 I SodiumDbg:     cursorAnimTargetY = targetY;
+1779021519.653 10480 32761 32761 I SodiumDbg:     float dx = cursorAnimTargetX - cursorAnimX;
+1779021519.653 10480 32761 32761 I SodiumDbg:     float dy = cursorAnimTargetY - cursorAnimY;
+1779021519.653 10480 32761 32761 I SodiumDbg:     float distance = (float) Math.hypot(dx, dy);
+1779021519.653 10480 32761 32761 I SodiumDbg:     if (distance > lineHeight * 6f) {
+1779021519.653 10480 32761 32761 I SodiumDbg:       removeCallbacks(cursorAnimStep);
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorAnimRunning = false;
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorAnimX = targetX;
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorAnimY = targetY;
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorAnimTargetX = targetX;
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorAnimTargetY = targetY;
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorDrawX = targetX;
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorDrawY = targetY;
+1779021519.653 10480 32761 32761 I SodiumDbg:       return;
+1779021519.653 10480 32761 32761 I SodiumDbg:     }
+1779021519.653 10480 32761 32761 I SodiumDbg:     if (!cursorAnimRunning && distance > 0.5f) {
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorAnimLastFrameUptime = 0L;
+1779021519.653 10480 32761 32761 I SodiumDbg:       cursorAnimRunning = true;
+1779021519.653 10480 32761 32761 I SodiumDbg:       postOnAnimation(cursorAnimStep);
+1779021519.653 10480 32761 32761 I SodiumDbg:     }
+1779021519.653 10480 32761 32761 I SodiumDbg:     cursorDrawX = cursorAnimX;
+1779021519.653 10480 32761 32761 I SodiumDbg:     cursorDrawY = cursorAnimY;
+1779021519.653 10480 32761 32761 I SodiumDbg:   }
+1779021519.653 10480 32761 32761 I SodiumDbg:   private void resetCursorBlink() {
+1779021519.653 10480 32761 32761 I SodiumDbg:     mainHandler.removeCallbacks(blinkRunnable);
+1779021519.653 10480 32761 32761 I SodiumDbg:     isCursorVisible = true;
+1779021519.653 10480 32761 32761 I SodiumDbg:     if (isFocused() && !hasSelection) {
+1779021519.653 10480 32761 32761 I SodiumDbg:       invalidate(); // Ensure it's drawn immediately
+1779021519.653 10480 32761 32761 I SodiumDbg:       mainHandler.postDelayed(blinkRunnable, 500);
+1779021519.653 10480 32761 32761 I SodiumDbg:     }
+1779021519.653 10480 32761 32761 I SodiumDbg:   }
+1779021519.653 10480 32761 32761 I SodiumDbg:   public void release() {
+1779021519.653 10480 32761 32761 I SodiumDbg:     cancelAndCloseReader();
+1779021519.653 10480 32761 32761 I SodiumDbg:     if (charAnimAnimator != null) charAnimAnimator.cancel();
+1779021519.653 10480 32761 32761 I SodiumDbg:     if (delAnimAnimator != null) delAnimAnimator.cancel();
+1779021519.653 10480 32761 32761 I SodiumDbg:     removeCallbacks(cursorAnimStep);
+1779021519.653 10480 32761 32761 I SodiumDbg:     ioThread.quitSafely();
+1779021519.653 10480 32761 32761 I SodiumDbg:   }
+1779021519.653 10480 32761 32761 I SodiumDbg: }
+1779021519.653 10480 32761 32761 I SodiumDbg: ]
+1779021519.654 10480 32761 32761 I SodiumDbg: ImeScanner.buildExtractedTextFromContext [Y.d@334b354]
+1779021519.655 10480 32761 32761 I SodiumDbg: ImeScanner.lineCharToOffsetInContext [Y.d@334b354, 18058, 0]
+1779021519.656 10480 32761 32761 I SodiumDbg: SodiumInputConnection.SodiumInputConnection [com.yn.sodiumeditor.SodiumEditor{3882042 VFED..... .F...... 0,192-1080,2400 #7f080053 app:id/editor aid=1073741824}, Y.c@b76e94d]
+1779021519.706 10480 32761 32761 I SodiumDbg: SodiumInputConnection.getSurroundingText [600, 600, 1]
+1779021519.710 10480 32761 32761 I FoldTypingPerf: scanner.move total=2 from=18058:0 delta=-600 to=18034:24 visited=25 totalLines=18059 modified=0
+1779021519.711 10480 32761 32761 I FoldTypingPerf: scanner.move total=0 from=18058:0 delta=600 to=18058:0 visited=1 totalLines=18059 modified=0
+1779021519.712 10480 32761 32761 I FoldTypingPerf: scanner.range total=1 lines=25 start=18034:24 end=18058:0 len=600 modified=0 raf=true
+1779021519.712 10480 32761 32761 I FoldTypingPerf: scanner.buildContext total=7 open=3 moveBefore=2 moveAfter=0 range=1 beforeReq=600 afterReq=600 start=18034:24 end=18058:0 textLen=600 modified=0 raf=true
+1779021519.714 10480 32761 32761 I FoldTypingPerf: ic.getSurrounding total=8 ctx=8 beforeReq=600 afterReq=600 textLen=600
+1779021519.717 10480 32761 32761 I SodiumDbg: WindowRender.getLineTextForRender [18058]
+1779021519.717 10480 32761 32761 I SodiumDbg: Layout.getTextStartX []
+1779021519.717 10480 32761 32761 I SodiumDbg: CodeFold.getVisibleIndexForGlobalLine [18058]
+1779021519.717 10480 32761 32761 I SodiumDbg: CursorHandle.updateCursorHandlePosition []
+1779021519.724 10480 32761 32761 D SodiumDbg: [render] firstVisibleIndex=45 lastVisibleIndex=75 firstVisibleLine=45 lastVisibleLine=18058 visibleCount=76 totalLines=18059 windowStart=0 windowSize=300 l0='package com.yn.sodiumeditor.view;' l1='' l2='import android.animation.Animator;'
+1779021519.765 10480 32761 32761 I SodiumDbg: SodiumInputConnection.finishComposingText []
+1779021519.765 10480 32761 32761 I SodiumDbg: Ime.onFinishComposingText []
+1779021519.766 10480 32761 32761 I SodiumDbg: Ime.commitComposing [true]
+1779021519.838 10480 32761 32761 I SodiumDbg: Scroll.getKeyboardBarrierPadding []
+1779021519.838 10480 32761 32761 I SodiumDbg: ScrollBounds.getKeyboardBarrierPadding []
+1779021519.845 10480 32761 32761 D SodiumDbg: [render] firstVisibleIndex=45 lastVisibleIndex=75 firstVisibleLine=45 lastVisibleLine=18058 visibleCount=76 totalLines=18059 windowStart=0 windowSize=300 l0='package com.yn.sodiumeditor.view;' l1='' l2='import android.animation.Animator;'
+1779021520.217 10480 32761 32761 I SodiumDbg: Cursor.invalidateCursorArea []
+1779021520.217 10480 32761 32761 I SodiumDbg: Caret.getCaretDocumentX []
+1779021520.217 10480 32761 32761 I SodiumDbg: TextRender.measureTextWithVisualSpaces [, 0, 0, android.graphics.Paint@7dd0590]
+1779021520.217 10480 32761 32761 I SodiumDbg: Caret.getCaretDocumentY []
+1779021520.217 10480 32761 32761 I SodiumDbg: CursorAnimation.updateCursorDrawPosition [0.0, 3164.0625]
+1779021520.220 10480 32761 32761 D SodiumDbg: [render] firstVisibleIndex=45 lastVisibleIndex=75 firstVisibleLine=45 lastVisibleLine=18058 visibleCount=76 totalLines=18059 windowStart=0 windowSize=300 l0='package com.yn.sodiumeditor.view;' l1='' l2='import android.animation.Animator;'
+1779021520.321 10480 32761 32761 I SodiumDbg: SodiumInputConnection.commitText [d, 1]
+1779021520.321 10480 32761 32761 I SodiumDbg: Ime.onCommitText [d, 1]
+1779021520.321 10480 32761 32761 I SodiumDbg: Ime.tryReplaceWordFromImeCommit [d]
+1779021520.321 10480 32761 32761 I SodiumDbg: EditOperators.insertTextAtCursor [d]
+1779021520.321 10480 32761 32761 I SodiumDbg: EditorActions.insertTextAtCursor [d]
+1779021520.321 10480 32761 32761 I SodiumDbg: EditRecordManager.isLargePasteText [d]
+1779021520.322 10480 32761 32761 I SodiumDbg: CharAnimation.startCharAnimationFromText [d]
+1779021520.322 10480 32761 32761 I SodiumDbg: AutoCompletion.updateSuggestion []
+1779021520.322 10480 32761 32761 I SodiumDbg: Ime.updateImeSelection []
+1779021520.325 10480 32761 32761 I FoldTypingPerf: scanner.move total=1 from=18058:0 delta=-2048 to=17988:6 visited=71 totalLines=18059 modified=0
+1779021520.325 10480 32761 32761 I FoldTypingPerf: scanner.move total=0 from=18058:0 delta=2048 to=18058:0 visited=1 totalLines=18059 modified=0
+1779021520.326 10480 32761 32761 I FoldTypingPerf: scanner.range total=1 lines=71 start=17988:6 end=18058:0 len=2048 modified=0 raf=true
+1779021520.326 10480 32761 32761 I FoldTypingPerf: scanner.buildContext total=5 open=2 moveBefore=2 moveAfter=0 range=1 beforeReq=2048 afterReq=2048 start=17988:6 end=18058:0 textLen=2048 modified=0 raf=true
+1779021520.327 10480 32761 32761 I FoldTypingPerf: ime.updateSelection total=5 ctx=5 map=0 imm=0 extracted=0 textLen=2048 sel=2048:2048 modified=0
+1779021520.327 10480 32761 32761 I SodiumDbg: AutoCompletion.updateSuggestionInternal []
+1779021520.327 10480 32761 32761 I SodiumDbg: AutoCompletion.getCurrentWordFragment []
+1779021520.327 10480 32761 32761 I SodiumDbg: AutoCompletion.clearActiveSuggestion []
+1779021520.327 10480 32761 32761 I FoldTypingPerf: ime.commit total=6 insert=0 composing=0 anim=0 pair=0 completion=6 textLen=1 cursor=18058:0 modified=0 lineDelta=0
+1779021520.327 10480 32761 32761 I FoldTypingPerf: ic.commitText total=6 textLen=1 before=18058:0 after=18058:0 window=0+300 foldHidden=false modified=0 lineDelta=0
+1779021520.373 10480 32761 32761 I FoldTypingPerf: scanner.move total=2 from=18058:0 delta=-2048 to=17988:6 visited=71 totalLines=18059 modified=0
+1779021520.373 10480 32761 32761 I FoldTypingPerf: scanner.move total=0 from=18058:0 delta=2048 to=18058:0 visited=1 totalLines=18059 modified=0
+1779021520.374 10480 32761 32761 I FoldTypingPerf: scanner.range total=1 lines=71 start=17988:6 end=18058:0 len=2048 modified=0 raf=true
+1779021520.374 10480 32761 32761 I FoldTypingPerf: scanner.buildContext total=6 open=3 moveBefore=2 moveAfter=0 range=1 beforeReq=2048 afterReq=2048 start=17988:6 end=18058:0 textLen=2048 modified=0 raf=true
+1779021520.374 10480 32761 32761 I FoldTypingPerf: ime.updateSelection total=7 ctx=7 map=0 imm=0 extracted=0 textLen=2048 sel=2048:2048 modified=0
+1779021520.374 10480 32761 32761 I FoldTypingPerf: ime.commit total=7 insert=0 composing=0 anim=0 pair=0 completion=7 textLen=1 cursor=18058:0 modified=0 lineDelta=0
+1779021520.374 10480 32761 32761 I FoldTypingPerf: ic.commitText total=7 textLen=1 before=18058:0 after=18058:0 window=0+300 foldHidden=false modified=0 lineDelta=0
+1779021520.521 10480 32761 32761 I FoldTypingPerf: scanner.move total=2 from=18058:0 delta=-2048 to=17988:6 visited=71 totalLines=18059 modified=0
+1779021520.522 10480 32761 32761 I FoldTypingPerf: scanner.move total=0 from=18058:0 delta=2048 to=18058:0 visited=1 totalLines=18059 modified=0
+1779021520.522 10480 32761 32761 I FoldTypingPerf: scanner.range total=1 lines=71 start=17988:6 end=18058:0 len=2048 modified=0 raf=true
+1779021520.523 10480 32761 32761 I FoldTypingPerf: scanner.buildContext total=4 open=1 moveBefore=2 moveAfter=0 range=1 beforeReq=2048 afterReq=2048 start=17988:6 end=18058:0 textLen=2048 modified=0 raf=true
+1779021520.523 10480 32761 32761 I FoldTypingPerf: ime.updateSelection total=4 ctx=4 map=0 imm=0 extracted=0 textLen=2048 sel=2048:2048 modified=0
+1779021520.523 10480 32761 32761 I FoldTypingPerf: ime.commit total=5 insert=0 composing=0 anim=0 pair=0 completion=5 textLen=1 cursor=18058:0 modified=0 lineDelta=0
+1779021520.523 10480 32761 32761 I FoldTypingPerf: ic.commitText total=5 textLen=1 before=18058:0 after=18058:0 window=0+300 foldHidden=false modified=0 lineDelta=0
+1779021520.575 10480 32761 32761 I FoldTypingPerf: scanner.move total=2 from=18058:0 delta=-2048 to=17988:6 visited=71 totalLines=18059 modified=0
+1779021520.575 10480 32761 32761 I FoldTypingPerf: scanner.move total=0 from=18058:0 delta=2048 to=18058:0 visited=1 totalLines=18059 modified=0
+1779021520.576 10480 32761 32761 I FoldTypingPerf: scanner.range total=1 lines=71 start=17988:6 end=18058:0 len=2048 modified=0 raf=true
+1779021520.576 10480 32761 32761 I FoldTypingPerf: scanner.buildContext total=4 open=1 moveBefore=2 moveAfter=0 range=1 beforeReq=2048 afterReq=2048 start=17988:6 end=18058:0 textLen=2048 modified=0 raf=true
+1779021520.576 10480 32761 32761 I FoldTypingPerf: ime.updateSelection total=4 ctx=4 map=0 imm=0 extracted=0 textLen=2048 sel=2048:2048 modified=0
+1779021520.576 10480 32761 32761 I FoldTypingPerf: ime.commit total=4 insert=0 composing=0 anim=0 pair=0 completion=4 textLen=1 cursor=18058:0 modified=0 lineDelta=0
+1779021520.576 10480 32761 32761 I FoldTypingPerf: ic.commitText total=4 textLen=1 before=18058:0 after=18058:0 window=0+300 foldHidden=false modified=0 lineDelta=0
+1779021520.610 10480 32761 32761 I SodiumDbg: CodeFold.rebuildFoldIntervalsIfNeeded []
+1779021520.610 10480 32761 32761 I SodiumDbg: CodeFold.getFoldRangeAtStart [18058]
+1779021520.613 10480 32761 32761 I SodiumDbg: EditorActions.insertCharAtCursor [j]
+1779021520.613 10480 32761 32761 I SodiumDbg: FileIO.invalidatePendingIOForEdit []
+1779021520.613 10480 32761 32761 I SodiumDbg: FileIO.invalidatePendingIO []
+1779021520.613 10480 32761 32761 I SodiumDbg: Highlite.clearHighlightCaches []
+1779021520.613 10480 32761 32761 I SodiumDbg: ColorCodeHighlight.clearColorCodeCaches []
+1779021520.613 10480 32761 32761 I SodiumDbg: UrlUnderline.clearUrlUnderlineCache []
+1779021520.613 10480 32761 32761 I SodiumDbg: PathUnderline.clearPathUnderlineCache []
+1779021520.613 10480 32761 32761 I SodiumDbg: Highlite.invalidateHighlightEnsureRange []
+1779021520.613 10480 32761 32761 I SodiumDbg: EditorActions.handleCodeFoldBeforeEdit []
+1779021520.613 10480 32761 32761 I SodiumDbg: EditorActions.isLineInLoadedWindow [18058]
+1779021520.696 10480 32761 32761 I SodiumDbg: ImeScanner.buildImeContext [2048, 2048]
+1779021520.696 10480 32761 32761 I SodiumDbg: ImeScanner.openImeRandomAccessFile []
+1779021520.697 10480 32761 32761 I SodiumDbg: ImeScanner.moveCursorByCharsForIme [18058, 0, -2048, java.io.RandomAccessFile@31975a2]
+1779021520.697 10480 32761 32761 I SodiumDbg: ImeScanner.clampLineCharToDocument [18058, 0, java.io.RandomAccessFile@31975a2]
+1779021520.697 10480 32761 32761 I SodiumDbg: ImeScanner.getLineTextForImeScan [18058, java.io.RandomAccessFile@31975a2]
+1779021520.697 10480 32761 32761 I SodiumDbg: FileIO.readLineUtf8AtByte [java.io.RandomAccessFile@31975a2, 637142]
+1779021520.697 10480 32761 32761 I SodiumDbg: CursorTarget.CursorTarget [18058, 0]
+1779021520.699 10480 32761 32761 I FoldTypingPerf: scanner.move total=1 from=18058:0 delta=-2048 to=17988:6 visited=71 totalLines=18059 modified=0
+1779021520.699 10480 32761 32761 I FoldTypingPerf: scanner.move total=0 from=18058:0 delta=2048 to=18058:0 visited=1 totalLines=18059 modified=0
+1779021520.699 10480 32761 32761 I SodiumDbg: ImeScanner.buildRangeTextForIme [Y.a@faa233, Y.a@e94c9f0, java.io.RandomAccessFile@31975a2]
+1779021520.699 10480 32761 32761 I SodiumDbg: ImeScanner.comparePos [17988, 6, 18058, 0]
+1779021520.700 10480 32761 32761 I FoldTypingPerf: scanner.range total=1 lines=71 start=17988:6 end=18058:0 len=2048 modified=0 raf=true
+1779021520.700 10480 32761 32761 I FoldTypingPerf: scanner.buildContext total=5 open=2 moveBefore=2 moveAfter=0 range=1 beforeReq=2048 afterReq=2048 start=17988:6 end=18058:0 textLen=2048 modified=0 raf=true
+1779021520.700 10480 32761 32761 I SodiumDbg: ImeContext.ImeContext [17988, 6,  (cursorMoved) {
+1779021520.700 10480 32761 32761 I SodiumDbg:       lastCursorAnimLine = cursorLine;
+1779021520.700 10480 32761 32761 I SodiumDbg:       lastCursorAnimChar = cursorChar;
+1779021520.700 10480 32761 32761 I SodiumDbg:       lastCursorMoveUptime = SystemClock.uptimeMillis();
+1779021520.700 10480 32761 32761 I SodiumDbg:     } else if (Math.abs(targetX - cursorAnimTargetX) > 0.5f
+1779021520.700 10480 32761 32761 I SodiumDbg:         || Math.abs(targetY - cursorAnimTargetY) > 0.5f) {
+1779021520.700 10480 32761 32761 I SodiumDbg:       // Layout/zoom changed while caret stayed; snap to the new target.
+1779021520.700 10480 32761 32761 I SodiumDbg:       removeCallbacks(cursorAnimStep);
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorAnimRunning = false;
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorAnimX = targetX;
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorAnimY = targetY;
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorAnimTargetX = targetX;
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorAnimTargetY = targetY;
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorAnimValid = true;
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorDrawX = targetX;
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorDrawY = targetY;
+1779021520.700 10480 32761 32761 I SodiumDbg:       return;
+1779021520.700 10480 32761 32761 I SodiumDbg:     }
+1779021520.700 10480 32761 32761 I SodiumDbg:     if (!cursorAnimValid) {
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorAnimX = targetX;
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorAnimY = targetY;
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorAnimValid = true;
+1779021520.700 10480 32761 32761 I SodiumDbg:     }
+1779021520.700 10480 32761 32761 I SodiumDbg:     cursorAnimTargetX = targetX;
+1779021520.700 10480 32761 32761 I SodiumDbg:     cursorAnimTargetY = targetY;
+1779021520.700 10480 32761 32761 I SodiumDbg:     float dx = cursorAnimTargetX - cursorAnimX;
+1779021520.700 10480 32761 32761 I SodiumDbg:     float dy = cursorAnimTargetY - cursorAnimY;
+1779021520.700 10480 32761 32761 I SodiumDbg:     float distance = (float) Math.hypot(dx, dy);
+1779021520.700 10480 32761 32761 I SodiumDbg:     if (distance > lineHeight * 6f) {
+1779021520.700 10480 32761 32761 I SodiumDbg:       removeCallbacks(cursorAnimStep);
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorAnimRunning = false;
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorAnimX = targetX;
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorAnimY = targetY;
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorAnimTargetX = targetX;
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorAnimTargetY = targetY;
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorDrawX = targetX;
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorDrawY = targetY;
+1779021520.700 10480 32761 32761 I SodiumDbg:       return;
+1779021520.700 10480 32761 32761 I SodiumDbg:     }
+1779021520.700 10480 32761 32761 I SodiumDbg:     if (!cursorAnimRunning && distance > 0.5f) {
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorAnimLastFrameUptime = 0L;
+1779021520.700 10480 32761 32761 I SodiumDbg:       cursorAnimRunning = true;
+1779021520.700 10480 32761 32761 I SodiumDbg:       postOnAnimation(cursorAnimStep);
+1779021520.700 10480 32761 32761 I SodiumDbg:     }
+1779021520.700 10480 32761 32761 I SodiumDbg:     cursorDrawX = cursorAnimX;
+1779021520.700 10480 32761 32761 I SodiumDbg:     cursorDrawY = cursorAnimY;
+1779021520.700 10480 32761 32761 I SodiumDbg:   }
+1779021520.700 10480 32761 32761 I SodiumDbg:   private void resetCursorBlink() {
+1779021520.700 10480 32761 32761 I SodiumDbg:     mainHandler.removeCallbacks(blinkRunnable);
+1779021520.700 10480 32761 32761 I SodiumDbg:     isCursorVisible = true;
+1779021520.700 10480 32761 32761 I SodiumDbg:     if (isFocused() && !hasSelection) {
+1779021520.700 10480 32761 32761 I SodiumDbg:       invalidate(); // Ensure it's drawn immediately
+1779021520.700 10480 32761 32761 I SodiumDbg:       mainHandler.postDelayed(blinkRunnable, 500);
+1779021520.700 10480 32761 32761 I SodiumDbg:     }
+1779021520.700 10480 32761 32761 I SodiumDbg:   }
+1779021520.700 10480 32761 32761 I SodiumDbg:   public void release() {
+1779021520.700 10480 32761 32761 I SodiumDbg:     cancelAndCloseReader();
+1779021520.700 10480 32761 32761 I SodiumDbg:     if (charAnimAnimator != null) charAnimAnimator.cancel();
+1779021520.700 10480 32761 32761 I SodiumDbg:     if (delAnimAnimator != null) delAnimAnimator.cancel();
+1779021520.700 10480 32761 32761 I SodiumDbg:     removeCallbacks(cursorAnimStep);
+1779021520.700 10480 32761 32761 I SodiumDbg:     ioThread.quitSafely();
+1779021520.700 10480 32761 32761 I SodiumDbg:   }
+1779021520.700 10480 32761 32761 I SodiumDbg: }
+1779021520.700 10480 32761 32761 I SodiumDbg: ]
+1779021520.700 10480 32761 32761 I SodiumDbg: ImeScanner.lineCharToOffsetInContext [Y.d@a814b69, 18058, 0]
+1779021520.700 10480 32761 32761 I FoldTypingPerf: ime.updateSelection total=5 ctx=5 map=0 imm=0 extracted=0 textLen=2048 sel=2048:2048 modified=0
+1779021520.700 10480 32761 32761 I FoldTypingPerf: ime.commit total=5 insert=0 composing=0 anim=0 pair=0 completion=5 textLen=1 cursor=18058:0 modified=0 lineDelta=0
+1779021520.701 10480 32761 32761 I FoldTypingPerf: ic.commitText total=5 textLen=1 before=18058:0 after=18058:0 window=0+300 foldHidden=false modified=0 lineDelta=0
+1779021520.717 10480 32761 32761 I SodiumDbg: WindowRender.getLineTextForRender [18058]
+1779021520.717 10480 32761 32761 I SodiumDbg: Layout.getTextStartX []
+1779021520.717 10480 32761 32761 I SodiumDbg: CodeFold.getVisibleIndexForGlobalLine [18058]
+1779021520.717 10480 32761 32761 I SodiumDbg: CursorHandle.updateCursorHandlePosition []
+1779021520.721 10480 32761 32761 I SodiumDbg: Scroll.computeScroll []
+1779021520.721 10480 32761 32761 I SodiumDbg: ViewRender.drawContent [android.graphics.RecordingCanvas@d09c15d]
+1779021520.721 10480 32761 32761 I SodiumDbg: CodeFold.getVisibleLineCount []
+1779021520.721 10480 32761 32761 I SodiumDbg: BracketGuides.beginRenderFrame [0, 299, 45, 75]
+1779021520.721 10480 32761 32761 I SodiumDbg: BracketGuideDraw.beginRenderFrame [0, 299, 45, 75]
+1779021520.721 10480 32761 32761 I SodiumDbg: BracketGuides.ensureBracketGuideCacheForWindow [0, 299, 45, 75, null]
+1779021520.721 10480 32761 32761 I SodiumDbg: BracketGuides.setFrameFastScroll [false]
+1779021520.721 10480 32761 32761 I SodiumDbg: BracketGuideDraw.setFrameFastScroll [false]
+1779021520.721 10480 32761 32761 I SodiumDbg: ViewRender.drawContentUnfolded [android.graphics.RecordingCanvas@d09c15d, false]
+1779021520.722 10480 32761 32761 I SodiumDbg: CodeFold.mapVisibleIndexToGlobal [45]
+1779021520.722 10480 32761 32761 I SodiumDbg: WindowRender.getLineFromWindowLocal [0]
+1779021520.722 10480 32761 32761 D SodiumDbg: [render] firstVisibleIndex=45 lastVisibleIndex=75 firstVisibleLine=45 lastVisibleLine=18058 visibleCount=76 totalLines=18059 windowStart=0 windowSize=300 l0='package com.yn.sodiumeditor.view;' l1='' l2='import android.animation.Animator;'
+1779021520.722 10480 32761 32761 I SodiumDbg: LineNumber.getGutterStartX []
+1779021520.722 10480 32761 32761 I SodiumDbg: TextRender.drawlineNumbersCachedUnwrapped [android.graphics.RecordingCanvas@d09c15d, 45, 75, 45, 18058]
+1779021520.722 10480 32761 32761 I SodiumDbg: LineNumber.drawLineNumbersCachedUnwrapped [android.graphics.RecordingCanvas@d09c15d, 45, 75, 45, 18058]
+1779021520.724 10480 32761 32761 I SodiumDbg: LineNumberCache.shouldUseCache []
+1779021520.724 10480 32761 32761 I SodiumDbg: LineNumberCache.needsRebuild [166, 2292, 45, 75, 1856.25, false]
+1779021520.725 10480 32761 32761 I SodiumDbg: LineNumber.drawCurrentLineNumberUnwrapped [android.graphics.RecordingCanvas@d09c15d, 45, 75]
+1779021520.725 10480 32761 32761 I SodiumDbg: CodeFold.isLineHidden [18058]
+1779021520.725 10480 32761 32761 I SodiumDbg: CodeFoldRender.drawFoldMarkersForVisibleLines [android.graphics.RecordingCanvas@d09c15d, 45, 75]
+1779021520.725 10480 32761 32761 I SodiumDbg: CurrentLineHighlight.getAnimatedVisualIndex []
+1779021520.725 10480 32761 32761 I SodiumDbg: CurrentLineHighlightAnimation.getAnimatedVisualIndex []
+1779021520.726 10480 32761 32761 I SodiumDbg: CurrentLineHighlightAnimation.checkAndStartAnimation []
+1779021520.726 10480 32761 32761 I SodiumDbg: CurrentLineHighlightAnimation.getTargetVisualIndex []
+1779021520.726 10480 32761 32761 I SodiumDbg: Scroll.getEffectiveScrollX []
+1779021520.726 10480 32761 32761 I SodiumDbg: ViewRender.drawTextContent [android.graphics.RecordingCanvas@d09c15d, 45, 75, 45, 18058, true, false, false]
+1779021520.726 10480 32761 32761 I SodiumDbg: FileIO.populateDirectLinesForRange [18057, 18057, {}]
+1779021520.726 10480 32761 32761 I SodiumDbg: FileCache.populateDirectLinesForRange [18057, 18057, {}]
+1779021520.727 10480 32761 32761 I SodiumDbg: WindowRender.hasModifiedLine [18057]
+1779021520.731 10480 32761 32761 I SodiumDbg: CodeFoldRender.drawFoldedContent [android.graphics.RecordingCanvas@d09c15d, 45, 75, 45, 18058, {18057=}, 18058=}, null, null, true, false, null]
+1779021520.731 10480 32761 32761 I SodiumDbg: IndentGuides.rebuildIndentGuideIntervalsIfNeeded []
+1779021520.731 10480 32761 32761 I SodiumDbg: CodeFoldRender.getLineTextForRenderWithDirect [45, {18057=}, 18058=}]
+1779021520.731 10480 32761 32761 I SodiumDbg: WindowRender.canUseFileBackedLineForRender [45]
+1779021520.732 10480 32761 32761 I SodiumDbg: TextRender.getDrawLineTop [45]
+1779021520.732 10480 32761 32761 I SodiumDbg: ViewRender.drawColorCodeBackgrounds [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45]
+1779021520.732 10480 32761 32761 I SodiumDbg: ColorCodeHighlight.drawColorCodeBackgrounds [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45]
+1779021520.732 10480 32761 32761 I SodiumDbg: TextRender.getDrawLineBottom [45]
+1779021520.732 10480 32761 32761 I SodiumDbg: ViewRender.drawSearchHighlightsForLine [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45, 0.0, 42.0]
+1779021520.732 10480 32761 32761 I SodiumDbg: TextRender.drawHighlightedLine [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45, 33.0]
+1779021520.732 10480 32761 32761 I SodiumDbg: HighliteRender.drawHighlightedLine [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45, 33.0]
+1779021520.732 10480 32761 32761 I SodiumDbg: TextRender.getVisibleCharRangeForLine [import org.json.JSONObject;, 45, [I@2811bb3]
+1779021520.732 10480 32761 32761 I SodiumDbg: WindowRender.getStreamedLineLength [45]
+1779021520.732 10480 32761 32761 I SodiumDbg: UrlUnderline.isUrlUnderliningActive []
+1779021520.732 10480 32761 32761 I SodiumDbg: UrlUnderline.getUrlUnderlineSpansForLine [import org.json.JSONObject;, 45]
+1779021520.732 10480 32761 32761 I SodiumDbg: PathUnderline.isPathUnderliningActive []
+1779021520.732 10480 32761 32761 I SodiumDbg: PathUnderline.getPathUnderlineSpansForLine [import org.json.JSONObject;, 45]
+1779021520.732 10480 32761 32761 I SodiumDbg: TextRender.drawTextSegmentWithFadeAndUnderlines [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 0, 27, 0.0, 33.0, android.graphics.Paint@7dd0590, -1, -1, 1.0, [], 0.0, 42.1875]
+1779021520.732 10480 32761 32761 I SodiumDbg: TextLineDraw.drawTextSegmentWithFadeAndUnderlines [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 0, 27, 0.0, 33.0, android.graphics.Paint@7dd0590, -1, -1, 1.0, [], 0.0, 42.1875]
+1779021520.732 10480 32761 32761 I SodiumDbg: TextLineDraw.drawTextSegmentWithFade [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 0, 27, 0.0, 33.0, android.graphics.Paint@7dd0590, -1, -1, 1.0]
+1779021520.732 10480 32761 32761 I SodiumDbg: TextRender.getVisualSpaceScale []
+1779021520.733 10480 32761 32761 I SodiumDbg: ErrorUnderline.drawErrorUnderlinesForLine [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45, 33.0, 0.0, 42.1875]
+1779021520.733 10480 32761 32761 I SodiumDbg: TextRender.drawWhitespaceGuidesForLine [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45, 33.0]
+1779021520.733 10480 32761 32761 I SodiumDbg: WhitespaceGuides.drawWhitespaceGuidesForLine [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45, 33.0]
+1779021520.733 10480 32761 32761 I SodiumDbg: IndentGuides.drawIndentGuidesForLine [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45]
+1779021520.733 10480 32761 32761 I SodiumDbg: AutoCompletion.drawAutoSuggestion [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45, 33.0]
+1779021520.733 10480 32761 32761 I SodiumDbg: BracketMatchManager.drawBracketMatchForLine [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45, null]
+1779021520.737 10480 32761 32761 I SodiumDbg: CodeFoldRender.drawFoldedLine [android.graphics.RecordingCanvas@d09c15d, public class SodiumEditorView extends View {, 74, {18057=}, 18058=}]
+1779021520.737 10480 32761 32761 I SodiumDbg: Highlite.drawHighlightedSegment [android.graphics.RecordingCanvas@d09c15d, public class SodiumEditorView extends View {, 74, 0, 44, 0.0, 1256.8359]
+1779021520.737 10480 32761 32761 I SodiumDbg: Highlite.measureHighlightedSegmentWidth [public class SodiumEditorView extends View {, 74, 0, 44]
+1779021520.737 10480 32761 32761 I SodiumDbg: Caret.drawCaret [android.graphics.RecordingCanvas@d09c15d]
+1779021520.737 10480 32761 32761 I SodiumDbg: CursorHandle.drawCursorHandle [android.graphics.RecordingCanvas@d09c15d]
+1779021520.737 10480 32761 32761 I SodiumDbg: BracketGuides.endRenderFrameMaybeLog []
+1779021520.737 10480 32761 32761 I SodiumDbg: BracketGuideDraw.endRenderFrameMaybeLog []
+1779021520.737 10480 32761 32761 I SodiumDbg: ScrollBar.draw [android.graphics.RecordingCanvas@d09c15d]
+1779021520.737 10480 32761 32761 I SodiumDbg: Scroll.drawStretch [android.graphics.RecordingCanvas@d09c15d]
+1779021520.738 10480 32761 32761 I SodiumDbg: Stretch.drawStretch [android.graphics.RecordingCanvas@d09c15d]
+1779021520.738 10480 32761 32761 I SodiumDbg: Scroll.drawEdge [android.graphics.RecordingCanvas@d09c15d]
+1779021520.738 10480 32761 32761 I SodiumDbg: Edge.draw [android.graphics.RecordingCanvas@d09c15d]
+1779021520.738 10480 32761 32761 I SodiumDbg: Scroll.drawScrollBar [android.graphics.RecordingCanvas@d09c15d]
+1779021520.765 10480 32761 32761 I FoldTypingPerf: scanner.move total=1 from=18058:0 delta=-2048 to=17988:6 visited=71 totalLines=18059 modified=0
+1779021520.765 10480 32761 32761 I FoldTypingPerf: scanner.move total=0 from=18058:0 delta=2048 to=18058:0 visited=1 totalLines=18059 modified=0
+1779021520.766 10480 32761 32761 I FoldTypingPerf: scanner.range total=0 lines=71 start=17988:6 end=18058:0 len=2048 modified=0 raf=true
+1779021520.766 10480 32761 32761 I FoldTypingPerf: scanner.buildContext total=4 open=2 moveBefore=1 moveAfter=1 range=0 beforeReq=2048 afterReq=2048 start=17988:6 end=18058:0 textLen=2048 modified=0 raf=true
+1779021520.766 10480 32761 32761 I FoldTypingPerf: ime.updateSelection total=5 ctx=5 map=0 imm=0 extracted=0 textLen=2048 sel=2048:2048 modified=0
+1779021520.766 10480 32761 32761 I FoldTypingPerf: ime.commit total=5 insert=0 composing=0 anim=0 pair=0 completion=5 textLen=1 cursor=18058:0 modified=0 lineDelta=0
+1779021520.766 10480 32761 32761 I FoldTypingPerf: ic.commitText total=5 textLen=1 before=18058:0 after=18058:0 window=0+300 foldHidden=false modified=0 lineDelta=0
+1779021520.851 10480 32761 32761 I SodiumDbg: Ime.commitComposing [true]
+1779021520.854 10480 32761 32761 I FoldTypingPerf: scanner.move total=2 from=18058:0 delta=-2048 to=17988:6 visited=71 totalLines=18059 modified=0
+1779021520.854 10480 32761 32761 I FoldTypingPerf: scanner.move total=0 from=18058:0 delta=2048 to=18058:0 visited=1 totalLines=18059 modified=0
+1779021520.855 10480 32761 32761 I FoldTypingPerf: scanner.range total=1 lines=71 start=17988:6 end=18058:0 len=2048 modified=0 raf=true
+1779021520.855 10480 32761 32761 I FoldTypingPerf: scanner.buildContext total=5 open=2 moveBefore=2 moveAfter=0 range=1 beforeReq=2048 afterReq=2048 start=17988:6 end=18058:0 textLen=2048 modified=0 raf=true
+1779021520.856 10480 32761 32761 I FoldTypingPerf: ime.updateSelection total=5 ctx=5 map=0 imm=0 extracted=0 textLen=2048 sel=2048:2048 modified=0
+1779021520.856 10480 32761 32761 I FoldTypingPerf: ime.commit total=5 insert=0 composing=0 anim=0 pair=0 completion=5 textLen=1 cursor=18058:0 modified=0 lineDelta=0
+1779021520.856 10480 32761 32761 I FoldTypingPerf: ic.commitText total=5 textLen=1 before=18058:0 after=18058:0 window=0+300 foldHidden=false modified=0 lineDelta=0
+1779021520.958 10480 32761 32761 I FoldTypingPerf: scanner.move total=2 from=18058:0 delta=-2048 to=17988:6 visited=71 totalLines=18059 modified=0
+1779021520.958 10480 32761 32761 I FoldTypingPerf: scanner.move total=0 from=18058:0 delta=2048 to=18058:0 visited=1 totalLines=18059 modified=0
+1779021520.959 10480 32761 32761 I FoldTypingPerf: scanner.range total=1 lines=71 start=17988:6 end=18058:0 len=2048 modified=0 raf=true
+1779021520.960 10480 32761 32761 I FoldTypingPerf: scanner.buildContext total=4 open=1 moveBefore=2 moveAfter=0 range=1 beforeReq=2048 afterReq=2048 start=17988:6 end=18058:0 textLen=2048 modified=0 raf=true
+1779021520.960 10480 32761 32761 I FoldTypingPerf: ime.updateSelection total=4 ctx=4 map=0 imm=0 extracted=0 textLen=2048 sel=2048:2048 modified=0
+1779021520.960 10480 32761 32761 I FoldTypingPerf: ime.commit total=5 insert=0 composing=0 anim=0 pair=0 completion=5 textLen=1 cursor=18058:0 modified=0 lineDelta=0
+1779021520.960 10480 32761 32761 I FoldTypingPerf: ic.commitText total=5 textLen=1 before=18058:0 after=18058:0 window=0+300 foldHidden=false modified=0 lineDelta=0
+1779021521.037 10480 32761 32761 I FoldTypingPerf: scanner.move total=2 from=18058:0 delta=-2048 to=17988:6 visited=71 totalLines=18059 modified=0
+1779021521.037 10480 32761 32761 I FoldTypingPerf: scanner.move total=0 from=18058:0 delta=2048 to=18058:0 visited=1 totalLines=18059 modified=0
+1779021521.038 10480 32761 32761 I FoldTypingPerf: scanner.range total=1 lines=71 start=17988:6 end=18058:0 len=2048 modified=0 raf=true
+1779021521.038 10480 32761 32761 I FoldTypingPerf: scanner.buildContext total=4 open=1 moveBefore=2 moveAfter=0 range=1 beforeReq=2048 afterReq=2048 start=17988:6 end=18058:0 textLen=2048 modified=0 raf=true
+1779021521.038 10480 32761 32761 I FoldTypingPerf: ime.updateSelection total=4 ctx=4 map=0 imm=0 extracted=0 textLen=2048 sel=2048:2048 modified=0
+1779021521.038 10480 32761 32761 I FoldTypingPerf: ime.commit total=4 insert=0 composing=0 anim=0 pair=0 completion=4 textLen=1 cursor=18058:0 modified=0 lineDelta=0
+1779021521.038 10480 32761 32761 I FoldTypingPerf: ic.commitText total=4 textLen=1 before=18058:0 after=18058:0 window=0+300 foldHidden=false modified=0 lineDelta=0
+1779021521.149 10480 32761 32761 I FoldTypingPerf: scanner.move total=2 from=18058:0 delta=-2048 to=17988:6 visited=71 totalLines=18059 modified=0
+1779021521.149 10480 32761 32761 I FoldTypingPerf: scanner.move total=0 from=18058:0 delta=2048 to=18058:0 visited=1 totalLines=18059 modified=0
+1779021521.150 10480 32761 32761 I FoldTypingPerf: scanner.range total=1 lines=71 start=17988:6 end=18058:0 len=2048 modified=0 raf=true
+1779021521.150 10480 32761 32761 I FoldTypingPerf: scanner.buildContext total=4 open=1 moveBefore=2 moveAfter=0 range=1 beforeReq=2048 afterReq=2048 start=17988:6 end=18058:0 textLen=2048 modified=0 raf=true
+1779021521.150 10480 32761 32761 I FoldTypingPerf: ime.updateSelection total=5 ctx=5 map=0 imm=0 extracted=0 textLen=2048 sel=2048:2048 modified=0
+1779021521.150 10480 32761 32761 I FoldTypingPerf: ime.commit total=5 insert=0 composing=0 anim=0 pair=0 completion=5 textLen=1 cursor=18058:0 modified=0 lineDelta=0
+1779021521.150 10480 32761 32761 I FoldTypingPerf: ic.commitText total=5 textLen=1 before=18058:0 after=18058:0 window=0+300 foldHidden=false modified=0 lineDelta=0
+1779021521.220 10480 32761 32761 I FoldTypingPerf: scanner.move total=2 from=18058:0 delta=-2048 to=17988:6 visited=71 totalLines=18059 modified=0
+1779021521.220 10480 32761 32761 I FoldTypingPerf: scanner.move total=0 from=18058:0 delta=2048 to=18058:0 visited=1 totalLines=18059 modified=0
+1779021521.220 10480 32761 32761 I FoldTypingPerf: scanner.range total=1 lines=71 start=17988:6 end=18058:0 len=2048 modified=0 raf=true
+1779021521.221 10480 32761 32761 I FoldTypingPerf: scanner.buildContext total=4 open=1 moveBefore=2 moveAfter=0 range=1 beforeReq=2048 afterReq=2048 start=17988:6 end=18058:0 textLen=2048 modified=0 raf=true
+1779021521.221 10480 32761 32761 I FoldTypingPerf: ime.updateSelection total=4 ctx=4 map=0 imm=0 extracted=0 textLen=2048 sel=2048:2048 modified=0
+1779021521.221 10480 32761 32761 I FoldTypingPerf: ime.commit total=4 insert=0 composing=0 anim=0 pair=0 completion=4 textLen=1 cursor=18058:0 modified=0 lineDelta=0
+1779021521.221 10480 32761 32761 I FoldTypingPerf: ic.commitText total=4 textLen=1 before=18058:0 after=18058:0 window=0+300 foldHidden=false modified=0 lineDelta=0
+1779021521.221 10480 32761 32761 I SodiumDbg: Cursor.invalidateCursorArea []
+1779021521.221 10480 32761 32761 I SodiumDbg: Caret.getCaretDocumentX []
+1779021521.221 10480 32761 32761 I SodiumDbg: TextRender.measureTextWithVisualSpaces [, 0, 0, android.graphics.Paint@7dd0590]
+1779021521.221 10480 32761 32761 I SodiumDbg: Caret.getCaretDocumentY []
+1779021521.221 10480 32761 32761 I SodiumDbg: CursorAnimation.updateCursorDrawPosition [0.0, 3164.0625]
+1779021521.231 10480 32761 32761 D SodiumDbg: [render] firstVisibleIndex=45 lastVisibleIndex=75 firstVisibleLine=45 lastVisibleLine=18058 visibleCount=76 totalLines=18059 windowStart=0 windowSize=300 l0='package com.yn.sodiumeditor.view;' l1='' l2='import android.animation.Animator;'
+1779021521.291 10480 32761 32761 I FoldTypingPerf: scanner.move total=1 from=18058:0 delta=-2048 to=17988:6 visited=71 totalLines=18059 modified=0
+1779021521.291 10480 32761 32761 I FoldTypingPerf: scanner.move total=0 from=18058:0 delta=2048 to=18058:0 visited=1 totalLines=18059 modified=0
+1779021521.292 10480 32761 32761 I FoldTypingPerf: scanner.range total=1 lines=71 start=17988:6 end=18058:0 len=2048 modified=0 raf=true
+1779021521.292 10480 32761 32761 I FoldTypingPerf: scanner.buildContext total=4 open=2 moveBefore=1 moveAfter=0 range=1 beforeReq=2048 afterReq=2048 start=17988:6 end=18058:0 textLen=2048 modified=0 raf=true
+1779021521.292 10480 32761 32761 I FoldTypingPerf: ime.updateSelection total=5 ctx=5 map=0 imm=0 extracted=0 textLen=2048 sel=2048:2048 modified=0
+1779021521.292 10480 32761 32761 I FoldTypingPerf: ime.commit total=5 insert=0 composing=0 anim=0 pair=0 completion=5 textLen=1 cursor=18058:0 modified=0 lineDelta=0
+1779021521.292 10480 32761 32761 I FoldTypingPerf: ic.commitText total=5 textLen=1 before=18058:0 after=18058:0 window=0+300 foldHidden=false modified=0 lineDelta=0
+1779021521.610 10480 32761 32761 I SodiumDbg: CodeFold.rebuildFoldIntervalsIfNeeded []
+1779021521.610 10480 32761 32761 I SodiumDbg: CodeFold.getFoldRangeAtStart [18058]
+1779021521.613 10480 32761 32761 I SodiumDbg: EditorActions.handleCodeFoldBeforeEdit []
+1779021521.613 10480 32761 32761 I SodiumDbg: EditorActions.isLineInLoadedWindow [18058]
+1779021521.613 10480 32761 32761 I SodiumDbg: EditorActions.insertCharAtCursor [d]
+1779021521.613 10480 32761 32761 I SodiumDbg: FileIO.invalidatePendingIOForEdit []
+1779021521.613 10480 32761 32761 I SodiumDbg: FileIO.invalidatePendingIO []
+1779021521.613 10480 32761 32761 I SodiumDbg: Highlite.clearHighlightCaches []
+1779021521.613 10480 32761 32761 I SodiumDbg: ColorCodeHighlight.clearColorCodeCaches []
+1779021521.613 10480 32761 32761 I SodiumDbg: UrlUnderline.clearUrlUnderlineCache []
+1779021521.613 10480 32761 32761 I SodiumDbg: PathUnderline.clearPathUnderlineCache []
+1779021521.613 10480 32761 32761 I SodiumDbg: Highlite.invalidateHighlightEnsureRange []
+1779021521.721 10480 32761 32761 I SodiumDbg: WindowRender.getLineTextForRender [18058]
+1779021521.721 10480 32761 32761 I SodiumDbg: Layout.getTextStartX []
+1779021521.721 10480 32761 32761 I SodiumDbg: CodeFold.getVisibleIndexForGlobalLine [18058]
+1779021521.721 10480 32761 32761 I SodiumDbg: CursorHandle.updateCursorHandlePosition []
+1779021521.727 10480 32761 32761 I SodiumDbg: Scroll.computeScroll []
+1779021521.727 10480 32761 32761 I SodiumDbg: ViewRender.drawContent [android.graphics.RecordingCanvas@d09c15d]
+1779021521.728 10480 32761 32761 I SodiumDbg: CodeFold.getVisibleLineCount []
+1779021521.728 10480 32761 32761 I SodiumDbg: BracketGuides.beginRenderFrame [0, 299, 45, 75]
+1779021521.728 10480 32761 32761 I SodiumDbg: BracketGuideDraw.beginRenderFrame [0, 299, 45, 75]
+1779021521.728 10480 32761 32761 I SodiumDbg: BracketGuides.ensureBracketGuideCacheForWindow [0, 299, 45, 75, null]
+1779021521.728 10480 32761 32761 I SodiumDbg: BracketGuides.setFrameFastScroll [false]
+1779021521.728 10480 32761 32761 I SodiumDbg: BracketGuideDraw.setFrameFastScroll [false]
+1779021521.728 10480 32761 32761 I SodiumDbg: ViewRender.drawContentUnfolded [android.graphics.RecordingCanvas@d09c15d, false]
+1779021521.728 10480 32761 32761 I SodiumDbg: CodeFold.mapVisibleIndexToGlobal [45]
+1779021521.728 10480 32761 32761 I SodiumDbg: WindowRender.getLineFromWindowLocal [0]
+1779021521.728 10480 32761 32761 D SodiumDbg: [render] firstVisibleIndex=45 lastVisibleIndex=75 firstVisibleLine=45 lastVisibleLine=18058 visibleCount=76 totalLines=18059 windowStart=0 windowSize=300 l0='package com.yn.sodiumeditor.view;' l1='' l2='import android.animation.Animator;'
+1779021521.728 10480 32761 32761 I SodiumDbg: LineNumber.getGutterStartX []
+1779021521.728 10480 32761 32761 I SodiumDbg: TextRender.drawlineNumbersCachedUnwrapped [android.graphics.RecordingCanvas@d09c15d, 45, 75, 45, 18058]
+1779021521.729 10480 32761 32761 I SodiumDbg: LineNumber.drawLineNumbersCachedUnwrapped [android.graphics.RecordingCanvas@d09c15d, 45, 75, 45, 18058]
+1779021521.729 10480 32761 32761 I SodiumDbg: LineNumberCache.shouldUseCache []
+1779021521.729 10480 32761 32761 I SodiumDbg: LineNumberCache.needsRebuild [166, 2292, 45, 75, 1856.25, false]
+1779021521.729 10480 32761 32761 I SodiumDbg: LineNumber.drawCurrentLineNumberUnwrapped [android.graphics.RecordingCanvas@d09c15d, 45, 75]
+1779021521.729 10480 32761 32761 I SodiumDbg: CodeFold.isLineHidden [18058]
+1779021521.730 10480 32761 32761 I SodiumDbg: CodeFoldRender.drawFoldMarkersForVisibleLines [android.graphics.RecordingCanvas@d09c15d, 45, 75]
+1779021521.731 10480 32761 32761 I SodiumDbg: CurrentLineHighlight.getAnimatedVisualIndex []
+1779021521.731 10480 32761 32761 I SodiumDbg: CurrentLineHighlightAnimation.getAnimatedVisualIndex []
+1779021521.731 10480 32761 32761 I SodiumDbg: CurrentLineHighlightAnimation.checkAndStartAnimation []
+1779021521.731 10480 32761 32761 I SodiumDbg: CurrentLineHighlightAnimation.getTargetVisualIndex []
+1779021521.731 10480 32761 32761 I SodiumDbg: Scroll.getEffectiveScrollX []
+1779021521.731 10480 32761 32761 I SodiumDbg: ViewRender.drawTextContent [android.graphics.RecordingCanvas@d09c15d, 45, 75, 45, 18058, true, false, false]
+1779021521.731 10480 32761 32761 I SodiumDbg: FileIO.populateDirectLinesForRange [18057, 18057, {}]
+1779021521.731 10480 32761 32761 I SodiumDbg: FileCache.populateDirectLinesForRange [18057, 18057, {}]
+1779021521.733 10480 32761 32761 I SodiumDbg: WindowRender.hasModifiedLine [18057]
+1779021521.745 10480 32761 32761 I SodiumDbg: CodeFoldRender.drawFoldedContent [android.graphics.RecordingCanvas@d09c15d, 45, 75, 45, 18058, {18057=}, 18058=}, null, null, true, false, null]
+1779021521.745 10480 32761 32761 I SodiumDbg: IndentGuides.rebuildIndentGuideIntervalsIfNeeded []
+1779021521.745 10480 32761 32761 I SodiumDbg: CodeFoldRender.getLineTextForRenderWithDirect [45, {18057=}, 18058=}]
+1779021521.745 10480 32761 32761 I SodiumDbg: WindowRender.canUseFileBackedLineForRender [45]
+1779021521.745 10480 32761 32761 I SodiumDbg: TextRender.getDrawLineTop [45]
+1779021521.745 10480 32761 32761 I SodiumDbg: ViewRender.drawColorCodeBackgrounds [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45]
+1779021521.745 10480 32761 32761 I SodiumDbg: ColorCodeHighlight.drawColorCodeBackgrounds [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45]
+1779021521.745 10480 32761 32761 I SodiumDbg: TextRender.getDrawLineBottom [45]
+1779021521.745 10480 32761 32761 I SodiumDbg: ViewRender.drawSearchHighlightsForLine [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45, 0.0, 42.0]
+1779021521.745 10480 32761 32761 I SodiumDbg: TextRender.drawHighlightedLine [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45, 33.0]
+1779021521.745 10480 32761 32761 I SodiumDbg: HighliteRender.drawHighlightedLine [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45, 33.0]
+1779021521.745 10480 32761 32761 I SodiumDbg: TextRender.getVisibleCharRangeForLine [import org.json.JSONObject;, 45, [I@2811bb3]
+1779021521.745 10480 32761 32761 I SodiumDbg: WindowRender.getStreamedLineLength [45]
+1779021521.745 10480 32761 32761 I SodiumDbg: UrlUnderline.isUrlUnderliningActive []
+1779021521.745 10480 32761 32761 I SodiumDbg: UrlUnderline.getUrlUnderlineSpansForLine [import org.json.JSONObject;, 45]
+1779021521.745 10480 32761 32761 I SodiumDbg: PathUnderline.isPathUnderliningActive []
+1779021521.745 10480 32761 32761 I SodiumDbg: PathUnderline.getPathUnderlineSpansForLine [import org.json.JSONObject;, 45]
+1779021521.745 10480 32761 32761 I SodiumDbg: TextRender.drawTextSegmentWithFadeAndUnderlines [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 0, 27, 0.0, 33.0, android.graphics.Paint@7dd0590, -1, -1, 1.0, [], 0.0, 42.1875]
+1779021521.745 10480 32761 32761 I SodiumDbg: TextLineDraw.drawTextSegmentWithFadeAndUnderlines [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 0, 27, 0.0, 33.0, android.graphics.Paint@7dd0590, -1, -1, 1.0, [], 0.0, 42.1875]
+1779021521.745 10480 32761 32761 I SodiumDbg: TextLineDraw.drawTextSegmentWithFade [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 0, 27, 0.0, 33.0, android.graphics.Paint@7dd0590, -1, -1, 1.0]
+1779021521.745 10480 32761 32761 I SodiumDbg: TextRender.getVisualSpaceScale []
+1779021521.745 10480 32761 32761 I SodiumDbg: ErrorUnderline.drawErrorUnderlinesForLine [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45, 33.0, 0.0, 42.1875]
+1779021521.745 10480 32761 32761 I SodiumDbg: TextRender.drawWhitespaceGuidesForLine [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45, 33.0]
+1779021521.746 10480 32761 32761 I SodiumDbg: WhitespaceGuides.drawWhitespaceGuidesForLine [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45, 33.0]
+1779021521.746 10480 32761 32761 I SodiumDbg: IndentGuides.drawIndentGuidesForLine [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45]
+1779021521.746 10480 32761 32761 I SodiumDbg: AutoCompletion.drawAutoSuggestion [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45, 33.0]
+1779021521.746 10480 32761 32761 I SodiumDbg: BracketMatchManager.drawBracketMatchForLine [android.graphics.RecordingCanvas@d09c15d, import org.json.JSONObject;, 45, null]
+1779021521.751 10480 32761 32761 I SodiumDbg: CodeFoldRender.drawFoldedLine [android.graphics.RecordingCanvas@d09c15d, public class SodiumEditorView extends View {, 74, {18057=}, 18058=}]
+1779021521.751 10480 32761 32761 I SodiumDbg: Highlite.drawHighlightedSegment [android.graphics.RecordingCanvas@d09c15d, public class SodiumEditorView extends View {, 74, 0, 44, 0.0, 1256.8359]
+1779021521.751 10480 32761 32761 I SodiumDbg: Highlite.measureHighlightedSegmentWidth [public class SodiumEditorView extends View {, 74, 0, 44]
+1779021521.752 10480 32761 32761 I SodiumDbg: Caret.drawCaret [android.graphics.RecordingCanvas@d09c15d]
+1779021521.752 10480 32761 32761 I SodiumDbg: CursorHandle.drawCursorHandle [android.graphics.RecordingCanvas@d09c15d]
+1779021521.752 10480 32761 32761 I SodiumDbg: BracketGuides.endRenderFrameMaybeLog []
+1779021521.752 10480 32761 32761 I SodiumDbg: BracketGuideDraw.endRenderFrameMaybeLog []
+1779021521.752 10480 32761 32761 I SodiumDbg: ScrollBar.draw [android.graphics.RecordingCanvas@d09c15d]
+1779021521.752 10480 32761 32761 I SodiumDbg: Scroll.drawStretch [android.graphics.RecordingCanvas@d09c15d]
+1779021521.752 10480 32761 32761 I SodiumDbg: Stretch.drawStretch [android.graphics.RecordingCanvas@d09c15d]
+1779021521.752 10480 32761 32761 I SodiumDbg: Scroll.drawEdge [android.graphics.RecordingCanvas@d09c15d]
+1779021521.752 10480 32761 32761 I SodiumDbg: Edge.draw [android.graphics.RecordingCanvas@d09c15d]
+1779021521.752 10480 32761 32761 I SodiumDbg: Scroll.drawScrollBar [android.graphics.RecordingCanvas@d09c15d]
+1779021522.222 10480 32761 32761 I SodiumDbg: Cursor.invalidateCursorArea []
+1779021522.222 10480 32761 32761 I SodiumDbg: Caret.getCaretDocumentX []
+1779021522.222 10480 32761 32761 I SodiumDbg: TextRender.measureTextWithVisualSpaces [, 0, 0, android.graphics.Paint@7dd0590]
+1779021522.222 10480 32761 32761 I SodiumDbg: Caret.getCaretDocumentY []
+1779021522.222 10480 32761 32761 I SodiumDbg: CursorAnimation.updateCursorDrawPosition [0.0, 3164.0625]
+1779021522.406 10480 32761 32761 I SodiumDbg: SodiumInputConnection.finishComposingText []
+1779021522.407 10480 32761 32761 I SodiumDbg: Ime.onFinishComposingText []
+1779021522.407 10480 32761 32761 I SodiumDbg: Ime.commitComposing [true]

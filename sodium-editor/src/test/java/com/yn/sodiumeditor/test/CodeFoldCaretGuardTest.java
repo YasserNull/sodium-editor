@@ -36,6 +36,17 @@ public class CodeFoldCaretGuardTest {
         collapsedBody.contains("suffixStart")
             && collapsedBody.contains("measureHighlightedSegmentWidth")
             && collapsedBody.contains("endLineText"));
+    assertTrue(
+        "BUG: collapsed-fold caret X must read current fold line text through a direct/modified-line fallback, otherwise typing after the folded close token can render the cursor one character behind.",
+        collapsedBody.contains("getLineTextForCollapsedFoldCaret(fold.startLine)")
+            && collapsedBody.contains("getLineTextForCollapsedFoldCaret(fold.endLine)")
+            && collapsedBody.contains("getEndLineTextForFold(fold)"));
+
+    String helper = methodBody(src, "getLineTextForCollapsedFoldCaret(int line)");
+    assertTrue(
+        "BUG: collapsed-fold caret text lookup must fall back to direct line reads when the fold end line is outside the render window.",
+        helper.contains("populateDirectLinesForRange(line, line, direct)")
+            && helper.contains("getLineTextForRenderWithDirect(line, direct)"));
   }
 
   @Test
@@ -64,6 +75,23 @@ public class CodeFoldCaretGuardTest {
   }
 
   @Test
+  public void commitTextAfterCollapsedFold_shouldSnapCursorToLatestTypedPosition() throws Exception {
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/input/Ime.java");
+
+    String commitBody = methodBody(src, "onCommitText(CharSequence text, int newCursorPosition)");
+    String snapBody = methodBody(src, "snapCollapsedFoldTypingCursor()");
+    assertTrue(
+        "BUG: typing after a collapsed fold must snap cursor animation after insertion, otherwise the caret visually trails the latest typed character.",
+        commitBody.contains("editor.editOperators.insertTextAtCursor(str);")
+            && commitBody.contains("snapCollapsedFoldTypingCursor();")
+            && snapBody.contains("getCollapsedRangeContainingLine(editor.cursor.cursorLine)")
+            && snapBody.contains("editor.cursorAnimation.snapToPosition(")
+            && snapBody.contains("editor.caret.getCaretDocumentX()")
+            && snapBody.contains("editor.caret.getCaretDocumentY()"));
+  }
+
+  @Test
   public void keepCursorVisibleHorizontally_shouldUseCaretDocumentXForCollapsedFoldCaret() throws Exception {
     String src =
         readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/scroll/Scroll.java");
@@ -89,6 +117,49 @@ public class CodeFoldCaretGuardTest {
     assertTrue(
         "BUG: tapping inside the visible suffix after a collapsed fold should preserve normal cursor transition animation, not force a snap.",
         body.contains("finishTapCursorPlacement(false);"));
+  }
+
+  @Test
+  public void collapsedFoldTapAndDrag_shouldKeepCaretAfterClosingToken() throws Exception {
+    String positionSrc =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/wordwrap/WordWrapPosition.java");
+    String positionBody = methodBody(positionSrc, "getCursorTargetForPosition(float viewX, float viewY,");
+    assertTrue(
+        "BUG: touch-to-cursor mapping must normalize positions inside collapsed hidden fold lines back to the visible fold start line before hit-testing, otherwise drag/touch can place the caret inside '{<->}'.",
+        positionBody.contains("getCollapsedRangeContainingLine(pos.line)")
+            && positionBody.contains("new WordWrap.VisualLinePosition(hidden.startLine, 0)"));
+
+    String tapSrc =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/input/events/OnSingleTapUp.java");
+    String tapBody = methodBody(tapSrc, "onSingleTapUp(MotionEvent e)");
+    String tapHelper = methodBody(tapSrc, "setCursorFromFoldTap(int line, int col, String knownLineText)");
+    assertTrue(
+        "BUG: tapping after a collapsed fold placeholder must set the real end-line cursor using fold-aware text, not setCursorPosition() with an empty off-window line that clamps to 0.",
+        tapBody.contains("setCursorFromFoldTap(range.endLine, targetChar, endLineText)")
+            && tapHelper.contains("editor.cursor.cursorLine = targetLine;")
+            && tapHelper.contains("editor.cursor.cursorChar = Math.max(0, Math.min(col, maxCol));"));
+
+    String longPressSrc =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/input/events/OnLongPress.java");
+    String longPressBody = methodBody(longPressSrc, "onLongPress(MotionEvent e)");
+    String longPressHelper =
+        methodBody(longPressSrc, "setCursorFromFoldLongPress(int line, int col, String knownLineText)");
+    assertTrue(
+        "BUG: long-press after a collapsed fold placeholder must preserve the real end-line char after the closing token instead of clamping into the placeholder.",
+        longPressBody.contains("setCursorFromFoldLongPress(cursorLine, charIndex, ln)")
+            && longPressBody.contains("getLineTextForLongPress(range.endLine)")
+            && longPressHelper.contains("editor.cursor.cursorChar = Math.max(0, Math.min(col, maxCol));"));
+
+    String dragSrc =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/input/events/DragSelectionHandler.java");
+    String dragBody = methodBody(dragSrc, "updateHandlePosition(float touchX, float touchY)");
+    String dragHelper =
+        methodBody(dragSrc, "setCursorFromFoldDrag(int line, int col, String knownLineText)");
+    assertTrue(
+        "BUG: dragging the cursor handle after a collapsed fold placeholder must preserve the hidden end-line char after the closing token instead of placing the caret inside '{<->}'.",
+        dragBody.contains("setCursorFromFoldDrag(line, clamped, ln)")
+            && dragBody.contains("getLineTextForDrag(range.endLine)")
+            && dragHelper.contains("editor.cursor.cursorChar = Math.max(0, Math.min(col, maxCol));"));
   }
 
   @Test

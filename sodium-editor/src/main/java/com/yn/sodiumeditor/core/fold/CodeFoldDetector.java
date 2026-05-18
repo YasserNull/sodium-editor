@@ -86,7 +86,12 @@ public class CodeFoldDetector {
             if (raf != null) {
                 try { raf.close(); } catch (Exception ignored) {}
             }
-            return new CodeFold.FoldRange(line, match.endLine, token.index, token.openChar, match.closeChar, match.endChar, false, false);
+            CodeFold.FoldRange range =
+                new CodeFold.FoldRange(
+                    line, match.endLine, token.index, token.openChar, match.closeChar, match.endChar, false, false);
+            range.cachedEndLineText = match.endLineText;
+            range.cachedEndLineTextAttempted = match.endLineText != null;
+            return range;
         }
         if (raf != null) {
             try { raf.close(); } catch (Exception ignored) {}
@@ -128,7 +133,7 @@ public class CodeFoldDetector {
                 offset = editor.fileIO.lineOffsets[line];
             }
             try {
-                return readLineUtf8AtByte(raf, offset);
+                return editor.fileIO.readLineUtf8AtByte(raf, offset);
             } catch (Exception ignored) {
                 return null;
             }
@@ -219,16 +224,16 @@ public class CodeFoldDetector {
                 break;
             }
 
-            if (editor.highlite.isBlockCommentsEnabled
-                    && i + 1 < len
-                    && line.charAt(i) == '/'
-                    && line.charAt(i + 1) == '*'
-                    && !isTokenEscaped(line, i)) {
-                int end = editor.codeFold.utils.findBlockCommentEnd(line, i + 2);
-                if (end < 0) break;
-                i = end + 2;
-                continue;
-            }
+	            if (editor.highlite.isBlockCommentsEnabled
+	                    && i + 1 < len
+	                    && line.charAt(i) == '/'
+	                    && line.charAt(i + 1) == '*'
+	                    && !isTokenEscaped(line, i)) {
+	                int end = editor.codeFold.utils.findBlockCommentEnd(line, i + 2);
+	                if (end < 0) return new FoldToken(i, true, '/');
+	                i = end + 2;
+	                continue;
+	            }
 
             if (editor.highlite.isTripleQuoteStringsEnabled && editor.highlite.isTripleQuoteStart(line, i) && !editor.highlite.isEscaped(line, i)) {
                 String delimiter = line.substring(i, Math.min(i + 3, len));
@@ -382,7 +387,7 @@ public class CodeFoldDetector {
                 } else if (c == closeBracket && !editor.highlite.isEscaped(line, i)) {
                     depth--;
                     if (depth == 0) {
-                        return new FoldMatch(startLine, i, closeBracket);
+                        return new FoldMatch(startLine, i, closeBracket, line);
                     }
                 }
                 i++;
@@ -444,17 +449,6 @@ public class CodeFoldDetector {
         return (count % 2) != 0;
     }
 
-    private String readLineUtf8AtByte(RandomAccessFile raf, long offset) throws Exception {
-        FunctionLog.f("CodeFoldDetector", "readLineUtf8AtByte", raf, offset);
-        raf.seek(offset);
-        StringBuilder sb = new StringBuilder();
-        int b;
-        while ((b = raf.read()) != -1 && b != '\n') {
-            if (b != '\r') sb.append((char) b);
-        }
-        return sb.toString();
-    }
-
     boolean shouldShowFoldMarkerFromLine(String line) {
         FunctionLog.f("CodeFoldDetector", "shouldShowFoldMarkerFromLine", line);
         if (line == null || line.isEmpty()) return false;
@@ -504,11 +498,13 @@ public class CodeFoldDetector {
         final int endLine;
         final int endChar;
         final char closeChar;
+        final String endLineText;
 
-        FoldMatch(int endLine, int endChar, char closeChar) {
+        FoldMatch(int endLine, int endChar, char closeChar, String endLineText) {
             this.endLine = endLine;
             this.endChar = endChar;
             this.closeChar = closeChar;
+            this.endLineText = endLineText;
         }
     }
 }

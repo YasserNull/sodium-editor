@@ -6,6 +6,7 @@ import com.yn.sodiumeditor.core.fold.CodeFold;
 import com.yn.sodiumeditor.io.EditOperators;
 import com.yn.sodiumeditor.io.EditOp;
 import com.yn.sodiumeditor.utils.FunctionLog;
+import java.util.HashMap;
 
 /**
  * OnSingleTapUp handles onSingleTapUp() gesture event for SodiumEditor.
@@ -45,11 +46,22 @@ public class OnSingleTapUp {
     int visibleIndex = Math.max(0, (int) (y / editor.textRender.lineHeight));
     int totalVisible =
         editor.wordWrap.isWordWrapEnabled ? editor.wordWrap.getTotalVisualLineCount() : editor.codeFold.getVisibleLineCount();
+    boolean afterEnd = editor.clickAfterEndToAddLine.isClickAfterEnd(visibleIndex, totalVisible);
+    if (afterEnd) {
+      placeCursorAtLastVisibleLineEnd(totalVisible);
+      if (editor.clickAfterEndToAddLine.isClickAfterEndToAddLineEnabled
+          && visibleIndex == totalVisible) {
+        editor.editOperators.insertTextAtCursor("\n");
+      }
+      finishTapCursorPlacement(afterEnd);
+      return true;
+    }
+
     EditOp.CursorTarget target = editor.wordWrap.getCursorTargetForPosition(e.getX(), e.getY(), null);
     int line = target.line;
 
     if (editor.codeFold.isCodeFoldingEnabled) {
-      String ln = editor.windowRender.getLineTextForRender(line);
+      String ln = getLineTextForTap(line);
       float xLocal = editor.scroll.viewToTextX(e.getX());
       float x;
       if (editor.wordWrap.isWordWrapEnabled) {
@@ -75,7 +87,7 @@ public class OnSingleTapUp {
       }
       CodeFold.FoldRange range = editor.codeFold.getFoldRangeAtStart(line);
       if (range != null && range.collapsed) {
-        String endLineText = editor.windowRender.getLineTextForRender(range.endLine);
+        String endLineText = getLineTextForTap(range.endLine);
         if (endLineText == null || endLineText.isEmpty()) {
           endLineText = editor.codeFold.utils.getEndLineTextForFold(range);
         }
@@ -102,7 +114,7 @@ public class OnSingleTapUp {
                   : (closeIdx >= 0 ? closeIdx + 1 : -1);
 
           if (x <= xStart) {
-            editor.cursor.setCursorPosition(line, Math.max(0, range.openCharIndex));
+            setCursorFromFoldTap(line, Math.max(0, range.openCharIndex), ln);
           } else if (x <= closeStart + closeWidth || suffixStart < 0 || endLineText == null) {
             int targetChar = 0;
             if (closeIdx >= 0) {
@@ -110,7 +122,7 @@ public class OnSingleTapUp {
             } else if (endLineText != null) {
               targetChar = endLineText.length();
             }
-            editor.cursor.setCursorPosition(range.endLine, targetChar);
+            setCursorFromFoldTap(range.endLine, targetChar, endLineText);
           } else {
             float xSuffix = Math.max(0f, x - (closeStart + closeWidth));
             int idx =
@@ -120,7 +132,10 @@ public class OnSingleTapUp {
                     suffixStart,
                     endLineText.length(),
                     xSuffix);
-            editor.cursor.setCursorPosition(range.endLine, Math.max(suffixStart, Math.min(idx, endLineText.length())));
+            setCursorFromFoldTap(
+                range.endLine,
+                Math.max(suffixStart, Math.min(idx, endLineText.length())),
+                endLineText);
           }
 
           finishTapCursorPlacement(false);
@@ -129,19 +144,11 @@ public class OnSingleTapUp {
       }
     }
 
-    boolean afterEnd = editor.clickAfterEndToAddLine.isClickAfterEnd(visibleIndex, totalVisible);
+    editor.fileIO.ensureLineInWindow(line, true);
+    String ln = editor.windowRender.getLineTextForRender(line);
+    editor.cursor.setCursorPosition(line, Math.max(0, Math.min(target.ch, (ln == null) ? 0 : ln.length())));
 
-    if (afterEnd) {
-      if (!editor.clickAfterEndToAddLine.handleClickAfterEnd(visibleIndex, totalVisible)) {
-        editor.clickAfterEndToAddLine.handleDefaultAfterEnd();
-      }
-    } else {
-      editor.fileIO.ensureLineInWindow(line, true);
-      String ln = editor.windowRender.getLineTextForRender(line);
-      editor.cursor.setCursorPosition(line, Math.max(0, Math.min(target.ch, (ln == null) ? 0 : ln.length())));
-    }
-
-    finishTapCursorPlacement(afterEnd);
+    finishTapCursorPlacement(false);
     return true;
   }
 
@@ -156,5 +163,48 @@ public class OnSingleTapUp {
     editor.ime.showKeyboard();
     editor.view.restartInput();
     editor.autoCompletion.updateSuggestion();
+  }
+
+  private String getLineTextForTap(int line) {
+    String text = editor.windowRender.getLineTextForRender(line);
+    if (text != null && !text.isEmpty()) return text;
+    if (line < 0 || editor.fileIO.sourceFile == null) return text == null ? "" : text;
+    HashMap<Integer, String> direct = new HashMap<>();
+    editor.fileIO.populateDirectLinesForRange(line, line, direct);
+    String directText = editor.windowRender.getLineTextForRenderWithDirect(line, direct);
+    return directText == null ? "" : directText;
+  }
+
+  private void placeCursorAtLastVisibleLineEnd(int totalVisible) {
+    int visibleIndex = Math.max(0, totalVisible - 1);
+    int line =
+        editor.wordWrap.isWordWrapEnabled
+            ? editor.wordWrap.getVisualPositionForIndex(visibleIndex).line
+            : editor.codeFold.mapVisibleIndexToGlobal(visibleIndex);
+    String lineText = getLineTextForTap(line);
+    CodeFold.FoldRange range =
+        editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.getFoldRangeAtStart(line) : null;
+    if (range != null && range.collapsed) {
+      String endLineText = getLineTextForTap(range.endLine);
+      if (endLineText == null || endLineText.isEmpty()) {
+        endLineText = editor.codeFold.utils.getEndLineTextForFold(range);
+      }
+      setCursorFromFoldTap(range.endLine, endLineText == null ? 0 : endLineText.length(), endLineText);
+      return;
+    }
+    editor.cursor.cursorLine = Math.max(0, line);
+    editor.cursor.cursorChar = lineText == null ? 0 : lineText.length();
+    editor.scroll.keepCursorVisibleHorizontally();
+    editor.cursor.invalidateCursorArea();
+  }
+
+  private void setCursorFromFoldTap(int line, int col, String knownLineText) {
+    int totalLines = editor.view.getLinesCount();
+    int targetLine = Math.max(0, Math.min(line, Math.max(0, totalLines - 1)));
+    int maxCol = knownLineText == null ? Math.max(0, col) : knownLineText.length();
+    editor.cursor.cursorLine = targetLine;
+    editor.cursor.cursorChar = Math.max(0, Math.min(col, maxCol));
+    editor.scroll.keepCursorVisibleHorizontally();
+    editor.cursor.invalidateCursorArea();
   }
 }

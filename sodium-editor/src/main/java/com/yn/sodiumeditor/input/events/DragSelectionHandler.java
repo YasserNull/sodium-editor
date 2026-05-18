@@ -5,6 +5,7 @@ import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.fold.CodeFold;
 import com.yn.sodiumeditor.io.EditOp;
 import com.yn.sodiumeditor.utils.FunctionLog;
+import java.util.HashMap;
 
 /**
  * Handles selection dragging and auto-scroll for SodiumEditor.
@@ -78,7 +79,7 @@ public class DragSelectionHandler {
             EditOp.CursorTarget target = editor.wordWrap.getCursorTargetForPosition(moveX, moveY, null);
             int line = target.line;
             editor.fileIO.ensureLineInWindow(line, true);
-            String ln = editor.windowRender.getLineTextForRender(line);
+            String ln = getLineTextForDrag(line);
             int clamped = Math.max(0, Math.min(target.ch, (ln == null) ? 0 : ln.length()));
             
             // Code folding logic
@@ -196,7 +197,7 @@ public class DragSelectionHandler {
         }
 
         editor.fileIO.ensureLineInWindow(line, true);
-        String ln = editor.windowRender.getLineTextForRender(line);
+        String ln = getLineTextForDrag(line);
         int clamped = Math.max(0, Math.min(target.ch, (ln == null) ? 0 : ln.length()));
 
         if (editor.codeFold.isCodeFoldingEnabled) {
@@ -225,7 +226,7 @@ public class DragSelectionHandler {
                 float placeholderWidth = Math.max(0f, editor.textRender.paint.measureText(CodeFold.FOLD_PLACEHOLDER_TEXT));
                 float closeStart = xStart + placeholderWidth;
                 float closeWidth = range.isBlockComment ? editor.textRender.paint.measureText("*/") : editor.textRender.paint.measureText(String.valueOf(range.closeChar));
-                String endLineText = editor.windowRender.getLineTextForRender(range.endLine);
+                String endLineText = getLineTextForDrag(range.endLine);
                 int closeIdx = editor.codeFold.resolveCloseCharIndex(range, endLineText);
                 int suffixStart = range.isBlockComment ? (closeIdx >= 0 ? closeIdx + 2 : (endLineText != null ? endLineText.length() : 0)) : (closeIdx >= 0 ? closeIdx + 1 : (endLineText != null ? endLineText.length() : 0));
 
@@ -243,7 +244,7 @@ public class DragSelectionHandler {
                     line = range.endLine;
                     clamped = Math.max(suffixStart, Math.min(idx, endLineText.length()));
                 }
-                ln = editor.windowRender.getLineTextForRender(line);
+                ln = getLineTextForDrag(line);
                 clamped = Math.max(0, Math.min(clamped, (ln == null) ? 0 : ln.length()));
             }
         }
@@ -268,7 +269,7 @@ public class DragSelectionHandler {
             if (editor.textRender.isRtl) { editor.selection.selStartLine = line; editor.selection.selStartChar = clamped; }
             else { editor.selection.selEndLine = line; editor.selection.selEndChar = clamped; }
         } else if (editor.selectionHandles.draggingHandle == 3) {
-            editor.cursor.setCursorPosition(line, clamped);
+            setCursorFromFoldDrag(line, clamped, ln);
             editor.scroll.keepCursorVisibleHorizontally();
         }
         android.util.Log.i(
@@ -327,7 +328,7 @@ public class DragSelectionHandler {
                 float xStart = bounds[0];
                 float placeholderWidth = Math.max(0f, editor.textRender.paint.measureText(CodeFold.FOLD_PLACEHOLDER_TEXT));
                 float closeStart = xStart + placeholderWidth;
-                String endLineText = editor.windowRender.getLineTextForRender(range.endLine);
+                String endLineText = getLineTextForDrag(range.endLine);
                 float closeWidth = editor.textRender.paint.measureText(String.valueOf(range.closeChar));
                 int closeIdx = editor.codeFold.resolveCloseCharIndex(range, endLineText);
                 int suffixStart = range.isBlockComment ? (closeIdx >= 0 ? closeIdx + 2 : -1) : (closeIdx >= 0 ? closeIdx + 1 : -1);
@@ -355,5 +356,26 @@ public class DragSelectionHandler {
             }
         }
         return clamped;
+    }
+
+    private String getLineTextForDrag(int line) {
+        String text = editor.windowRender.getLineTextForRender(line);
+        if (text != null && !text.isEmpty()) return text;
+        if (line < 0 || editor.fileIO.sourceFile == null) return text == null ? "" : text;
+        HashMap<Integer, String> direct = new HashMap<>();
+        editor.fileIO.populateDirectLinesForRange(line, line, direct);
+        String directText = editor.windowRender.getLineTextForRenderWithDirect(line, direct);
+        return directText == null ? "" : directText;
+    }
+
+    private void setCursorFromFoldDrag(int line, int col, String knownLineText) {
+        int totalLines = editor.view.getLinesCount();
+        int targetLine = Math.max(0, Math.min(line, Math.max(0, totalLines - 1)));
+        int maxCol = knownLineText == null ? Math.max(0, col) : knownLineText.length();
+        editor.cursor.cursorLine = targetLine;
+        editor.cursor.cursorChar = Math.max(0, Math.min(col, maxCol));
+        editor.caret.resetBlink();
+        editor.scroll.keepCursorVisibleHorizontally();
+        editor.cursor.invalidateCursorArea();
     }
 }

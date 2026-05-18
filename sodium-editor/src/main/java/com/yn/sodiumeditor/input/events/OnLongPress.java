@@ -5,6 +5,7 @@ import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.io.EditOperators;
 import com.yn.sodiumeditor.io.EditOp;
 import com.yn.sodiumeditor.utils.FunctionLog;
+import java.util.HashMap;
 
 /**
  * OnLongPress handles onLongPress() gesture event for SodiumEditor.
@@ -47,8 +48,7 @@ public class OnLongPress {
     int line = target.line;
     editor.fileIO.ensureLineInWindow(line, true); // Make sure line data is available
 
-    String ln = editor.windowRender.getLineFromWindowLocal(line - editor.windowRender.windowStartLine);
-    if (ln == null) ln = editor.windowRender.getLineTextForRender(line);
+    String ln = getLineTextForLongPress(line);
     int cursorLine = line;
     int charIndex = Math.max(0, Math.min(target.ch, ln.length()));
     float xLocal = editor.scroll.viewToTextX(e.getX());
@@ -71,7 +71,7 @@ public class OnLongPress {
           float placeholderWidth =
               Math.max(0f, editor.textRender.paint.measureText(com.yn.sodiumeditor.core.fold.CodeFold.FOLD_PLACEHOLDER_TEXT));
           float closeStart = xStart + placeholderWidth;
-          String endLineText = editor.windowRender.getLineTextForRender(range.endLine);
+          String endLineText = getLineTextForLongPress(range.endLine);
           if (endLineText == null || endLineText.isEmpty()) {
             endLineText = editor.codeFold.utils.getEndLineTextForFold(range);
           }
@@ -134,7 +134,7 @@ public class OnLongPress {
 
           if (cursorLine != line) {
             line = cursorLine;
-            ln = editor.windowRender.getLineTextForRender(cursorLine);
+            ln = getLineTextForLongPress(cursorLine);
             if (ln == null) ln = "";
           }
         }
@@ -146,7 +146,7 @@ public class OnLongPress {
       // Correctly clear selection and sync state
       editor.selection.clearSelection();
       
-      editor.cursor.setCursorPosition(cursorLine, charIndex);
+      setCursorFromFoldLongPress(cursorLine, charIndex, ln);
       
       // Record anchor point so finger movement can start selection from here
       editor.selection.beginLongPressSelection(cursorLine, charIndex);
@@ -164,7 +164,7 @@ public class OnLongPress {
     }
 
     // Set cursor position
-    editor.cursor.setCursorPosition(cursorLine, charIndex);
+    setCursorFromFoldLongPress(cursorLine, charIndex, ln);
 
     // Check if the long press is directly on a character (not on whitespace)
     boolean isOnText = false;
@@ -222,5 +222,26 @@ public class OnLongPress {
   public void onSingleTapUpFallback(MotionEvent e, OnSingleTapUp onSingleTapUp) {
     FunctionLog.f("OnLongPress", "onSingleTapUpFallback", e, onSingleTapUp);
     onSingleTapUp.onSingleTapUp(e);
+  }
+
+  private String getLineTextForLongPress(int line) {
+    String text = editor.windowRender.getLineTextForRender(line);
+    if (text != null && !text.isEmpty()) return text;
+    if (line < 0 || editor.fileIO.sourceFile == null) return text == null ? "" : text;
+    HashMap<Integer, String> direct = new HashMap<>();
+    editor.fileIO.populateDirectLinesForRange(line, line, direct);
+    String directText = editor.windowRender.getLineTextForRenderWithDirect(line, direct);
+    return directText == null ? "" : directText;
+  }
+
+  private void setCursorFromFoldLongPress(int line, int col, String knownLineText) {
+    int totalLines = editor.view.getLinesCount();
+    int targetLine = Math.max(0, Math.min(line, Math.max(0, totalLines - 1)));
+    int maxCol = knownLineText == null ? Math.max(0, col) : knownLineText.length();
+    editor.cursor.cursorLine = targetLine;
+    editor.cursor.cursorChar = Math.max(0, Math.min(col, maxCol));
+    editor.caret.resetBlink();
+    editor.scroll.keepCursorVisibleHorizontally();
+    editor.cursor.invalidateCursorArea();
   }
 }

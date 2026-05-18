@@ -192,18 +192,6 @@ public class ViewRender {
 
     HashMap<Integer, String> directLines = null;
     if (editor.fileIO.sourceFile != null) {
-      // IMPORTANT: don't read "direct lines" from disk while there are pending in-memory edits.
-      // Doing so can make deleted text reappear visually ("phantom render") because the file on
-      // disk hasn't been rewritten yet.
-      boolean hasPendingEdits = editor.editOperators.lineCountDelta != 0;
-      if (!hasPendingEdits) {
-          synchronized (editor.windowRender.modifiedLines) {
-              hasPendingEdits = !editor.windowRender.modifiedLines.isEmpty();
-          }
-      }
-      if (hasPendingEdits) {
-          directLines = null;
-      } else {
       int winStart = editor.windowRender.windowStartLine;
       int winEnd = winStart + editor.windowRender.linesWindow.size() - 1;
       if (!editor.codeFold.isCodeFoldingEnabled) {
@@ -238,7 +226,6 @@ public class ViewRender {
                   editor.fileIO.populateDirectLinesForRange(gl, gl, directLines); // guard: modifiedLines / lineCountDelta
               }
           }
-      }
       }
       }
     }
