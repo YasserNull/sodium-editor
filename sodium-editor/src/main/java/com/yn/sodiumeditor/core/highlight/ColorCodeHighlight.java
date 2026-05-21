@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Manages color code highlighting for the SodiumEditor.
@@ -39,7 +38,6 @@ public class ColorCodeHighlight {
           Pattern.CASE_INSENSITIVE);
 
   public ColorCodeHighlight(SodiumEditor editor) {
-    FunctionLog.f("ColorCodeHighlight", "ColorCodeHighlight", editor);
     this.editor = editor;
     colorOverlayPaint.setStyle(Paint.Style.FILL);
   }
@@ -48,7 +46,6 @@ public class ColorCodeHighlight {
    * Enables or disables color code highlighting.
    */
   public void setColorCodeHighlightingEnabled(boolean enabled) {
-    FunctionLog.f("ColorCodeHighlight", "setColorCodeHighlightingEnabled", enabled);
     if (this.isColorHighlightingEnabled == enabled) return;
     this.isColorHighlightingEnabled = enabled;
     colorCodeBgCache.clear();
@@ -59,7 +56,6 @@ public class ColorCodeHighlight {
    * Clears color code cache for a specific line.
    */
   public void clearColorCodeCacheForLine(int line) {
-    FunctionLog.f("ColorCodeHighlight", "clearColorCodeCacheForLine", line);
     colorCodeBgCache.remove(line);
   }
 
@@ -67,7 +63,6 @@ public class ColorCodeHighlight {
    * Clears all color code caches.
    */
   public void clearColorCodeCaches() {
-    FunctionLog.f("ColorCodeHighlight", "clearColorCodeCaches");
     colorCodeBgCache.clear();
   }
 
@@ -75,7 +70,6 @@ public class ColorCodeHighlight {
    * Draws color code backgrounds for a line.
    */
   public void drawColorCodeBackgrounds(Canvas canvas, String line, int globalLine) {
-    FunctionLog.f("ColorCodeHighlight", "drawColorCodeBackgrounds", canvas, line, globalLine);
     if (!isColorHighlightingEnabled || line.isEmpty()) {
       return;
     }

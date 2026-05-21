@@ -3,14 +3,12 @@ package com.yn.sodiumeditor.renderer.animation;
 import android.animation.ValueAnimator;
 import android.view.animation.PathInterpolator;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * SelectionAnimation handles the fade in/out animation for selection
  * highlights and handles.
  */
 public class SelectionAnimation {
-    private static final String ANIM_DBG = "AnimDbg";
     private static final long FADE_DURATION_MS = 140L;
     private static final long GEOMETRY_DURATION_MS = 120L;
 
@@ -27,7 +25,6 @@ public class SelectionAnimation {
     private boolean lastHasSelection = false;
 
     public SelectionAnimation(SodiumEditor editor) {
-        FunctionLog.f("SelectionAnimation", "SelectionAnimation", editor);
         this.editor = editor;
     }
 
@@ -35,7 +32,6 @@ public class SelectionAnimation {
      * Enable or disable selection animation.
      */
     public void setSelectionAnimationEnabled(boolean enabled) {
-        FunctionLog.f("SelectionAnimation", "setSelectionAnimationEnabled", enabled);
         if (selectionAnimationEnabled == enabled) return;
         selectionAnimationEnabled = enabled;
         if (!selectionAnimationEnabled) {
@@ -59,19 +55,6 @@ public class SelectionAnimation {
      * @param nowHasSelection true if selection is now active
      */
     public void updateSelectionVisibility(boolean nowHasSelection) {
-        FunctionLog.f("SelectionAnimation", "updateSelectionVisibility", nowHasSelection);
-        android.util.Log.i(
-                ANIM_DBG,
-                "selectionVisibility requested="
-                        + nowHasSelection
-                        + " last="
-                        + lastHasSelection
-                        + " enabled="
-                        + selectionAnimationEnabled
-                        + " alpha="
-                        + selectionAlpha
-                        + " handleAlpha="
-                        + handleAlpha);
         if (nowHasSelection == lastHasSelection) return;
         lastHasSelection = nowHasSelection;
         if (!selectionAnimationEnabled) {
@@ -92,26 +75,12 @@ public class SelectionAnimation {
             float v = (float) a.getAnimatedValue();
             selectionAlpha = v;
             handleAlpha = v;
-            android.util.Log.i(
-                    ANIM_DBG,
-                    "selectionFade frame value="
-                            + v
-                            + " nowHasSelection="
-                            + nowHasSelection
-                            + " selectionAlpha="
-                            + selectionAlpha
-                            + " handleAlpha="
-                            + handleAlpha);
             editor.invalidate();
         });
-        android.util.Log.i(
-                ANIM_DBG,
-                "selectionFade start from=" + start + " to=" + end + " duration=" + FADE_DURATION_MS);
         selectionFadeAnimator.start();
     }
 
     public void updateSelectionGeometry(boolean hasSelection, boolean geometryChanged) {
-        FunctionLog.f("SelectionAnimation", "updateSelectionGeometry", hasSelection, geometryChanged);
         if (!hasSelection || !geometryChanged) return;
         if (!selectionAnimationEnabled) {
             geometryProgress = 1f;
@@ -141,9 +110,7 @@ public class SelectionAnimation {
      * Cancel any running animation.
      */
     public void cancelAnimation() {
-        FunctionLog.f("SelectionAnimation", "cancelAnimation");
         if (selectionFadeAnimator != null) {
-            android.util.Log.i(ANIM_DBG, "selectionFade cancel");
             selectionFadeAnimator.cancel();
         }
         if (selectionGeometryAnimator != null) {
@@ -155,7 +122,6 @@ public class SelectionAnimation {
      * Check if animation is currently running.
      */
     public boolean isAnimating() {
-        FunctionLog.f("SelectionAnimation", "isAnimating");
         return (selectionFadeAnimator != null && selectionFadeAnimator.isRunning())
                 || (selectionGeometryAnimator != null && selectionGeometryAnimator.isRunning());
     }

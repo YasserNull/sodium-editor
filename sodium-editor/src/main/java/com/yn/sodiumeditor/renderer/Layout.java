@@ -5,7 +5,6 @@ import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.HitAdvance;
 import com.yn.sodiumeditor.renderer.HighliteRender;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.List;
 
 /**
@@ -39,7 +38,6 @@ public class Layout {
     public float textAreaHeight = 0f;
 
     public Layout(SodiumEditor editor) {
-        FunctionLog.f("Layout", "Layout", editor);
         this.editor = editor;
     }
 
@@ -52,7 +50,6 @@ public class Layout {
      * @param isRtl true for RTL, false for LTR
      */
     public void setLayoutDirection(boolean Direction) {
-    FunctionLog.f("Layout", "setLayoutDirection", Direction);
     if (Direction == isRtl) return;
     isRtl = Direction;
     editor.lineNumber.lineNumbersPaint.setTextAlign(editor.textRender.isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
@@ -71,7 +68,6 @@ public class Layout {
      * Check if the current layout direction is RTL.
      */
     public boolean isRtl() {
-        FunctionLog.f("Layout", "isRtl");
         return isRtl;
     }
 
@@ -79,7 +75,6 @@ public class Layout {
      * Check if the current layout direction is LTR.
      */
     public boolean isLtr() {
-        FunctionLog.f("Layout", "isLtr");
         return !isRtl;
     }
 
@@ -91,7 +86,6 @@ public class Layout {
      * Calculate the text area width (excluding gutter).
      */
     public float calculateTextAreaWidth() {
-        FunctionLog.f("Layout", "calculateTextAreaWidth");
         float gutterWidth = editor.lineNumber.showLineNumbers ? editor.lineNumber.lineNumbersGutterWidth : 0f;
         textAreaWidth = editor.getWidth() - gutterWidth;
         return textAreaWidth;
@@ -101,7 +95,6 @@ public class Layout {
      * Calculate the text area height (excluding any top/bottom padding).
      */
     public float calculateTextAreaHeight() {
-        FunctionLog.f("Layout", "calculateTextAreaHeight");
         textAreaHeight = editor.getHeight() - paddingTop - paddingBottom;
         return textAreaHeight;
     }
@@ -110,7 +103,6 @@ public class Layout {
      * Get the text area width.
      */
     public float getTextAreaWidth() {
-        FunctionLog.f("Layout", "getTextAreaWidth");
         if (textAreaWidth <= 0f) {
             return calculateTextAreaWidth();
         }
@@ -121,7 +113,6 @@ public class Layout {
      * Get the text area height.
      */
     public float getTextAreaHeight() {
-        FunctionLog.f("Layout", "getTextAreaHeight");
         if (textAreaHeight <= 0f) {
             return calculateTextAreaHeight();
         }
@@ -133,7 +124,6 @@ public class Layout {
     // ============================================================================
 
     public float getGuideXForColumn(String line, int column, int globalLine) {
-        FunctionLog.f("Layout", "getGuideXForColumn", line, column, globalLine);
         if (line == null) line = "";
         if (column <= line.length()) {
             return editor.textRender.measureText(line, column, globalLine);
@@ -144,7 +134,6 @@ public class Layout {
     }
 
     public boolean isWhitespaceAtX(String line, int globalLine, float x) {
-        FunctionLog.f("Layout", "isWhitespaceAtX", line, globalLine, x);
         if (line == null || line.isEmpty()) return true;
         if (x <= 0f) return Character.isWhitespace(line.charAt(0));
 
@@ -202,7 +191,6 @@ public class Layout {
     }
 
     public boolean isGuideHitOnWhitespaceBoundary(String line, float x) {
-        FunctionLog.f("Layout", "isGuideHitOnWhitespaceBoundary", line, x);
         if (!editor.layout.lastHitAdvance.hit || !editor.layout.lastHitAdvance.isWhitespace) return false;
         final float boundaryEps = 0.6f;
         if (editor.layout.lastHitAdvance.hitCharEndX - x > boundaryEps) return false;
@@ -212,7 +200,6 @@ public class Layout {
     }
 
     public boolean hitTestWhitespaceSegment(String line, int start, int end, int globalLine, float x, Paint p, float eps, float startX, boolean prevWhitespace) {
-        FunctionLog.f("Layout", "hitTestWhitespaceSegment", line, start, end, globalLine, x, p, eps, startX, prevWhitespace);
         editor.layout.lastHitAdvance.hit = false;
         editor.layout.lastHitAdvance.isWhitespace = false;
         editor.layout.lastHitAdvance.x = startX;
@@ -267,7 +254,6 @@ public class Layout {
      * @return the base X position for RTL text
      */
     public float getRtlLineBaseX(@Nullable String line, int globalLine) {
-        FunctionLog.f("Layout", "getRtlLineBaseX", line, globalLine);
         if (!isRtl || line == null) return 0f;
         int logicalLen = editor.view.getLogicalLineLength(globalLine, line);
         float w = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, logicalLen);
@@ -276,7 +262,6 @@ public class Layout {
     }
 
     public float getRtlSegmentBaseX(@Nullable String line, int globalLine, int segStart, int segEnd) {
-        FunctionLog.f("Layout", "getRtlSegmentBaseX", line, globalLine, segStart, segEnd);
         if (!isRtl || line == null) return 0f;
         float w = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, segStart, segEnd);
         float area = getTextAreaWidth();
@@ -291,7 +276,6 @@ public class Layout {
      * @return the X position in RTL space
      */
     public float convertXToRtl(float x, String line, int globalLine) {
-        FunctionLog.f("Layout", "convertXToRtl", x, line, globalLine);
         if (!isRtl) return x;
         float baseX = getRtlLineBaseX(line, globalLine);
         float lineWidth = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, editor.view.getLogicalLineLength(globalLine, line));
@@ -306,7 +290,6 @@ public class Layout {
      * @return the X position in LTR space
      */
     public float convertXToLtr(float x, String line, int globalLine) {
-        FunctionLog.f("Layout", "convertXToLtr", x, line, globalLine);
         if (!isRtl) return x;
         float baseX = getRtlLineBaseX(line, globalLine);
         float lineWidth = editor.highlite.measureHighlightedSegmentWidth(line, globalLine, 0, editor.view.getLogicalLineLength(globalLine, line));
@@ -321,7 +304,6 @@ public class Layout {
      * Set all padding values.
      */
     public void setPadding(float left, float top, float right, float bottom) {
-        FunctionLog.f("Layout", "setPadding", left, top, right, bottom);
         this.paddingLeft = left;
         this.paddingTop = top;
         this.paddingRight = right;
@@ -334,7 +316,6 @@ public class Layout {
      * Set the left padding.
      */
     public void setPaddingLeft(float padding) {
-        FunctionLog.f("Layout", "setPaddingLeft", padding);
         this.paddingLeft = padding;
         editor.requestLayout();
         editor.invalidate();
@@ -344,7 +325,6 @@ public class Layout {
      * Set the right padding.
      */
     public void setPaddingRight(float padding) {
-        FunctionLog.f("Layout", "setPaddingRight", padding);
         this.paddingRight = padding;
         editor.requestLayout();
         editor.invalidate();
@@ -354,7 +334,6 @@ public class Layout {
      * Set the top padding.
      */
     public void setPaddingTop(float padding) {
-        FunctionLog.f("Layout", "setPaddingTop", padding);
         this.paddingTop = padding;
         editor.requestLayout();
         editor.invalidate();
@@ -364,7 +343,6 @@ public class Layout {
      * Set the bottom padding.
      */
     public void setPaddingBottom(float padding) {
-        FunctionLog.f("Layout", "setPaddingBottom", padding);
         this.paddingBottom = padding;
         editor.requestLayout();
         editor.invalidate();
@@ -374,7 +352,6 @@ public class Layout {
      * Get the effective left padding (includes gutter in LTR mode).
      */
     public float getEffectivePaddingLeft() {
-        FunctionLog.f("Layout", "getEffectivePaddingLeft");
         if (isRtl) {
             return paddingLeft;
         } else {
@@ -386,7 +363,6 @@ public class Layout {
      * Get the effective right padding (includes gutter in RTL mode).
      */
     public float getEffectivePaddingRight() {
-        FunctionLog.f("Layout", "getEffectivePaddingRight");
         if (isRtl) {
             return paddingRight + editor.lineNumber.lineNumbersGutterWidth;
         } else {
@@ -403,7 +379,6 @@ public class Layout {
      * This accounts for gutter width and padding based on the current layout direction.
      */
     public float getTextStartX() {
-        FunctionLog.f("Layout", "getTextStartX");
         if (isRtl) {
             return paddingLeft;
         } else {
@@ -419,7 +394,6 @@ public class Layout {
      * Invalidate all layout caches and trigger a full re-layout.
      */
     public void invalidateLayout() {
-        FunctionLog.f("Layout", "invalidateLayout");
         textAreaWidth = 0f;
         textAreaHeight = 0f;
         editor.windowRender.currentMaxWindowLineWidth = 0f;
@@ -436,13 +410,11 @@ public class Layout {
      * Update text area dimensions after a layout change.
      */
     public void updateTextAreaDimensions() {
-        FunctionLog.f("Layout", "updateTextAreaDimensions");
         calculateTextAreaWidth();
         calculateTextAreaHeight();
     }
 
     public float getViewXForLineChar(String line, int globalLine, int ch) {
-        FunctionLog.f("Layout", "getViewXForLineChar", line, globalLine, ch);
         if (line == null) line = "";
         int safeChar = Math.max(0, Math.min(ch, editor.view.getLogicalLineLength(globalLine, line)));
         if (!editor.wordWrap.isWordWrapEnabled) {
@@ -458,7 +430,6 @@ public class Layout {
     }
 
     public float getViewYTopForLineChar(int globalLine, int ch) {
-        FunctionLog.f("Layout", "getViewYTopForLineChar", globalLine, ch);
         int v = editor.wordWrap.getVisualIndexForLineAndChar(globalLine, ch);
         return v * editor.textRender.lineHeight - editor.scroll.scrollY;
     }

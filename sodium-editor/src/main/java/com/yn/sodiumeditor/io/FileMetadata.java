@@ -1,7 +1,6 @@
 package com.yn.sodiumeditor.io;
 
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.io.File;
 import java.io.RandomAccessFile;
 
@@ -13,7 +12,6 @@ public class FileMetadata {
     private final FileIO fileIO;
 
     public FileMetadata(SodiumEditor editor, FileIO fileIO) {
-        FunctionLog.f("FileMetadata", "FileMetadata", editor, fileIO);
         this.editor = editor;
         this.fileIO = fileIO;
     }
@@ -27,17 +25,41 @@ public class FileMetadata {
             byte[] buffer = new byte[sampleSize];
             int bytesRead = raf.read(buffer);
             if (bytesRead <= 0) return false;
+            if (hasKnownBinaryMagic(buffer, bytesRead)) return true;
             int nonPrintableCount = 0;
             int totalChars = 0;
             for (int i = 0; i < bytesRead; i++) {
                 int b = buffer[i] & 0xFF; // IMPORTANT: avoid signed-byte misclassification for UTF-8 (e.g. Arabic)
-                if (b == 0) continue;
                 totalChars++;
-                if (b < 9 || (b > 13 && b < 32) || b == 127) nonPrintableCount++;
+                if (b == 0 || b < 9 || (b > 13 && b < 32) || b == 127) nonPrintableCount++;
             }
             if (totalChars == 0) return false;
             return ((double) nonPrintableCount / totalChars) > fileIO.binaryDetectionThreshold;
         } catch (Exception e) { return false; }
+    }
+
+    private boolean hasKnownBinaryMagic(byte[] buffer, int len) {
+        if (len >= 4) {
+            int b0 = buffer[0] & 0xFF;
+            int b1 = buffer[1] & 0xFF;
+            int b2 = buffer[2] & 0xFF;
+            int b3 = buffer[3] & 0xFF;
+            if (b0 == 0x7F && b1 == 'E' && b2 == 'L' && b3 == 'F') return true;
+            if (b0 == 'M' && b1 == 'Z') return true;
+            if (b0 == 0xCA && b1 == 0xFE && b2 == 0xBA && b3 == 0xBE) return true;
+            if (b0 == 0xFE && b1 == 0xED && b2 == 0xFA && (b3 == 0xCE || b3 == 0xCF)) return true;
+            if (b0 == 0xCE && b1 == 0xFA && b2 == 0xED && b3 == 0xFE) return true;
+            if (b0 == 0xCF && b1 == 0xFA && b2 == 0xED && b3 == 0xFE) return true;
+            if (b0 == 0x89 && b1 == 'P' && b2 == 'N' && b3 == 'G') return true;
+            if (b0 == 'P' && b1 == 'K' && (b2 == 0x03 || b2 == 0x05 || b2 == 0x07) && (b3 == 0x04 || b3 == 0x06 || b3 == 0x08)) return true;
+        }
+        if (len >= 3) {
+            int b0 = buffer[0] & 0xFF;
+            int b1 = buffer[1] & 0xFF;
+            int b2 = buffer[2] & 0xFF;
+            if (b0 == 0xFF && b1 == 0xD8 && b2 == 0xFF) return true;
+        }
+        return false;
     }
 
     public static class LineScanResult {

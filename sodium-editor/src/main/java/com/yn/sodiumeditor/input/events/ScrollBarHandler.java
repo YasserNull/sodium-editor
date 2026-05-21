@@ -2,7 +2,6 @@ package com.yn.sodiumeditor.input.events;
 
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Handles scroll bar dragging logic for SodiumEditor.
@@ -11,12 +10,10 @@ public class ScrollBarHandler {
     private final SodiumEditor editor;
 
     public ScrollBarHandler(SodiumEditor editor) {
-        FunctionLog.f("ScrollBarHandler", "ScrollBarHandler", editor);
         this.editor = editor;
     }
 
     public boolean handleActionDown(MotionEvent event) {
-        FunctionLog.f("ScrollBarHandler", "handleActionDown", event);
         if (!editor.scroll.bar.enabled) return false;
         
         float ex = event.getX();
@@ -39,7 +36,6 @@ public class ScrollBarHandler {
     }
 
     public boolean handleActionMove(MotionEvent event) {
-        FunctionLog.f("ScrollBarHandler", "handleActionMove", event);
         if (!editor.scroll.bar.dragging) return false;
 
         float ey = event.getY();
@@ -68,7 +64,6 @@ public class ScrollBarHandler {
     }
 
     public void handleActionUpOrCancel() {
-        FunctionLog.f("ScrollBarHandler", "handleActionUpOrCancel");
         if (editor.scroll.bar.dragging) {
             editor.scroll.bar.dragging = false;
             editor.scroll.showScrollBar();

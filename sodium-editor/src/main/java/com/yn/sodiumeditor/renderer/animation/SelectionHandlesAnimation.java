@@ -1,13 +1,11 @@
 package com.yn.sodiumeditor.renderer.animation;
 
 import android.os.SystemClock;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * SelectionHandlesAnimation handles the animation logic for selection handles.
  */
 public class SelectionHandlesAnimation {
-    private static final String SELECTION_HANDLE_DBG = "SelectionHandleDbg";
 
     // Animation duration in ms
     private static final long ANIM_DURATION = 120;
@@ -30,16 +28,7 @@ public class SelectionHandlesAnimation {
     private long rightAnimDuration = ANIM_DURATION;
 
     public float[] getAnimatedHandlePosition(boolean isLeft, float targetX, float targetY) {
-        FunctionLog.f("SelectionHandlesAnimation", "getAnimatedHandlePosition", isLeft, targetX, targetY);
         if (!handleMoveAnimationEnabled) {
-            android.util.Log.i(
-                SELECTION_HANDLE_DBG,
-                "anim bypass side="
-                    + (isLeft ? "left" : "right")
-                    + " targetX="
-                    + targetX
-                    + " targetY="
-                    + targetY);
             return new float[] {targetX, targetY};
         }
         
@@ -108,30 +97,11 @@ public class SelectionHandlesAnimation {
             animRightX = ax;
             animRightY = ay;
         }
-        android.util.Log.i(
-            SELECTION_HANDLE_DBG,
-            "anim side="
-                + (isLeft ? "left" : "right")
-                + " targetX="
-                + targetX
-                + " targetY="
-                + targetY
-                + " drawX="
-                + ax
-                + " drawY="
-                + ay
-                + " t="
-                + t
-                + " duration="
-                + duration
-                + " enabled="
-                + handleMoveAnimationEnabled);
         
         return new float[] {ax, ay};
     }
 
     public void snapHandlePosition(boolean isLeft, float targetX, float targetY) {
-        FunctionLog.f("SelectionHandlesAnimation", "snapHandlePosition", isLeft, targetX, targetY);
         long now = SystemClock.uptimeMillis();
         if (isLeft) {
             leftStartX = targetX;
@@ -152,31 +122,20 @@ public class SelectionHandlesAnimation {
             animRightX = targetX;
             animRightY = targetY;
         }
-        android.util.Log.i(
-            SELECTION_HANDLE_DBG,
-            "anim snap side="
-                + (isLeft ? "left" : "right")
-                + " targetX="
-                + targetX
-                + " targetY="
-                + targetY);
     }
 
     private float animLeftX = Float.NaN, animLeftY = Float.NaN;
     private float animRightX = Float.NaN, animRightY = Float.NaN;
 
     public void setHandleMoveAnimationEnabled(boolean enabled) {
-        FunctionLog.f("SelectionHandlesAnimation", "setHandleMoveAnimationEnabled", enabled);
         handleMoveAnimationEnabled = enabled;
     }
 
     public void setFastDragAnimationActive(boolean active) {
-        FunctionLog.f("SelectionHandlesAnimation", "setFastDragAnimationActive", active);
         fastDragAnimationActive = active;
     }
 
     public boolean isAnimating() {
-        FunctionLog.f("SelectionHandlesAnimation", "isAnimating");
         if (!handleMoveAnimationEnabled) return false;
         long now = SystemClock.uptimeMillis();
         boolean leftActive = !Float.isNaN(leftTargetX) && (now - leftStartTime < leftAnimDuration);
@@ -185,34 +144,6 @@ public class SelectionHandlesAnimation {
     }
 
     public void resetAnimationState() {
-        FunctionLog.f("SelectionHandlesAnimation", "resetAnimationState");
-        android.util.Log.i(
-            SELECTION_HANDLE_DBG,
-            "resetAnimationState"
-                + " leftStart="
-                + leftStartX
-                + ","
-                + leftStartY
-                + " leftTarget="
-                + leftTargetX
-                + ","
-                + leftTargetY
-                + " leftAnim="
-                + animLeftX
-                + ","
-                + animLeftY
-                + " rightStart="
-                + rightStartX
-                + ","
-                + rightStartY
-                + " rightTarget="
-                + rightTargetX
-                + ","
-                + rightTargetY
-                + " rightAnim="
-                + animRightX
-                + ","
-                + animRightY);
         animLeftX = Float.NaN;
         animLeftY = Float.NaN;
         animRightX = Float.NaN;

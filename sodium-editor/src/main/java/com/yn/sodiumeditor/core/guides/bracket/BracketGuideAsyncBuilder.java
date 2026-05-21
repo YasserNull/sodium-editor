@@ -3,7 +3,6 @@ package com.yn.sodiumeditor.core.guides.bracket;
 import android.os.SystemClock;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,7 +22,6 @@ public class BracketGuideAsyncBuilder {
       BracketGuideCache mainCache,
       BracketGuideFallbackCache fallbackCache,
       BracketGuideCheckpoint checkpoint) {
-    FunctionLog.f("BracketGuideAsyncBuilder", "BracketGuideAsyncBuilder", editor, bracketGuides, mainCache, fallbackCache, checkpoint);
     this.editor = editor;
     this.bracketGuides = bracketGuides;
     this.mainCache = mainCache;
@@ -38,7 +36,6 @@ public class BracketGuideAsyncBuilder {
    */
   public void buildCacheAsync(
       int startLine, int endLine, int visibleStart, int visibleEnd, int v, int cfg, long startTime, @Nullable java.util.Map<Integer, String> directLines) {
-    FunctionLog.f("BracketGuideAsyncBuilder", "buildCacheAsync", startLine, endLine, visibleStart, visibleEnd, v, cfg, startTime, directLines);
     BracketGuideState state = new BracketGuideState(editor.highlite.isBlockCommentsEnabled, 0);
     BracketGuideState stateBeforeStart = BracketGuides.copyState(state);
     BracketGuideState stateAtStart = null;

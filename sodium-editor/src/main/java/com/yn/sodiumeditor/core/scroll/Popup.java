@@ -12,7 +12,6 @@ import android.text.TextPaint;
 import android.view.animation.DecelerateInterpolator;
 import android.view.inputmethod.InputMethodManager;
 import androidx.annotation.Nullable;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -113,7 +112,6 @@ public class Popup {
   private final SodiumEditor editor;
 
   public Popup(SodiumEditor editor) {
-    FunctionLog.f("Popup", "Popup", editor);
     this.editor = editor;
     this.animation = new com.yn.sodiumeditor.renderer.animation.PopupAnimation(editor, this);
     this.menu = new com.yn.sodiumeditor.renderer.draw.PopupMenu(editor, this);
@@ -124,7 +122,6 @@ public class Popup {
    * Should be called when the editor is ready or configuration changes.
    */
   public void applyPopupConfig() {
-    FunctionLog.f("Popup", "applyPopupConfig");
     float density = editor.getResources().getDisplayMetrics().density;
     popupPadding = popupPaddingDp * density;
     popupCorner = popupCornerDp * density;
@@ -142,7 +139,6 @@ public class Popup {
    * @param color The color to use for the popup background
    */
   public void setPopupBackgroundColor(int color) {
-    FunctionLog.f("Popup", "setPopupBackgroundColor", color);
     popupBackgroundColor = color;
     popupBgPaint.setColor(color);
     if (showPopup) editor.invalidate();
@@ -153,7 +149,6 @@ public class Popup {
    * @param color The color to use for popup button text
    */
   public void setPopupTextColor(int color) {
-    FunctionLog.f("Popup", "setPopupTextColor", color);
     popupTextColor = color;
     popupTextPaint.setColor(color);
     if (showPopup) editor.invalidate();
@@ -164,7 +159,6 @@ public class Popup {
    * @param sp The text size in scaled pixels
    */
   public void setPopupTextSize(float sp) {
-    FunctionLog.f("Popup", "setPopupTextSize", sp);
     popupTextSizeSp = sp;
     popupTextPaint.setTextSize(spToPx(sp));
     if (showPopup) editor.invalidate();
@@ -175,7 +169,6 @@ public class Popup {
    * @param sizePx The text size in pixels
    */
   public void setPopupTextSizePx(float sizePx) {
-    FunctionLog.f("Popup", "setPopupTextSizePx", sizePx);
     float scaledDensity = editor.getResources().getDisplayMetrics().scaledDensity;
     popupTextSizeSp = (scaledDensity > 0f) ? (sizePx / scaledDensity) : popupTextSizeSp;
     popupTextPaint.setTextSize(sizePx);
@@ -187,7 +180,6 @@ public class Popup {
    * @param follow true if popup text should use the same typeface as the editor
    */
   public void setPopupTextFollowsEditorTypeface(boolean follow) {
-    FunctionLog.f("Popup", "setPopupTextFollowsEditorTypeface", follow);
     popupTextFollowsEditorTypeface = follow;
     if (follow) {
       popupTextPaint.setTypeface(editor.textRender.paint.getTypeface());
@@ -200,7 +192,6 @@ public class Popup {
    * @param typeface The typeface to use, or null for default
    */
   public void setPopupTextTypeface(@Nullable android.graphics.Typeface typeface) {
-    FunctionLog.f("Popup", "setPopupTextTypeface", typeface);
     popupTextFollowsEditorTypeface = false;
     popupTextPaint.setTypeface((typeface != null) ? typeface : android.graphics.Typeface.DEFAULT);
     if (showPopup) editor.invalidate();
@@ -216,7 +207,6 @@ public class Popup {
    */
   public void setPopupLabels(
       String copy, String cut, String paste, String delete, String selectAll) {
-    FunctionLog.f("Popup", "setPopupLabels", copy, cut, paste, delete, selectAll);
     popupLabelCopy = copy;
     popupLabelCut = cut;
     popupLabelPaste = paste;
@@ -229,7 +219,6 @@ public class Popup {
    * Show the popup at the current selection.
    */
   public void showPopupAtSelection() {
-    FunctionLog.f("Popup", "showPopupAtSelection");
     if (!editor.selection.hasSelection) return;
     isMinimalPopup = false;
     showPopupAnimated();
@@ -239,7 +228,6 @@ public class Popup {
    * Show a minimal popup at the cursor position.
    */
   public void showMinimalPopupAtCursor() {
-    FunctionLog.f("Popup", "showMinimalPopupAtCursor");
     isMinimalPopup = true;
     showPopupAnimated();
   }
@@ -248,7 +236,6 @@ public class Popup {
    * Hide the popup menu.
    */
   public void hidePopup() {
-    FunctionLog.f("Popup", "hidePopup");
     hidePopupAnimated();
   }
 
@@ -256,12 +243,10 @@ public class Popup {
    * Show the popup with fade-in animation.
    */
   private void showPopupAnimated() {
-    FunctionLog.f("Popup", "showPopupAnimated");
     if (showPopup && !isFadingOut && popupAlpha >= 0.95f && fadeTargetAlpha >= 0.95f) {
       return;
     }
     if (!showPopup || popupAlpha < 0.95f) {
-      android.util.Log.d("Popup", "Action: SHOW (current alpha=" + popupAlpha + ")");
       showPopup = true;
       popupAlpha = 0f;
     }
@@ -273,9 +258,7 @@ public class Popup {
    * Hide the popup with fade-out animation.
    */
   private void hidePopupAnimated() {
-    FunctionLog.f("Popup", "hidePopupAnimated");
     if (!showPopup || isFadingOut) return;
-    android.util.Log.d("Popup", "Action: HIDE (current alpha=" + popupAlpha + ")");
     isFadingOut = true;
     popupPressedAction = 0;
     popupHideAfterRipple = false;
@@ -284,7 +267,6 @@ public class Popup {
   }
 
   public boolean shouldKeepVisible() {
-    FunctionLog.f("Popup", "shouldKeepVisible");
     if (popupRippleActive || popupRippleHoldActive) return true;
     return popupHideAfterRipple;
   }
@@ -294,7 +276,6 @@ public class Popup {
    * @param canvas The canvas to draw on
    */
   public void drawPopup(Canvas canvas) {
-    FunctionLog.f("Popup", "drawPopup", canvas);
     menu.drawPopup(canvas);
   }
 
@@ -303,7 +284,6 @@ public class Popup {
    * @return true if copy/cut buttons should be hidden
    */
   public boolean shouldHideCopyCutForSelection() {
-    FunctionLog.f("Popup", "shouldHideCopyCutForSelection");
     if (!editor.selection.hasSelection) return true;
 
     int sL = editor.selection.selStartLine, eL = editor.selection.selEndLine;
@@ -322,7 +302,6 @@ public class Popup {
    * @return The RectF for the button
    */
   public RectF getPopupRectForAction(int action) {
-    FunctionLog.f("Popup", "getPopupRectForAction", action);
     switch (action) {
       case POPUP_ACTION_COPY:
         return btnCopyRect;
@@ -343,7 +322,6 @@ public class Popup {
    * @return The label string
    */
   public String getPopupLabelForAction(int action) {
-    FunctionLog.f("Popup", "getPopupLabelForAction", action);
     switch (action) {
       case POPUP_ACTION_COPY:
         return popupLabelCopy;
@@ -365,7 +343,6 @@ public class Popup {
    * @return The action constant, or 0 if no action
    */
   public int getPopupActionAt(float x, float y) {
-    FunctionLog.f("Popup", "getPopupActionAt", x, y);
     if (btnCopyRect.contains(x, y)) return POPUP_ACTION_COPY;
     if (btnCutRect.contains(x, y)) return POPUP_ACTION_CUT;
     if (btnPasteRect.contains(x, y)) return POPUP_ACTION_PASTE;
@@ -381,7 +358,6 @@ public class Popup {
    * @param y Y coordinate of the press
    */
   public void startPopupRipple(int action, float x, float y) {
-    FunctionLog.f("Popup", "startPopupRipple", action, x, y);
     animation.startRipple(action, x, y);
   }
 
@@ -392,7 +368,6 @@ public class Popup {
    * @param y Y coordinate of the press
    */
   public void startPopupRippleHold(int action, float x, float y) {
-    FunctionLog.f("Popup", "startPopupRippleHold", action, x, y);
     animation.startRippleHold(action, x, y);
   }
 
@@ -400,7 +375,6 @@ public class Popup {
    * Cancel any active ripple animation.
    */
   public void cancelPopupRipple() {
-    FunctionLog.f("Popup", "cancelPopupRipple");
     animation.cancelRipple();
   }
 
@@ -410,7 +384,6 @@ public class Popup {
    * @return The value in pixels
    */
   private float spToPx(float sp) {
-    FunctionLog.f("Popup", "spToPx", sp);
     return sp * editor.getResources().getDisplayMetrics().scaledDensity;
   }
 }

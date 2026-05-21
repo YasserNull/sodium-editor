@@ -4,23 +4,19 @@ import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.fold.CodeFold;
 import com.yn.sodiumeditor.io.EditOp;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.HashMap;
 
 /**
  * Handles selection dragging and auto-scroll for SodiumEditor.
  */
 public class DragSelectionHandler {
-    private static final String SELECTION_HANDLE_DBG = "SelectionHandleDbg";
     private final SodiumEditor editor;
 
     public DragSelectionHandler(SodiumEditor editor) {
-        FunctionLog.f("DragSelectionHandler", "DragSelectionHandler", editor);
         this.editor = editor;
     }
 
     public boolean handleActionDown(MotionEvent event) {
-        FunctionLog.f("DragSelectionHandler", "handleActionDown", event);
         float ex = event.getX(), ey = event.getY();
         if (editor.selection.hasSelection) {
             editor.selectionHandles.updateHandlesPosition();
@@ -29,22 +25,18 @@ public class DragSelectionHandler {
 
         if (editor.selection.hasSelection && editor.selectionHandles.hitTestLeft(ex, ey)) {
             editor.selectionHandles.draggingHandle = 1;
-            android.util.Log.i(SELECTION_HANDLE_DBG, "down left touchX=" + ex + " touchY=" + ey);
             return true;
         } else if (editor.selection.hasSelection && editor.selectionHandles.hitTestRight(ex, ey)) {
             editor.selectionHandles.draggingHandle = 2;
-            android.util.Log.i(SELECTION_HANDLE_DBG, "down right touchX=" + ex + " touchY=" + ey);
             return true;
         } else if (editor.isFocused() && !editor.selection.hasSelection && editor.cursorHandle.hitTest(ex, ey)) {
             editor.selectionHandles.draggingHandle = 3;
-            android.util.Log.i(SELECTION_HANDLE_DBG, "down cursor touchX=" + ex + " touchY=" + ey);
             return true;
         }
         return false;
     }
 
     public boolean handleActionMove(MotionEvent event) {
-        FunctionLog.f("DragSelectionHandler", "handleActionMove", event);
         float ex = event.getX(), ey = event.getY();
         
         if (editor.selection.longPressSelecting
@@ -96,22 +88,6 @@ public class DragSelectionHandler {
         if (editor.selectionHandles.draggingHandle != 0) {
             int handle = editor.selectionHandles.draggingHandle;
             updateHandlePosition(ex, ey);
-            android.util.Log.i(
-                SELECTION_HANDLE_DBG,
-                "move handle="
-                    + handle
-                    + " touchX="
-                    + ex
-                    + " touchY="
-                    + ey
-                    + " sel="
-                    + editor.selection.selStartLine
-                    + ":"
-                    + editor.selection.selStartChar
-                    + "->"
-                    + editor.selection.selEndLine
-                    + ":"
-                    + editor.selection.selEndChar);
             if (editor.selectionHandles.draggingHandle == 1 || editor.selectionHandles.draggingHandle == 2) {
                 editor.popup.showPopupAtSelection();
             }
@@ -123,24 +99,7 @@ public class DragSelectionHandler {
     }
 
     public void handleActionUpOrCancel() {
-        FunctionLog.f("DragSelectionHandler", "handleActionUpOrCancel");
         editor.caret.mainHandler.removeCallbacks(editor.scroll.autoScrollRunnable);        if (editor.selectionHandles.draggingHandle != 0) {
-            android.util.Log.i(
-                SELECTION_HANDLE_DBG,
-                "up handle="
-                    + editor.selectionHandles.draggingHandle
-                    + " lastTouchX="
-                    + editor.onTouch.lastTouchX
-                    + " lastTouchY="
-                    + editor.onTouch.lastTouchY
-                    + " sel="
-                    + editor.selection.selStartLine
-                    + ":"
-                    + editor.selection.selStartChar
-                    + "->"
-                    + editor.selection.selEndLine
-                    + ":"
-                    + editor.selection.selEndChar);
             if (editor.selectionHandles.draggingHandle == 3) {
                 updateHandlePosition(editor.onTouch.lastTouchX, editor.onTouch.lastTouchY);
                 editor.cursorAnimation.snapToPosition(editor.caret.getCaretDocumentX(), editor.caret.getCaretDocumentY());
@@ -154,7 +113,6 @@ public class DragSelectionHandler {
     }
 
     private void updateAutoScroll(float x, float y) {
-        FunctionLog.f("DragSelectionHandler", "updateAutoScroll", x, y);
         float scrollMargin = editor.textRender.lineHeight * 2f;
         float scrollSpeed = Math.max(4f, editor.textRender.lineHeight * 0.35f);
         editor.scroll.autoScrollY = 0;
@@ -181,7 +139,6 @@ public class DragSelectionHandler {
     }
 
     public void updateHandlePosition(float touchX, float touchY) {
-        FunctionLog.f("DragSelectionHandler", "updateHandlePosition", touchX, touchY);
         if (editor.selection.isSelectAllActive || editor.selection.isEntireFileSelected) {
             editor.selection.isSelectAllActive = false;
             editor.selection.isEntireFileSelected = false;
@@ -272,26 +229,6 @@ public class DragSelectionHandler {
             setCursorFromFoldDrag(line, clamped, ln);
             editor.scroll.keepCursorVisibleHorizontally();
         }
-        android.util.Log.i(
-            SELECTION_HANDLE_DBG,
-            "target handle="
-                + editor.selectionHandles.draggingHandle
-                + " touchX="
-                + touchX
-                + " touchY="
-                + touchY
-                + " targetLine="
-                + target.line
-                + " targetChar="
-                + target.ch
-                + " appliedLine="
-                + line
-                + " appliedChar="
-                + clamped
-                + " scrollX="
-                + editor.scroll.scrollX
-                + " scrollY="
-                + editor.scroll.scrollY);
     }
 
     private int[] getPreviousSelectionPosition(int line, int ch) {
@@ -313,7 +250,6 @@ public class DragSelectionHandler {
     }
 
     private int handleCodeFoldSelection(int line, String ln, float moveX, int clamped) {
-        FunctionLog.f("DragSelectionHandler", "handleCodeFoldSelection", line, ln, moveX, clamped);
         CodeFold.FoldRange range = editor.codeFold.getFoldRangeAtStart(line);
         if (range != null && range.collapsed) {
             float[] bounds = new float[2];

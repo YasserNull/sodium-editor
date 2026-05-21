@@ -2,7 +2,6 @@ package com.yn.sodiumeditor.core.guides.bracket;
 
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.fold.CodeFold;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.Nullable;
@@ -48,7 +47,6 @@ public class BracketCache {
         }
 
         public LineBracketInfo(int line, String text) {
-            FunctionLog.f("LineBracketInfo", "LineBracketInfo", line);
             this.line = line;
             this.text = text == null ? "" : text;
             this.brackets = new ArrayList<>();
@@ -56,7 +54,6 @@ public class BracketCache {
         }
 
         public void clear() {
-            FunctionLog.f("LineBracketInfo", "clear");
             brackets.clear();
             quotes.clear();
         }
@@ -71,7 +68,6 @@ public class BracketCache {
         public int matchingColumn = -1;
 
         public BracketPosition(int line, int column, char bracket) {
-            FunctionLog.f("BracketPosition", "BracketPosition", line, column, bracket);
             this.line = line;
             this.column = column;
             this.bracket = bracket;
@@ -79,17 +75,14 @@ public class BracketCache {
         }
 
         public static boolean isOpeningBracket(char c) {
-            FunctionLog.f("BracketPosition", "isOpeningBracket", c);
             return c == BRACKET_CURLY_OPEN || c == BRACKET_PAREN_OPEN || c == BRACKET_SQUARE_OPEN;
         }
 
         public static boolean isClosingBracket(char c) {
-            FunctionLog.f("BracketPosition", "isClosingBracket", c);
             return c == BRACKET_CURLY_CLOSE || c == BRACKET_PAREN_CLOSE || c == BRACKET_SQUARE_CLOSE;
         }
 
         public static char getMatchingBracket(char c) {
-            FunctionLog.f("BracketPosition", "getMatchingBracket", c);
             switch (c) {
                 case BRACKET_CURLY_OPEN: return BRACKET_CURLY_CLOSE;
                 case BRACKET_CURLY_CLOSE: return BRACKET_CURLY_OPEN;
@@ -110,7 +103,6 @@ public class BracketCache {
         public final boolean isMultiline;
 
         public QuotePosition(int line, int startColumn, int endColumn, char quoteChar, boolean isMultiline) {
-            FunctionLog.f("QuotePosition", "QuotePosition", line, startColumn, endColumn, quoteChar, isMultiline);
             this.line = line;
             this.startColumn = startColumn;
             this.endColumn = endColumn;
@@ -128,7 +120,6 @@ public class BracketCache {
     private volatile int cacheVersion = 0;
 
     public BracketCache(SodiumEditor editor) {
-        FunctionLog.f("BracketCache", "BracketCache", editor);
         this.editor = editor;
     }
 
@@ -143,7 +134,6 @@ public class BracketCache {
     }
 
     public void scanFileAsync(@Nullable Runnable onComplete) {
-        FunctionLog.f("BracketCache", "scanFileAsync");
         final int myToken = ++scanToken;
         isScanning = true;
         cacheVersion++;
@@ -199,14 +189,23 @@ public class BracketCache {
                 final int finalVersion = cacheVersion;
                 editor.caret.mainHandler.post(() -> {
                     long dt = android.os.SystemClock.uptimeMillis() - startMs;
-                    if (editor.DEBUG_RENDER_LOGS && dt > 8) {
-                        android.util.Log.d("SodiumRender", "bracketScan dtMs=" + dt + " lines=" + newCache.size());
-                    }
 	                    if (scanToken == myToken) {
 	                        lineCache.clear();
 	                        for (int i = 0; i < newCache.size(); i++) {
 	                            lineCache.put(newCache.keyAt(i), newCache.valueAt(i));
 	                        }
+                            if (hasPendingInMemoryEdits()) {
+                                CodeFold.log("scanFileAsync skipped foldRanges replace because memory edits are pending"
+                                        + " newRanges=" + newFoldRanges.size()
+                                        + " currentRanges=" + editor.codeFold.foldRanges.size()
+                                        + " lineDelta=" + editor.editOperators.lineCountDelta
+                                        + " modifiedLines=" + editor.windowRender.modifiedLines.size());
+                                editor.codeFold.invalidateFoldCaches();
+                                isScanning = false;
+                                editor.invalidate();
+                                if (onComplete != null) onComplete.run();
+                                return;
+                            }
 	                        ConcurrentHashMap<Integer, CodeFold.FoldRange> previousRanges =
 	                            new ConcurrentHashMap<>(editor.codeFold.foldRanges);
 	                        for (CodeFold.FoldRange range : newFoldRanges.values()) {
@@ -238,8 +237,14 @@ public class BracketCache {
         });
     }
 
+    private boolean hasPendingInMemoryEdits() {
+        if (editor.editOperators.lineCountDelta != 0) return true;
+        synchronized (editor.windowRender.modifiedLines) {
+            return !editor.windowRender.modifiedLines.isEmpty();
+        }
+    }
+
     public void ensureScannedAsync() {
-        FunctionLog.f("BracketCache", "ensureScannedAsync");
         if (isScanning || lineCache.size() > 0) return;
         scanFileAsync();
     }
@@ -249,7 +254,6 @@ public class BracketCache {
      */
     private ConcurrentHashMap<Integer, CodeFold.FoldRange> buildFoldRangesFromCache(
         SparseArray<LineBracketInfo> cache) {
-        FunctionLog.f("BracketCache", "buildFoldRangesFromCache", cache);
         ConcurrentHashMap<Integer, CodeFold.FoldRange> ranges = new ConcurrentHashMap<>();
 
 	        // Use one stack so cross-type nesting cannot create false fold pairs.
@@ -319,7 +323,6 @@ public class BracketCache {
      * Quick check if column is in string/comment using pre-parsed info.
      */
     private boolean isInStringOrCommentQuick(LineBracketInfo info, int column) {
-        FunctionLog.f("BracketCache", "isInStringOrCommentQuick", info, column);
         for (QuotePosition quote : info.quotes) {
             if (column >= quote.startColumn && column <= quote.endColumn) {
                 return true;
@@ -332,7 +335,6 @@ public class BracketCache {
      * Parse a single line for brackets and quotes.
      */
     public LineBracketInfo parseLine(int lineNum, String line, boolean startInBlockComment, int startStringState) {
-        FunctionLog.f("BracketCache", "parseLine", lineNum, line, startInBlockComment, startStringState);
         return parseLineInternal(lineNum, line, startInBlockComment, startStringState, (char) 0, false);
     }
 
@@ -546,8 +548,6 @@ public class BracketCache {
      * Invalidate cache for a specific line range.
      */
     public void invalidateLines(int startLine, int endLine) {
-        FunctionLog.f("BracketCache", "invalidateLines", startLine, endLine);
-        long startMs = android.os.SystemClock.uptimeMillis();
         for (int i = startLine; i <= endLine; i++) {
             lineCache.remove(i);
         }
@@ -555,13 +555,6 @@ public class BracketCache {
 	        if (editor.codeFold.isCodeFoldingEnabled) {
 	            editor.codeFold.invalidateFoldRangesIntersectingRange(startLine, endLine);
 	        }
-        if (editor.DEBUG_RENDER_LOGS) {
-            long dt = android.os.SystemClock.uptimeMillis() - startMs;
-            if (dt > 2) {
-                android.util.Log.d("SodiumRender", "bracketInvalidate dtMs=" + dt
-                        + " lines=" + (endLine - startLine + 1));
-            }
-        }
     }
 
     /**
@@ -569,8 +562,6 @@ public class BracketCache {
      * Reads directly from file if not in window buffer.
      */
     public LineBracketInfo getLineInfo(int lineNum) {
-        FunctionLog.f("BracketCache", "getLineInfo", lineNum);
-        long startMs = android.os.SystemClock.uptimeMillis();
         LineBracketInfo info = lineCache.get(lineNum);
         if (info != null) {
             return info;
@@ -627,15 +618,8 @@ public class BracketCache {
 	            }
 	        }
 
-	        info = parseLineInternal(lineNum, line, inBlockComment, stringState, stringQuoteChar, stringTriple);
+        info = parseLineInternal(lineNum, line, inBlockComment, stringState, stringQuoteChar, stringTriple);
         lineCache.put(lineNum, info);
-        if (editor.DEBUG_RENDER_LOGS) {
-            long dt = android.os.SystemClock.uptimeMillis() - startMs;
-            if (dt > 2) {
-                android.util.Log.d("SodiumRender", "bracketLineParse dtMs=" + dt
-                        + " line=" + lineNum + " len=" + line.length());
-            }
-        }
         return info;
     }
 
@@ -643,7 +627,6 @@ public class BracketCache {
      * Check if a position is inside a string or comment.
      */
     public boolean isInStringOrComment(int line, int column) {
-        FunctionLog.f("BracketCache", "isInStringOrComment", line, column);
         LineBracketInfo info = getLineInfo(line);
         
         // Check quotes
@@ -663,7 +646,6 @@ public class BracketCache {
      * Find opening brackets in a line (not in strings/comments).
      */
     public List<BracketPosition> getOpeningBrackets(int lineNum) {
-        FunctionLog.f("BracketCache", "getOpeningBrackets", lineNum);
         LineBracketInfo info = getLineInfo(lineNum);
         List<BracketPosition> result = new ArrayList<>();
         for (BracketPosition bp : info.brackets) {
@@ -679,7 +661,6 @@ public class BracketCache {
      */
     @Nullable
     public BracketPosition findMatchingBracket(BracketPosition open) {
-        FunctionLog.f("BracketCache", "findMatchingBracket", open);
         if (!open.isOpening) return null;
 
         char closeChar = BracketPosition.getMatchingBracket(open.bracket);
@@ -724,7 +705,6 @@ public class BracketCache {
      */
     @Nullable
     public BracketPosition findMatchingOpeningBracket(BracketPosition close) {
-        FunctionLog.f("BracketCache", "findMatchingOpeningBracket", close);
         if (close == null || close.isOpening) return null;
 
         char openChar = BracketPosition.getMatchingBracket(close.bracket);
@@ -757,12 +737,10 @@ public class BracketCache {
     }
 
     private boolean isQuoteChar(char c) {
-        FunctionLog.f("BracketCache", "isQuoteChar", c);
         return c == QUOTE_DOUBLE || c == QUOTE_SINGLE || c == QUOTE_BACKTICK;
     }
 
     private int getStringState(char quoteChar, boolean isTriple) {
-        FunctionLog.f("BracketCache", "getStringState", quoteChar, isTriple);
         if (isTriple) {
             if (quoteChar == QUOTE_BACKTICK) return com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_TRIPLE;
             return com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_TRIPLE;
@@ -771,7 +749,6 @@ public class BracketCache {
     }
 
     private boolean isEscaped(String line, int index) {
-        FunctionLog.f("BracketCache", "isEscaped", line, index);
         if (index <= 0) return false;
         int count = 0;
         for (int i = index - 1; i >= 0 && line.charAt(i) == '\\'; i--) {
@@ -784,7 +761,6 @@ public class BracketCache {
      * Clear the entire cache.
      */
     public void clear() {
-        FunctionLog.f("BracketCache", "clear");
         scanToken++;
         isScanning = false;
         lineCache.clear();
@@ -795,7 +771,6 @@ public class BracketCache {
      * Check if currently scanning.
      */
     public boolean isScanning() {
-        FunctionLog.f("BracketCache", "isScanning");
         return isScanning;
     }
 }

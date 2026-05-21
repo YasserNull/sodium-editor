@@ -2,7 +2,6 @@ package com.yn.sodiumeditor.core.scroll;
 
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Handles user gestures and fling animations.
@@ -12,13 +11,11 @@ public class ScrollHandler {
     private final Scroll scroll;
 
     public ScrollHandler(SodiumEditor editor, Scroll scroll) {
-        FunctionLog.f("ScrollHandler", "ScrollHandler", editor, scroll);
         this.editor = editor;
         this.scroll = scroll;
     }
 
     public boolean handleScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-        FunctionLog.f("ScrollHandler", "handleScroll", e1, e2, distanceX, distanceY);
         if (e2.getPointerCount() > 1) return true;
         float dx = distanceX * scroll.scrollSensitivity;
         float dy = distanceY * scroll.scrollSensitivity;
@@ -63,7 +60,6 @@ public class ScrollHandler {
     }
 
     public boolean handleFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-        FunctionLog.f("ScrollHandler", "handleFling", e1, e2, velocityX, velocityY);
         int sX = Math.round(scroll.scrollX), sY = Math.round(scroll.scrollY);
         int maxX = Math.round(scroll.getMaxScrollXForClamp());
         int maxY = Math.round(scroll.getMaxScrollYForClamp());

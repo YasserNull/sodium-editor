@@ -6,7 +6,6 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -143,7 +142,6 @@ public class HighliteRender {
     }
 
     public HighliteRender(SodiumEditor editor) {
-        FunctionLog.f("HighliteRender", "HighliteRender", editor);
         this.editor = editor;
     }
 
@@ -151,7 +149,6 @@ public class HighliteRender {
      * Get paint for a specific character based on syntax highlighting
      */
     public Paint getPaintForChar(int lineIndex, int charIndex, String lineText) {
-        FunctionLog.f("HighliteRender", "getPaintForChar", lineIndex, charIndex, lineText);
         List<HighlightSpan> spans = editor.highlite.highlightCache.get(lineIndex);
         if (spans == null) {
             spans = editor.highlite.calculateSpansForLine(lineText, lineIndex);
@@ -169,7 +166,6 @@ public class HighliteRender {
      * Draw a highlighted line with syntax highlighting, underlines, and animations
      */
     public void drawHighlightedLine(Canvas canvas, String line, int globalLine, float y) {
-        FunctionLog.f("HighliteRender", "drawHighlightedLine", canvas, line, globalLine, y);
         // Fast path for binary rendering - completely bypass normal highlighting
         if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
             editor.textRender.getVisibleCharRangeForLine(line, globalLine, editor.textRender.visibleCharRangeTmp);
@@ -190,6 +186,7 @@ public class HighliteRender {
                 }
             }
             // Draw error underlines even in binary mode
+            drawUrlAndPathUnderlinesForBinaryLine(canvas, line, globalLine, y);
             editor.errorUnderline.drawErrorUnderlinesForLine(canvas, line, globalLine, y, 
                 editor.textRender.getDrawLineTop(globalLine), editor.textRender.getDrawLineBottom(globalLine));
             return;
@@ -375,11 +372,39 @@ public class HighliteRender {
         editor.errorUnderline.drawErrorUnderlinesForLine(canvas, line, globalLine, y, lineTop, lineBottom);
     }
 
+    private void drawUrlAndPathUnderlinesForBinaryLine(Canvas canvas, String line, int globalLine, float y) {
+        ArrayList<TextRender.UnderlineSpan> combinedUnderlines = TextRender.TL_UNDERLINES.get();
+        combinedUnderlines.clear();
+        if (editor.urlUnderline.isUrlUnderliningActive()) {
+            List<TextRender.UnderlineSpan> urlSpans = editor.urlUnderline.getUrlUnderlineSpansForLine(line, globalLine);
+            if (urlSpans != null) combinedUnderlines.addAll(urlSpans);
+        }
+        if (editor.pathUnderline.isPathUnderliningActive()) {
+            List<TextRender.UnderlineSpan> pathSpans = editor.pathUnderline.getPathUnderlineSpansForLine(line, globalLine);
+            if (pathSpans != null) combinedUnderlines.addAll(pathSpans);
+        }
+        if (combinedUnderlines.isEmpty()) return;
+        if (combinedUnderlines.size() > 1) {
+            Collections.sort(combinedUnderlines, (s1, s2) -> Integer.compare(s1.start, s2.start));
+        }
+
+        float lineTop = editor.textRender.getDrawLineTop(globalLine);
+        float lineBottom = lineTop + editor.textRender.lineHeight;
+        for (TextRender.UnderlineSpan span : combinedUnderlines) {
+            int start = Math.max(0, Math.min(span.start, line.length()));
+            int end = Math.max(start, Math.min(span.end, line.length()));
+            if (start >= end) continue;
+            float x = editor.textRender.measureText(line, start, globalLine);
+            editor.textRender.drawUnderlineSegmentWithFade(
+                canvas, line, start, end, x, y, lineTop, lineBottom, editor.textRender.paint,
+                -1, -1, 1f, span.isPath);
+        }
+    }
+
     /**
      * Draw a highlighted line range
      */
     public void drawHighlightedLineRange(Canvas canvas, String line, int globalLine, int start, int end, float y) {
-        FunctionLog.f("HighliteRender", "drawHighlightedLineRange", canvas, line, globalLine, start, end, y);
         if (line == null || line.isEmpty()) return;
         int len = line.length();
         start = Math.max(0, Math.min(start, len));
@@ -484,7 +509,6 @@ public class HighliteRender {
      */
     public void drawHighlightedLineSegment(
             Canvas canvas, String line, int globalLine, int start, int end, float y, float lineTop, float lineBottom) {
-        FunctionLog.f("HighliteRender", "drawHighlightedLineSegment", canvas, line, globalLine, start, end, y, lineTop, lineBottom);
         if (line == null || line.isEmpty() || start >= end) return;
         start = Math.max(0, Math.min(start, line.length()));
         end = Math.max(start, Math.min(end, line.length()));
@@ -556,7 +580,6 @@ public class HighliteRender {
     }
     
     public void setMaxSyntaxLineLength(int maxChars) {
-        FunctionLog.f("HighliteRender", "setMaxSyntaxLineLength", maxChars);
         int safe = Math.max(512, maxChars);
         if (maxSyntaxLineLength == safe) return;
         maxSyntaxLineLength = safe;
@@ -565,7 +588,6 @@ public class HighliteRender {
     }
 
     public void setPrefetchCols(int cols) {
-        FunctionLog.f("HighliteRender", "setPrefetchCols", cols);
         int safe = Math.max(0, cols);
         if (prefetchCols == safe) return;
         prefetchCols = safe;
@@ -573,7 +595,6 @@ public class HighliteRender {
     }
 
     public List<HighlightSpan> getHighlightSpansForLine(String line, int lineIndex) {
-        FunctionLog.f("HighliteRender", "getHighlightSpansForLine", line, lineIndex);
         List<HighlightSpan> spans = editor.highlite.highlightCache.get(lineIndex);
         if (spans == null) {
             spans = editor.highlite.calculateSpansForLine(line, lineIndex);

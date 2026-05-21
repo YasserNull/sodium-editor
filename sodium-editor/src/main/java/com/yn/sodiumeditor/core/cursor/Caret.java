@@ -6,9 +6,7 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 import com.yn.sodiumeditor.core.fold.CodeFold;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.HashMap;
 
 /**
@@ -36,7 +34,6 @@ public class Caret {
   private final Cursor cursor;
 
   public Caret(SodiumEditor editor, Cursor cursor) {
-    FunctionLog.f("Caret", "Caret", editor, cursor);
     this.editor = editor;
     this.cursor = cursor;
 
@@ -56,7 +53,6 @@ public class Caret {
    * Start caret blink
    */
   public void startBlink() {
-    FunctionLog.f("Caret", "startBlink");
     stopBlink();
     if (caretBlinkEnabled) {
       isCursorVisible = true;
@@ -68,7 +64,6 @@ public class Caret {
    * Stop caret blink
    */
   public void stopBlink() {
-    FunctionLog.f("Caret", "stopBlink");
     mainHandler.removeCallbacks(blinkRunnable);
     isCursorVisible = true;
   }
@@ -77,7 +72,6 @@ public class Caret {
    * Reset caret blink
    */
   public void resetBlink() {
-    FunctionLog.f("Caret", "resetBlink");
     stopBlink();
     startBlink();
   }
@@ -86,7 +80,6 @@ public class Caret {
    * Get caret X position relative to document start (no scroll)
    */
   public float getCaretDocumentX() {
-    FunctionLog.f("Caret", "getCaretDocumentX");
     if (editor.codeFold.isCodeFoldingEnabled) {
       CodeFold.FoldRange hidden = editor.codeFold.getCollapsedRangeContainingLine(cursor.cursorLine);
       if (hidden != null) {
@@ -109,7 +102,6 @@ public class Caret {
    * Get caret Y position relative to document start (no scroll)
    */
   public float getCaretDocumentY() {
-    FunctionLog.f("Caret", "getCaretDocumentY");
     int lineForVisual = cursor.cursorLine;
     if (editor.codeFold.isCodeFoldingEnabled) {
       CodeFold.FoldRange hidden = editor.codeFold.getCollapsedRangeContainingLine(cursor.cursorLine);
@@ -199,7 +191,6 @@ public class Caret {
    * Draw caret on canvas
    */
   public void drawCaret(Canvas canvas) {
-    FunctionLog.f("Caret", "drawCaret", canvas);
     if (!editor.isFocused() || editor.selection.hasSelection) {
       return;
     }
@@ -238,26 +229,6 @@ public class Caret {
       left += editor.lineNumber.lineNumbersGutterWidth;
       right += editor.lineNumber.lineNumbersGutterWidth;
     }
-
-    Log.i(
-        "CursorDbg",
-        "caretDraw"
-            + " docX="
-            + cx
-            + " docY="
-            + cy
-            + " left="
-            + left
-            + " top="
-            + top
-            + " right="
-            + right
-            + " bottom="
-            + bottom
-            + " cursorLine="
-            + cursor.cursorLine
-            + " cursorChar="
-            + cursor.cursorChar);
     caretPaint.setColor(caretColor);
     canvas.drawRect(left, top, right, bottom, caretPaint);
   }
@@ -266,7 +237,6 @@ public class Caret {
    * Updates caret appearance
    */
   public void updateCaretAppearance() {
-    FunctionLog.f("Caret", "updateCaretAppearance");
     caretPaint.setColor(caretColor);
   }
 
@@ -274,7 +244,6 @@ public class Caret {
    * Get caret X for wrapped mode
    */
   public float getCaretXForSegment(String line, int globalLine, int segStart, int segEnd, int index) {
-    FunctionLog.f("Caret", "getCaretXForSegment", line, globalLine, segStart, segEnd, index);
     if (line == null) return 0f;
     int safeIndex = Math.max(0, Math.min(index, line.length()));
     int safeSegStart = Math.max(0, Math.min(segStart, line.length()));
@@ -292,7 +261,6 @@ public class Caret {
    * Get caret X for a specific line and column.
    */
   public float getCaretXForLine(String lineText, int line, int col) {
-    FunctionLog.f("Caret", "getCaretXForLine", lineText, line, col);
     if (lineText == null) return 0f;
     int safeChar = Math.max(0, Math.min(col, lineText.length()));
     return editor.textRender.measureTextWithVisualSpaces(lineText, 0, safeChar, editor.textRender.paint);

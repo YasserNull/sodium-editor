@@ -4,10 +4,10 @@ import android.util.SparseArray;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.HighliteRender;
 import com.yn.sodiumeditor.renderer.TextRender;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 
 /**
  * Handles shifting of various line-based caches when lines are inserted or deleted.
@@ -16,17 +16,15 @@ public class LineCacheShifter {
     private final SodiumEditor editor;
 
     public LineCacheShifter(SodiumEditor editor) {
-        FunctionLog.f("LineCacheShifter", "LineCacheShifter", editor);
         this.editor = editor;
     }
 
     public void shiftModifiedLines(int startLine, int delta) {
-        FunctionLog.f("LineCacheShifter", "shiftModifiedLines", startLine, delta);
         if (delta == 0) return;
         synchronized (editor.windowRender.modifiedLines) {
             if (!editor.windowRender.modifiedLines.isEmpty()) {
                 LinkedHashMap<Integer, String> shifted = new LinkedHashMap<>();
-                for (Map.Entry<Integer, String> entry : editor.windowRender.modifiedLines.entrySet()) {
+                for (Map.Entry<Integer, String> entry : new ArrayList<>(editor.windowRender.modifiedLines.entrySet())) {
                     int line = entry.getKey();
                     if (line < startLine) {
                         shifted.put(line, entry.getValue());
@@ -43,6 +41,7 @@ public class LineCacheShifter {
         shiftTextRenderCaches(startLine, delta);
         shiftStreamedLineCaches(startLine, delta);
         editor.binaryRender.shiftBinaryTokenSpans(startLine, delta);
+        editor.bracketCache.clear();
         editor.bracketGuides.shiftBracketGuideCaches(startLine, delta);
         
         synchronized (editor.fileIO.directLineCache) {
@@ -54,7 +53,6 @@ public class LineCacheShifter {
     }
 
     private void shiftStreamedLineCaches(int startLine, int delta) {
-        FunctionLog.f("LineCacheShifter", "shiftStreamedLineCaches", startLine, delta);
         synchronized (editor.windowRender.streamedLinesLockLinesLock) {
             android.util.SparseIntArray len = editor.windowRender.streamedLinesLockLineLengths;
             android.util.SparseIntArray start = editor.windowRender.streamedLinesLockLineSliceStarts;
@@ -110,7 +108,6 @@ public class LineCacheShifter {
     }
 
     private void shiftTextRenderCaches(int startLine, int delta) {
-        FunctionLog.f("LineCacheShifter", "shiftTextRenderCaches", startLine, delta);
         SparseArray<Float> lwCache = editor.windowRender.lineWidthCache;
         if (lwCache.size() > 0) {
             SparseArray<Float> shiftedLw = new SparseArray<>(lwCache.size());
@@ -149,7 +146,7 @@ public class LineCacheShifter {
         synchronized (editor.highlite.highlightCache) {
             if (!editor.highlite.highlightCache.isEmpty()) {
                 LinkedHashMap<Integer, List<HighliteRender.HighlightSpan>> shifted = new LinkedHashMap<>();
-                for (Map.Entry<Integer, List<HighliteRender.HighlightSpan>> entry : editor.highlite.highlightCache.entrySet()) {
+                for (Map.Entry<Integer, List<HighliteRender.HighlightSpan>> entry : new ArrayList<>(editor.highlite.highlightCache.entrySet())) {
                     int line = entry.getKey();
                     if (line < startLine) shifted.put(line, entry.getValue());
                     else {
@@ -165,7 +162,7 @@ public class LineCacheShifter {
         synchronized (editor.colorCodeHighlight.colorCodeBgCache) {
             if (!editor.colorCodeHighlight.colorCodeBgCache.isEmpty()) {
                 LinkedHashMap<Integer, int[]> shifted = new LinkedHashMap<>();
-                for (Map.Entry<Integer, int[]> entry : editor.colorCodeHighlight.colorCodeBgCache.entrySet()) {
+                for (Map.Entry<Integer, int[]> entry : new ArrayList<>(editor.colorCodeHighlight.colorCodeBgCache.entrySet())) {
                     int line = entry.getKey();
                     if (line < startLine) shifted.put(line, entry.getValue());
                     else {
@@ -180,7 +177,7 @@ public class LineCacheShifter {
         synchronized (editor.urlUnderline.urlUnderlineCache) {
             if (!editor.urlUnderline.urlUnderlineCache.isEmpty()) {
                 LinkedHashMap<Integer, List<TextRender.UnderlineSpan>> shifted = new LinkedHashMap<>();
-                for (Map.Entry<Integer, List<TextRender.UnderlineSpan>> entry : editor.urlUnderline.urlUnderlineCache.entrySet()) {
+                for (Map.Entry<Integer, List<TextRender.UnderlineSpan>> entry : new ArrayList<>(editor.urlUnderline.urlUnderlineCache.entrySet())) {
                     int line = entry.getKey();
                     if (line < startLine) shifted.put(line, entry.getValue());
                     else {
@@ -195,7 +192,7 @@ public class LineCacheShifter {
         synchronized (editor.pathUnderline.pathUnderlineCache) {
             if (!editor.pathUnderline.pathUnderlineCache.isEmpty()) {
                 LinkedHashMap<Integer, List<TextRender.UnderlineSpan>> shifted = new LinkedHashMap<>();
-                for (Map.Entry<Integer, List<TextRender.UnderlineSpan>> entry : editor.pathUnderline.pathUnderlineCache.entrySet()) {
+                for (Map.Entry<Integer, List<TextRender.UnderlineSpan>> entry : new ArrayList<>(editor.pathUnderline.pathUnderlineCache.entrySet())) {
                     int line = entry.getKey();
                     if (line < startLine) shifted.put(line, entry.getValue());
                     else {

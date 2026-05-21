@@ -4,7 +4,6 @@ import android.graphics.RectF;
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.scroll.Popup;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Handles interactions with the popup menu for SodiumEditor.
@@ -13,12 +12,10 @@ public class PopupInteractionHandler {
     private final SodiumEditor editor;
 
     public PopupInteractionHandler(SodiumEditor editor) {
-        FunctionLog.f("PopupInteractionHandler", "PopupInteractionHandler", editor);
         this.editor = editor;
     }
 
     public boolean handleActionDown(MotionEvent event) {
-        FunctionLog.f("PopupInteractionHandler", "handleActionDown", event);
         if (editor.popup.showPopup) {
             float ex = event.getX();
             float ey = event.getY();
@@ -33,7 +30,6 @@ public class PopupInteractionHandler {
     }
 
     public boolean handleActionMove(MotionEvent event) {
-        FunctionLog.f("PopupInteractionHandler", "handleActionMove", event);
         if (editor.popup.popupPressedAction != 0) {
             float ex = event.getX();
             float ey = event.getY();
@@ -48,7 +44,6 @@ public class PopupInteractionHandler {
     }
 
     public boolean handleActionUp(MotionEvent event) {
-        FunctionLog.f("PopupInteractionHandler", "handleActionUp", event);
         if (editor.popup.popupPressedAction != 0) {
             float ex = event.getX();
             float ey = event.getY();
@@ -104,7 +99,6 @@ public class PopupInteractionHandler {
     }
 
     public void handleActionCancel() {
-        FunctionLog.f("PopupInteractionHandler", "handleActionCancel");
         editor.popup.popupPressedAction = 0;
         editor.popup.cancelPopupRipple();
     }

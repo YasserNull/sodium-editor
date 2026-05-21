@@ -6,7 +6,6 @@ import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Looper;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -46,27 +45,23 @@ public class LoadingCircleAnimation {
     private final Runnable largeEditUiWatchdog = () -> endLargeEditUi(false);
 
     public LoadingCircleAnimation(SodiumEditor editor) {
-        FunctionLog.f("LoadingCircleAnimation", "LoadingCircleAnimation", editor);
         this.editor = editor;
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeCap(Paint.Cap.ROUND);
     }
 
     public void startRotation() {
-        FunctionLog.f("LoadingCircleAnimation", "startRotation");
         if (isAnimating) return;
         isAnimating = true;
         mainHandler.post(animationRunnable);
     }
 
     public void stopRotation() {
-        FunctionLog.f("LoadingCircleAnimation", "stopRotation");
         isAnimating = false;
         mainHandler.removeCallbacks(animationRunnable);
     }
 
     public void draw(Canvas canvas) {
-        FunctionLog.f("LoadingCircleAnimation", "draw", canvas);
         if (!showLoadingCircle) return;
         rect.set(editor.getWidth() / 2f - radius, editor.getHeight() / 2f - radius, editor.getWidth() / 2f + radius, editor.getHeight() / 2f + radius);
         paint.setColor(color);
@@ -75,7 +70,6 @@ public class LoadingCircleAnimation {
     }
 
     public void beginLargeEditUiIfNeeded(boolean enable, int sL, int eL, boolean isSelectAllLike) {
-        FunctionLog.f("LoadingCircleAnimation", "beginLargeEditUiIfNeeded", enable, sL, eL, isSelectAllLike);
         if (!enable) return;
         if (eL - sL > LARGE_EDIT_LINES || isSelectAllLike) {
             showLoadingCircle = true;
@@ -84,7 +78,6 @@ public class LoadingCircleAnimation {
     }
 
     public void endLargeEditUi(boolean invalidate) {
-        FunctionLog.f("LoadingCircleAnimation", "endLargeEditUi", invalidate);
         largeEditUiToken.incrementAndGet();
         showLoadingCircle = false;
         stopRotation();
@@ -92,13 +85,11 @@ public class LoadingCircleAnimation {
     }
 
     public void cancel() {
-        FunctionLog.f("LoadingCircleAnimation", "cancel");
         stopRotation();
         editor.caret.mainHandler.removeCallbacks(largeEditUiWatchdog);
     }
 
     public boolean isAnimating() { 
-        FunctionLog.f("LoadingCircleAnimation", "isAnimating");
         return isAnimating; 
     }
 }

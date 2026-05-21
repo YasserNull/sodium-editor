@@ -5,7 +5,6 @@ import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.utils.BracketGuideScanner;
 import com.yn.sodiumeditor.utils.BracketGuideScanner.SpanCollector;
 import com.yn.sodiumeditor.utils.BracketGuideScanner.BracketSpanScanState;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Manages span-based bracket guide cache for performance-optimized rendering.
@@ -34,13 +33,11 @@ public class BracketGuideSpanCache {
   public int bracketGuideSpanPendingConfigHash = 0;
 
   public BracketGuideSpanCache(SodiumEditor editor, BracketGuides bracketGuides) {
-    FunctionLog.f("BracketGuideSpanCache", "BracketGuideSpanCache", editor, bracketGuides);
     this.editor = editor;
     this.bracketGuides = bracketGuides;
   }
 
   private void ensureSpanCapacity(int desired) {
-    FunctionLog.f("BracketGuideSpanCache", "ensureSpanCapacity", desired);
     if (desired <= bracketGuideSpanCapacity) return;
     int newCap = Math.max(64, desired * 2);
     bracketGuideSpanCapacity = newCap;
@@ -51,7 +48,6 @@ public class BracketGuideSpanCache {
   }
 
   private void addSpan(int column, int startLine, int endLine, char bracket) {
-    FunctionLog.f("BracketGuideSpanCache", "addSpan", column, startLine, endLine, bracket);
     if (startLine > endLine) return;
     ensureSpanCapacity(bracketGuideSpanCount + 1);
     int idx = bracketGuideSpanCount++;
@@ -62,7 +58,6 @@ public class BracketGuideSpanCache {
   }
 
   private float getGuideXApproxFromColumn(int column) {
-    FunctionLog.f("BracketGuideSpanCache", "getGuideXApproxFromColumn", column);
     float spaceWidth = editor.textRender.getVisualSpaceWidth(editor.textRender.paint);
     return spaceWidth * Math.max(0, column);
   }
@@ -71,7 +66,6 @@ public class BracketGuideSpanCache {
    * Invalidates the span cache.
    */
   public void invalidate() {
-    FunctionLog.f("BracketGuideSpanCache", "invalidate");
     bracketGuideSpanCacheStartLine = -1;
     bracketGuideSpanCacheEndLine = -1;
     bracketGuideSpanCacheEditVersion = -1;
@@ -90,7 +84,6 @@ public class BracketGuideSpanCache {
    * Checks if span cache is valid.
    */
   public boolean isCacheValid(int startLine, int endLine, int editVersion, int configHash) {
-    FunctionLog.f("BracketGuideSpanCache", "isCacheValid", startLine, endLine, editVersion, configHash);
     return startLine == bracketGuideSpanCacheStartLine
         && endLine == bracketGuideSpanCacheEndLine
         && editVersion == bracketGuideSpanCacheEditVersion
@@ -102,7 +95,6 @@ public class BracketGuideSpanCache {
    * Zero text lookups per frame — all segments are precomputed during build.
    */
   public void drawBracketGuidesForVisibleRange(Canvas canvas, int visibleStart, int visibleEnd) {
-    FunctionLog.f("BracketGuideSpanCache", "drawBracketGuidesForVisibleRange", canvas, visibleStart, visibleEnd);
     if (!bracketGuides.isBracketGuidesEnabled || editor.isHeavyDrawSuppressed()) return;
     if (bracketGuideSpanCacheStartLine < 0 || bracketGuideSpanCacheEndLine < bracketGuideSpanCacheStartLine) return;
     if (bracketGuideSpanSegmentCount <= 0 || bracketGuideSpanSegments == null) return;
@@ -115,7 +107,6 @@ public class BracketGuideSpanCache {
    */
   public void buildSpanCacheAsync(
       int startLine, int endLine, int v, int cfg, long startTime, java.util.Map<Integer, String> directLines) {
-    FunctionLog.f("BracketGuideSpanCache", "buildSpanCacheAsync", startLine, endLine, v, cfg, startTime, directLines);
     BracketSpanScanState state = new BracketSpanScanState();
     SpanCollector collector = new SpanCollector(256);
 
@@ -235,7 +226,6 @@ public class BracketGuideSpanCache {
    * Gets span cache start line.
    */
   public int getStartLine() {
-    FunctionLog.f("BracketGuideSpanCache", "getStartLine");
     return bracketGuideSpanCacheStartLine;
   }
 
@@ -243,7 +233,6 @@ public class BracketGuideSpanCache {
    * Gets span cache end line.
    */
   public int getEndLine() {
-    FunctionLog.f("BracketGuideSpanCache", "getEndLine");
     return bracketGuideSpanCacheEndLine;
   }
 
@@ -251,7 +240,6 @@ public class BracketGuideSpanCache {
    * Checks if span cache can be used for drawing.
    */
   public boolean canDraw() {
-    FunctionLog.f("BracketGuideSpanCache", "canDraw");
     return bracketGuideSpanCacheStartLine >= 0 && bracketGuideSpanCacheEndLine >= bracketGuideSpanCacheStartLine && bracketGuideSpanCount > 0;
   }
 }

@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import com.yn.sodiumeditor.renderer.TextRender;
-import com.yn.sodiumeditor.utils.FunctionLog;
 /**
  * Manages indent guides for the SodiumEditor.
  * Draws vertical guide lines for indentation blocks.
@@ -18,7 +17,7 @@ public class IndentGuides {
 
   private final SodiumEditor editor;
 
-  public boolean isIndentationBlocksEnabled = false;
+  public boolean isIndentationBlocksEnabled = true;
 
   // Indent guides state
   public boolean isIndentGuidesEnabled = false;
@@ -37,13 +36,11 @@ public class IndentGuides {
   public int guideSeenXCount = 0;
 
   public IndentGuides(SodiumEditor editor) {
-    FunctionLog.f("IndentGuides", "IndentGuides", editor);
     this.editor = editor;
     initPaint();
   }
 
   private void initPaint() {
-    FunctionLog.f("IndentGuides", "initPaint");
     indentGuidePaint.setColor(0xFF555555);
     indentGuidePaint.setStyle(Paint.Style.STROKE);
     indentGuidePaint.setStrokeWidth(indentGuideStrokeWidth);
@@ -53,7 +50,6 @@ public class IndentGuides {
    * Enables or disables indent guides.
    */
   public void setIndentGuidesEnabled(boolean enabled) {
-    FunctionLog.f("IndentGuides", "setIndentGuidesEnabled", enabled);
     if (this.isIndentGuidesEnabled == enabled) return;
     this.isIndentGuidesEnabled = enabled;
     if (enabled) {
@@ -66,7 +62,6 @@ public class IndentGuides {
    * Sets the indent guides color.
    */
   public void setIndentGuidesColor(int color) {
-    FunctionLog.f("IndentGuides", "setIndentGuidesColor", color);
     indentGuidePaint.setColor(color);
     editor.invalidate();
   }
@@ -75,7 +70,6 @@ public class IndentGuides {
    * Sets the indent guides stroke width.
    */
   public void setIndentGuidesStrokeWidth(float width) {
-    FunctionLog.f("IndentGuides", "setIndentGuidesStrokeWidth", width);
     if (this.indentGuideStrokeWidth == width) return;
     this.baseIndentGuideStrokeWidth = width;
     this.baseIndentGuideTextSizePx = editor.textRender.paint.getTextSize();
@@ -87,7 +81,6 @@ public class IndentGuides {
    * Updates stroke width based on text size.
    */
   public void updateStrokeWidth() {
-    FunctionLog.f("IndentGuides", "updateStrokeWidth");
     float sizePx = editor.textRender.paint.getTextSize();
     indentGuideStrokeWidth = Math.max(
         1f,
@@ -99,7 +92,6 @@ public class IndentGuides {
    * Marks indent guide intervals as dirty.
    */
   public void markIntervalsDirty() {
-    FunctionLog.f("IndentGuides", "markIntervalsDirty");
     indentGuideIntervalsDirty = true;
   }
 
@@ -107,7 +99,6 @@ public class IndentGuides {
    * Rebuilds indent guide intervals if needed.
    */
   public void rebuildIndentGuideIntervalsIfNeeded() {
-    FunctionLog.f("IndentGuides", "rebuildIndentGuideIntervalsIfNeeded");
     if (!indentGuideIntervalsDirty || buildInProgress) return;
     if (!isIndentGuidesEnabled || !isIndentationBlocksEnabled) return;
     
@@ -201,7 +192,6 @@ public class IndentGuides {
   }
 
   private String getLineTextForScan(int line, java.io.RandomAccessFile raf) {
-    FunctionLog.f("IndentGuides", "getLineTextForScan", line, raf);
     String mod = editor.windowRender.modifiedLines.get(line);
     if (mod != null) return mod;
     int winStart = editor.windowRender.windowStartLine;
@@ -222,7 +212,6 @@ public class IndentGuides {
    * Checks if a line is in an indent block.
    */
   public boolean isLineInIndentBlock(int globalLine) {
-    FunctionLog.f("IndentGuides", "isLineInIndentBlock", globalLine);
     if (!isIndentGuidesEnabled || !isIndentationBlocksEnabled) return false;
     rebuildIndentGuideIntervalsIfNeeded();
     if (indentGuideIntervals.isEmpty()) return false;
@@ -247,7 +236,6 @@ public class IndentGuides {
    * Draws indent guides for a line.
    */
   public void drawIndentGuidesForLine(Canvas canvas, String line, int globalLine) {
-    FunctionLog.f("IndentGuides", "drawIndentGuidesForLine", canvas, line, globalLine);
     if (!isIndentGuidesEnabled || !isIndentationBlocksEnabled || editor.isHeavyDrawSuppressed()) return;
     if (!isLineInIndentBlock(globalLine)) return;
     if (line == null || line.isEmpty()) return;
@@ -283,7 +271,6 @@ public class IndentGuides {
    * Clears indent guide intervals.
    */
   public void clearIntervals() {
-    FunctionLog.f("IndentGuides", "clearIntervals");
     indentGuideIntervals.clear();
     indentGuideIntervalsDirty = true;
   }

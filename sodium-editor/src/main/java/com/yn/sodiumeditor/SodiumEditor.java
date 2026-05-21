@@ -21,7 +21,6 @@ import android.text.Editable;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.util.SparseIntArray;
 import android.view.GestureDetector;
 import android.view.KeyEvent;
@@ -94,10 +93,6 @@ import com.yn.sodiumeditor.renderer.*;
 import com.yn.sodiumeditor.input.Ime;
 
 public class SodiumEditor extends View {
-
-  public static final boolean DEBUG_RENDER_LOGS = false;
-
-  private final java.util.HashMap<String, Long> renderLogLast = new java.util.HashMap<>();
 
   public final FileIO fileIO;
   public final Scroll scroll;

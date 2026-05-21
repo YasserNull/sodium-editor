@@ -4,7 +4,6 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Edge handles custom glow arc effects for overscroll.
@@ -26,7 +25,6 @@ public class Edge {
   private boolean pullingTop, pullingBottom, pullingLeft, pullingRight;
 
   public Edge(SodiumEditor editor) {
-    FunctionLog.f("Edge", "Edge", editor);
     this.editor = editor;
     this.paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     this.paint.setStyle(Paint.Style.FILL);
@@ -34,14 +32,12 @@ public class Edge {
   }
 
   public void setEdgeEffectColor(int color) {
-    FunctionLog.f("Edge", "setEdgeEffectColor", color);
     this.edgeEffectColor = color;
     this.paint.setColor(color);
     editor.invalidate();
   }
 
   public void pullTop(float deltaPx, float touchX) {
-    FunctionLog.f("Edge", "pullTop", deltaPx, touchX);
     pullingTop = true;
     distBottom = 0; // منع التعارض: صفر الحافة المقابلة
     distTop = Math.min(1.0f, distTop + Math.abs(deltaPx) / editor.getHeight() * edgeEffectStrength);
@@ -49,7 +45,6 @@ public class Edge {
   }
 
   public void pullBottom(float deltaPx, float touchX) {
-    FunctionLog.f("Edge", "pullBottom", deltaPx, touchX);
     pullingBottom = true;
     distTop = 0; // منع التعارض
     distBottom = Math.min(1.0f, distBottom + Math.abs(deltaPx) / editor.getHeight() * edgeEffectStrength);
@@ -57,7 +52,6 @@ public class Edge {
   }
 
   public void pullLeft(float deltaPx, float touchY) {
-    FunctionLog.f("Edge", "pullLeft", deltaPx, touchY);
     pullingLeft = true;
     distRight = 0; // منع التعارض
     distLeft = Math.min(1.0f, distLeft + Math.abs(deltaPx) / editor.getWidth() * edgeEffectStrength);
@@ -65,7 +59,6 @@ public class Edge {
   }
 
   public void pullRight(float deltaPx, float touchY) {
-    FunctionLog.f("Edge", "pullRight", deltaPx, touchY);
     pullingRight = true;
     distLeft = 0; // منع التعارض
     distRight = Math.min(1.0f, distRight + Math.abs(deltaPx) / editor.getWidth() * edgeEffectStrength);
@@ -73,55 +66,47 @@ public class Edge {
   }
 
   public void releaseVertical() {
-    FunctionLog.f("Edge", "releaseVertical");
     pullingTop = false;
     pullingBottom = false;
     editor.postInvalidateOnAnimation();
   }
 
   public void releaseHorizontal() {
-    FunctionLog.f("Edge", "releaseHorizontal");
     pullingLeft = false;
     pullingRight = false;
     editor.postInvalidateOnAnimation();
   }
 
   public void absorbTop(float velocity) {
-    FunctionLog.f("Edge", "absorbTop", velocity);
     distBottom = 0;
     distTop = Math.min(1.0f, Math.abs(velocity) / 5000f);
     editor.postInvalidateOnAnimation();
   }
 
   public void absorbBottom(float velocity) {
-    FunctionLog.f("Edge", "absorbBottom", velocity);
     distTop = 0;
     distBottom = Math.min(1.0f, Math.abs(velocity) / 5000f);
     editor.postInvalidateOnAnimation();
   }
 
   public void absorbLeft(float velocity) {
-    FunctionLog.f("Edge", "absorbLeft", velocity);
     distRight = 0;
     distLeft = Math.min(1.0f, Math.abs(velocity) / 5000f);
     editor.postInvalidateOnAnimation();
   }
 
   public void absorbRight(float velocity) {
-    FunctionLog.f("Edge", "absorbRight", velocity);
     distLeft = 0;
     distRight = Math.min(1.0f, Math.abs(velocity) / 5000f);
     editor.postInvalidateOnAnimation();
   }
 
   public void releaseAll() {
-    FunctionLog.f("Edge", "releaseAll");
     pullingTop = pullingBottom = pullingLeft = pullingRight = false;
     editor.postInvalidateOnAnimation();
   }
 
   public void draw(Canvas canvas) {
-    FunctionLog.f("Edge", "draw", canvas);
     int w = editor.getWidth();
     int h = editor.getHeight();
     if (w <= 0 || h <= 0) return;
@@ -162,7 +147,6 @@ public class Edge {
   }
 
   private void drawGlowArc(Canvas canvas, float cx, float cy, int size, float dist, float rotation) {
-    FunctionLog.f("Edge", "drawGlowArc", canvas, cx, cy, size, dist, rotation);
     int save = canvas.save();
     canvas.translate(cx, cy);
     canvas.rotate(rotation);

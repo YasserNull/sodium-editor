@@ -4,12 +4,10 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
-import android.util.Log;
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.fold.CodeFold;
 import com.yn.sodiumeditor.core.scroll.Popup;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * OnTouch handles all touch event logic for SodiumEditor by delegating to specialized handlers.
@@ -31,7 +29,6 @@ public class OnTouch {
   private final GestureHandler gestureHandler;
 
   public OnTouch(SodiumEditor editor) {
-    FunctionLog.f("OnTouch", "OnTouch", editor);
     this.editor = editor;
     this.touchSlop = android.view.ViewConfiguration.get(editor.getContext()).getScaledTouchSlop();
     this.scrollBarHandler = new ScrollBarHandler(editor);
@@ -41,12 +38,10 @@ public class OnTouch {
   }
 
   public void updateHandlePosition(float touchX, float touchY) {
-    FunctionLog.f("OnTouch", "updateHandlePosition", touchX, touchY);
     dragSelectionHandler.updateHandlePosition(touchX, touchY);
   }
 
   public boolean onTouchEvent(MotionEvent event) {
-    FunctionLog.f("OnTouch", "onTouchEvent", event);
     if (editor.view.isDisabled) return true;
 
     int action = event.getActionMasked();
@@ -126,18 +121,6 @@ public class OnTouch {
         return true;
 
       case MotionEvent.ACTION_UP:
-        android.util.Log.i(
-            "AnimDbg",
-            "touch up moved="
-                + editor.onTouch.movedSinceDown
-                + " hasSelection="
-                + editor.selection.hasSelection
-                + " draggingHandle="
-                + editor.selectionHandles.draggingHandle
-                + " scrollX="
-                + editor.scroll.scrollX
-                + " scrollY="
-                + editor.scroll.scrollY);
         boolean wasDraggingSelectionHandle =
             editor.selectionHandles.draggingHandle == 1 || editor.selectionHandles.draggingHandle == 2;
         dragSelectionHandler.handleActionUpOrCancel();
@@ -208,7 +191,6 @@ public class OnTouch {
   }
 
   private boolean handleSuggestionTap(float ex, float ey) {
-    FunctionLog.f("OnTouch", "handleSuggestionTap", ex, ey);
     com.yn.sodiumeditor.io.EditOp.CursorTarget target = editor.wordWrap.getCursorTargetForPosition(ex, ey, null);
     String ln = editor.windowRender.getLineTextForRender(target.line);
     int charIndex = Math.max(0, Math.min(target.ch, (ln == null) ? 0 : ln.length()));
@@ -217,7 +199,11 @@ public class OnTouch {
     boolean allowSuggestionTap = editor.autoCompletion.activeSuggestionIsPath ? editor.autoPathCompletion.isAutoPathCompletionEnabled : editor.autoCompletion.isAutoCompletionEnabled;
     if (!editor.onTouch.movedSinceDown && allowSuggestionTap && editor.autoCompletion.activeSuggestion != null && !editor.autoCompletion.activeSuggestionRect.isEmpty()) {
       if (editor.autoCompletion.activeSuggestionRect.contains(ex, ey) || (isEmptyArea && target.line == editor.cursor.cursorLine)) {
-        editor.autoCompletion.acceptAutoCompletion();
+        if (editor.autoCompletion.activeSuggestionIsPath) {
+          editor.autoPathCompletion.acceptPathCompletion();
+        } else {
+          editor.autoCompletion.acceptAutoCompletion();
+        }
         editor.onTouch.pointerDown = false;
         return true;
       }
@@ -226,7 +212,6 @@ public class OnTouch {
   }
 
   public void drawSelectionSegment(Canvas canvas, float left, float top, float right, float bottom, boolean roundTopLeft, boolean roundTopRight, boolean roundBottomRight, boolean roundBottomLeft, Paint paint) {
-    FunctionLog.f("OnTouch", "drawSelectionSegment", canvas, left, top, right, bottom, roundTopLeft, roundTopRight, roundBottomRight, roundBottomLeft, paint);
     if (right <= left || bottom <= top) return;
     float radius = Math.min(12f, Math.max(2f, editor.textRender.lineHeight * 0.22f));
     float insetX = 0.5f;

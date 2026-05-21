@@ -4,7 +4,6 @@ import android.graphics.Canvas;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.guides.bracket.BracketGuideToken;
 import com.yn.sodiumeditor.core.guides.bracket.BracketGuides;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.List;
 
 /**
@@ -24,12 +23,8 @@ public class BracketGuideDraw {
   private int visibleStartLine = -1;
   private int visibleEndLine = -1;
   private boolean frameFastScroll = false;
-  private long frameStartNs = 0L;
-  private int frameLineCount = 0;
-  private int frameTokenCount = 0;
 
   public BracketGuideDraw(SodiumEditor editor, BracketGuides bracketGuides) {
-    FunctionLog.f("BracketGuideDraw", "BracketGuideDraw", editor, bracketGuides);
     this.editor = editor;
     this.bracketGuides = bracketGuides;
   }
@@ -38,23 +33,16 @@ public class BracketGuideDraw {
    * Call at start of render pass to track current state and visible lines
    */
   public void beginRenderFrame(int windowStart, int windowEnd, int visibleStart, int visibleEnd) {
-    FunctionLog.f("BracketGuideDraw", "beginRenderFrame", windowStart, windowEnd, visibleStart, visibleEnd);
     lastRenderedWindowStart = windowStart;
     lastRenderedWindowEnd = windowEnd;
     visibleStartLine = visibleStart;
     visibleEndLine = visibleEnd;
-    if (SodiumEditor.DEBUG_RENDER_LOGS) {
-      frameStartNs = System.nanoTime();
-      frameLineCount = 0;
-      frameTokenCount = 0;
-    }
   }
 
   /**
    * Call at start of render pass (backward compatibility)
    */
   public void beginRenderFrame(int windowStart, int windowEnd) {
-    FunctionLog.f("BracketGuideDraw", "beginRenderFrame", windowStart, windowEnd);
     beginRenderFrame(windowStart, windowEnd, windowStart, windowEnd);
   }
 
@@ -62,7 +50,6 @@ public class BracketGuideDraw {
    * Update fast-scroll state for the current frame.
    */
   public void setFrameFastScroll(boolean fastScroll) {
-    FunctionLog.f("BracketGuideDraw", "setFrameFastScroll", fastScroll);
     this.frameFastScroll = fastScroll;
   }
 
@@ -70,7 +57,6 @@ public class BracketGuideDraw {
    * Check if bracket guides can be drawn (cache is valid)
    */
   public boolean canDrawBracketGuides() {
-    FunctionLog.f("BracketGuideDraw", "canDrawBracketGuides");
     // Can draw if main cache is valid OR fallback cache has any entries OR span cache is valid
     boolean mainValid = (bracketGuides.mainCache.bracketGuideCacheStartLine >= 0 && bracketGuides.mainCache.bracketGuideCacheEndLine >= bracketGuides.mainCache.bracketGuideCacheStartLine);
     boolean fallbackValid = bracketGuides.fallbackCache.containsLine(0) || bracketGuides.fallbackCache.getEditVersion() >= 0;
@@ -82,7 +68,6 @@ public class BracketGuideDraw {
    * Check if a line is currently visible on screen
    */
   public boolean isLineVisible(int globalLine) {
-    FunctionLog.f("BracketGuideDraw", "isLineVisible", globalLine);
     return globalLine >= visibleStartLine && globalLine <= visibleEndLine;
   }
 
@@ -90,7 +75,6 @@ public class BracketGuideDraw {
    * Reset draw tracking (called when cache is invalidated)
    */
   public void resetDrawTracking() {
-    FunctionLog.f("BracketGuideDraw", "resetDrawTracking");
     lastRenderedEditVersion = -1;
     lastRenderedConfigHash = 0;
     lastRenderedWindowStart = -1;
@@ -102,7 +86,6 @@ public class BracketGuideDraw {
    */
   public void drawBracketGuidesForLine(
       Canvas canvas, String line, int globalLine, List<BracketGuideToken> guideTokens) {
-    FunctionLog.f("BracketGuideDraw", "drawBracketGuidesForLine", canvas, line, globalLine, guideTokens);
     if (globalLine < 0 || globalLine >= editor.view.getLinesCount()) return;
     if (!bracketGuides.isBracketGuidesEnabled || editor.isHeavyDrawSuppressed()) return;
 
@@ -111,10 +94,6 @@ public class BracketGuideDraw {
 
     if (tokensToDraw == null || tokensToDraw.isEmpty()) {
       return;
-    }
-    if (SodiumEditor.DEBUG_RENDER_LOGS) {
-      frameLineCount++;
-      frameTokenCount += tokensToDraw.size();
     }
 
     if (line == null) line = "";
@@ -167,15 +146,9 @@ public class BracketGuideDraw {
    */
   public void drawBracketGuidesForLineFromStack(
       Canvas canvas, String line, int globalLine, java.util.ArrayDeque<BracketGuideToken> stack) {
-    FunctionLog.f("BracketGuideDraw", "drawBracketGuidesForLineFromStack", canvas, line, globalLine, stack);
     if (globalLine < 0 || globalLine >= editor.view.getLinesCount()) return;
     if (!bracketGuides.isBracketGuidesEnabled || editor.isHeavyDrawSuppressed()) return;
     if (stack == null || stack.isEmpty()) return;
-
-    if (SodiumEditor.DEBUG_RENDER_LOGS) {
-      frameLineCount++;
-      frameTokenCount += stack.size();
-    }
 
     if (line == null) line = "";
     editor.indentGuides.guideSeenXCount = 0;
@@ -220,18 +193,9 @@ public class BracketGuideDraw {
   }
 
   /**
-   * Log per-frame stats to help diagnose bracket guide performance.
-   */
-  public void endRenderFrameMaybeLog() {
-    FunctionLog.f("BracketGuideDraw", "endRenderFrameMaybeLog");
-    
-  }
-
-  /**
    * Gets the guide X position at the START of the character (not center).
    */
   public float getGuideX(String line, int column, int globalLine) {
-    FunctionLog.f("BracketGuideDraw", "getGuideX", line, column, globalLine);
     return editor.layout.getGuideXForColumn(line, column, globalLine);
   }
 }

@@ -3,7 +3,6 @@ package com.yn.sodiumeditor.io;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.StreamedCharSlice;
 import com.yn.sodiumeditor.core.binary.BinaryTokenConverter;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -41,7 +40,6 @@ public class BinaryFileReader {
             .onUnmappableCharacter(CodingErrorAction.REPLACE));
 
     public BinaryFileReader(SodiumEditor editor, BinaryTokenConverter tokenConverter) {
-        FunctionLog.f("BinaryFileReader", "BinaryFileReader", editor, tokenConverter);
         this.editor = editor;
         this.tokenConverter = tokenConverter;
     }
@@ -53,7 +51,6 @@ public class BinaryFileReader {
      */
     public String readLineWithBinarySafe(
         RandomAccessFile raf, int line, long fileLen, Charset fileCharset, boolean binarySafeRenderingEnabled) throws Exception {
-        FunctionLog.f("BinaryFileReader", "readLineWithBinarySafe", raf, line, fileLen, fileCharset, binarySafeRenderingEnabled);
 
         long start, end;
         synchronized (editor.fileIO.lineOffsetsLock) {
@@ -90,7 +87,7 @@ public class BinaryFileReader {
 
         if (used <= 0) return "";
 
-        if (binarySafeRenderingEnabled) return tokenConverter.bytesToControlVisible(sink, used);
+        if (binarySafeRenderingEnabled) return tokenConverter.bytesToControlVisible(sink, used, fileCharset);
         return new String(sink, 0, used, fileCharset);
     }
 
@@ -98,7 +95,6 @@ public class BinaryFileReader {
     public String readLineSliceAtByte(
         RandomAccessFile raf, long lineStart, long lineByteLen,
         int startChar, int endChar, Charset fileCharset, boolean binarySafeRenderingEnabled) throws Exception {
-        FunctionLog.f("BinaryFileReader", "readLineSliceAtByte", raf, lineStart, lineByteLen, startChar, endChar, fileCharset, binarySafeRenderingEnabled);
 
         int safeStart = (int) Math.max(0, Math.min(startChar, Math.min(Integer.MAX_VALUE, lineByteLen)));
         int safeEnd   = (int) Math.max(safeStart, Math.min(endChar, Math.min(Integer.MAX_VALUE, lineByteLen)));
@@ -115,7 +111,7 @@ public class BinaryFileReader {
             if (got <= 0) break;
         }
 
-        if (binarySafeRenderingEnabled) return tokenConverter.bytesToControlVisible(buf, len);
+        if (binarySafeRenderingEnabled) return tokenConverter.bytesToControlVisible(buf, len, fileCharset);
         return new String(buf, 0, len, fileCharset);
     }
 
@@ -132,7 +128,6 @@ public class BinaryFileReader {
         int startChar, int endChar,
         boolean needTotalLength, Charset fileCharset, boolean binarySafeRenderingEnabled,
         boolean binaryHexTokensEnabled) throws Exception {
-        FunctionLog.f("BinaryFileReader", "readLineSliceByChars", raf, lineStart, startChar, endChar, needTotalLength, fileCharset, binarySafeRenderingEnabled, binaryHexTokensEnabled);
 
         int safeStart = Math.max(0, startChar);
         int safeEnd   = Math.max(safeStart, endChar);

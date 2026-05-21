@@ -1,5 +1,8 @@
 package com.yn.sodiumeditor.core.binary;
 
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+
 /**
  * BinaryTokenConverter handles conversion of binary bytes to visible tokens.
  * This includes:
@@ -82,35 +85,65 @@ public class BinaryTokenConverter {
      * Uses pre-computed lengths to size the StringBuilder exactly once.
      */
     public String bytesToControlVisible(byte[] buf, int len) {
-        if (len <= 0) return "";
+        return bytesToControlVisible(buf, len, StandardCharsets.UTF_8);
+    }
 
-        // 1. Compute exact output length — avoids ANY StringBuilder resize
+    public String bytesToControlVisible(byte[] buf, int len, Charset charset) {
+        if (len <= 0) return "";
+        Charset safeCharset = charset != null ? charset : StandardCharsets.UTF_8;
+        return charsToControlVisible(new String(buf, 0, len, safeCharset));
+    }
+
+    public String charsToControlVisible(String text) {
+        if (text == null || text.isEmpty()) return "";
+
         int outLen = 0;
-        for (int i = 0; i < len; i++) outLen += BYTE_TOKEN_LEN[buf[i] & 0xFF];
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            outLen += needsEscaping(c) ? escapeControlChar(c).length() : 1;
+        }
 
         StringBuilder sb = TL_SB.get();
         sb.setLength(0);
         sb.ensureCapacity(outLen);
 
-        // 2. Append tokens
-        for (int i = 0; i < len; i++) {
-            int b = buf[i] & 0xFF;
-            sb.append(BYTE_TOKEN[b]);
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            sb.append(needsEscaping(c) ? escapeControlChar(c) : String.valueOf(c));
         }
 
         return sb.toString();
     }
 
     public String bytesToControlVisibleAndCacheSpans(byte[] buf, int len, int lineIndex, android.util.SparseArray<int[]> binaryTokenSpans) {
+        return bytesToControlVisibleAndCacheSpans(buf, len, lineIndex, binaryTokenSpans, StandardCharsets.UTF_8);
+    }
+
+    public String bytesToControlVisibleAndCacheSpans(
+            byte[] buf,
+            int len,
+            int lineIndex,
+            android.util.SparseArray<int[]> binaryTokenSpans,
+            Charset charset) {
         if (len <= 0) {
             binaryTokenSpans.remove(lineIndex);
             return "";
         }
+        Charset safeCharset = charset != null ? charset : StandardCharsets.UTF_8;
+        return charsToControlVisibleAndCacheSpans(
+            new String(buf, 0, len, safeCharset), lineIndex, binaryTokenSpans);
+    }
 
+    public String charsToControlVisibleAndCacheSpans(
+            String text, int lineIndex, android.util.SparseArray<int[]> binaryTokenSpans) {
+        if (text == null || text.isEmpty()) {
+            binaryTokenSpans.remove(lineIndex);
+            return "";
+        }
         int outLen = 0;
-        for (int i = 0; i < len; i++) {
-            int b = buf[i] & 0xFF;
-            outLen += BYTE_TOKEN_LEN[b];
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            outLen += needsEscaping(c) ? escapeControlChar(c).length() : 1;
         }
 
         StringBuilder sb = TL_SB.get();
@@ -122,11 +155,11 @@ public class BinaryTokenConverter {
         spanList.reset();
 
         int pos = 0;
-        for (int i = 0; i < len; i++) {
-            int b = buf[i] & 0xFF;
-            String tok = BYTE_TOKEN[b];
-            int tokLen = BYTE_TOKEN_LEN[b]; // Use pre-computed length
-            if (b <= 0x1F || b == 0x7F || (b >= 0x80 && binaryHexTokensEnabled)) {
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            String tok = needsEscaping(c) ? escapeControlChar(c) : String.valueOf(c);
+            int tokLen = tok.length();
+            if (needsEscaping(c)) {
                 spanList.add(pos);
                 spanList.add(pos + tokLen);
             }

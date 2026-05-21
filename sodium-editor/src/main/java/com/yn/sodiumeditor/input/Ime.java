@@ -2,7 +2,6 @@ package com.yn.sodiumeditor.input;
 
 import android.text.Editable;
 import android.text.InputType;
-import android.util.Log;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
@@ -13,7 +12,6 @@ import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.fold.CodeFold;
 import com.yn.sodiumeditor.io.EditOperators;
 import com.yn.sodiumeditor.io.EditOp;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Ime handles all Input Method Editor (IME) logic for SodiumEditor.
@@ -47,13 +45,11 @@ public class Ime {
   final ImeScanner scanner;
 
   public Ime(SodiumEditor editor) {
-    FunctionLog.f("Ime", "Ime", editor);
     this.editor = editor;
     this.scanner = new ImeScanner(editor);
   }
 
   public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
-    FunctionLog.f("Ime", "onCreateInputConnection", outAttrs);
     if (editor.view.isDisabled || editor.view.isReadOnly) return null;
     
     outAttrs.inputType =
@@ -77,7 +73,6 @@ public class Ime {
   // --- Methods called by SodiumInputConnection ---
 
   public ExtractedText onGetExtractedText(ExtractedTextRequest request, int flags) {
-    FunctionLog.f("Ime", "onGetExtractedText", request, flags);
     long startMs = android.os.SystemClock.uptimeMillis();
     int before = IME_CONTEXT_BEFORE_CHARS;
     int after = IME_CONTEXT_AFTER_CHARS;
@@ -98,25 +93,10 @@ public class Ime {
     long buildStartMs = android.os.SystemClock.uptimeMillis();
     ExtractedText result = scanner.buildExtractedTextFromContext(ctx);
     long buildMs = android.os.SystemClock.uptimeMillis() - buildStartMs;
-    Log.i(
-        FOLD_TYPING_PERF,
-        "ime.getExtracted total="
-            + (android.os.SystemClock.uptimeMillis() - startMs)
-            + " ctx="
-            + ctxMs
-            + " build="
-            + buildMs
-            + " before="
-            + before
-            + " after="
-            + after
-            + " textLen="
-            + (result.text == null ? -1 : result.text.length()));
     return result;
   }
 
   public boolean onSetSelection(int start, int end) {
-    FunctionLog.f("Ime", "onSetSelection", start, end);
     ImeContext ctx = scanner.buildImeContext(IME_CONTEXT_BEFORE_CHARS, IME_CONTEXT_AFTER_CHARS);
     if (ctx.text.isEmpty()) return true;
     int textLen = ctx.text.length();
@@ -137,7 +117,6 @@ public class Ime {
   }
 
   public boolean onSetComposingRegion(int start, int end) {
-    FunctionLog.f("Ime", "onSetComposingRegion", start, end);
     if (start > end) { int t = start; start = end; end = t; }
     ImeContext ctx = scanner.buildImeContext(IME_CONTEXT_BEFORE_CHARS, IME_CONTEXT_AFTER_CHARS);
     if (ctx.text.isEmpty()) return true;
@@ -169,7 +148,6 @@ public class Ime {
   }
 
   public void onFinishComposingText() {
-    FunctionLog.f("Ime", "onFinishComposingText");
     if (lastComposingTextForCharAnim != null && !lastComposingTextForCharAnim.isEmpty()) {
       markImeCommit(lastComposingTextForCharAnim);
     }
@@ -177,7 +155,6 @@ public class Ime {
   }
 
   public boolean onCommitCompletion(CharSequence text) {
-    FunctionLog.f("Ime", "onCommitCompletion", text);
     if (!hasComposing && !editor.selection.hasSelection && replaceWordAtCursorWith(text)) {
       markImeCommit(text);
       return true;
@@ -186,7 +163,6 @@ public class Ime {
   }
 
   public boolean onCommitCorrection(CharSequence text) {
-    FunctionLog.f("Ime", "onCommitCorrection", text);
     if (!hasComposing && !editor.selection.hasSelection && replaceWordAtCursorWith(text)) {
       markImeCommit(text);
       return true;
@@ -195,7 +171,6 @@ public class Ime {
   }
 
   public boolean onCommitText(CharSequence text, int newCursorPosition) {
-    FunctionLog.f("Ime", "onCommitText", text, newCursorPosition);
     long startMs = android.os.SystemClock.uptimeMillis();
     String str = text.toString();
     if ("\n".equals(str)) {
@@ -283,30 +258,6 @@ public class Ime {
     editor.autoCompletion.updateSuggestion();
     long completionMs = android.os.SystemClock.uptimeMillis() - completionStartMs;
     long totalMs = android.os.SystemClock.uptimeMillis() - startMs;
-    Log.i(
-        FOLD_TYPING_PERF,
-        "ime.commit total="
-            + totalMs
-            + " insert="
-            + insertMs
-            + " composing="
-            + composingMs
-            + " anim="
-            + animMs
-            + " pair="
-            + pairMs
-            + " completion="
-            + completionMs
-            + " textLen="
-            + str.length()
-            + " cursor="
-            + editor.cursor.cursorLine
-            + ":"
-            + editor.cursor.cursorChar
-            + " modified="
-            + editor.windowRender.modifiedLines.size()
-            + " lineDelta="
-            + editor.editOperators.lineCountDelta);
     return true;
   }
 
@@ -325,7 +276,6 @@ public class Ime {
   }
 
   public boolean onSetComposingText(CharSequence text, int newCursorPosition) {
-    FunctionLog.f("Ime", "onSetComposingText", text, newCursorPosition);
     if (editor.selection.hasSelection) {
       editor.selection.replaceSelectionWithText(text.toString());
       editor.charAnimation.startCharAnimationFromText(text);
@@ -354,19 +304,16 @@ public class Ime {
   }
 
   public boolean onDeleteSurroundingText(int beforeLength, int afterLength) {
-    FunctionLog.f("Ime", "onDeleteSurroundingText", beforeLength, afterLength);
     int beforeCodePoints = countCodePointsBeforeCursorForCharUnits(beforeLength);
     int afterCodePoints = countCodePointsAfterCursorForCharUnits(afterLength);
     return deleteSurroundingCodePoints(beforeCodePoints, afterCodePoints);
   }
 
   public boolean onDeleteSurroundingTextInCodePoints(int beforeLength, int afterLength) {
-    FunctionLog.f("Ime", "onDeleteSurroundingTextInCodePoints", beforeLength, afterLength);
     return deleteSurroundingCodePoints(Math.max(0, beforeLength), Math.max(0, afterLength));
   }
 
   private boolean deleteSurroundingCodePoints(int beforeLength, int afterLength) {
-    FunctionLog.f("Ime", "deleteSurroundingCodePoints", beforeLength, afterLength);
     if (editor.selection.hasSelection) {
       editor.selection.replaceSelectionWithText("");
       updateImeSelection();
@@ -381,7 +328,6 @@ public class Ime {
   }
 
   private int countCodePointsBeforeCursorForCharUnits(int charUnits) {
-    FunctionLog.f("Ime", "countCodePointsBeforeCursorForCharUnits", charUnits);
     int remaining = Math.max(0, charUnits);
     if (remaining == 0) return 0;
     String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
@@ -398,7 +344,6 @@ public class Ime {
   }
 
   private int countCodePointsAfterCursorForCharUnits(int charUnits) {
-    FunctionLog.f("Ime", "countCodePointsAfterCursorForCharUnits", charUnits);
     int remaining = Math.max(0, charUnits);
     if (remaining == 0) return 0;
     String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
@@ -417,7 +362,6 @@ public class Ime {
   // --- End of methods called by SodiumInputConnection ---
 
   public void updateImeSelection() {
-    FunctionLog.f("Ime", "updateImeSelection");
     long startMs = android.os.SystemClock.uptimeMillis();
     if (editor.view.isDisabled || editor.view.isReadOnly) return;
     if (!editor.isFocused()) return;
@@ -456,30 +400,9 @@ public class Ime {
       imm.updateExtractedText(editor, imeExtractedTextToken, et);
       extractedMs = android.os.SystemClock.uptimeMillis() - extractedStartMs;
     }
-    Log.i(
-        FOLD_TYPING_PERF,
-        "ime.updateSelection total="
-            + (android.os.SystemClock.uptimeMillis() - startMs)
-            + " ctx="
-            + ctxMs
-            + " map="
-            + mapMs
-            + " imm="
-            + immMs
-            + " extracted="
-            + extractedMs
-            + " textLen="
-            + ctx.text.length()
-            + " sel="
-            + selStart
-            + ":"
-            + selEnd
-            + " modified="
-            + editor.windowRender.modifiedLines.size());
   }
 
   public void commitComposing(boolean keepInText) {
-    FunctionLog.f("Ime", "commitComposing", keepInText);
     if (!hasComposing) return;
     hasComposing = false;
     composingLength = 0;
@@ -491,7 +414,6 @@ public class Ime {
   }
 
   public void replaceComposingWith(CharSequence textSeq) {
-    FunctionLog.f("Ime", "replaceComposingWith", textSeq);
     if (editor.view.isReadOnly) return;
     editor.fileIO.invalidatePendingIOForEdit();
     editor.editOperators.editVersion.incrementAndGet();
@@ -542,7 +464,6 @@ public class Ime {
   }
 
   public void deleteComposing() {
-    FunctionLog.f("Ime", "deleteComposing");
     if (!hasComposing) return;
     replaceComposingWith("");
     hasComposing = false;
@@ -552,7 +473,6 @@ public class Ime {
   }
 
   public void updateComposingPendingOp(@Nullable String text, int beforeLine, int beforeChar) {
-    FunctionLog.f("Ime", "updateComposingPendingOp", text, beforeLine, beforeChar);
     if (!hasComposing) return;
     if (text == null) text = "";
     if (text.length() > EditOperators.UNDO_TEXT_LIMIT) return;
@@ -598,7 +518,6 @@ public class Ime {
   }
 
   public void markImeCommit(CharSequence textSeq) {
-    FunctionLog.f("Ime", "markImeCommit", textSeq);
     if (textSeq == null) return;
     lastImeCommitText = textSeq.toString();
     lastImeCommitUptime = android.os.SystemClock.uptimeMillis();
@@ -606,7 +525,6 @@ public class Ime {
   }
 
   public boolean replaceWordAtCursorWith(CharSequence textSeq) {
-    FunctionLog.f("Ime", "replaceWordAtCursorWith", textSeq);
     if (textSeq == null) return false;
     String insert = textSeq.toString();
     if (insert.isEmpty()) return false;
@@ -623,7 +541,6 @@ public class Ime {
   }
 
   public boolean tryReplaceWordFromImeCommit(String insert) {
-    FunctionLog.f("Ime", "tryReplaceWordFromImeCommit", insert);
     if (editor.selection.hasSelection || hasComposing) return false;
     if (insert == null || insert.isEmpty() || insert.length() <= 1) return false;
     int end = insert.length();
@@ -650,7 +567,6 @@ public class Ime {
 
   @Nullable
   public int[] getWordBoundsAtCursor() {
-    FunctionLog.f("Ime", "getWordBoundsAtCursor");
     String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
     if (line == null || line.isEmpty()) return null;
     int pos = Math.max(0, Math.min(editor.cursor.cursorChar, line.length()));
@@ -660,41 +576,33 @@ public class Ime {
   }
 
   public void setImeExtractedTextMonitor(boolean enabled) {
-    FunctionLog.f("Ime", "setImeExtractedTextMonitor", enabled);
     this.imeExtractedTextMonitor = enabled;
   }
   public void setImeExtractedTextToken(int token) {
-    FunctionLog.f("Ime", "setImeExtractedTextToken", token);
     this.imeExtractedTextToken = token;
   }
   public void setImeContextSize(int beforeChars, int afterChars) {
-    FunctionLog.f("Ime", "setImeContextSize", beforeChars, afterChars);
     this.imeExtractedBeforeChars = Math.max(0, beforeChars);
     this.imeExtractedAfterChars = Math.max(0, afterChars);
   }
   public boolean hasComposing() {
-    FunctionLog.f("Ime", "hasComposing");
     return hasComposing;
   }
   public void clearComposing() {
-    FunctionLog.f("Ime", "clearComposing");
     deleteComposing();
   }
 
   public void restartInput() {
-    FunctionLog.f("Ime", "restartInput");
     InputMethodManager imm = (InputMethodManager) editor.getContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
     if (imm != null) imm.restartInput(editor);
   }
 
   public void hideKeyboard() {
-    FunctionLog.f("Ime", "hideKeyboard");
     InputMethodManager imm = (InputMethodManager) editor.getContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
     if (imm != null) imm.hideSoftInputFromWindow(editor.getWindowToken(), 0);
   }
 
   public void showKeyboard() {
-    FunctionLog.f("Ime", "showKeyboard");
     if (editor.view.isReadOnly) return;
     editor.requestFocus();
     InputMethodManager imm =

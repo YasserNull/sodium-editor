@@ -2,7 +2,6 @@ package com.yn.sodiumeditor.renderer;
 
 import android.util.SparseIntArray;
 import android.util.SparseArray;
-import android.util.Log;
 
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.StreamedCharSlice;
@@ -14,7 +13,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import androidx.annotation.Nullable;
 
 public class WindowRender {
@@ -53,7 +51,6 @@ public class WindowRender {
     public final java.util.HashMap<Integer, String> directLinesTmp = new java.util.HashMap<>();
 
     public WindowRender(SodiumEditor editor) {
-        FunctionLog.f("WindowRender", "WindowRender", editor);
         this.editor = editor;
     }
 
@@ -66,7 +63,6 @@ public class WindowRender {
      */
     public String getLineTextForRenderWithDirect(
             int line, @Nullable java.util.Map<Integer, String> direct) {
-        FunctionLog.f("WindowRender", "getLineTextForRenderWithDirect", line, direct);
         if (line < 0) return "";
 
         // Modified lines first — always the most recent edits
@@ -97,7 +93,6 @@ public class WindowRender {
     }
 
     public boolean canUseFileBackedLineForRender(int line) {
-        FunctionLog.f("WindowRender", "canUseFileBackedLineForRender", line);
         if (line < 0 || !editor.fileIO.isIndexReady) return false;
         if (editor.editOperators.lineCountDelta == 0) return true;
         int firstModifiedLine = getFirstModifiedLine();
@@ -105,10 +100,9 @@ public class WindowRender {
     }
 
     public int getFirstModifiedLine() {
-        FunctionLog.f("WindowRender", "getFirstModifiedLine");
         int first = Integer.MAX_VALUE;
         synchronized (modifiedLines) {
-            for (Integer line : modifiedLines.keySet()) {
+            for (Integer line : new java.util.ArrayList<>(modifiedLines.keySet())) {
                 if (line != null && line < first) first = line;
             }
         }
@@ -116,7 +110,6 @@ public class WindowRender {
     }
 
     public boolean hasModifiedLine(int line) {
-        FunctionLog.f("WindowRender", "hasModifiedLine", line);
         synchronized (modifiedLines) {
             return modifiedLines.containsKey(line);
         }
@@ -126,7 +119,6 @@ public class WindowRender {
      * Get line text for render (render-safe, no file random read)
      */
     public String getLineTextForRender(int line) {
-        FunctionLog.f("WindowRender", "getLineTextForRender", line);
         if (line < 0) return "";
 
         // Modified lines first — always the most recent edits
@@ -144,7 +136,6 @@ public class WindowRender {
     }
 
     public void maybeUpdateStreamedSlicesForVisibleRange(int firstVisibleLine, int lastVisibleLine) {
-        FunctionLog.f("WindowRender", "maybeUpdateStreamedSlicesForVisibleRange", firstVisibleLine, lastVisibleLine);
         if (editor.wordWrap.isWordWrapEnabled) return;
         if (!editor.fileIO.isIndexReady
                 || editor.fileIO.sourceFile == null
@@ -248,12 +239,10 @@ public class WindowRender {
     }
 
     public int getStreamLineThreshold() {
-        FunctionLog.f("WindowRender", "getStreamLineThreshold");
         return Math.max(4096, editor.highliteRender.maxSyntaxLineLength);
     }
 
     public boolean shouldStreamLineLength(int length) {
-        FunctionLog.f("WindowRender", "shouldStreamLineLength", length);
         if (editor.wordWrap.isWordWrapEnabled) return false;
         if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
             return length > Math.max(256, editor.textRange.getInitialStreamedSliceSize()); // Corrected to editor.textRange
@@ -263,7 +252,6 @@ public class WindowRender {
     }
 
     public int getStreamedLineLength(int globalLine) {
-        FunctionLog.f("WindowRender", "getStreamedLineLength", globalLine);
         synchronized (streamedLinesLockLinesLock) {
             int v = streamedLinesLockLineLengths.get(globalLine, -1);
             if (v >= 0) return v;
@@ -274,7 +262,6 @@ public class WindowRender {
     }
 
     public int getStreamedLineSliceStart(int globalLine) {
-        FunctionLog.f("WindowRender", "getStreamedLineSliceStart", globalLine);
         synchronized (streamedLinesLockLinesLock) {
             int v = streamedLinesLockLineSliceStarts.get(globalLine, 0);
             if (v != 0) return v;
@@ -285,7 +272,6 @@ public class WindowRender {
     }
 
     public void setStreamedLineInfo(int globalLine, int length, int sliceStart) {
-        FunctionLog.f("WindowRender", "setStreamedLineInfo", globalLine, length, sliceStart);
         synchronized (streamedLinesLockLinesLock) {
             streamedLinesLockLineLengths.put(globalLine, length);
             streamedLinesLockLineSliceStarts.put(globalLine, sliceStart);
@@ -293,7 +279,6 @@ public class WindowRender {
     }
 
     public void clearStreamedLineInfo(int globalLine) {
-        FunctionLog.f("WindowRender", "clearStreamedLineInfo", globalLine);
         synchronized (streamedLinesLockLinesLock) {
             streamedLinesLockLineLengths.delete(globalLine);
             streamedLinesLockLineSliceStarts.delete(globalLine);
@@ -301,7 +286,6 @@ public class WindowRender {
     }
 
     public void clearStreamedLineCaches() {
-        FunctionLog.f("WindowRender", "clearStreamedLineCaches");
         synchronized (streamedLinesLockLinesLock) {
             streamedLinesLockLineLengths.clear();
             streamedLinesLockLineSliceStarts.clear();
@@ -315,7 +299,6 @@ public class WindowRender {
     }
 
     public boolean isSingleByteCharset() {
-        FunctionLog.f("WindowRender", "isSingleByteCharset");
         try {
             if (editor.binaryRender.isBinarySafeRenderingEnabled()) return true;
             return editor.fileIO.fileCharset.newEncoder().maxBytesPerChar() <= 1.01f;
@@ -329,14 +312,12 @@ public class WindowRender {
     // ========================================================================
 
     public int getWindowEndLine() {
-        FunctionLog.f("WindowRender", "getWindowEndLine");
         synchronized (linesWindow) {
             return Math.max(0, windowStartLine + linesWindow.size() - 1);
         }
     }
 
     public String getLineFromWindowLocal(int localIdx) {
-        FunctionLog.f("WindowRender", "getLineFromWindowLocal", localIdx);
         if (localIdx < 0 || localIdx >= linesWindow.size()) return null;
         int globalLine = windowStartLine + localIdx;
         synchronized (modifiedLines) {
@@ -347,7 +328,6 @@ public class WindowRender {
     }
 
     public void maybeKickWindowLoad(int firstVisibleLine) {
-        FunctionLog.f("WindowRender", "maybeKickWindowLoad", firstVisibleLine);
         if (editor.zoom.isZoomGestureActive()) return;
         if (editor.fileIO.sourceFile == null || editor.fileIO.isFileCleared) return;
         if (editor.fileIO.isWindowLoading) return;
@@ -381,7 +361,6 @@ public class WindowRender {
     }
 
     public void recalculateMaxLineWidth() {
-        FunctionLog.f("WindowRender", "recalculateMaxLineWidth");
         float maxW = 0f;
         synchronized (linesWindow) {
             for (int i = 0; i < linesWindow.size(); i++) {
@@ -415,7 +394,6 @@ public class WindowRender {
 
     public void applyMultiLineReplaceInWindowNow(
             int sL, int sC, int eL, int eC, String insertText, EditOp.CursorTarget target) {
-        FunctionLog.f("WindowRender", "applyMultiLineReplaceInWindowNow", sL, sC, eL, eC, insertText, target);
         synchronized (linesWindow) {
             int oldLineCount = editor.view.getLinesCount();
             int sLocal = sL - windowStartLine;
@@ -485,7 +463,6 @@ public class WindowRender {
     }
 
     public void applyMultiLineDeleteInWindowNow(int sL, int sC, int eL, int eC) {
-        FunctionLog.f("WindowRender", "applyMultiLineDeleteInWindowNow", sL, sC, eL, eC);
         synchronized (linesWindow) {
             int oldLineCount = editor.view.getLinesCount();
             int sLocal = sL - windowStartLine;
@@ -528,29 +505,10 @@ public class WindowRender {
                 editor.wordWrap.onLineCountChanged();
             }
             editor.lineNumber.invalidateLineNumberCache();
-            Log.i(
-                    "LineNumber",
-                    "applyMultiLineDeleteInWindowNow"
-                            + " sL="
-                            + sL
-                            + " eL="
-                            + eL
-                            + " windowSize="
-                            + linesWindow.size()
-                            + " delta="
-                            + delta
-                            + " merged='"
-                            + merged
-                            + "' line0='"
-                            + getLineTextForRender(0)
-                            + "' line1='"
-                            + getLineTextForRender(1)
-                            + "'");
         }
     }
 
     public void setWindowSize(int size) {
-        FunctionLog.f("WindowRender", "setWindowSize", size);
         int safe = Math.max(10, size);
         int minWindow = computeMinWindowSize();
         if (safe < minWindow) safe = minWindow;
@@ -564,7 +522,6 @@ public class WindowRender {
     }
 
     public void setPrefetchLines(int lines) {
-        FunctionLog.f("WindowRender", "setPrefetchLines", lines);
         int safe = Math.max(0, lines);
         if (prefetchLines == safe) return;
         prefetchLines = safe;
@@ -578,7 +535,6 @@ public class WindowRender {
     }
 
     public void setLineWidthCacheSize(int size) {
-        FunctionLog.f("WindowRender", "setLineWidthCacheSize", size);
         int safe = Math.max(10, size);
         if (lineWidthCacheSize == safe) return;
         lineWidthCacheSize = safe;
@@ -592,7 +548,6 @@ public class WindowRender {
     }
 
     public void setRenderWindow(int windowSize, int prefetchLines) {
-        FunctionLog.f("WindowRender", "setRenderWindow", windowSize, prefetchLines);
         int safeWindow = Math.max(10, windowSize);
         int safePrefetch = Math.max(0, prefetchLines);
         int minWindow = computeMinWindowSizeForPrefetch(safePrefetch);
@@ -608,12 +563,10 @@ public class WindowRender {
     }
 
     public int computeMinWindowSize() {
-        FunctionLog.f("WindowRender", "computeMinWindowSize");
         return computeMinWindowSizeForPrefetch(prefetchLines);
     }
 
     public int computeMinWindowSizeForPrefetch(int prefetch) {
-        FunctionLog.f("WindowRender", "computeMinWindowSizeForPrefetch", prefetch);
         if (editor.textRender.lineHeight <= 0f || editor.getHeight() <= 0) return 10;
         float effectiveHeight = editor.getHeight();
         int visibleLines = Math.max(1, (int) Math.ceil(effectiveHeight / editor.textRender.lineHeight) + 2);
@@ -623,7 +576,6 @@ public class WindowRender {
     }
 
     public void reloadWindowAroundVisible(boolean recalcWidthSync) {
-        FunctionLog.f("WindowRender", "reloadWindowAroundVisible", recalcWidthSync);
         if (editor.getWidth() == 0 || editor.getHeight() == 0) {
             editor.invalidate();
             return;

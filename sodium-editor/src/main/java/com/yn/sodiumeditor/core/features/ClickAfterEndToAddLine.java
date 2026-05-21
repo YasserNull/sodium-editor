@@ -11,7 +11,7 @@ public class ClickAfterEndToAddLine {
   private final SodiumEditor editor;
 
   // Click after end state
-  public boolean isClickAfterEndToAddLineEnabled = false;
+  public boolean isClickAfterEndToAddLineEnabled = true;
 
   public ClickAfterEndToAddLine(SodiumEditor editor) {
     this.editor = editor;

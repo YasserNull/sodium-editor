@@ -6,7 +6,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.Typeface;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 import android.view.inputmethod.InputMethodManager;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.TextRender;
@@ -360,7 +359,6 @@ public class View {
                 editor.textRender.setEditorBackgroundBitmap(bmp);
             }
         } catch (Exception e) {
-            Log.e("SodiumEditor", "setEditorBackgroundImageFromAssets failed: " + assetPath, e);
         }
     }
 
@@ -372,7 +370,6 @@ public class View {
                 editor.textRender.setEditorBackgroundBitmap(bmp);
             }
         } catch (Exception e) {
-            Log.e("SodiumEditor", "setEditorBackgroundImageFromFile failed: " + filePath, e);
         }
     }
 
@@ -385,7 +382,6 @@ public class View {
             Typeface tf = Typeface.createFromAsset(editor.getContext().getAssets(), assetPath);
             applyTypeface(tf, style);
         } catch (Exception e) {
-            Log.e("SodiumEditor", "setFontFromAssets failed: " + assetPath, e);
         }
     }
 
@@ -394,7 +390,6 @@ public class View {
             Typeface tf = Typeface.createFromFile(filePath);
             applyTypeface(tf, style);
         } catch (Exception e) {
-            Log.e("SodiumEditor", "setFontFromFile failed: " + filePath, e);
         }
     }
 
@@ -575,18 +570,6 @@ public class View {
             }
             int count = editor.fileIO.lineOffsets.length + editor.editOperators.lineCountDelta;
             if (count < 1) count = 1;
-            if (editor.DEBUG_RENDER_LOGS) {
-                Log.i(
-                    "LineNumber",
-                    "getLinesCount indexReady count="
-                            + count
-                            + " windowCount="
-                            + windowCount
-                            + " lineCountDelta="
-                            + editor.editOperators.lineCountDelta
-                            + " modifiedLines="
-                            + editor.windowRender.modifiedLines.size());
-            }
             return count;
         }
         if (editor.fileIO.isEof) return editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size();

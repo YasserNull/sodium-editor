@@ -10,9 +10,9 @@ public class AutoBracketNewline {
   private final SodiumEditor editor;
 
   // Auto-bracket-newline state
-  public boolean isAutoBracketNewlineEnabled = false;
-  public boolean isAutoBracketNewlineIndentEnabled = false;
-  public boolean isAutoIndentAfterClosingBracketEnabled = false;
+  public boolean isAutoBracketNewlineEnabled = true;
+  public boolean isAutoBracketNewlineIndentEnabled = true;
+  public boolean isAutoIndentAfterClosingBracketEnabled = true;
 
   public AutoBracketNewline(SodiumEditor editor) {
     this.editor = editor;

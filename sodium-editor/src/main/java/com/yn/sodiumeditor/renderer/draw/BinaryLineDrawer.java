@@ -5,7 +5,6 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.binary.BinaryTokenConverter;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * BinaryLineDrawer handles fast binary line drawing.
@@ -46,7 +45,6 @@ public class BinaryLineDrawer {
     private static final ThreadLocal<Paint.FontMetrics> TL_FONT_METRICS = ThreadLocal.withInitial(Paint.FontMetrics::new);
 
     public BinaryLineDrawer(SodiumEditor editor, BinaryTokenConverter tokenConverter) {
-        FunctionLog.f("BinaryLineDrawer", "BinaryLineDrawer", editor, tokenConverter);
         this.editor = editor;
         this.tokenConverter = tokenConverter;
 
@@ -65,80 +63,66 @@ public class BinaryLineDrawer {
      * Call this whenever the main paint changes.
      */
     public void updateCachedCharWidth(Paint paint) {
-        FunctionLog.f("BinaryLineDrawer", "updateCachedCharWidth", paint);
         if (paint != null) {
             cachedCharWidth = paint.measureText("M");
         }
     }
 
     public float getCachedCharWidth() {
-        FunctionLog.f("BinaryLineDrawer", "getCachedCharWidth");
         return cachedCharWidth > 0f ? cachedCharWidth : editor.textRender.paint.measureText("M");
     }
 
     public void setCachedCharWidth(float width) {
-        FunctionLog.f("BinaryLineDrawer", "setCachedCharWidth", width);
         this.cachedCharWidth = Math.max(1f, width);
     }
 
     // ── Configuration setters ──────────────────────────────────────────────────
     public void setBinaryTokenBoxEnabled(boolean enabled) {
-        FunctionLog.f("BinaryLineDrawer", "setBinaryTokenBoxEnabled", enabled);
         binaryTokenBoxEnabled = enabled;
     }
 
     public void setBinaryTokenFillColor(int color) {
-        FunctionLog.f("BinaryLineDrawer", "setBinaryTokenFillColor", color);
         binaryTokenFillColor = color;
         binaryTokenFillPaint.setColor(color);
     }
 
     public void setBinaryTokenStrokeColor(int color) {
-        FunctionLog.f("BinaryLineDrawer", "setBinaryTokenStrokeColor", color);
         binaryTokenStrokeColor = color;
         binaryTokenStrokePaint.setColor(color);
     }
 
     public void setBinaryTokenStrokeWidth(float widthPx) {
-        FunctionLog.f("BinaryLineDrawer", "setBinaryTokenStrokeWidth", widthPx);
         binaryTokenStrokeWidth = Math.max(0.5f, widthPx);
         binaryTokenStrokePaint.setStrokeWidth(binaryTokenStrokeWidth);
     }
 
     public void setBinaryTokenBoxPadding(float paddingX, float paddingY) {
-        FunctionLog.f("BinaryLineDrawer", "setBinaryTokenBoxPadding", paddingX, paddingY);
         binaryTokenPaddingX = Math.max(0f, paddingX);
         binaryTokenPaddingY = Math.max(0f, paddingY);
     }
 
     public void setBinaryTokenCornerRadius(float radiusPx) {
-        FunctionLog.f("BinaryLineDrawer", "setBinaryTokenCornerRadius", radiusPx);
         binaryTokenCornerRadius = Math.max(0f, radiusPx);
     }
 
     public void setBinaryTokenTextColor(int color) {
-        FunctionLog.f("BinaryLineDrawer", "setBinaryTokenTextColor", color);
         binaryTokenTextColor = color;
         binaryTokenTextPaint.setColor(color);
     }
 
     public void setBinaryCaretNotationEnabled(boolean enabled) {
-        FunctionLog.f("BinaryLineDrawer", "setBinaryCaretNotationEnabled", enabled);
         binaryCaretNotationEnabled = enabled;
     }
 
     public Paint getBinaryTokenFillPaint() { 
-        FunctionLog.f("BinaryLineDrawer", "getBinaryTokenFillPaint");
         return binaryTokenFillPaint; 
     }
     public Paint getBinaryTokenStrokePaint() { 
-        FunctionLog.f("BinaryLineDrawer", "getBinaryTokenStrokePaint");
         return binaryTokenStrokePaint; 
     }
 
     // ── Cursor helpers ─────────────────────────────────────────────────────────
     public int snapBinaryCursor(String line, int index, int lineIndex, android.util.SparseArray<int[]> binaryTokenSpans) {
-        FunctionLog.f("BinaryLineDrawer", "snapBinaryCursor", line, index, lineIndex, binaryTokenSpans);
         int[] spans = binaryTokenSpans.get(lineIndex);
         int[] span = new int[2];
         if (spans != null && tokenConverter.findBinaryTokenSpanInSpans(spans, index, span)) {
@@ -162,7 +146,6 @@ public class BinaryLineDrawer {
 
     public int getCharIndexForXBinary(
         String line, int start, int end, float x, Paint paint, int[] spans, float padX) {
-        FunctionLog.f("BinaryLineDrawer", "getCharIndexForXBinary", line, start, end, x, paint, spans, padX);
         if (line == null) return start;
         int len = line.length();
         start = Math.max(0, Math.min(start, len));
@@ -221,7 +204,6 @@ public class BinaryLineDrawer {
     }
 
     public float getXForCharBinary(String line, int charIndex, Paint paint, int[] spans, float padX) {
-        FunctionLog.f("BinaryLineDrawer", "getXForCharBinary", line, charIndex, paint, spans, padX);
         if (line == null) return 0f;
         int len = line.length();
         int idx = Math.max(0, Math.min(charIndex, len));
@@ -230,7 +212,7 @@ public class BinaryLineDrawer {
         float charWidth = getCachedCharWidth();
 
         if (spans == null || spans.length == 0 || idx == 0) {
-            return idx * charWidth;
+            return paint.measureText(line, 0, idx);
         }
         float current = 0f;
         int pos = 0;
@@ -241,21 +223,21 @@ public class BinaryLineDrawer {
             if (s > len) break;
             if (s > pos) {
                 if (idx <= s) {
-                    return current + (idx - pos) * charWidth;
+                    return current + paint.measureText(line, pos, idx);
                 }
-                current += (s - pos) * charWidth;
+                current += paint.measureText(line, pos, s);
                 pos = s;
             }
             if (idx <= e) {
-                float tokenWidth = (e - s) * charWidth + (padX * 2f);
+                float tokenWidth = paint.measureText(line, s, e) + (padX * 2f);
                 return (idx <= s) ? current : (idx >= e ? current + tokenWidth : current);
             }
-            float tokenWidth = (e - s) * charWidth + (padX * 2f);
+            float tokenWidth = paint.measureText(line, s, e) + (padX * 2f);
             current += tokenWidth;
             pos = e;
         }
         if (idx > pos) {
-            current += (idx - pos) * charWidth;
+            current += paint.measureText(line, pos, idx);
         }
         return current;
     }
@@ -266,7 +248,6 @@ public class BinaryLineDrawer {
      * Uses cached character width and avoids all unnecessary measurements.
      */
     public void drawBinaryLine(Canvas canvas, String line, int globalLine, float y, Paint defaultPaint, android.util.SparseArray<int[]> binaryTokenSpans) {
-        FunctionLog.f("BinaryLineDrawer", "drawBinaryLine", canvas, line, globalLine, y, defaultPaint, binaryTokenSpans);
         drawBinaryLineSlice(canvas, line, globalLine, 0, line.length(), 0, y, defaultPaint, binaryTokenSpans);
     }
 
@@ -283,7 +264,6 @@ public class BinaryLineDrawer {
      * @param binaryTokenSpans the token spans array
      */
     public void drawBinaryLineSlice(Canvas canvas, String line, int globalLine, int relStart, int relEnd, int sliceStart, float y, Paint defaultPaint, android.util.SparseArray<int[]> binaryTokenSpans) {
-        FunctionLog.f("BinaryLineDrawer", "drawBinaryLineSlice", canvas, line, globalLine, relStart, relEnd, sliceStart, y, defaultPaint, binaryTokenSpans);
         if (line == null || relStart >= relEnd) return;
 
         int len = line.length();
@@ -322,11 +302,11 @@ public class BinaryLineDrawer {
             // Draw normal text before this span
             if (safeS > idx) {
                 canvas.drawText(line, idx, safeS, x, y, defaultPaint);
-                x += (safeS - idx) * charWidth;
+                x += defaultPaint.measureText(line, idx, safeS);
             }
 
             // Draw token box if enabled
-            float tokenTextWidth = (safeE - safeS) * charWidth;
+            float tokenTextWidth = defaultPaint.measureText(line, safeS, safeE);
             float tokenTotalWidth = tokenTextWidth + (padX * 2f);
 
             if (binaryTokenBoxEnabled) {

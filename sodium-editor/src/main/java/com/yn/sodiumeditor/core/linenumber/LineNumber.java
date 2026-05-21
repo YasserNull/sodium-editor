@@ -4,14 +4,12 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Typeface;
-import android.util.Log;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.LineNumberCache;
 import com.yn.sodiumeditor.renderer.LineNumberRender;
 import com.yn.sodiumeditor.utils.GutterUtils;
 import com.yn.sodiumeditor.core.wordwrap.WordWrap;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Main facade for line number management, drawing, and selection.
@@ -58,7 +56,6 @@ public class LineNumber {
     public int lineNumberCacheColor = 0;
 
     public LineNumber(SodiumEditor editor) {
-        FunctionLog.f("LineNumber", "LineNumber", editor);
         this.editor = editor;
         this.utils = new GutterUtils(editor, this);
         this.selection = new LineNumberSelection(editor, this);
@@ -78,7 +75,6 @@ public class LineNumber {
     // ==============================
 
     public void setShowLineNumbers(boolean show) {
-        FunctionLog.f("LineNumber", "setShowLineNumbers", show);
         if (this.showLineNumbers == show) return;
         this.showLineNumbers = show;
         if (!show) {
@@ -89,102 +85,82 @@ public class LineNumber {
     }
 
     public void invalidateLineNumberCache() {
-        FunctionLog.f("LineNumber", "invalidateLineNumberCache");
         cache.invalidate();
     }
 
     public boolean getShowLineNumbers() {
-        FunctionLog.f("LineNumber", "getShowLineNumbers");
         return showLineNumbers;
     }
 
     public void setLineNumberColor(int c) {
-        FunctionLog.f("LineNumber", "setLineNumberColor", c);
         lineNumbersPaint.setColor(c); invalidateLineNumberCache(); if (showLineNumbers) editor.invalidate();
     }
 
     public int getLineNumberColor() {
-        FunctionLog.f("LineNumber", "getLineNumberColor");
         return lineNumbersPaint.getColor();
     }
 
     public void setCurrentLineGutterHighlightEnabled(boolean e) {
-        FunctionLog.f("LineNumber", "setCurrentLineGutterHighlightEnabled", e);
         highlightCurrentLineInGutter = e; if (showLineNumbers) editor.invalidate();
     }
 
     public boolean isCurrentLineGutterHighlightEnabled() {
-        FunctionLog.f("LineNumber", "isCurrentLineGutterHighlightEnabled");
         return highlightCurrentLineInGutter;
     }
 
     public void setLineNumberSelectionEnabled(boolean e) {
-        FunctionLog.f("LineNumber", "setLineNumberSelectionEnabled", e);
         lineNumberSelectionEnabled = e;
     }
 
     public boolean isLineNumberSelectionEnabled() {
-        FunctionLog.f("LineNumber", "isLineNumberSelectionEnabled");
         return lineNumberSelectionEnabled;
     }
 
     public void setGutterBackgroundColor(int c) {
-        FunctionLog.f("LineNumber", "setGutterBackgroundColor", c);
         gutterPaint.setColor(c); if (showLineNumbers) editor.invalidate();
     }
 
     public int getGutterBackgroundColor() {
-        FunctionLog.f("LineNumber", "getGutterBackgroundColor");
         return gutterPaint.getColor();
     }
 
     public void setGutterSeparatorColor(int c) {
-        FunctionLog.f("LineNumber", "setGutterSeparatorColor", c);
         gutterSeparatorPaint.setColor(c); if (showLineNumbers) editor.invalidate();
     }
 
     public int getGutterSeparatorColor() {
-        FunctionLog.f("LineNumber", "getGutterSeparatorColor");
         return gutterSeparatorPaint.getColor();
     }
 
     public void setGutterSeparatorWidth(float w) {
-        FunctionLog.f("LineNumber", "setGutterSeparatorWidth", w);
         gutterSeparatorWidth = Math.max(0f, w); editor.requestLayout(); if (showLineNumbers) editor.invalidate();
     }
 
     public float getGutterSeparatorWidth() {
-        FunctionLog.f("LineNumber", "getGutterSeparatorWidth");
         return gutterSeparatorWidth;
     }
 
     public void setCurrentLineNumberColor(int c) {
-        FunctionLog.f("LineNumber", "setCurrentLineNumberColor", c);
         currentLineNumberColor = c; if (showLineNumbers) editor.invalidate();
     }
 
     public int getCurrentLineNumberColor() {
-        FunctionLog.f("LineNumber", "getCurrentLineNumberColor");
         return currentLineNumberColor;
     }
 
     public void setLineNumberTextSize(float s) {
-        FunctionLog.f("LineNumber", "setLineNumberTextSize", s);
         lineNumbersPaint.setTextSize(s); invalidateLineNumberCache(); editor.requestLayout(); if (showLineNumbers) editor.invalidate();
     }
 
     public float getLineNumberTextSize() {
-        FunctionLog.f("LineNumber", "getLineNumberTextSize");
         return lineNumbersPaint.getTextSize();
     }
 
     public void setLineNumberTypeface(@Nullable Typeface tf) {
-        FunctionLog.f("LineNumber", "setLineNumberTypeface", tf);
         lineNumbersPaint.setTypeface(tf != null ? tf : editor.textRender.baseTypeface); invalidateLineNumberCache(); editor.requestLayout(); if (showLineNumbers) editor.invalidate();
     }
 
     @Nullable public Typeface getLineNumberTypeface() {
-        FunctionLog.f("LineNumber", "getLineNumberTypeface");
         return lineNumbersPaint.getTypeface();
     }
 
@@ -193,32 +169,26 @@ public class LineNumber {
     // ==============================
 
     public int writeIntToChars(int v, char[] c) {
-        FunctionLog.f("LineNumber", "writeIntToChars", v, c);
         return utils.writeIntToChars(v, c);
     }
 
     public boolean isInLineNumberGutter(float x) {
-        FunctionLog.f("LineNumber", "isInLineNumberGutter", x);
         return selection.isInLineNumberGutter(x);
     }
 
     public void beginLineNumberSelection(int l) {
-        FunctionLog.f("LineNumber", "beginLineNumberSelection", l);
         selection.beginLineNumberSelection(l);
     }
 
     public void updateLineNumberSelection(int l) {
-        FunctionLog.f("LineNumber", "updateLineNumberSelection", l);
         selection.updateLineNumberSelection(l);
     }
 
     public void endLineNumberSelection() {
-        FunctionLog.f("LineNumber", "endLineNumberSelection");
         selection.endLineNumberSelection();
     }
 
     public void updateGutterWidth() {
-        FunctionLog.f("LineNumber", "updateGutterWidth");
         float old = lineNumbersGutterWidth;
         lineNumbersGutterWidth = utils.calculateGutterWidth();
         if (editor.wordWrap.isWordWrapEnabled && Math.abs(lineNumbersGutterWidth - old) > 0.1f) {
@@ -228,47 +198,38 @@ public class LineNumber {
     }
 
     public void drawCurrentLineHighlightInGutter(Canvas c, float t, float b) {
-        FunctionLog.f("LineNumber", "drawCurrentLineHighlightInGutter", c, t, b);
         render.drawCurrentLineHighlightInGutter(c, t, b);
     }
 
     public void drawLineNumbersDirectUnwrapped(Canvas c, int fI, int lI, int fL, int lL) {
-        FunctionLog.f("LineNumber", "drawLineNumbersDirectUnwrapped", c, fI, lI, fL, lL);
         render.drawLineNumbersDirectUnwrapped(c, fI, lI, fL, lL);
     }
 
     public void drawLineNumbersDirectWrapped(Canvas c, int fV, int lV) {
-        FunctionLog.f("LineNumber", "drawLineNumbersDirectWrapped", c, fV, lV);
         render.drawLineNumbersDirectWrapped(c, fV, lV);
     }
 
     public boolean shouldUseLineNumberCache() {
-        FunctionLog.f("LineNumber", "shouldUseLineNumberCache");
         return cache.shouldUseCache();
     }
 
     public void ensureLineNumberCacheBitmap(int w, int h) {
-        FunctionLog.f("LineNumber", "ensureLineNumberCacheBitmap", w, h);
         cache.ensureBitmap(w, h);
     }
 
     public void drawCurrentlineNumberUnwrapped(Canvas c, int fI, int lI) {
-        FunctionLog.f("LineNumber", "drawCurrentlineNumberUnwrapped", c, fI, lI);
         drawCurrentLineNumberUnwrapped(c, fI, lI);
     }
 
     public void drawCurrentlineNumberWrapped(Canvas c, int fV, int lV) {
-        FunctionLog.f("LineNumber", "drawCurrentlineNumberWrapped", c, fV, lV);
         drawCurrentLineNumberWrapped(c, fV, lV);
     }
 
     public float getGutterStartX() {
-        FunctionLog.f("LineNumber", "getGutterStartX");
         return editor.textRender.isRtl ? editor.getWidth() - lineNumbersGutterWidth : 0;
     }
 
     public void drawLineNumbersCachedUnwrapped(Canvas canvas, int fI, int lI, int fL, int lL) {
-        FunctionLog.f("LineNumber", "drawLineNumbersCachedUnwrapped", canvas, fI, lI, fL, lL);
         if (!cache.shouldUseCache()) { render.drawLineNumbersDirectUnwrapped(canvas, fI, lI, fL, lL); return; }
         int totalLines = Math.max(1, editor.view.getLinesCount());
         int safeVisibleCount = Math.max(1, Math.min(editor.codeFold.getVisibleLineCount(), totalLines));
@@ -276,25 +237,6 @@ public class LineNumber {
                 ? Math.min(lI, safeVisibleCount - 1)
                 : Math.min(lI, totalLines - 1);
         int drawLastL = Math.min(lL, totalLines - 1);
-        Log.i(
-                "LineNumber",
-                "draw cached unwrapped"
-                        + " fI="
-                        + fI
-                        + " lI="
-                        + lI
-                        + " fL="
-                        + fL
-                        + " lL="
-                        + lL
-                        + " drawLastI="
-                        + drawLastI
-                        + " drawLastL="
-                        + drawLastL
-                        + " totalLines="
-                        + totalLines
-                        + " visibleCount="
-                        + safeVisibleCount);
         int gw = Math.max(1, Math.round(lineNumbersGutterWidth));
         float pad = editor.textRender.lineHeight;
         int h = editor.getHeight() + Math.round(pad * 2f);
@@ -317,7 +259,6 @@ public class LineNumber {
     }
 
     public void drawLineNumbersCachedWrapped(Canvas canvas, int fV, int lV) {
-        FunctionLog.f("LineNumber", "drawLineNumbersCachedWrapped", canvas, fV, lV);
         if (!cache.shouldUseCache()) { render.drawLineNumbersDirectWrapped(canvas, fV, lV); return; }
         int drawLastV = Math.min(lV + 1, Math.max(0, editor.wordWrap.getTotalVisualLineCount() - 1));
         int gw = Math.max(1, Math.round(lineNumbersGutterWidth));
@@ -341,7 +282,6 @@ public class LineNumber {
     }
 
     public void drawCurrentLineNumberUnwrapped(Canvas canvas, int fI, int lI) {
-        FunctionLog.f("LineNumber", "drawCurrentLineNumberUnwrapped", canvas, fI, lI);
         if (!showLineNumbers || editor.selection.hasSelection) return;
         if (editor.codeFold.isCodeFoldingEnabled && editor.codeFold.isLineHiddenByFold(editor.cursor.cursorLine)) return;
         int vI = editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.getVisibleIndexForGlobalLine(editor.cursor.cursorLine) : editor.cursor.cursorLine;
@@ -352,7 +292,6 @@ public class LineNumber {
     }
 
     public void drawCurrentLineNumberWrapped(Canvas canvas, int fV, int lV) {
-        FunctionLog.f("LineNumber", "drawCurrentLineNumberWrapped", canvas, fV, lV);
         if (!showLineNumbers || editor.selection.hasSelection) return;
         int vI = editor.wordWrap.getVisualIndexForLineAndChar(editor.cursor.cursorLine, 0);
         if (vI < fV || vI > lV) return;

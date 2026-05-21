@@ -5,7 +5,6 @@ import android.graphics.Paint;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.wordwrap.WordWrap;
 import com.yn.sodiumeditor.renderer.animation.CurrentLineHighlightAnimation;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Manages current line highlighting for the SodiumEditor.
@@ -25,7 +24,6 @@ public class CurrentLineHighlight {
     private final SodiumEditor editor;
 
     public CurrentLineHighlight(SodiumEditor editor) {
-        FunctionLog.f("CurrentLineHighlight", "CurrentLineHighlight", editor);
         this.editor = editor;
         this.animation = new CurrentLineHighlightAnimation(editor);
         currentLinePaint.setStyle(Paint.Style.FILL);
@@ -33,14 +31,12 @@ public class CurrentLineHighlight {
     }
 
     public void setHighlightCurrentLine(boolean enabled) {
-        FunctionLog.f("CurrentLineHighlight", "setHighlightCurrentLine", enabled);
         if (this.highlightCurrentLine == enabled) return;
         this.highlightCurrentLine = enabled;
         editor.invalidate();
     }
 
     public void setCurrentLineHighlightColor(int color) {
-        FunctionLog.f("CurrentLineHighlight", "setCurrentLineHighlightColor", color);
         if (this.currentLineHighlightColor == color) return;
         this.currentLineHighlightColor = color;
         currentLinePaint.setColor(color);
@@ -48,24 +44,20 @@ public class CurrentLineHighlight {
     }
 
     public void setCurrentLineGutterHighlightEnabled(boolean enabled) {
-        FunctionLog.f("CurrentLineHighlight", "setCurrentLineGutterHighlightEnabled", enabled);
         if (highlightCurrentLineInGutter == enabled) return;
         highlightCurrentLineInGutter = enabled;
         if (editor.lineNumber.showLineNumbers) editor.invalidate();
     }
 
     public void setAnimationEnabled(boolean enabled) {
-        FunctionLog.f("CurrentLineHighlight", "setAnimationEnabled", enabled);
         animation.setAnimationEnabled(enabled);
     }
 
     public float getAnimatedVisualIndex() {
-        FunctionLog.f("CurrentLineHighlight", "getAnimatedVisualIndex");
         return animation.getAnimatedVisualIndex();
     }
 
     public void drawCurrentLineHighlightInGutter(Canvas canvas, float top, float bottom) {
-        FunctionLog.f("CurrentLineHighlight", "drawCurrentLineHighlightInGutter", canvas, top, bottom);
         if (!editor.lineNumber.showLineNumbers || !highlightCurrentLineInGutter || editor.selection.hasSelection) return;
 
         animation.checkAndStartAnimation();
@@ -80,7 +72,6 @@ public class CurrentLineHighlight {
     }
 
     public void drawCurrentLineHighlightUnwrapped(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex, int firstVisibleLine, int lastVisibleLine) {
-        FunctionLog.f("CurrentLineHighlight", "drawCurrentLineHighlightUnwrapped", canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine);
         if (!highlightCurrentLine || editor.selection.hasSelection) return;
 
         animation.checkAndStartAnimation();
@@ -95,7 +86,6 @@ public class CurrentLineHighlight {
     }
 
     public void drawCurrentLineHighlightWrapped(Canvas canvas, int firstVisualIndex, int lastVisualIndex) {
-        FunctionLog.f("CurrentLineHighlight", "drawCurrentLineHighlightWrapped", canvas, firstVisualIndex, lastVisualIndex);
         if (!highlightCurrentLine || editor.selection.hasSelection) return;
 
         animation.checkAndStartAnimation();
@@ -107,7 +97,6 @@ public class CurrentLineHighlight {
     }
 
     public void drawCurrentLineHighlightSegment(Canvas canvas, float left, float top, float right, float bottom) {
-        FunctionLog.f("CurrentLineHighlight", "drawCurrentLineHighlightSegment", canvas, left, top, right, bottom);
         if (!highlightCurrentLine || editor.selection.hasSelection) return;
         canvas.drawRect(left, top, right, bottom, currentLinePaint);
     }

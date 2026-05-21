@@ -5,7 +5,6 @@ import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.StringEndResult;
 import com.yn.sodiumeditor.renderer.HighliteRender;
 import com.yn.sodiumeditor.utils.HighlightUtils;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,7 +16,6 @@ public class HighlightParser {
     private final Highlite highlite;
 
     public HighlightParser(SodiumEditor editor, Highlite highlite) {
-        FunctionLog.f("HighlightParser", "HighlightParser", editor, highlite);
         this.editor = editor;
         this.highlite = highlite;
     }
@@ -26,7 +24,6 @@ public class HighlightParser {
             String line, boolean inBlock, int strState,
             HighliteRender.HighlightRule strRule, HighliteRender.HighlightRule blockRule,
             boolean collectSpans) {
-        FunctionLog.f("HighlightParser", "parseLineForSyntax", line, inBlock, strState, strRule, blockRule, collectSpans);
         
         List<HighliteRender.HighlightSpan> spans = new ArrayList<>();
         int len = line.length();
@@ -106,7 +103,6 @@ public class HighlightParser {
     }
 
     public boolean isLineCommentStart(String line, int idx) {
-        FunctionLog.f("HighlightParser", "isLineCommentStart", line, idx);
         if (idx < 0 || idx >= line.length() || highlite.rules.lineCommentDelimiters.isEmpty()) return false;
         for (String token : highlite.rules.lineCommentDelimiters) {
             int tLen = token.length();
@@ -117,24 +113,20 @@ public class HighlightParser {
     }
 
     public boolean isStringDelimiter(char c) {
-        FunctionLog.f("HighlightParser", "isStringDelimiter", c);
         return c == '"' || c == '\'' || (c == '`' && highlite.isBacktickStringsEnabled);
     }
 
     public boolean isTripleQuoteStart(String line, int idx) {
-        FunctionLog.f("HighlightParser", "isTripleQuoteStart", line, idx);
         return highlite.isTripleQuoteStringsEnabled && idx + 2 < line.length() && line.charAt(idx) == '"' && line.charAt(idx + 1) == '"' && line.charAt(idx + 2) == '"';
     }
 
     public int getStringStateForDelimiter(char c) {
-        FunctionLog.f("HighlightParser", "getStringStateForDelimiter", c);
         if (c == '"') return com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_DOUBLE;
         if (c == '\'') return com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_SINGLE;
         return com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_BACKTICK;
     }
 
     public StringEndResult findStringEndForState(String line, int start, int state) {
-        FunctionLog.f("HighlightParser", "findStringEndForState", line, start, state);
         if (state == com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_TRIPLE) {
             int end = HighlightUtils.findTripleQuoteEnd(line, start);
             return new StringEndResult(end >= 0, end >= 0 ? end + 3 : start);

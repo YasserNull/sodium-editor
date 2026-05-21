@@ -1,13 +1,11 @@
 package com.yn.sodiumeditor.core.selection;
 
 import android.content.Context;
-import android.util.Log;
 import android.view.inputmethod.InputMethodManager;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.io.EditOp;
 import com.yn.sodiumeditor.io.EditOperators;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.io.File;
 
 /**
@@ -18,13 +16,11 @@ public class SelectionActionHandler {
     private final Selection selection;
 
     public SelectionActionHandler(SodiumEditor editor, Selection selection) {
-        FunctionLog.f("SelectionActionHandler", "SelectionActionHandler", editor, selection);
         this.editor = editor;
         this.selection = selection;
     }
 
     public void selectAll() {
-        FunctionLog.f("SelectionActionHandler", "selectAll");
         editor.autoCompletion.clearActiveSuggestion();
         final boolean keyboardWasVisible = editor.view.keyboardHeight > 0;
         if (editor.wordWrap.isWordWrapEnabled) {
@@ -106,7 +102,6 @@ public class SelectionActionHandler {
     }
 
     private void finishSelectAll(boolean keyboardWasVisible) {
-        FunctionLog.f("SelectionActionHandler", "finishSelectAll", keyboardWasVisible);
         selection.syncToState();
         editor.view.setDisable(false); editor.loadingCircle.showLoadingCircle(false);
         editor.invalidate(); editor.requestFocus(); editor.popup.showPopupAtSelection();
@@ -118,7 +113,6 @@ public class SelectionActionHandler {
     }
 
     public void replaceSelectionWithText(String insertText) {
-        FunctionLog.f("SelectionActionHandler", "replaceSelectionWithText", insertText);
         if (editor.view.isReadOnly) return;
         editor.fileIO.invalidatePendingIOForEdit();
         final int opToken = editor.editOperators.editVersion.incrementAndGet();
@@ -156,18 +150,19 @@ public class SelectionActionHandler {
         selection.state.clearSelectionStateAfterDelete();
         editor.scroll.keepCursorVisibleHorizontally(); editor.loadingCircle.endLargeEditUi(false);
 
-        if (editor.fileIO.sourceFile == null || editor.fileIO.isFileCleared) {
-            if (!fullyInWindow) { editor.fileIO.ensureLineInWindow(sL, true); editor.fileIO.ensureLineInWindow(eL, true); editor.windowRender.applyMultiLineReplaceInWindowNow(sL, sC, eL, eC, insertText, target); }
-            finalizeAction(removedNl, insertedNl, sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
-            return;
+        if (!fullyInWindow) {
+            editor.fileIO.ensureLineInWindow(sL, true);
+            editor.fileIO.ensureLineInWindow(eL, true);
+            if (!editor.fileIO.isWindowLoading) {
+                editor.windowRender.applyMultiLineReplaceInWindowNow(sL, sC, eL, eC, insertText, target);
+            }
         }
 
-        editor.editOperators.rewriteReplaceRangeAsync(opToken, editor.fileIO.sourceFile, sL, sC, eL, eC, insertText, target, false);
         finalizeAction(removedNl, insertedNl, sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
+        invalidateFoldStateForReplace(sL, target.line);
     }
 
     private void handleSelectAllReplace(String insertText, int sL, int sC, int eL, int eC, String removedText, int beforeL, int beforeC, int remNl, int insNl) {
-        FunctionLog.f("SelectionActionHandler", "handleSelectAllReplace", insertText, sL, sC, eL, eC, removedText, beforeL, beforeC, remNl, insNl);
         synchronized (editor.windowRender.linesWindow) { editor.windowRender.linesWindow.clear(); editor.windowRender.linesWindow.add(""); editor.windowRender.windowStartLine = 0; editor.fileIO.isEof = true; }
         synchronized (editor.fileIO.directLineCache) { editor.fileIO.directLineCache.clear(); }
         synchronized (editor.windowRender.modifiedLines) { editor.windowRender.modifiedLines.clear(); }
@@ -182,19 +177,21 @@ public class SelectionActionHandler {
         selection.selStartLine = 0; selection.selEndLine = 0; selection.selStartChar = 0; selection.selEndChar = 0;
         editor.scroll.scrollY = 0; editor.scroll.scrollX = 0; selection.state.clearSelectionStateAfterDelete();
 
+        int insertedEndLine = 0;
         if (!insertText.isEmpty()) {
             String[] lines = insertText.split("\n", -1);
             synchronized (editor.windowRender.linesWindow) { editor.windowRender.linesWindow.set(0, lines[0]); for (int i = 1; i < lines.length; i++) editor.windowRender.linesWindow.add(i, lines[i]); }
             EditOp.CursorTarget nPos = editor.editOperators.computeCursorAfterInsert(0, 0, insertText);
             editor.cursor.cursorLine = nPos.line; editor.cursor.cursorChar = nPos.ch;
+            insertedEndLine = nPos.line;
         }
         editor.wordWrap.onLineCountChanged(); editor.loadingCircle.endLargeEditUi(true);
         editor.windowRender.recalculateMaxLineWidth(); editor.requestLayout();
         finalizeAction(remNl, insNl, sL, sC, eL, eC, removedText, insertText, beforeL, beforeC);
+        invalidateFoldStateForReplace(0, insertedEndLine);
     }
 
     private void handleSingleLineReplace(String insertText, int sL, int sC, int eL, int eC, String removedText, int beforeL, int beforeC, int remNl, int insNl) {
-        FunctionLog.f("SelectionActionHandler", "handleSingleLineReplace", insertText, sL, sC, eL, eC, removedText, beforeL, beforeC, remNl, insNl);
         editor.fileIO.ensureLineInWindow(sL, true);
         if (editor.fileIO.isWindowLoading && (sL < editor.windowRender.windowStartLine || sL >= editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size())) {
             editor.post(() -> replaceSelectionWithText(insertText)); return;
@@ -212,27 +209,23 @@ public class SelectionActionHandler {
             }
         }
         selection.state.clearSelectionStateAfterDelete(); editor.invalidate(); editor.scroll.keepCursorVisibleHorizontally(); editor.loadingCircle.endLargeEditUi(false);
+        invalidateFoldStateForReplace(sL, eL);
         finalizeAction(remNl, insNl, sL, sC, eL, eC, removedText, insertText, beforeL, beforeC);
     }
 
+    private void invalidateFoldStateForReplace(int startLine, int endLine) {
+        editor.highlite.invalidateHighlightEnsureRange();
+        editor.bracketGuides.invalidateBracketGuideCache(true);
+        if (editor.codeFold.isCodeFoldingEnabled) {
+            editor.codeFold.invalidateFoldRangesIntersectingRange(startLine, endLine);
+            editor.codeFold.invalidateFoldRangesInRange(startLine, endLine);
+            editor.codeFold.invalidateFoldCaches();
+            editor.codeFold.refreshFoldRangesAroundRange(startLine, endLine);
+        }
+    }
+
     private void finalizeAction(int remNl, int insNl, int sL, int sC, int eL, int eC, String rem, String ins, int bL, int bC) {
-        FunctionLog.f("SelectionActionHandler", "finalizeAction", remNl, insNl, sL, sC, eL, eC, rem, ins, bL, bC);
         editor.autoCompletion.updateSuggestion(); editor.editOperators.lineCountDelta += (insNl - remNl);
-        Log.i(
-                "LineNumber",
-                "finalizeAction"
-                        + " remNl="
-                        + remNl
-                        + " insNl="
-                        + insNl
-                        + " newDelta="
-                        + editor.editOperators.lineCountDelta
-                        + " line0='"
-                        + editor.windowRender.getLineTextForRender(0)
-                        + "' line1='"
-                        + editor.windowRender.getLineTextForRender(1)
-                        + "' windowSize="
-                        + editor.windowRender.linesWindow.size());
         selection.recordReplaceSelectionEdit(sL, sC, eL, eC, rem, ins, bL, bC);
     }
 }

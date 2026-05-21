@@ -1,7 +1,6 @@
 package com.yn.sodiumeditor.io;
 
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.io.File;
 import java.io.RandomAccessFile;
 
@@ -12,12 +11,10 @@ public class ByteRangeLocator {
     private final SodiumEditor editor;
 
     public ByteRangeLocator(SodiumEditor editor) {
-        FunctionLog.f("ByteRangeLocator", "ByteRangeLocator", editor);
         this.editor = editor;
     }
 
     public EditOp.RangeBytes computeByteRangeFastOrScan(File file, int sL, int sC, int eL, int eC) {
-        FunctionLog.f("ByteRangeLocator", "computeByteRangeFastOrScan", file, sL, sC, eL, eC);
         if (comparePos(sL, sC, eL, eC) > 0) {
             int tmpL = sL; sL = eL; eL = tmpL;
             int tmpC = sC; sC = eC; eC = tmpC;
@@ -26,7 +23,6 @@ public class ByteRangeLocator {
     }
 
     public EditOp.RangeBytes computeByteRangeUsingIndex(File file, int sL, int sC, int eL, int eC) {
-        FunctionLog.f("ByteRangeLocator", "computeByteRangeUsingIndex", file, sL, sC, eL, eC);
         try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
             long start = findLineStartByteByScanning(raf, sL) + sC;
             long end = findLineStartByteByScanning(raf, eL) + eC;
@@ -38,7 +34,6 @@ public class ByteRangeLocator {
     }
 
     public EditOp.RangeBytes computeByteRangeByScanning(File file, int sL, int sC, int eL, int eC) {
-        FunctionLog.f("ByteRangeLocator", "computeByteRangeByScanning", file, sL, sC, eL, eC);
         if (comparePos(sL, sC, eL, eC) > 0) {
             int tmpL = sL; sL = eL; eL = tmpL;
             int tmpC = sC; sC = eC; eC = tmpC;
@@ -53,7 +48,6 @@ public class ByteRangeLocator {
     }
 
     public int comparePos(int l1, int c1, int l2, int c2) {
-        FunctionLog.f("ByteRangeLocator", "comparePos", l1, c1, l2, c2);
         if (l1 < l2) return -1;
         if (l1 > l2) return 1;
         return Integer.compare(c1, c2);
@@ -61,7 +55,6 @@ public class ByteRangeLocator {
 
     public long[] findTwoLineStartBytesByScanning(RandomAccessFile raf, int lineA, int lineB)
             throws Exception {
-        FunctionLog.f("ByteRangeLocator", "findTwoLineStartBytesByScanning", raf, lineA, lineB);
         if (lineA < 0) lineA = 0;
         long[] result = new long[2];
         int currentLine = 0;
@@ -84,7 +77,6 @@ public class ByteRangeLocator {
     }
 
     public long findLineStartByteByScanning(RandomAccessFile raf, int targetLine) throws Exception {
-        FunctionLog.f("ByteRangeLocator", "findLineStartByteByScanning", raf, targetLine);
         if (targetLine <= 0) return 0L;
         int currentLine = 0;
         raf.seek(0);

@@ -8,7 +8,6 @@ import android.view.animation.DecelerateInterpolator;
 import android.widget.OverScroller;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Main facade for scrolling and scroll bar management.
@@ -81,7 +80,6 @@ public class Scroll {
     public float autoScrollX = 0f, autoScrollY = 0f;
 
     public Scroll(SodiumEditor editor) {
-        FunctionLog.f("Scroll", "Scroll", editor);
         this.editor = editor;
         this.delayedWindowCheck = () -> editor.fileIO.checkAndLoadWindow();
         this.scroller = new OverScroller(editor.getContext());
@@ -97,82 +95,66 @@ public class Scroll {
     // ==============================
 
     public boolean handleScroll(MotionEvent e1, MotionEvent e2, float dX, float dY) {
-        FunctionLog.f("Scroll", "handleScroll", e1, e2, dX, dY);
         return handler.handleScroll(e1, e2, dX, dY);
     }
 
     public boolean handleFling(MotionEvent e1, MotionEvent e2, float vX, float vY) {
-        FunctionLog.f("Scroll", "handleFling", e1, e2, vX, vY);
         return handler.handleFling(e1, e2, vX, vY);
     }
     
     public void drawStretch(android.graphics.Canvas c) {
-        FunctionLog.f("Scroll", "drawStretch", c);
         stretch.drawStretch(c);
     }
 
     public void drawEdge(android.graphics.Canvas c) {
-        FunctionLog.f("Scroll", "drawEdge", c);
         edge.draw(c);
     }
     
     public float getMaxScrollXForClamp() {
-        FunctionLog.f("Scroll", "getMaxScrollXForClamp");
         return bounds.getMaxScrollXForClamp();
     }
 
     public float getMaxScrollYForClamp() {
-        FunctionLog.f("Scroll", "getMaxScrollYForClamp");
         return bounds.getMaxScrollYForClamp();
     }
 
     public void clampScrollX() {
-        FunctionLog.f("Scroll", "clampScrollX");
         bounds.clampScrollX();
     }
 
     public void clampScrollY() {
-        FunctionLog.f("Scroll", "clampScrollY");
         bounds.clampScrollY();
     }
 
     public float getBottomBarrierPadding() {
-        FunctionLog.f("Scroll", "getBottomBarrierPadding");
         return bounds.getBottomBarrierPadding();
     }
 
     public float getKeyboardBarrierPadding() {
-        FunctionLog.f("Scroll", "getKeyboardBarrierPadding");
         return bounds.getKeyboardBarrierPadding();
     }
 
     public void drawScrollBar(android.graphics.Canvas c) {
-        FunctionLog.f("Scroll", "drawScrollBar", c);
         bar.draw(c);
     }
 
     public void showScrollBar() {
-        FunctionLog.f("Scroll", "showScrollBar");
         bar.show();
     }
 
     public void startScrollBarFadeOut() {
-        FunctionLog.f("Scroll", "startScrollBarFadeOut");
         bar.startFadeOut();
     }
 
     public void cancelScrollBarFade() {
-        FunctionLog.f("Scroll", "cancelScrollBarFade");
         bar.cancelFade();
     }
 
     public void scrollTo(float x, float y) {
-        FunctionLog.f("Scroll", "scrollTo", x, y);
         scrollX = x; scrollY = y; clampScrollX(); clampScrollY();
     }
 
     public void smoothScrollTo(float targetX, float targetY) {
-        FunctionLog.f("Scroll", "smoothScrollTo", targetX, targetY);
         abortAnimation();
         float startX = scrollX;
         float startY = scrollY;
@@ -199,27 +181,22 @@ public class Scroll {
     }
 
     public void abortAnimation() {
-        FunctionLog.f("Scroll", "abortAnimation");
         if (!scroller.isFinished()) scroller.abortAnimation(); scrollerIsScrolling = false; cancelFlingStopAnimation();
     }
 
     public void cancelFlingStopAnimation() {
-        FunctionLog.f("Scroll", "cancelFlingStopAnimation");
         if (flingStopAnimator != null) { flingStopAnimator.cancel(); flingStopAnimator = null; }
     }
 
     public int getFlingOverScrollX() {
-        FunctionLog.f("Scroll", "getFlingOverScrollX");
         return (flingBounceEnabled) ? (flingBounceOverScrollPx >= 0 ? flingBounceOverScrollPx : Math.max(24, Math.round(editor.getWidth() * flingBounceOverScrollFactor))) : 0;
     }
 
     public int getFlingOverScrollY() {
-        FunctionLog.f("Scroll", "getFlingOverScrollY");
         return (flingBounceEnabled) ? (flingBounceOverScrollPx >= 0 ? flingBounceOverScrollPx : Math.max(24, Math.round(editor.getHeight() * flingBounceOverScrollFactor))) : 0;
     }
 
     public void computeScroll() {
-        FunctionLog.f("Scroll", "computeScroll");
         if (scroller.computeScrollOffset()) {
             float oldX = scrollX, oldY = scrollY;
             scrollX = scroller.getCurrX(); scrollY = scroller.getCurrY();
@@ -239,18 +216,6 @@ public class Scroll {
             showScrollBar(); editor.postInvalidateOnAnimation();
         } else if (scrollerIsScrolling) {
             scrollerIsScrolling = false; showScrollBar();
-            android.util.Log.i(
-                "AnimDbg",
-                "scroll end scrollX="
-                    + scrollX
-                    + " scrollY="
-                    + scrollY
-                    + " stretchX="
-                    + stretch.stretchX
-                    + " stretchY="
-                    + stretch.stretchY
-                    + " hasSelection="
-                    + editor.selection.hasSelection);
             if (stretch.stretchOverscrollEnabled) stretch.releaseStretch();
             edge.releaseAll();
             if (flingBounceEnabled) {
@@ -268,14 +233,12 @@ public class Scroll {
     }
 
     public void scrollToLineFastForSelectAll(int l, int c) {
-        FunctionLog.f("Scroll", "scrollToLineFastForSelectAll", l, c);
         if (editor.wordWrap.isWordWrapEnabled && (!editor.wordWrap.wrapMetricsReady || editor.wordWrap.wrapLinePrefix == null)) scrollY = Math.max(0f, (l - 5) * editor.textRender.lineHeight);
         else scrollY = Math.max(0f, (editor.wordWrap.getVisualIndexForLineAndChar(l, c) - 5) * editor.textRender.lineHeight);
         clampScrollY();
     }
 
     public void keepCursorVisibleHorizontally() {
-        FunctionLog.f("Scroll", "keepCursorVisibleHorizontally");
         if (editor.zoom.isScaling || (editor.scaleGestureDetector != null && editor.scaleGestureDetector.isInProgress()) || editor.onTouch.multiTouchActive) return;
         float oldX = scrollX, oldY = scrollY;
         int vIdx = Math.max(0, Math.round(editor.caret.getCaretDocumentY() / editor.textRender.lineHeight));
@@ -309,17 +272,14 @@ public class Scroll {
     }
 
     public float getEffectiveScrollX() {
-        FunctionLog.f("Scroll", "getEffectiveScrollX");
         return editor.textRender.isRtl ? -scrollX : scrollX;
     }
 
     public float viewToTextX(float vX) {
-        FunctionLog.f("Scroll", "viewToTextX", vX);
         return vX + getEffectiveScrollX() - editor.layout.getTextStartX();
     }
 
     public void startFlingStopAnimation(float targetX, float targetY) {
-        FunctionLog.f("Scroll", "startFlingStopAnimation", targetX, targetY);
         cancelFlingStopAnimation();
         float startX = scrollX, startY = scrollY;
         float dx = targetX - startX, dy = targetY - startY;
@@ -345,97 +305,78 @@ public class Scroll {
 
     // Setters
     public void setScrollMode(int m) {
-        FunctionLog.f("Scroll", "setScrollMode", m);
         if (m == SCROLL_MODE_SINGLE_AXIS || m == SCROLL_MODE_GRID || m == SCROLL_MODE_FREE) this.scrollMode = m;
     }
 
     public void setScrollSensitivity(float s) {
-        FunctionLog.f("Scroll", "setScrollSensitivity", s);
         if (s > 0) this.scrollSensitivity = s;
     }
 
     public void setFlingSensitivity(float s) {
-        FunctionLog.f("Scroll", "setFlingSensitivity", s);
         if (s > 0) this.flingSensitivity = s;
     }
 
     public void setScrollBarEnabled(boolean e) {
-        FunctionLog.f("Scroll", "setScrollBarEnabled", e);
         bar.setEnabled(e);
     }
 
     public void setScrollBarFadeEnabled(boolean e) {
-        FunctionLog.f("Scroll", "setScrollBarFadeEnabled", e);
         bar.setFadeEnabled(e);
     }
 
     public void setScrollBarColor(int color) {
-        FunctionLog.f("Scroll", "setScrollBarColor", color);
         bar.setColor(color);
     }
 
     public void setScrollBarWidthPx(float px) {
-        FunctionLog.f("Scroll", "setScrollBarWidthPx", px);
         bar.setWidthPx(px);
     }
 
     public void setScrollBarMinThumbPx(float px) {
-        FunctionLog.f("Scroll", "setScrollBarMinThumbPx", px);
         bar.setMinThumbPx(px);
     }
 
     public void setScrollBarFadeDelayMs(long ms) {
-        FunctionLog.f("Scroll", "setScrollBarFadeDelayMs", ms);
         bar.setFadeDelayMs(ms);
     }
 
     public void setScrollBarFadeDurationMs(long ms) {
-        FunctionLog.f("Scroll", "setScrollBarFadeDurationMs", ms);
         bar.setFadeDurationMs(ms);
     }
 
     public void setScrollBarHaloColor(int color) {
-        FunctionLog.f("Scroll", "setScrollBarHaloColor", color);
         bar.setHaloColor(color);
     }
 
     public void setScrollBarHaloSizePx(float px) {
-        FunctionLog.f("Scroll", "setScrollBarHaloSizePx", px);
         bar.setHaloSizePx(px);
     }
 
     public void setScrollBarCornerRadiusPx(float px) {
-        FunctionLog.f("Scroll", "setScrollBarCornerRadiusPx", px);
         bar.setCornerRadiusPx(px);
     }
 
     public void setScrollBarMarginPx(float px) {
-        FunctionLog.f("Scroll", "setScrollBarMarginPx", px);
         bar.setMarginPx(px);
     }
 
     public void setStretchOverscrollEnabled(boolean e) {
-        FunctionLog.f("Scroll", "setStretchOverscrollEnabled", e);
         stretch.setStretchOverscrollEnabled(e);
     }
 
     public void setStretchOverscrollStrength(float s) {
-        FunctionLog.f("Scroll", "setStretchOverscrollStrength", s);
         stretch.setStretchOverscrollStrength(s);
     }
 
     public void setFlingBounceEnabled(boolean e) {
-        FunctionLog.f("Scroll", "setFlingBounceEnabled", e);
         this.flingBounceEnabled = e;
     }
 
     public void setFlingBounceDistancePx(int px) {
-        FunctionLog.f("Scroll", "setFlingBounceDistancePx", px);
         this.flingBounceOverScrollPx = Math.max(0, px);
     }
 
     public void setFlingBounceDistanceFactor(float f) {
-        FunctionLog.f("Scroll", "setFlingBounceDistanceFactor", f);
         if (f > 0) this.flingBounceOverScrollFactor = f;
     }
 }

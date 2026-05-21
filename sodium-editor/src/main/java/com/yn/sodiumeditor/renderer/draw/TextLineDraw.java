@@ -5,7 +5,6 @@ import android.graphics.Paint;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.TextRender;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.List;
 
 /**
@@ -21,7 +20,6 @@ public class TextLineDraw {
     private final SodiumEditor editor;
 
     public TextLineDraw(SodiumEditor editor) {
-        FunctionLog.f("TextLineDraw", "TextLineDraw", editor);
         this.editor = editor;
     }
 
@@ -35,7 +33,6 @@ public class TextLineDraw {
     public float drawTextSegmentWithFade(
             Canvas canvas, String line, int start, int end, float x, float y,
             Paint segmentPaint, int fadeStart, int fadeEnd, float fadeAlpha) {
-        FunctionLog.f("TextLineDraw", "drawTextSegmentWithFade", canvas, line, start, end, x, y, segmentPaint, fadeStart, fadeEnd, fadeAlpha);
         if (start >= end) return 0f;
         boolean hasFade = fadeStart >= 0 && fadeEnd > fadeStart && fadeAlpha < 1f;
         if (hasFade
@@ -117,7 +114,6 @@ public class TextLineDraw {
             Canvas canvas, String line, int start, int end, float x, float y,
             Paint segmentPaint, int fadeStart, int fadeEnd, float fadeAlpha,
             @Nullable List<TextRender.UnderlineSpan> underlines, float lineTop, float lineBottom) {
-        FunctionLog.f("TextLineDraw", "drawTextSegmentWithFadeAndUnderlines", canvas, line, start, end, x, y, segmentPaint, fadeStart, fadeEnd, fadeAlpha, underlines, lineTop, lineBottom);
         if (start >= end) return 0f;
         boolean anyUnderliningActive = editor.urlUnderline.isUrlUnderliningActive()
                 || editor.pathUnderline.isPathUnderliningActive();
@@ -170,7 +166,6 @@ public class TextLineDraw {
             Canvas canvas, String line, int start, int end, float x, float baselineY,
             float lineTop, float lineBottom, Paint textPaint,
             int fadeStart, int fadeEnd, float fadeAlpha, boolean isPath) {
-        FunctionLog.f("TextLineDraw", "drawUnderlineSegmentWithFade", canvas, line, start, end, x, baselineY, lineTop, lineBottom, textPaint, fadeStart, fadeEnd, fadeAlpha, isPath);
         if (start >= end) return;
 
         Paint.FontMetrics fm = TextRender.TL_FONT_METRICS.get();
@@ -234,7 +229,6 @@ public class TextLineDraw {
           float y,
           Paint segmentPaint,
           float alphaMultiplier) {
-        FunctionLog.f("TextLineDraw", "drawTextSegmentWithVisualSpaces", canvas, line, start, end, x, y, segmentPaint, alphaMultiplier);
         if (start >= end) return 0f;
 
         Paint drawPaint = segmentPaint;
@@ -282,7 +276,6 @@ public class TextLineDraw {
      * Draw delete animation for segment
      */
     public void drawDeleteAnimationForSegment(Canvas canvas, String line, int globalLine, int segStart, int segEnd, float y) {
-        FunctionLog.f("TextLineDraw", "drawDeleteAnimationForSegment", canvas, line, globalLine, segStart, segEnd, y);
         if (!editor.charAnimation.isCharAnimationEnabled) return;
         if (globalLine != editor.charAnimation.delAnimLine
                 || editor.charAnimation.delAnimText == null

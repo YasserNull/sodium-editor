@@ -6,7 +6,6 @@ import com.yn.sodiumeditor.core.StreamedCharSlice;
 import com.yn.sodiumeditor.core.binary.BinaryTokenConverter;
 import com.yn.sodiumeditor.io.BinaryFileReader;
 import com.yn.sodiumeditor.renderer.draw.BinaryLineDrawer;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * BinaryRender is the main entry point for binary-safe rendering.
@@ -25,12 +24,32 @@ public class BinaryRender {
     public final BinaryLineDrawer lineDrawer;
 
     // State
-    public boolean binarySafeRenderingEnabled = false;
+    public boolean binarySafeRenderingEnabled = true;
+    public boolean binaryFileFeaturePolicyActive = false;
     private final SparseArray<int[]> binaryTokenSpans = new SparseArray<>();
 
     // Exposed configuration fields for external access
     public boolean binaryCaretNotationEnabled = false;
     public float binaryTokenPaddingX = 2f;
+
+    private boolean savedSyntaxHighlightingEnabled;
+    private boolean savedColorHighlightingEnabled;
+    private boolean savedUrlUnderliningEnabled;
+    private boolean savedPathUnderliningEnabled;
+    private boolean savedErrorUnderlineEnabled;
+    private boolean savedBracketMatchingEnabled;
+    private boolean savedBracketGuidesEnabled;
+    private boolean savedCodeFoldingEnabled;
+    private boolean savedIndentGuidesEnabled;
+    private boolean savedIndentationBlocksEnabled;
+    private boolean savedWhitespaceGuidesEnabled;
+    private boolean savedAutoCompletionEnabled;
+    private boolean savedAutoPathCompletionEnabled;
+    private boolean savedAutoPairingEnabled;
+    private boolean savedAutoBracketNewlineEnabled;
+    private boolean savedAutoBracketNewlineIndentEnabled;
+    private boolean savedAutoIndentAfterClosingBracketEnabled;
+    private boolean savedCurrentLineHighlightEnabled;
 
     public BinaryRender(SodiumEditor editor) {
         this.editor = editor;
@@ -60,6 +79,83 @@ public class BinaryRender {
     }
 
     public boolean isBinarySafeRenderingEnabled() { return binarySafeRenderingEnabled; }
+
+    public void applyBinaryFileFeaturePolicy(boolean active) {
+        if (binaryFileFeaturePolicyActive == active) return;
+        if (active) {
+            saveFeatureStateForBinaryFile();
+            binaryFileFeaturePolicyActive = true;
+            setBinarySafeRenderingEnabled(true);
+            editor.highlite.isSyntaxHighlightingEnabled = false;
+            editor.highlite.clearHighlightCaches();
+            editor.colorCodeHighlight.setColorCodeHighlightingEnabled(false);
+            editor.urlUnderline.setUrlUnderliningEnabled(false);
+            editor.pathUnderline.setPathUnderliningEnabled(false);
+            editor.errorUnderline.setErrorUnderlineEnabled(false);
+            editor.bracketMatchManager.setBracketMatchingEnabled(false);
+            editor.bracketGuides.setBracketGuidesEnabled(false);
+            editor.codeFold.setCodeFoldingEnabled(false);
+            editor.indentGuides.setIndentGuidesEnabled(false);
+            editor.codeFold.setIndentationBlocksEnabled(false);
+            editor.whitespaceGuides.setWhitespaceGuidesEnabled(false);
+            editor.autoCompletion.setAutoCompletionEnabled(false);
+            editor.autoPathCompletion.setAutoPathCompletionEnabled(false);
+            editor.autoBracketPair.setAutoPairingEnabled(false);
+            editor.autoBracketNewline.setAutoBracketNewlineEnabled(false);
+            editor.autoBracketNewline.setAutoBracketNewlineIndentEnabled(false);
+            editor.autoBracketNewline.setAutoIndentAfterClosingBracketEnabled(false);
+            editor.currentLineHighlight.setHighlightCurrentLine(false);
+            editor.invalidate();
+            return;
+        }
+
+        binaryFileFeaturePolicyActive = false;
+        restoreFeatureStateAfterBinaryFile();
+        editor.invalidate();
+    }
+
+    private void saveFeatureStateForBinaryFile() {
+        savedSyntaxHighlightingEnabled = editor.highlite.isSyntaxHighlightingEnabled;
+        savedColorHighlightingEnabled = editor.colorCodeHighlight.isColorHighlightingEnabled;
+        savedUrlUnderliningEnabled = editor.urlUnderline.isUrlUnderliningEnabled;
+        savedPathUnderliningEnabled = editor.pathUnderline.isPathUnderliningEnabled;
+        savedErrorUnderlineEnabled = editor.errorUnderline.errorUnderlineEnabled;
+        savedBracketMatchingEnabled = editor.bracketMatchManager.isBracketMatchingEnabled;
+        savedBracketGuidesEnabled = editor.bracketGuides.isBracketGuidesEnabled;
+        savedCodeFoldingEnabled = editor.codeFold.isCodeFoldingEnabled;
+        savedIndentGuidesEnabled = editor.indentGuides.isIndentGuidesEnabled;
+        savedIndentationBlocksEnabled = editor.indentGuides.isIndentationBlocksEnabled;
+        savedWhitespaceGuidesEnabled = editor.whitespaceGuides.isWhitespaceGuidesEnabled;
+        savedAutoCompletionEnabled = editor.autoCompletion.isAutoCompletionEnabled;
+        savedAutoPathCompletionEnabled = editor.autoPathCompletion.isAutoPathCompletionEnabled;
+        savedAutoPairingEnabled = editor.autoBracketPair.isAutoPairingEnabled;
+        savedAutoBracketNewlineEnabled = editor.autoBracketNewline.isAutoBracketNewlineEnabled;
+        savedAutoBracketNewlineIndentEnabled = editor.autoBracketNewline.isAutoBracketNewlineIndentEnabled;
+        savedAutoIndentAfterClosingBracketEnabled = editor.autoBracketNewline.isAutoIndentAfterClosingBracketEnabled;
+        savedCurrentLineHighlightEnabled = editor.currentLineHighlight.highlightCurrentLine;
+    }
+
+    private void restoreFeatureStateAfterBinaryFile() {
+        editor.highlite.isSyntaxHighlightingEnabled = savedSyntaxHighlightingEnabled;
+        editor.highlite.clearHighlightCaches();
+        editor.colorCodeHighlight.setColorCodeHighlightingEnabled(savedColorHighlightingEnabled);
+        editor.urlUnderline.setUrlUnderliningEnabled(savedUrlUnderliningEnabled);
+        editor.pathUnderline.setPathUnderliningEnabled(savedPathUnderliningEnabled);
+        editor.errorUnderline.setErrorUnderlineEnabled(savedErrorUnderlineEnabled);
+        editor.bracketMatchManager.setBracketMatchingEnabled(savedBracketMatchingEnabled);
+        editor.bracketGuides.setBracketGuidesEnabled(savedBracketGuidesEnabled);
+        editor.codeFold.setCodeFoldingEnabled(savedCodeFoldingEnabled);
+        editor.indentGuides.setIndentGuidesEnabled(savedIndentGuidesEnabled);
+        editor.codeFold.setIndentationBlocksEnabled(savedIndentationBlocksEnabled);
+        editor.whitespaceGuides.setWhitespaceGuidesEnabled(savedWhitespaceGuidesEnabled);
+        editor.autoCompletion.setAutoCompletionEnabled(savedAutoCompletionEnabled);
+        editor.autoPathCompletion.setAutoPathCompletionEnabled(savedAutoPathCompletionEnabled);
+        editor.autoBracketPair.setAutoPairingEnabled(savedAutoPairingEnabled);
+        editor.autoBracketNewline.setAutoBracketNewlineEnabled(savedAutoBracketNewlineEnabled);
+        editor.autoBracketNewline.setAutoBracketNewlineIndentEnabled(savedAutoBracketNewlineIndentEnabled);
+        editor.autoBracketNewline.setAutoIndentAfterClosingBracketEnabled(savedAutoIndentAfterClosingBracketEnabled);
+        editor.currentLineHighlight.setHighlightCurrentLine(savedCurrentLineHighlightEnabled);
+    }
 
     // ── Token Box Configuration ────────────────────────────────────────────────
     public void setBinaryTokenBoxEnabled(boolean enabled) {
@@ -126,7 +222,6 @@ public class BinaryRender {
     }
 
     public void shiftBinaryTokenSpans(int startLine, int delta) {
-        FunctionLog.f("BinaryRender", "shiftBinaryTokenSpans", startLine, delta);
         if (delta == 0 || binaryTokenSpans.size() == 0) return;
         SparseArray<int[]> shifted = new SparseArray<>(binaryTokenSpans.size());
         for (int i = 0; i < binaryTokenSpans.size(); i++) {
@@ -205,26 +300,31 @@ public class BinaryRender {
 
     // ── Conversion ─────────────────────────────────────────────────────────────
     public String bytesToControlVisible(byte[] buf, int len) {
-        FunctionLog.f("BinaryRender", "bytesToControlVisible", buf, len);
         return tokenConverter.bytesToControlVisible(buf, len);
     }
 
+    public String bytesToControlVisible(byte[] buf, int len, java.nio.charset.Charset charset) {
+        return tokenConverter.bytesToControlVisible(buf, len, charset);
+    }
+
     public String bytesToControlVisibleAndCacheSpans(byte[] buf, int len, int lineIndex) {
-        FunctionLog.f("BinaryRender", "bytesToControlVisibleAndCacheSpans", buf, len, lineIndex);
         return tokenConverter.bytesToControlVisibleAndCacheSpans(buf, len, lineIndex, binaryTokenSpans);
+    }
+
+    public String bytesToControlVisibleAndCacheSpans(
+        byte[] buf, int len, int lineIndex, java.nio.charset.Charset charset) {
+        return tokenConverter.bytesToControlVisibleAndCacheSpans(buf, len, lineIndex, binaryTokenSpans, charset);
     }
 
     // ── File Reading ───────────────────────────────────────────────────────────
     public String readLineWithBinarySafe(
         java.io.RandomAccessFile raf, int line, long fileLen, java.nio.charset.Charset fileCharset) throws Exception {
-        FunctionLog.f("BinaryRender", "readLineWithBinarySafe", raf, line, fileLen, fileCharset);
         return fileReader.readLineWithBinarySafe(raf, line, fileLen, fileCharset, binarySafeRenderingEnabled);
     }
 
     public String readLineSliceAtByte(
         java.io.RandomAccessFile raf, long lineStart, long lineByteLen,
         int startChar, int endChar, java.nio.charset.Charset fileCharset) throws Exception {
-        FunctionLog.f("BinaryRender", "readLineSliceAtByte", raf, lineStart, lineByteLen, startChar, endChar, fileCharset);
         return fileReader.readLineSliceAtByte(raf, lineStart, lineByteLen, startChar, endChar, fileCharset, binarySafeRenderingEnabled);
     }
 
@@ -232,60 +332,49 @@ public class BinaryRender {
         java.io.RandomAccessFile raf, long lineStart,
         int startChar, int endChar,
         boolean needTotalLength, java.nio.charset.Charset fileCharset) throws Exception {
-        FunctionLog.f("BinaryRender", "readLineSliceByChars", raf, lineStart, startChar, endChar, needTotalLength, fileCharset);
         return fileReader.readLineSliceByChars(raf, lineStart, startChar, endChar, needTotalLength, fileCharset,
             binarySafeRenderingEnabled, tokenConverter.isBinaryHexTokensEnabled());
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
     public String escapeControlChar(char c) {
-        FunctionLog.f("BinaryRender", "escapeControlChar", c);
         return tokenConverter.escapeControlChar(c);
     }
 
     public boolean needsEscaping(char c) {
-        FunctionLog.f("BinaryRender", "needsEscaping", c);
         return tokenConverter.needsEscaping(c);
     }
 
     public int getDisplayWidth(char c) {
-        FunctionLog.f("BinaryRender", "getDisplayWidth", c);
         return tokenConverter.getDisplayWidth(c, binarySafeRenderingEnabled);
     }
 
     public int matchBinaryToken(String line, int index) {
-        FunctionLog.f("BinaryRender", "matchBinaryToken", line, index);
         return tokenConverter.matchBinaryToken(line, index);
     }
 
     public boolean findBinaryTokenSpan(String line, int index, int[] outStartEnd) {
-        FunctionLog.f("BinaryRender", "findBinaryTokenSpan", line, index, outStartEnd);
         return tokenConverter.findBinaryTokenSpan(line, index, outStartEnd);
     }
 
     public int snapBinaryCursor(String line, int index) {
-        FunctionLog.f("BinaryRender", "snapBinaryCursor", line, index);
         return index;
     }
 
     public int snapBinaryCursor(String line, int index, int lineIndex) {
-        FunctionLog.f("BinaryRender", "snapBinaryCursor", line, index, lineIndex);
         return lineDrawer.snapBinaryCursor(line, index, lineIndex, binaryTokenSpans);
     }
 
     public int getCharIndexForXBinary(
         String line, int start, int end, float x, android.graphics.Paint paint, int[] spans, float padX) {
-        FunctionLog.f("BinaryRender", "getCharIndexForXBinary", line, start, end, x, paint, spans, padX);
         return lineDrawer.getCharIndexForXBinary(line, start, end, x, paint, spans, padX);
     }
 
     public float getXForCharBinary(String line, int charIndex, android.graphics.Paint paint, int[] spans, float padX) {
-        FunctionLog.f("BinaryRender", "getXForCharBinary", line, charIndex, paint, spans, padX);
         return lineDrawer.getXForCharBinary(line, charIndex, paint, spans, padX);
     }
 
     public boolean findBinaryTokenSpanInSpans(int[] spans, int index, int[] outStartEnd) {
-        FunctionLog.f("BinaryRender", "findBinaryTokenSpanInSpans", spans, index, outStartEnd);
         return tokenConverter.findBinaryTokenSpanInSpans(spans, index, outStartEnd);
     }
 

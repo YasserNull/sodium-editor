@@ -6,7 +6,6 @@ import android.animation.ValueAnimator;
 import android.graphics.Paint;
 import android.view.animation.DecelerateInterpolator;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Manages fold ripple animations and appearance settings for code folding.
@@ -46,7 +45,6 @@ public class CodeFoldAnimation {
     public float foldPlaceholderRippleRight = 0f;
 
     public CodeFoldAnimation(SodiumEditor editor) {
-        FunctionLog.f("CodeFoldAnimation", "CodeFoldAnimation", editor);
         this.editor = editor;
 
         foldPlaceholderPaint.setColor(0xFFE0E0E0);
@@ -70,7 +68,6 @@ public class CodeFoldAnimation {
      * Start a ripple animation on the fold marker.
      */
     public void startFoldMarkerRipple(int line) {
-        FunctionLog.f("CodeFoldAnimation", "startFoldMarkerRipple", line);
         if (!editor.codeFold.isCodeFoldingEnabled || !editor.lineNumber.showLineNumbers) return;
         foldRippleLine = line;
         float gutterWidth = foldMarkerGutterWidth;
@@ -102,7 +99,6 @@ public class CodeFoldAnimation {
      * Start a ripple animation on the folded placeholder button.
      */
     public void startFoldPlaceholderRipple(int line, float left, float right) {
-        FunctionLog.f("CodeFoldAnimation", "startFoldPlaceholderRipple", line, left, right);
         if (!editor.codeFold.isCodeFoldingEnabled) return;
         foldPlaceholderRippleLine = line;
         foldPlaceholderRippleLeft = left;
@@ -139,7 +135,6 @@ public class CodeFoldAnimation {
      * Clear fold ripple animation
      */
     public void clearFoldRipple() {
-        FunctionLog.f("CodeFoldAnimation", "clearFoldRipple");
         if (foldRippleAnimator != null) foldRippleAnimator.cancel();
         foldRippleAlpha = 0f;
         foldRippleRadius = 0f;
@@ -158,7 +153,6 @@ public class CodeFoldAnimation {
      * Update fold marker text size.
      */
     public void updateTextSize(float sizePx) {
-        FunctionLog.f("CodeFoldAnimation", "updateTextSize", sizePx);
         foldMarkerPaint.setTextSize(sizePx * foldMarkerTextScale);
         foldMarkerPendingPaint.setTextSize(sizePx * foldMarkerTextScale);
     }
@@ -167,7 +161,6 @@ public class CodeFoldAnimation {
      * Update fold marker typeface.
      */
     public void updateTypeface(android.graphics.Typeface typeface) {
-        FunctionLog.f("CodeFoldAnimation", "updateTypeface", typeface);
         int typefaceStyle = android.graphics.Typeface.NORMAL;
         if (typeface != null) {
             typefaceStyle = typeface.getStyle();

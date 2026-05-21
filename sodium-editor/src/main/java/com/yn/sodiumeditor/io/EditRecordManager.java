@@ -1,9 +1,6 @@
 package com.yn.sodiumeditor.io;
-
-import android.util.Log;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Handles recording of edit operations and merging consecutive insertions.
@@ -15,13 +12,11 @@ public class EditRecordManager {
     private final EditOperators operators;
 
     public EditRecordManager(SodiumEditor editor, EditOperators operators) {
-        FunctionLog.f("EditRecordManager", "EditRecordManager", editor, operators);
         this.editor = editor;
         this.operators = operators;
     }
 
     public void recordEdit(EditOp op) {
-        FunctionLog.f("EditRecordManager", "recordEdit", op);
         if (operators.isApplyingUndoRedo) return;
         if (op == null) return;
         editor.highlite.markTyping();
@@ -85,7 +80,6 @@ public class EditRecordManager {
     }
 
     public void recordEditNoUndo(EditOp op) {
-        FunctionLog.f("EditRecordManager", "recordEditNoUndo", op);
         if (operators.isApplyingUndoRedo) return;
         if (op == null) return;
         editor.highlite.markTyping();
@@ -96,7 +90,6 @@ public class EditRecordManager {
     }
 
     public EditOp.CursorTarget computeCursorAfterInsert(int baseLine, int baseChar, String insertText) {
-        FunctionLog.f("EditRecordManager", "computeCursorAfterInsert", baseLine, baseChar, insertText);
         if (insertText == null) insertText = "";
         int newLines = 0;
         int lastNewlineIndex = -1;
@@ -114,7 +107,6 @@ public class EditRecordManager {
     }
 
     public int countNewlines(@Nullable String text) {
-        FunctionLog.f("EditRecordManager", "countNewlines", text);
         if (text == null || text.isEmpty()) return 0;
         int count = 0;
         for (int i = 0; i < text.length(); i++) {
@@ -124,7 +116,6 @@ public class EditRecordManager {
     }
 
     public boolean isLargePasteText(String text) {
-        FunctionLog.f("EditRecordManager", "isLargePasteText", text);
         if (text == null) return false;
         return text.length() > UNDO_TEXT_LIMIT / 2;
     }

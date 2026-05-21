@@ -1,10 +1,8 @@
 package com.yn.sodiumeditor.core.cursor; 
-import android.util.Log;
 import com.yn.sodiumeditor.SodiumEditor;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * CursorHandle handles the cursor handle (draggable handle when cursor is visible without selection).
@@ -29,7 +27,6 @@ public class CursorHandle {
   private final Caret caret;
 
   public CursorHandle(SodiumEditor editor, Cursor cursor, Caret caret) {
-    FunctionLog.f("CursorHandle", "CursorHandle", editor, cursor, caret);
     this.editor = editor;
     this.cursor = cursor;
     this.caret = caret;
@@ -39,7 +36,6 @@ public class CursorHandle {
    * Update cursor handle position
    */
   public void updateCursorHandlePosition() {
-    FunctionLog.f("CursorHandle", "updateCursorHandlePosition");
     float docX, docY;
     // Only follow cursorAnimation while cursor animation is actually enabled.
     // Otherwise stale cached draw coordinates can lag behind the real caret position.
@@ -75,58 +71,17 @@ public class CursorHandle {
         handleLeft + cursorHandleWidth,
         handleTop + cursorHandleHeight
     );
-    Log.i(
-        "CursorDbg",
-        "update"
-            + " docX="
-            + docX
-            + " docY="
-            + docY
-            + " screenX="
-            + x
-            + " screenY="
-            + y
-            + " rect="
-            + cursorHandleRect.left
-            + ","
-            + cursorHandleRect.top
-            + ","
-            + cursorHandleRect.right
-            + ","
-            + cursorHandleRect.bottom
-            + " animValid="
-            + editor.cursorAnimation.cursorAnimValid
-            + " animRunning="
-            + editor.cursorAnimation.cursorAnimRunning
-            + " zoomOrScaleTransition="
-            + zoomOrScaleTransition);
   }
 
   /**
    * Draw cursor handle
    */
   public void drawCursorHandle(Canvas canvas) {
-    FunctionLog.f("CursorHandle", "drawCursorHandle", canvas);
     if (!editor.isFocused() || editor.selection.hasSelection) {
       return;
     }
 
     updateCursorHandlePosition();
-    Log.i(
-        "CursorDbg",
-        "draw"
-            + " rect="
-            + cursorHandleRect.left
-            + ","
-            + cursorHandleRect.top
-            + ","
-            + cursorHandleRect.right
-            + ","
-            + cursorHandleRect.bottom
-            + " cursorLine="
-            + cursor.cursorLine
-            + " cursorChar="
-            + cursor.cursorChar);
 
     Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     paint.setColor(cursorHandleColor);
@@ -143,7 +98,6 @@ public class CursorHandle {
    * Check if point hits cursor handle
    */
   public boolean hitTest(float x, float y) {
-    FunctionLog.f("CursorHandle", "hitTest", x, y);
     updateCursorHandlePosition();
     // Expand hit area for easier grabbing
     float expand = 20f;
@@ -160,33 +114,28 @@ public class CursorHandle {
    * Check if cursor handle should be shown
    */
   public boolean shouldShow() {
-    FunctionLog.f("CursorHandle", "shouldShow");
     return editor.isFocused() && !editor.selection.hasSelection;
   }
 
   // Getters and Setters
 
   public void setCursorHandleSize(float width, float height) {
-    FunctionLog.f("CursorHandle", "setCursorHandleSize", width, height);
     if (width <= 0f || height <= 0f) return;
     cursorHandleWidth = width;
     cursorHandleHeight = height;
   }
 
   public void setCursorHandleColor(int color) {
-    FunctionLog.f("CursorHandle", "setCursorHandleColor", color);
     cursorHandleColor = color;
     editor.invalidate();
   }
 
   public void setCursorHandleRadius(float radius) {
-    FunctionLog.f("CursorHandle", "setCursorHandleRadius", radius);
     if (radius < 0f) return;
     cursorHandleRadius = radius;
   }
 
   public RectF getHandleRect() {
-    FunctionLog.f("CursorHandle", "getHandleRect");
     updateCursorHandlePosition();
     return cursorHandleRect;
   }

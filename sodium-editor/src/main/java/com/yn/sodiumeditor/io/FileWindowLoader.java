@@ -125,7 +125,7 @@ public class FileWindowLoader {
                         newLengths.put(lineIdx, len); newSliceStarts.put(lineIdx, sS);
                     } else {
                         raf.seek(start); byte[] buf = new byte[len]; if (len > 0) raf.readFully(buf);
-                        newWin.add(len > 0 ? (editor.binaryRender.isBinarySafeRenderingEnabled() ? editor.binaryRender.bytesToControlVisibleAndCacheSpans(buf, buf.length, lineIdx) : new String(buf, fileIO.fileCharset)) : "");
+                        newWin.add(len > 0 ? (editor.binaryRender.isBinarySafeRenderingEnabled() ? editor.binaryRender.bytesToControlVisibleAndCacheSpans(buf, buf.length, lineIdx, fileIO.fileCharset) : new String(buf, fileIO.fileCharset)) : "");
                     }
                     raf.seek(after); if (scan.reachedEof) { reachedEof = true; break; }
                     lineIdx++;
@@ -141,30 +141,14 @@ public class FileWindowLoader {
         editor.post(() -> {
             fileIO.isWindowLoading = false;
             if (taskVersion != fileIO.ioTaskVersion.get()) { checkAndLoadWindow(); return; }
-            if (hasPendingInMemoryEdits()) {
-                com.yn.sodiumeditor.utils.FunctionLog.d(
-                        "window",
-                        "drop async window apply due pending in-memory edits"
-                                + " start="
-                                + fStart
-                                + " loadedSize="
-                                + newWin.size()
-                                + " lineCountDelta="
-                                + editor.editOperators.lineCountDelta
-                                + " modifiedLines="
-                                + editor.windowRender.modifiedLines.size()
-                                + " currentWindowStart="
-                                + editor.windowRender.windowStartLine
-                                + " currentWindowSize="
-                                + editor.windowRender.linesWindow.size());
-                if (onComplete != null) onComplete.run();
+            if (hasPendingInMemoryEdits()) {                if (onComplete != null) onComplete.run();
                 return;
             }
             synchronized (editor.windowRender.linesWindow) {
                 editor.windowRender.linesWindow.clear(); editor.windowRender.linesWindow.addAll(newWin);
                 editor.windowRender.windowStartLine = fStart; fileIO.isEof = finalEof;
                 synchronized (editor.windowRender.modifiedLines) {
-                    for (Map.Entry<Integer, String> entry : editor.windowRender.modifiedLines.entrySet()) {
+                    for (Map.Entry<Integer, String> entry : new java.util.ArrayList<>(editor.windowRender.modifiedLines.entrySet())) {
                         int line = entry.getKey();
                         if (line >= fStart && line < fStart + newWin.size()) editor.windowRender.linesWindow.set(line - fStart, entry.getValue());
                     }
@@ -188,7 +172,13 @@ public class FileWindowLoader {
     }
 
     private boolean hasPendingInMemoryEdits() {
-        return editor.editOperators.lineCountDelta != 0;
+        if (editor.editOperators.lineCountDelta != 0) return true;
+        synchronized (editor.windowRender.modifiedLines) {
+            if (!editor.windowRender.modifiedLines.isEmpty()) return true;
+        }
+        synchronized (editor.editOperators.history.pendingEdits) {
+            return !editor.editOperators.history.pendingEdits.isEmpty();
+        }
     }
 
     private void applyStreamedInfo(SparseIntArray lengths, SparseIntArray starts) {

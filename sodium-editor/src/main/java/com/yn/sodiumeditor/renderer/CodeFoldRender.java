@@ -9,7 +9,6 @@ import com.yn.sodiumeditor.core.fold.CodeFold;
 import com.yn.sodiumeditor.core.guides.bracket.BracketGuides;
 import com.yn.sodiumeditor.core.guides.bracket.BracketGuideState;
 import com.yn.sodiumeditor.core.guides.bracket.BracketGuideToken;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.HashMap;
 
 /**
@@ -18,10 +17,8 @@ import java.util.HashMap;
  * the visual representation of collapsed code regions.
  */
 public class CodeFoldRender {
-    private static final String FOLD_RENDER_DBG = "FoldRenderDbg";
     private static final String FOLD_TYPING_PERF = "FoldTypingPerf";
     private static final long FOLD_TYPING_LOG_THRESHOLD_MS = 8L;
-    private static final int LARGE_COLLAPSED_FOLD_SCAN_LIMIT = 2000;
 
     // Reference to the parent SodiumEditor
     private final SodiumEditor editor;
@@ -30,7 +27,6 @@ public class CodeFoldRender {
     private final RectF foldPlaceholderRect;
 
     public CodeFoldRender(SodiumEditor editor) {
-        FunctionLog.f("CodeFoldRender", "CodeFoldRender", editor);
         this.editor = editor;
         this.foldPlaceholderRect = new RectF();
     }
@@ -43,9 +39,9 @@ public class CodeFoldRender {
      * Draw fold markers for visible lines in the gutter.
      */
     public void drawFoldMarkersForVisibleLines(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex) {
-        FunctionLog.f("CodeFoldRender", "drawFoldMarkersForVisibleLines", canvas, firstVisibleIndex, lastVisibleIndex);
         if (!editor.codeFold.isCodeFoldingEnabled) return;
         long startMs = android.os.SystemClock.uptimeMillis();
+        CodeFold.log("render markers start visible=" + firstVisibleIndex + "->" + lastVisibleIndex);
 
         float markerX = editor.textRender.isRtl
                 ? (editor.lineNumber.getGutterStartX() + editor.lineNumber.gutterSeparatorWidth + editor.codeFold.animation.foldMarkerEdgePadding)
@@ -60,8 +56,25 @@ public class CodeFoldRender {
         for (int v = firstVisibleIndex; v <= lastVisibleIndex; v++) {
             int line = editor.codeFold.mapVisibleIndexToGlobal(v);
             Paint p = editor.codeFold.pendingFoldComputations.containsKey(line) ? pendingPaint : normalPaint;
-            String marker = editor.codeFold.getFoldMarkerForLine(line, editor.windowRender.getLineTextForRender(line));
-            if (marker == null) continue;
+            String lineText = editor.windowRender.getLineTextForRender(line);
+            CodeFold.FoldRange range = editor.codeFold.getFoldRangeAtStart(line);
+            String marker = editor.codeFold.getFoldMarkerForLine(line, lineText);
+            if (marker == null) {
+                CodeFold.log("render marker skip visible=" + v
+                        + " line=" + line
+                        + " textLen=" + (lineText == null ? -1 : lineText.length())
+                        + " ranges=" + editor.codeFold.foldRanges.size()
+                        + " range=null"
+                        + " pending=" + editor.codeFold.pendingFoldComputations.containsKey(line));
+                continue;
+            }
+            CodeFold.log("render marker visible=" + v
+                    + " line=" + line
+                    + " marker=" + marker
+                    + " markerX=" + markerX
+                    + " textLen=" + (lineText == null ? -1 : lineText.length())
+                    + " range=" + (range == null ? "null" : range.describe())
+                    + " pending=" + editor.codeFold.pendingFoldComputations.containsKey(line));
             float y = Math.round(v * editor.textRender.lineHeight - editor.scroll.scrollY + editor.textRender.lineHeight - editor.textRender.paint.descent());
             if (line == editor.codeFold.animation.foldRippleLine && editor.codeFold.animation.foldRippleAlpha > 0f) {
                 int alpha = Math.min(255, Math.max(0, (int) (255f * editor.codeFold.animation.foldRippleAlpha)));
@@ -69,13 +82,15 @@ public class CodeFoldRender {
                 float centerY = Math.round(v * editor.textRender.lineHeight - editor.scroll.scrollY + editor.textRender.lineHeight * 0.5f);
                 canvas.drawCircle(markerX, centerY, editor.codeFold.animation.foldRippleRadius, editor.codeFold.animation.foldRipplePaint);
             }
+            CodeFold.log("render marker drawText visible=" + v
+                    + " line=" + line
+                    + " marker=" + marker
+                    + " x=" + markerX
+                    + " y=" + y);
             canvas.drawText(marker, markerX, y, p);
         }
         long dt = android.os.SystemClock.uptimeMillis() - startMs;
-        if (dt > 8 && editor.DEBUG_RENDER_LOGS) {
-            android.util.Log.d("SodiumRender", "foldMarkers draw dtMs=" + dt
-                    + " first=" + firstVisibleIndex + " last=" + lastVisibleIndex);
-        }
+        CodeFold.log("render markers done visible=" + firstVisibleIndex + "->" + lastVisibleIndex + " dtMs=" + dt);
     }
 
     // ============================================================================
@@ -86,11 +101,13 @@ public class CodeFoldRender {
      * Draw a folded line with placeholder and suffix.
      */
     public void drawFoldedLine(Canvas canvas, String line, int globalLine, HashMap<Integer, String> directLines) {
-        FunctionLog.f("CodeFoldRender", "drawFoldedLine", canvas, line, globalLine, directLines);
         long startMs = android.os.SystemClock.uptimeMillis();
         CodeFold.FoldRange range = editor.codeFold.foldRanges.get(globalLine);
         if (range == null || !range.collapsed) return;
         if (line == null) line = "";
+        CodeFold.log("render foldedLine start line=" + globalLine
+                + " range=" + range.describe()
+                + " lineLen=" + line.length());
 
         // Calculate prefix end based on fold type
         int prefixEnd;
@@ -181,13 +198,6 @@ public class CodeFoldRender {
                     if (closeIdx < 0) closeIdx = endLineText.indexOf(range.closeChar);
                 }
 
-                if (editor.DEBUG_RENDER_LOGS && (System.currentTimeMillis() % 2000 < 20)) {
-                    android.util.Log.d("codefold", "foldSuffix endLine=" + range.endLine
-                            + " closeIdx=" + closeIdx
-                            + " textLen=" + endLineText.length()
-                            + " text=\"" + endLineText + "\"");
-                }
-
                 if (closeIdx >= 0) {
                     int suffixStart = Math.min(endLineText.length(), closeIdx + 1);
                     if (suffixStart < endLineText.length()) {
@@ -199,37 +209,13 @@ public class CodeFoldRender {
         }
         long dt = android.os.SystemClock.uptimeMillis() - startMs;
         int foldLineCount = Math.max(0, range.endLine - range.startLine);
+        CodeFold.log("render foldedLine done line=" + globalLine
+                + " hidden=" + foldLineCount
+                + " prefixEnd=" + prefixEnd
+                + " placeholderLeft=" + placeholderLeft
+                + " placeholderRight=" + placeholderRight
+                + " dtMs=" + dt);
         if (dt >= FOLD_TYPING_LOG_THRESHOLD_MS) {
-            android.util.Log.i(
-                FOLD_TYPING_PERF,
-                "drawFoldedLine total="
-                    + dt
-                    + " start="
-                    + range.startLine
-                    + " end="
-                    + range.endLine
-                    + " hidden="
-                    + foldLineCount
-                    + " lineLen="
-                    + line.length());
-        }
-        if (dt > 4 && editor.DEBUG_RENDER_LOGS) {
-            android.util.Log.i(
-                FOLD_RENDER_DBG,
-                "foldedLine draw"
-                    + " dtMs="
-                    + dt
-                    + " start="
-                    + range.startLine
-                    + " end="
-                    + range.endLine
-                    + " hidden="
-                    + foldLineCount
-                    + " lineLen="
-                    + line.length());
-        }
-        if (dt > 4 && editor.DEBUG_RENDER_LOGS) {
-            android.util.Log.d("SodiumRender", "foldedLine draw dtMs=" + dt + " line=" + globalLine);
         }
     }
 
@@ -245,7 +231,6 @@ public class CodeFoldRender {
                                    HashMap<Integer, String> directLines, Paint selPaint,
                                    BracketMatch bracketMatchResult, boolean drawDecorations, boolean drawBracketGuides,
                                    BracketGuideState initialBracketState) {
-        FunctionLog.f("CodeFoldRender", "drawFoldedContent", canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine, directLines, selPaint, bracketMatchResult, drawDecorations, drawBracketGuides, initialBracketState);
         if (drawDecorations && editor.indentGuides.indentGuideIntervalsDirty) {
             editor.indentGuides.rebuildIndentGuideIntervalsIfNeeded();
         }
@@ -257,9 +242,6 @@ public class CodeFoldRender {
 
         for (int v = firstVisibleIndex; v <= lastVisibleIndex; v++) {
             int globalLine = editor.codeFold.mapVisibleIndexToGlobal(v);
-            if (editor.DEBUG_RENDER_LOGS) {
-                android.util.Log.d("CodeFold", "draw v=" + v + " global=" + globalLine);
-            }
             String line = getLineTextForRenderWithDirect(globalLine, directLines);
             CodeFold.FoldRange foldRange = editor.codeFold.getFoldRangeAtStart(globalLine);
             boolean isFoldStart = (foldRange != null);
@@ -447,50 +429,29 @@ public class CodeFoldRender {
                     if (isCollapsed && range.endLine > globalLine) {
                         BracketGuideState cachedState = editor.codeFold.cachedBracketStateAfterFold.get(range.startLine);
                         if (cachedState != null) {
+                            CodeFold.log("render foldedContent bracketState cacheHit range=" + range.describe());
                             bracketState = cachedState;
                         } else {
-                            int hiddenLineCount = range.endLine - globalLine;
-                            if (hiddenLineCount > LARGE_COLLAPSED_FOLD_SCAN_LIMIT) {
-                                editor.codeFold.cachedBracketStateAfterFold.put(range.startLine, bracketState.cloneState());
-                                android.util.Log.i(
-                                    FOLD_RENDER_DBG,
-                                    "skipHiddenBracketState"
-                                        + " start="
-                                        + range.startLine
-                                        + " end="
-                                        + range.endLine
-                                        + " hidden="
-                                        + hiddenLineCount
-                                        + " limit="
-                                        + LARGE_COLLAPSED_FOLD_SCAN_LIMIT);
-                            } else {
-                                long scanStartMs = android.os.SystemClock.uptimeMillis();
-                                // Compute once and cache for modest folds. Huge folds must not block typing.
-                                for (int ln = globalLine + 1; ln <= range.endLine; ln++) {
-                                    String lnText = getLineTextForRenderWithDirect(ln, directLines);
-                                    bracketState = editor.bracketGuides.calculateBracketGuideStateForLine(lnText, ln, bracketState);
-                                }
-                                editor.codeFold.cachedBracketStateAfterFold.put(range.startLine, bracketState.cloneState());
-                                long scanDt = android.os.SystemClock.uptimeMillis() - scanStartMs;
-                                if (scanDt > 8) {
-                                    android.util.Log.i(
-                                        FOLD_RENDER_DBG,
-                                        "hiddenBracketState"
-                                            + " dtMs="
-                                            + scanDt
-                                            + " start="
-                                            + range.startLine
-                                            + " end="
-                                            + range.endLine
-                                            + " hidden="
-                                            + hiddenLineCount);
-                                }
+                            long scanStartMs = android.os.SystemClock.uptimeMillis();
+                            int hiddenScanned = 0;
+                            CodeFold.log("render foldedContent bracketState scanStart range=" + range.describe());
+                            for (int ln = globalLine + 1; ln <= range.endLine; ln++) {
+                                String lnText = getLineTextForRenderWithDirect(ln, directLines);
+                                bracketState = editor.bracketGuides.calculateBracketGuideStateForLine(lnText, ln, bracketState);
+                                hiddenScanned++;
                             }
+                            editor.codeFold.cachedBracketStateAfterFold.put(range.startLine, bracketState.cloneState());
+                            CodeFold.log("render foldedContent bracketState scanDone range=" + range.describe()
+                                    + " hiddenScanned=" + hiddenScanned
+                                    + " dtMs=" + (android.os.SystemClock.uptimeMillis() - scanStartMs));
                         }
                     }
                 }
 
                 if (isCollapsed) {
+                    CodeFold.log("render foldedContent drawCollapsed visible=" + v
+                            + " line=" + globalLine
+                            + " range=" + range.describe());
                     if (drawDecorations) {
                         editor.textRender.drawWhitespaceGuidesForLine(canvas, line, globalLine, y);
                         editor.indentGuides.drawIndentGuidesForLine(canvas, line, globalLine);
@@ -544,7 +505,6 @@ public class CodeFoldRender {
      * Get line text for render with direct lines cache.
      */
     private String getLineTextForRenderWithDirect(int globalLine, HashMap<Integer, String> directLines) {
-        FunctionLog.f("CodeFoldRender", "getLineTextForRenderWithDirect", globalLine, directLines);
         // Always honor modified lines (including empty strings) over cached/file data.
         // No synchronized needed — render thread is single-threaded for reads.
         String mod = editor.windowRender.modifiedLines.get(globalLine);
@@ -591,7 +551,6 @@ public class CodeFoldRender {
      * Get logical line length.
      */
     private int getLogicalLineLength(int globalLine, String line) {
-        FunctionLog.f("CodeFoldRender", "getLogicalLineLength", globalLine, line);
         if (line == null) return 0;
         return editor.view.getLogicalLineLength(globalLine, line);
     }
@@ -600,7 +559,6 @@ public class CodeFoldRender {
      * Measure highlighted segment width.
      */
     private float measureHighlightedSegmentWidth(String line, int globalLine, int start, int end) {
-        FunctionLog.f("CodeFoldRender", "measureHighlightedSegmentWidth", line, globalLine, start, end);
         return editor.highlite.measureHighlightedSegmentWidth(line, globalLine, start, end);
     }
 
@@ -608,7 +566,6 @@ public class CodeFoldRender {
      * Get RTL line base X position.
      */
     private float getRtlLineBaseX(String line, int globalLine) {
-        FunctionLog.f("CodeFoldRender", "getRtlLineBaseX", line, globalLine);
         float totalWidth = editor.windowRender.globalMaxLineWidth;
         float lineWidth = measureHighlightedSegmentWidth(line, globalLine, 0, getLogicalLineLength(globalLine, line));
         return Math.max(0f, totalWidth - lineWidth);
@@ -622,7 +579,6 @@ public class CodeFoldRender {
      * Find block comment end in a line.
      */
     private int findBlockCommentEnd(String line, int startIndex) {
-        FunctionLog.f("CodeFoldRender", "findBlockCommentEnd", line, startIndex);
         return editor.codeFold.utils.findBlockCommentEnd(line, startIndex);
     }
 
@@ -630,7 +586,6 @@ public class CodeFoldRender {
      * Find closing bracket in a line.
      */
     private int findClosingBracketInLine(String line, int startChar, char openBracket, char closeBracket) {
-        FunctionLog.f("CodeFoldRender", "findClosingBracketInLine", line, startChar, openBracket, closeBracket);
         return editor.codeFold.utils.findClosingBracketInLine(line, startChar, openBracket, closeBracket);
     }
 
@@ -638,7 +593,6 @@ public class CodeFoldRender {
      * Get end line text for fold range.
      */
     private String getEndLineTextForFold(CodeFold.FoldRange range) {
-        FunctionLog.f("CodeFoldRender", "getEndLineTextForFold", range);
         return editor.codeFold.utils.getEndLineTextForFold(range);
     }
 }

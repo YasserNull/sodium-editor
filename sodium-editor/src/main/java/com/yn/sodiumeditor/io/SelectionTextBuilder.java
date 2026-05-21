@@ -1,7 +1,6 @@
 package com.yn.sodiumeditor.io;
 
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.io.RandomAccessFile;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
@@ -14,7 +13,6 @@ public class SelectionTextBuilder {
   private final SodiumEditor editor;
 
   public SelectionTextBuilder(SodiumEditor editor) {
-    FunctionLog.f("SelectionTextBuilder", "SelectionTextBuilder", editor);
     this.editor = editor;
   }
 
@@ -22,7 +20,6 @@ public class SelectionTextBuilder {
    * Build selected text from window (fast path).
    */
   public String buildSelectedTextFromWindow(int sL, int sC, int eL, int eC, int maxChars) {
-    FunctionLog.f("SelectionTextBuilder", "buildSelectedTextFromWindow", sL, sC, eL, eC, maxChars);
     StringBuilder sb = new StringBuilder();
     synchronized (editor.windowRender.linesWindow) {
       for (int L = sL; L <= eL; L++) {
@@ -44,7 +41,6 @@ public class SelectionTextBuilder {
    * Build selected text blocking (reads from file if needed).
    */
   public String buildSelectedTextBlocking(int sL, int sC, int eL, int eC, int maxChars) {
-    FunctionLog.f("SelectionTextBuilder", "buildSelectedTextBlocking", sL, sC, eL, eC, maxChars);
     if (editor.selection.comparePos(sL, sC, eL, eC) > 0) {
       int tL = sL, tC = sC;
       sL = eL;

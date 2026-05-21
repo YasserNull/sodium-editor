@@ -4,7 +4,6 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.linenumber.LineNumber;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Manages bitmap caching for line numbers to improve rendering performance.
@@ -14,24 +13,20 @@ public class LineNumberCache {
     private final LineNumber lineNumber;
 
     public LineNumberCache(SodiumEditor editor, LineNumber lineNumber) {
-        FunctionLog.f("LineNumberCache", "LineNumberCache", editor, lineNumber);
         this.editor = editor;
         this.lineNumber = lineNumber;
     }
 
     public void invalidate() {
-        FunctionLog.f("LineNumberCache", "invalidate");
         lineNumber.lineNumberCacheBitmap = null;
         lineNumber.lineNumberCacheCanvas = null;
     }
 
     public boolean shouldUseCache() {
-        FunctionLog.f("LineNumberCache", "shouldUseCache");
         return lineNumber.showLineNumbers && lineNumber.lineNumbersGutterWidth > 0f && editor.getHeight() > 0;
     }
 
     public void ensureBitmap(int width, int height) {
-        FunctionLog.f("LineNumberCache", "ensureBitmap", width, height);
         if (lineNumber.lineNumberCacheBitmap != null && lineNumber.lineNumberCacheWidth == width && lineNumber.lineNumberCacheHeight == height) return;
         lineNumber.lineNumberCacheBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         lineNumber.lineNumberCacheCanvas = new Canvas(lineNumber.lineNumberCacheBitmap);
@@ -40,7 +35,6 @@ public class LineNumberCache {
     }
 
     public boolean needsRebuild(int width, int height, int first, int last, float baseY, boolean wrapped) {
-        FunctionLog.f("LineNumberCache", "needsRebuild", width, height, first, last, baseY, wrapped);
         return lineNumber.lineNumberCacheBitmap == null
                 || lineNumber.lineNumberCacheWidth != width
                 || lineNumber.lineNumberCacheHeight != height
@@ -59,7 +53,6 @@ public class LineNumberCache {
     }
 
     public void updateMetadata(int first, int last, float baseY, boolean wrapped) {
-        FunctionLog.f("LineNumberCache", "updateMetadata", first, last, baseY, wrapped);
         lineNumber.lineNumberCacheFirstIndex = first;
         lineNumber.lineNumberCacheLastIndex = last;
         lineNumber.lineNumberCacheBaseScrollY = baseY;

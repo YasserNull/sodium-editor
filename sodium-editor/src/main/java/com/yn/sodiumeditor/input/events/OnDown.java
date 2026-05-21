@@ -2,7 +2,6 @@ package com.yn.sodiumeditor.input.events;
 
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * OnDown handles onDown() gesture event for SodiumEditor.
@@ -12,7 +11,6 @@ public class OnDown {
   private final SodiumEditor editor;
 
   public OnDown(SodiumEditor editor) {
-    FunctionLog.f("OnDown", "OnDown", editor);
     this.editor = editor;
   }
 
@@ -20,7 +18,6 @@ public class OnDown {
    * Handle onDown event
    */
   public boolean onDown(MotionEvent e) {
-    FunctionLog.f("OnDown", "onDown", e);
     // If a suggestion was just accepted, clear the flag and allow normal onDown
     // processing
     if (editor.autoCompletion.suggestionAcceptedThisTouch) {

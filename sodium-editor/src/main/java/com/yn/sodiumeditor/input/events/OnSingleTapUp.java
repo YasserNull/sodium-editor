@@ -5,7 +5,6 @@ import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.fold.CodeFold;
 import com.yn.sodiumeditor.io.EditOperators;
 import com.yn.sodiumeditor.io.EditOp;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.HashMap;
 
 /**
@@ -16,7 +15,6 @@ public class OnSingleTapUp {
   private final SodiumEditor editor;
 
   public OnSingleTapUp(SodiumEditor editor) {
-    FunctionLog.f("OnSingleTapUp", "OnSingleTapUp", editor);
     this.editor = editor;
   }
 
@@ -24,7 +22,6 @@ public class OnSingleTapUp {
    * Handle onSingleTapUp event
    */
   public boolean onSingleTapUp(MotionEvent e) {
-    FunctionLog.f("OnSingleTapUp", "onSingleTapUp", e);
     if (editor.autoCompletion.suggestionAcceptedThisTouch) return true;
     if (editor.onTouch.multiTouchActive || editor.onTouch.hadMultiTouch) return true;
 

@@ -7,7 +7,6 @@ import com.yn.sodiumeditor.core.view.View;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.HighliteRender;
 import com.yn.sodiumeditor.renderer.HighlightCacheManager;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +28,7 @@ public class Highlite {
     public boolean isTripleQuoteStringsEnabled = false;
     public boolean isBacktickStringsEnabled = false;
     public boolean isBlockCommentsEnabled = false;
+    public boolean isSyntaxHighlightingEnabled = true;
 
     public static final int STRING_STATE_DOUBLE = 1;
     public static final int STRING_STATE_SINGLE = 2;
@@ -77,7 +77,6 @@ public class Highlite {
       };
 
     public Highlite(SodiumEditor editor) {
-        FunctionLog.f("Highlite", "Highlite", editor);
         this.editor = editor;
         this.rules = new HighlightRules(editor, this);
         this.parser = new HighlightParser(editor, this);
@@ -91,13 +90,11 @@ public class Highlite {
     }
 
     public void markTyping() {
-        FunctionLog.f("Highlite", "markTyping");
         lastTypingMs = android.os.SystemClock.uptimeMillis();
     }
   
     public void maybeEnsureHighlightCacheForRange(
         int startLine, int endLine, @Nullable java.util.HashMap<Integer, String> directLines) {
-        FunctionLog.f("Highlite", "maybeEnsureHighlightCacheForRange", startLine, endLine, directLines);
         if (startLine > endLine) return;
         int v = editor.editOperators.editVersion.get();
         long now = android.os.SystemClock.uptimeMillis();
@@ -125,7 +122,6 @@ public class Highlite {
     }
 
     public void invalidateHighlightEnsureRange() {
-        FunctionLog.f("Highlite", "invalidateHighlightEnsureRange");
         long now = android.os.SystemClock.uptimeMillis();
         if ((now - lastHighlightInvalidateMs) < HIGHLIGHT_INVALIDATE_THROTTLE_MS) {
             return;
@@ -134,20 +130,15 @@ public class Highlite {
         lastHighlightEnsureEndLine = -1;
         lastHighlightEnsureEditVersion = -1;
         lastHighlightInvalidateMs = now;
-        if (SodiumEditor.DEBUG_RENDER_LOGS) {
-            android.util.Log.d("SodiumRender", "highlightEnsureInvalidate");
-        }
     }
   
     private void syncRulesFromComponent() {
-        FunctionLog.f("Highlite", "syncRulesFromComponent");
         stringHighlightRule = rules.stringHighlightRule;
         blockCommentHighlightRule = rules.blockCommentHighlightRule;
         lineCommentHighlightRule = rules.lineCommentHighlightRule;
     }
 
     private void syncRulesToComponent() {
-        FunctionLog.f("Highlite", "syncRulesToComponent");
         rules.stringHighlightRule = stringHighlightRule;
         rules.blockCommentHighlightRule = blockCommentHighlightRule;
         rules.lineCommentHighlightRule = lineCommentHighlightRule;
@@ -155,17 +146,14 @@ public class Highlite {
 
     public void addHighlightRule(String regex, int style, int color) { addHighlightRule(regex, style, color, false); }
     public void addHighlightRule(String regex, int style, int color, boolean underline) { 
-        FunctionLog.f("Highlite", "addHighlightRule", regex, style, color, underline);
         rules.addHighlightRule(regex, style, color, underline); 
         syncRulesFromComponent();
     }
     public void clearHighlightRules() {
-        FunctionLog.f("Highlite", "clearHighlightRules");
         rules.clearHighlightRules(); syncRulesFromComponent();
     }
     
     public void setLineCommentDelimiter(String d, int s, int c) {
-        FunctionLog.f("Highlite", "setLineCommentDelimiter", d, s, c);
         syncRulesToComponent();
         if (d == null || d.isEmpty()) { if (rules.lineCommentHighlightRule != null) { rules.lineCommentHighlightRule = null; clearHighlightCaches(); } syncRulesFromComponent(); return; }
         rules.lineCommentHighlightRule = new HighliteRender.HighlightRule("", s, c, editor.textRender.paint.getTextSize(), editor.textRender.paint.getTypeface(), false, HighliteRender.HighlightRuleType.LINE_COMMENT);
@@ -174,7 +162,6 @@ public class Highlite {
     }
 
     public void setStringHighlightColor(int color) {
-        FunctionLog.f("Highlite", "setStringHighlightColor", color);
         syncRulesToComponent();
         if (rules.stringHighlightRule == null) addHighlightRule(RULE_STRING, com.yn.sodiumeditor.core.view.FontStyle.STYLE_NORMAL, color);
         else { rules.stringHighlightRule.paint.setColor(color); clearHighlightCaches(); }
@@ -182,7 +169,6 @@ public class Highlite {
     }
 
     public void setBlockCommentHighlight(int style, int color) {
-        FunctionLog.f("Highlite", "setBlockCommentHighlight", style, color);
         syncRulesToComponent();
         rules.blockCommentHighlightRule = new HighliteRender.HighlightRule("", style, color, editor.textRender.paint.getTextSize(), editor.textRender.paint.getTypeface(), false, HighliteRender.HighlightRuleType.BLOCK_COMMENT);
         clearHighlightCaches();
@@ -190,7 +176,6 @@ public class Highlite {
     }
 
     public void onTextSizeChanged(float size) {
-        FunctionLog.f("Highlite", "onTextSizeChanged", size);
         syncRulesToComponent();
         for (HighliteRender.HighlightRule r : rules.highlightRules) r.updateTextSize(size);
         if (rules.lineCommentHighlightRule != null) rules.lineCommentHighlightRule.updateTextSize(size);
@@ -201,7 +186,6 @@ public class Highlite {
     }
 
     public void onTypefaceChanged(Typeface tf) {
-        FunctionLog.f("Highlite", "onTypefaceChanged", tf);
         syncRulesToComponent();
         if (rules.lineCommentHighlightRule != null) rules.lineCommentHighlightRule.updateTypeface(tf);
         for (HighliteRender.HighlightRule r : rules.highlightRules) r.updateTypeface(tf);
@@ -211,32 +195,25 @@ public class Highlite {
 
     // --- Instance Bridges ---
     public HighliteRender.HighlightLineState getLineStateAtStart(int gl) {
-        FunctionLog.f("Highlite", "getLineStateAtStart", gl);
         return cache.getLineStateAtStart(gl);
     }
     public boolean isLineCommentStart(String line, int idx) {
-        FunctionLog.f("Highlite", "isLineCommentStart", line, idx);
         return parser.isLineCommentStart(line, idx);
     }
     public boolean isStringDelimiter(char c) {
-        FunctionLog.f("Highlite", "isStringDelimiter", c);
         return parser.isStringDelimiter(c);
     }
     public boolean isTripleQuoteStart(String line, int idx) {
-        FunctionLog.f("Highlite", "isTripleQuoteStart", line, idx);
         return parser.isTripleQuoteStart(line, idx);
     }
     public int getStringStateForDelimiter(char c) {
-        FunctionLog.f("Highlite", "getStringStateForDelimiter", c);
         return parser.getStringStateForDelimiter(c);
     }
     public com.yn.sodiumeditor.core.StringEndResult findStringEndForState(String line, int start, int state) {
-        FunctionLog.f("Highlite", "findStringEndForState", line, start, state);
         return parser.findStringEndForState(line, start, state);
     }
 
     public HighliteRender.LineParseResult parseLineForSyntax(String line, boolean inBlock, int strState, HighliteRender.HighlightRule strRule, HighliteRender.HighlightRule blockRule, boolean collectSpans) {
-        FunctionLog.f("Highlite", "parseLineForSyntax", line, inBlock, strState, strRule, blockRule, collectSpans);
         return parser.parseLineForSyntax(line, inBlock, strState, strRule, blockRule, collectSpans);
     }
 
@@ -248,7 +225,7 @@ public class Highlite {
     public static int findBlockCommentEnd(String line, int start) { return com.yn.sodiumeditor.utils.HighlightUtils.findBlockCommentEnd(line, start); }
 
     public List<HighliteRender.HighlightSpan> getHighlightSpansForLine(String line, int gl) {
-        FunctionLog.f("Highlite", "getHighlightSpansForLine", line, gl);
+        if (!isSyntaxHighlightingEnabled) return new ArrayList<>();
         if (editor.view.getLogicalLineLength(gl, line) > editor.highliteRender.maxSyntaxLineLength) return new ArrayList<>();
         List<HighliteRender.HighlightSpan> spans = cache.highlightCache.get(gl);
         if (spans == null) { spans = calculateSpansForLine(line, gl); cache.highlightCache.put(gl, spans); }
@@ -256,9 +233,9 @@ public class Highlite {
     }
 
     public List<HighliteRender.HighlightSpan> calculateSpansForLine(String line, int gl) {
-        FunctionLog.f("Highlite", "calculateSpansForLine", line, gl);
         syncRulesToComponent();
         List<HighliteRender.HighlightSpan> spans = new ArrayList<>();
+        if (!isSyntaxHighlightingEnabled) return spans;
         if (editor.view.getLogicalLineLength(gl, line) > editor.highliteRender.maxSyntaxLineLength || rules.highlightRules.isEmpty()) return spans;
 
         HighliteRender.HighlightLineState sState = cache.getLineStateAtStart(gl);
@@ -282,7 +259,6 @@ public class Highlite {
     }
 
     public void clearHighlightCaches() {
-        FunctionLog.f("Highlite", "clearHighlightCaches");
         cache.highlightCache.clear();
         cache.blockCommentEndStateCache.clear();
         cache.stringEndStateCache.clear();
@@ -293,7 +269,6 @@ public class Highlite {
     }
 
     public void invalidateHighlightCacheForLine(int line) {
-        FunctionLog.f("Highlite", "invalidateHighlightCacheForLine", line);
         cache.highlightCache.remove(line);
         editor.colorCodeHighlight.clearColorCodeCacheForLine(line);
         editor.urlUnderline.clearUrlUnderlineCacheForLine(line);
@@ -302,7 +277,6 @@ public class Highlite {
     }
 
     public void setStringsHighlight(boolean enabled, int color) {
-        FunctionLog.f("Highlite", "setStringsHighlight", enabled, color);
         if (stringHighlightRule == null) {
             addHighlightRule(Highlite.RULE_STRING, com.yn.sodiumeditor.core.view.FontStyle.STYLE_NORMAL, color);
         }
@@ -317,7 +291,6 @@ public class Highlite {
     }
 
     public void setMultiLineStringsHighlight(boolean enabled, int color) {
-        FunctionLog.f("Highlite", "setMultiLineStringsHighlight", enabled, color);
         if (stringHighlightRule == null) {
             addHighlightRule(Highlite.RULE_STRING, com.yn.sodiumeditor.core.view.FontStyle.STYLE_NORMAL, color);
         }
@@ -332,7 +305,6 @@ public class Highlite {
     }
 
     public void setBacktickStringsEnabled(boolean enabled) {
-        FunctionLog.f("Highlite", "setBacktickStringsEnabled", enabled);
         if (isBacktickStringsEnabled == enabled) return;
         isBacktickStringsEnabled = enabled;
         clearHighlightCaches();
@@ -340,7 +312,6 @@ public class Highlite {
     }
 
     public void setMultiLineComments(boolean enabled, int style, int color) {
-        FunctionLog.f("Highlite", "setMultiLineComments", enabled, style, color);
         boolean needsInvalidate = false;
         if (blockCommentHighlightRule == null || blockCommentHighlightRule.style != style) {
             if (blockCommentHighlightRule != null) {
@@ -374,7 +345,6 @@ public class Highlite {
     }
 
     public void setSingleLineCommentDelimiters(String... delimiters) {
-        FunctionLog.f("Highlite", "setSingleLineCommentDelimiters", (Object) delimiters);
         lineCommentDelimiters.clear();
         if (delimiters != null) {
             for (String d : delimiters) {
@@ -392,7 +362,6 @@ public class Highlite {
     }
 
     public void ensureLineCommentDelimiter(String delimiter) {
-        FunctionLog.f("Highlite", "ensureLineCommentDelimiter", delimiter);
         if (delimiter == null) return;
         String trimmed = delimiter.trim();
         if (trimmed.isEmpty()) return;
@@ -405,7 +374,6 @@ public class Highlite {
     }
 
     public void setSingleLineCommentsHighlight(boolean enabled, int style, int color) {
-        FunctionLog.f("Highlite", "setSingleLineCommentsHighlight", enabled, style, color);
         if (!enabled) {
             if (lineCommentHighlightRule != null) {
                 lineCommentHighlightRule = null;
@@ -434,13 +402,11 @@ public class Highlite {
 
     public void setSingleLineCommentSyntax(
         boolean enabled, int style, int color, String... delimiters) {
-        FunctionLog.f("Highlite", "setSingleLineCommentSyntax", enabled, style, color, (Object) delimiters);
         setSingleLineCommentDelimiters(delimiters);
         setSingleLineCommentsHighlight(enabled, style, color);
     }
 
     public void setTripleQuoteStringsEnabled(boolean enabled) {
-        FunctionLog.f("Highlite", "setTripleQuoteStringsEnabled", enabled);
         if (isTripleQuoteStringsEnabled == enabled) return;
         isTripleQuoteStringsEnabled = enabled;
         clearHighlightCaches();
@@ -448,7 +414,6 @@ public class Highlite {
     }
 
     public float measureHighlightedSegmentWidth(String line, int globalLine, int start, int end) {
-        FunctionLog.f("Highlite", "measureHighlightedSegmentWidth", line, globalLine, start, end);
         if (line == null || line.isEmpty() || start >= end) return 0f;
         start = Math.max(0, Math.min(start, line.length()));
         end = Math.max(start, Math.min(end, line.length()));
@@ -506,7 +471,6 @@ public class Highlite {
 
     public void drawHighlightedSegment(
         Canvas canvas, String line, int globalLine, int start, int end, float x, float y) {
-        FunctionLog.f("Highlite", "drawHighlightedSegment", canvas, line, globalLine, start, end, x, y);
         if (line == null || line.isEmpty() || start >= end) return;
         start = Math.max(0, Math.min(start, line.length()));
         end = Math.max(start, Math.min(end, line.length()));
@@ -560,7 +524,6 @@ public class Highlite {
     }
 
     public float measureTextInRange(String line, int start, int end, int globalLine) {
-        FunctionLog.f("Highlite", "measureTextInRange", line, start, end, globalLine);
         if (line == null || start >= end) return 0f;
         if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
             int[] spans = editor.binaryRender.getBinaryTokenSpans(globalLine);

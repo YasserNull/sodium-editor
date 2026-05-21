@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Error underlining functionality for SodiumEditor.
@@ -43,13 +42,11 @@ public class ErrorUnderline {
         public final int end;
 
         public ErrorUnderlineSpan(int start, int end) {
-            FunctionLog.f("ErrorUnderlineSpan", "ErrorUnderlineSpan", start, end);
             this.start = start;
             this.end = end;
         }
     }
     public ErrorUnderline(SodiumEditor editor) {
-        FunctionLog.f("ErrorUnderline", "ErrorUnderline", editor);
         this.editor = editor;
     }
 
@@ -57,7 +54,6 @@ public class ErrorUnderline {
      * Clear all error underlines.
      */
     public void clearErrorUnderlines() {
-        FunctionLog.f("ErrorUnderline", "clearErrorUnderlines");
         errorUnderlineMap.clear();
     }
 
@@ -65,7 +61,6 @@ public class ErrorUnderline {
      * Clear error underlines for a specific line.
      */
     public void clearErrorUnderlinesForLine(int line) {
-        FunctionLog.f("ErrorUnderline", "clearErrorUnderlinesForLine", line);
         errorUnderlineMap.remove(line);
     }
 
@@ -73,7 +68,6 @@ public class ErrorUnderline {
      * Get error underline spans for a line.
      */
     public List<ErrorUnderlineSpan> getErrorUnderlineSpansForLine(int globalLine) {
-        FunctionLog.f("ErrorUnderline", "getErrorUnderlineSpansForLine", globalLine);
         return errorUnderlineMap.get(globalLine);
     }
 
@@ -81,7 +75,6 @@ public class ErrorUnderline {
      * Set error underline for a specific range.
      */
     public void setErrorUnderline(int line, int col, int length) {
-        FunctionLog.f("ErrorUnderline", "setErrorUnderline", line, col, length);
         if (line < 0) return;
         if (length <= 0) {
             errorUnderlineMap.remove(line);
@@ -103,7 +96,6 @@ public class ErrorUnderline {
      * Set error underline color.
      */
     public void setErrorUnderlineColor(int color) {
-        FunctionLog.f("ErrorUnderline", "setErrorUnderlineColor", color);
         if (errorUnderlineColor == color) return;
         errorUnderlineColor = color;
         editor.invalidate();
@@ -113,7 +105,6 @@ public class ErrorUnderline {
      * Get error underline color.
      */
     public int getErrorUnderlineColor() {
-        FunctionLog.f("ErrorUnderline", "getErrorUnderlineColor");
         return errorUnderlineColor;
     }
 
@@ -121,7 +112,6 @@ public class ErrorUnderline {
      * Set error underline enabled state.
      */
     public void setErrorUnderlineEnabled(boolean enabled) {
-        FunctionLog.f("ErrorUnderline", "setErrorUnderlineEnabled", enabled);
         if (errorUnderlineEnabled == enabled) return;
         errorUnderlineEnabled = enabled;
         editor.invalidate();
@@ -131,7 +121,6 @@ public class ErrorUnderline {
      * Get error underline enabled state.
      */
     public boolean isErrorUnderlineEnabled() {
-        FunctionLog.f("ErrorUnderline", "isErrorUnderlineEnabled");
         return errorUnderlineEnabled;
     }
 
@@ -139,7 +128,6 @@ public class ErrorUnderline {
      * Set error underline height scale.
      */
     public void setErrorUnderlineHeightScale(float scale) {
-        FunctionLog.f("ErrorUnderline", "setErrorUnderlineHeightScale", scale);
         float safe = Math.max(0f, scale);
         if (errorUnderlineHeightScale == safe) return;
         errorUnderlineHeightScale = safe;
@@ -150,7 +138,6 @@ public class ErrorUnderline {
      * Get error underline height scale.
      */
     public float getErrorUnderlineHeightScale() {
-        FunctionLog.f("ErrorUnderline", "getErrorUnderlineHeightScale");
         return errorUnderlineHeightScale;
     }
 
@@ -158,7 +145,6 @@ public class ErrorUnderline {
      * Set error underline wavelength scale.
      */
     public void setErrorUnderlineWaveLengthScale(float scale) {
-        FunctionLog.f("ErrorUnderline", "setErrorUnderlineWaveLengthScale", scale);
         float safe = Math.max(0.1f, scale);
         if (errorUnderlineWaveLengthScale == safe) return;
         errorUnderlineWaveLengthScale = safe;
@@ -169,7 +155,6 @@ public class ErrorUnderline {
      * Get error underline wavelength scale.
      */
     public float getErrorUnderlineWaveLengthScale() {
-        FunctionLog.f("ErrorUnderline", "getErrorUnderlineWaveLengthScale");
         return errorUnderlineWaveLengthScale;
     }
 
@@ -177,7 +162,6 @@ public class ErrorUnderline {
      * Set error underline stroke scale.
      */
     public void setErrorUnderlineStrokeScale(float scale) {
-        FunctionLog.f("ErrorUnderline", "setErrorUnderlineStrokeScale", scale);
         float safe = Math.max(0f, scale);
         if (errorUnderlineStrokeScale == safe) return;
         errorUnderlineStrokeScale = safe;
@@ -188,7 +172,6 @@ public class ErrorUnderline {
      * Get error underline stroke scale.
      */
     public float getErrorUnderlineStrokeScale() {
-        FunctionLog.f("ErrorUnderline", "getErrorUnderlineStrokeScale");
         return errorUnderlineStrokeScale;
     }
 
@@ -196,7 +179,6 @@ public class ErrorUnderline {
      * Set error underline smoothness.
      */
     public void setErrorUnderlineSmoothness(float smoothness) {
-        FunctionLog.f("ErrorUnderline", "setErrorUnderlineSmoothness", smoothness);
         float safe = Math.max(0f, smoothness);
         if (errorUnderlineSmoothness == safe) return;
         errorUnderlineSmoothness = safe;
@@ -207,7 +189,6 @@ public class ErrorUnderline {
      * Get error underline smoothness.
      */
     public float getErrorUnderlineSmoothness() {
-        FunctionLog.f("ErrorUnderline", "getErrorUnderlineSmoothness");
         return errorUnderlineSmoothness;
     }
 
@@ -216,7 +197,6 @@ public class ErrorUnderline {
      */
     public void drawErrorUnderlinesForLine(
             Canvas canvas, String line, int globalLine, float baselineY, float lineTop, float lineBottom) {
-        FunctionLog.f("ErrorUnderline", "drawErrorUnderlinesForLine", canvas, line, globalLine, baselineY, lineTop, lineBottom);
         if (!errorUnderlineEnabled) return;
         List<ErrorUnderlineSpan> spans = errorUnderlineMap.get(globalLine);
         if (spans == null || spans.isEmpty()) return;
@@ -238,7 +218,6 @@ public class ErrorUnderline {
     public void drawErrorUnderlinesForLineRange(
             Canvas canvas, String line, int globalLine, int start, int end,
             float baselineY, float lineTop, float lineBottom) {
-        FunctionLog.f("ErrorUnderline", "drawErrorUnderlinesForLineRange", canvas, line, globalLine, start, end, baselineY, lineTop, lineBottom);
         if (!errorUnderlineEnabled) return;
         List<ErrorUnderlineSpan> spans = errorUnderlineMap.get(globalLine);
         if (spans == null || spans.isEmpty()) return;
@@ -263,7 +242,6 @@ public class ErrorUnderline {
     public void drawErrorUnderlinesForSegment(
             Canvas canvas, String line, int globalLine, int start, int end,
             float baselineY, float lineTop, float lineBottom) {
-        FunctionLog.f("ErrorUnderline", "drawErrorUnderlinesForSegment", canvas, line, globalLine, start, end, baselineY, lineTop, lineBottom);
         if (!errorUnderlineEnabled) return;
         List<ErrorUnderlineSpan> spans = errorUnderlineMap.get(globalLine);
         if (spans == null || spans.isEmpty()) return;
@@ -286,7 +264,6 @@ public class ErrorUnderline {
      * Draw error squiggle.
      */
     public void drawErrorSquiggle(Canvas canvas, float xStart, float xEnd, float baselineY, float lineTop, float lineBottom) {
-        FunctionLog.f("ErrorUnderline", "drawErrorSquiggle", canvas, xStart, xEnd, baselineY, lineTop, lineBottom);
         if (xEnd <= xStart) return;
 
         errorUnderlinePaint.setColor(errorUnderlineColor);

@@ -5,7 +5,6 @@ import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.fold.CodeFold;
 import com.yn.sodiumeditor.io.EditOperators;
 import com.yn.sodiumeditor.io.EditOp;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * OnDoubleTap handles onDoubleTap() gesture event for SodiumEditor.
@@ -16,7 +15,6 @@ public class OnDoubleTap {
   private final OnSingleTapUp onSingleTapUp;
 
   public OnDoubleTap(SodiumEditor editor, OnSingleTapUp onSingleTapUp) {
-    FunctionLog.f("OnDoubleTap", "OnDoubleTap", editor, onSingleTapUp);
     this.editor = editor;
     this.onSingleTapUp = onSingleTapUp;
   }
@@ -25,7 +23,6 @@ public class OnDoubleTap {
    * Handle onDoubleTap event
    */
   public boolean onDoubleTap(MotionEvent e) {
-    FunctionLog.f("OnDoubleTap", "onDoubleTap", e);
     if (editor.autoCompletion.suggestionAcceptedThisTouch)
       return true; // Don't process if suggestion was accepted
     EditOp.CursorTarget target = editor.wordWrap.getCursorTargetForPosition(e.getX(), e.getY(), null);

@@ -7,7 +7,6 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Handles drawing, fading, and dragging of the scroll bar.
@@ -39,7 +38,6 @@ public class ScrollBar {
     public float dragOffset = 0f;
 
     public ScrollBar(SodiumEditor editor, Scroll scroll) {
-        FunctionLog.f("ScrollBar", "ScrollBar", editor, scroll);
         this.editor = editor;
         this.scroll = scroll;
         float density = editor.getContext().getResources().getDisplayMetrics().density;
@@ -51,7 +49,6 @@ public class ScrollBar {
     }
 
     public void draw(Canvas canvas) {
-        FunctionLog.f("ScrollBar", "draw", canvas);
         if (!enabled) return;
         boolean interacting =
                 dragging
@@ -104,7 +101,6 @@ public class ScrollBar {
     }
 
     public void show() {
-        FunctionLog.f("ScrollBar", "show");
         if (!enabled) return;
         if (!fadeEnabled) { alpha = 1f; editor.invalidate(); return; }
         cancelFade();
@@ -115,7 +111,6 @@ public class ScrollBar {
     }
 
     public void startFadeOut() {
-        FunctionLog.f("ScrollBar", "startFadeOut");
         if (!fadeEnabled || dragging) return;
         if (fadeAnimator != null) fadeAnimator.cancel();
         fadeAnimator = ValueAnimator.ofFloat(alpha, 0f);
@@ -128,63 +123,51 @@ public class ScrollBar {
     }
 
     public void cancelFade() {
-        FunctionLog.f("ScrollBar", "cancelFade");
         if (fadeAnimator != null) { fadeAnimator.cancel(); fadeAnimator = null; }
     }
 
     // Setters
     public void setEnabled(boolean e) {
-        FunctionLog.f("ScrollBar", "setEnabled", e);
         enabled = e; editor.invalidate();
     }
 
     public void setFadeEnabled(boolean e) {
-        FunctionLog.f("ScrollBar", "setFadeEnabled", e);
         fadeEnabled = e; cancelFade(); alpha = e ? 0f : 1f; editor.invalidate();
     }
 
     public void setColor(int c) {
-        FunctionLog.f("ScrollBar", "setColor", c);
         color = c; editor.invalidate();
     }
 
     public void setWidthPx(float px) {
-        FunctionLog.f("ScrollBar", "setWidthPx", px);
         if (px > 0) widthPx = px; editor.invalidate();
     }
 
     public void setMinThumbPx(float px) {
-        FunctionLog.f("ScrollBar", "setMinThumbPx", px);
         if (px > 0) minThumbPx = px; editor.invalidate();
     }
 
     public void setFadeDelayMs(long ms) {
-        FunctionLog.f("ScrollBar", "setFadeDelayMs", ms);
         fadeDelayMs = Math.max(0, ms);
     }
 
     public void setFadeDurationMs(long ms) {
-        FunctionLog.f("ScrollBar", "setFadeDurationMs", ms);
         fadeDurationMs = Math.max(0, ms);
     }
 
     public void setHaloColor(int c) {
-        FunctionLog.f("ScrollBar", "setHaloColor", c);
         haloColor = c; editor.invalidate();
     }
 
     public void setHaloSizePx(float px) {
-        FunctionLog.f("ScrollBar", "setHaloSizePx", px);
         if (px >= 0) haloSizePx = px; editor.invalidate();
     }
 
     public void setCornerRadiusPx(float px) {
-        FunctionLog.f("ScrollBar", "setCornerRadiusPx", px);
         if (px >= 0) cornerRadiusPx = px; editor.invalidate();
     }
 
     public void setMarginPx(float px) {
-        FunctionLog.f("ScrollBar", "setMarginPx", px);
         if (px >= 0) marginPx = px; editor.invalidate();
     }
 }

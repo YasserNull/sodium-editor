@@ -1,6 +1,4 @@
 package com.yn.sodiumeditor.core.autocompletion; 
- 
-import android.util.Log;
 import com.yn.sodiumeditor.SodiumEditor;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.renderer.TextRender;
@@ -231,35 +229,48 @@ public class AutoPathCompletion {
      * Update path suggestion based on current cursor position.
      */
     public void updatePathSuggestion() {
+        updatePathSuggestionInternal(true);
+    }
+
+    /**
+     * Updates path suggestion from the shared auto-completion update path.
+     *
+     * @return true when the current cursor context is a path context and word completion should not run.
+     */
+    public boolean updatePathSuggestionFromAutoCompletion() {
+        return updatePathSuggestionInternal(false);
+    }
+
+    private boolean updatePathSuggestionInternal(boolean clearNonPathSuggestion) {
         if (!isAutoPathCompletionEnabled) {
             if (editor.autoCompletion != null && editor.autoCompletion.activeSuggestionIsPath) {
                 editor.autoCompletion.clearActiveSuggestion();
             }
-            return;
+            return false;
         }
 
         String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
         if (line == null) {
-            if (editor.autoCompletion != null) {
+            if (editor.autoCompletion != null && (clearNonPathSuggestion || editor.autoCompletion.activeSuggestionIsPath)) {
                 editor.autoCompletion.clearActiveSuggestion();
             }
-            return;
+            return false;
         }
 
         // Do not show suggestions if the cursor is in the middle of a word
         if (editor.cursor.cursorChar < line.length() && Character.isLetterOrDigit(line.charAt(editor.cursor.cursorChar))) {
-            if (editor.autoCompletion != null) {
+            if (editor.autoCompletion != null && (clearNonPathSuggestion || editor.autoCompletion.activeSuggestionIsPath)) {
                 editor.autoCompletion.clearActiveSuggestion();
             }
-            return;
+            return false;
         }
 
         // Do not show suggestions if there is non-whitespace text after the cursor
         if (editor.cursor.cursorChar < line.length() && !line.substring(editor.cursor.cursorChar).trim().isEmpty()) {
-            if (editor.autoCompletion != null) {
+            if (editor.autoCompletion != null && (clearNonPathSuggestion || editor.autoCompletion.activeSuggestionIsPath)) {
                 editor.autoCompletion.clearActiveSuggestion();
             }
-            return;
+            return false;
         }
 
         String pathFragment = getCurrentPathFragment();
@@ -267,7 +278,7 @@ public class AutoPathCompletion {
             if (editor.autoCompletion != null && editor.autoCompletion.activeSuggestionIsPath) {
                 editor.autoCompletion.clearActiveSuggestion();
             }
-            return;
+            return false;
         }
 
         // Prevent suggestions inside syntax highlighting
@@ -281,7 +292,7 @@ public class AutoPathCompletion {
                 if (editor.autoCompletion != null) {
                     editor.autoCompletion.clearActiveSuggestion();
                 }
-                return;
+                return true;
             }
         }
 
@@ -298,23 +309,20 @@ public class AutoPathCompletion {
             }
             editor.invalidate();
         }
+        return true;
     }
 
     /**
      * Accept the current path completion suggestion.
      */
     public void acceptPathCompletion() {
-        Log.d("AutoPathCompletion", "acceptPathCompletion: Entered.");
         if (editor.autoCompletion == null || editor.autoCompletion.activeSuggestion == null) {
-            Log.d("AutoPathCompletion", "acceptPathCompletion: Bailed out (no active suggestion).");
             return;
         }
         if (!editor.autoCompletion.activeSuggestionIsPath) {
-            Log.d("AutoPathCompletion", "acceptPathCompletion: Bailed out (not a path suggestion).");
             return;
         }
         if (!isAutoPathCompletionEnabled) {
-            Log.d("AutoPathCompletion", "acceptPathCompletion: Bailed out (disabled).");
             return;
         }
 
@@ -326,9 +334,7 @@ public class AutoPathCompletion {
         editor.selection.hasSelection = false;
         editor.selection.isSelectAllActive = false;
         editor.selection.isEntireFileSelected = false;
-        Log.d("AutoPathCompletion", "acceptPathCompletion: Inserting text.");
         editor.editOperators.insertStringAtCursor(textToInsert);
-        Log.d("AutoPathCompletion", "acceptPathCompletion: Text inserted.");
 
         editor.view.restartInput();
     }

@@ -1,7 +1,6 @@
 package com.yn.sodiumeditor.io;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.StreamedCharSlice;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.io.File;
 import java.io.RandomAccessFile;
 import java.util.LinkedHashMap;
@@ -15,13 +14,11 @@ public class FileCache {
     private final FileIO fileIO;
 
     public FileCache(SodiumEditor editor, FileIO fileIO) {
-        FunctionLog.f("FileCache", "FileCache", editor, fileIO);
         this.editor = editor;
         this.fileIO = fileIO;
     }
 
     public void populateDirectLinesForRange(int startLine, int endLineInclusive, Map<Integer, String> out) {
-        FunctionLog.f("FileCache", "populateDirectLinesForRange", startLine, endLineInclusive, out);
         if (out == null || fileIO.sourceFile == null || !fileIO.sourceFile.exists()) return;
 
         int start = Math.max(0, startLine);

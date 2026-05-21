@@ -4,7 +4,6 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * Handles clipboard operations for selection (Copy, Cut, Paste).
@@ -14,13 +13,11 @@ public class SelectionClipboard {
     private final Selection selection;
 
     public SelectionClipboard(SodiumEditor editor, Selection selection) {
-        FunctionLog.f("SelectionClipboard", "SelectionClipboard", editor, selection);
         this.editor = editor;
         this.selection = selection;
     }
 
     public void copyOrCutSelection(final boolean cut) {
-        FunctionLog.f("SelectionClipboard", "copyOrCutSelection", cut);
         if (!selection.hasSelection) return;
         editor.autoCompletion.clearActiveSuggestion();
         if (selection.shouldHideCopyCutForSelection()) return;
@@ -54,18 +51,15 @@ public class SelectionClipboard {
     }
 
     private void setPrimaryClip(String text) {
-        FunctionLog.f("SelectionClipboard", "setPrimaryClip", text);
         ClipboardManager cm = (ClipboardManager) editor.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
         if (cm != null) cm.setPrimaryClip(ClipData.newPlainText("text", (text == null) ? "" : text));
     }
 
     public void pasteFromClipboard() {
-        FunctionLog.f("SelectionClipboard", "pasteFromClipboard");
         selection.state.pasteFromClipboard();
     }
 
     public void deleteSelection() {
-        FunctionLog.f("SelectionClipboard", "deleteSelection");
         editor.autoCompletion.clearActiveSuggestion();
         selection.replaceSelectionWithText("");
     }

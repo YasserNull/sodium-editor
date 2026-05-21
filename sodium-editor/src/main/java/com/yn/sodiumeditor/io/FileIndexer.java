@@ -1,7 +1,6 @@
 package com.yn.sodiumeditor.io;
 
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.io.RandomAccessFile;
 
 /**
@@ -12,13 +11,11 @@ public class FileIndexer {
     private final FileIO fileIO;
 
     public FileIndexer(SodiumEditor editor, FileIO fileIO) {
-        FunctionLog.f("FileIndexer", "FileIndexer", editor, fileIO);
         this.editor = editor;
         this.fileIO = fileIO;
     }
 
     public void buildFileIndex() {
-        FunctionLog.f("FileIndexer", "buildFileIndex");
         if (fileIO.sourceFile == null || !fileIO.sourceFile.exists()) {
             fileIO.isIndexReady = false; fileIO.isIndexBuilding = false; return;
         }
@@ -50,7 +47,6 @@ public class FileIndexer {
     }
 
     public long[] buildIndexJava(String filepath) {
-        FunctionLog.f("FileIndexer", "buildIndexJava", filepath);
         long numNewlines = 0;
         long fileLength;
         try (RandomAccessFile raf = new RandomAccessFile(filepath, "r")) {
@@ -93,12 +89,10 @@ public class FileIndexer {
     }
 
     private void disableIndex(String path, long len) {
-        FunctionLog.f("FileIndexer", "disableIndex", path, len);
         fileIO.isIndexDisabled = true; fileIO.indexDisabledPath = path; fileIO.indexDisabledFileLength = len;
     }
 
     public long getLineByteLengthFromIndex(RandomAccessFile raf, int line, long fileLen) throws Exception {
-        FunctionLog.f("FileIndexer", "getLineByteLengthFromIndex", raf, line, fileLen);
         long start, end;
         synchronized (fileIO.lineOffsetsLock) {
             if (line < 0 || line >= fileIO.lineOffsets.length) return 0L;

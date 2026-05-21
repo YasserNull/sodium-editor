@@ -5,7 +5,6 @@ import android.graphics.Paint;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.linenumber.LineNumber;
 import com.yn.sodiumeditor.core.wordwrap.WordWrap;
-import com.yn.sodiumeditor.utils.FunctionLog;
 
 /**
  * LineNumberRender handles all line number rendering logic for SodiumEditor.
@@ -19,13 +18,11 @@ public class LineNumberRender {
     private final LineNumber lineNumber;
 
     public LineNumberRender(SodiumEditor editor, LineNumber lineNumber) {
-        FunctionLog.f("LineNumberRender", "LineNumberRender", editor, lineNumber);
         this.editor = editor;
         this.lineNumber = lineNumber;
     }
 
     public void drawLineNumbersDirectUnwrapped(Canvas canvas, int firstIdx, int lastIdx, int firstLine, int lastLine) {
-        FunctionLog.f("LineNumberRender", "drawLineNumbersDirectUnwrapped", canvas, firstIdx, lastIdx, firstLine, lastLine);
         float lineNumX = getLineNumXUnwrapped();
         if (editor.codeFold.isCodeFoldingEnabled) {
             for (int v = firstIdx; v <= lastIdx; v++) {

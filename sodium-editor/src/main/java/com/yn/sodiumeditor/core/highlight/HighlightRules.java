@@ -5,7 +5,6 @@ import android.graphics.Typeface;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.HighliteRender;
 import com.yn.sodiumeditor.utils.HighlightUtils;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -29,14 +28,12 @@ public class HighlightRules {
     public HighliteRender.HighlightRule whitespaceCommentRule;
 
     public HighlightRules(SodiumEditor editor, Highlite highlite) {
-        FunctionLog.f("HighlightRules", "HighlightRules", editor, highlite);
         this.editor = editor;
         this.highlite = highlite;
         initWhitespaceRules();
     }
 
     private void initWhitespaceRules() {
-        FunctionLog.f("HighlightRules", "initWhitespaceRules");
         float size = editor.textRender.paint.getTextSize();
         Typeface tf = editor.textRender.paint.getTypeface();
         whitespaceStringRule = new HighliteRender.HighlightRule("", com.yn.sodiumeditor.core.view.FontStyle.STYLE_NORMAL, 0xFF000000, size, tf, false, HighliteRender.HighlightRuleType.STRING);
@@ -44,7 +41,6 @@ public class HighlightRules {
     }
 
     public void addHighlightRule(String regex, int style, int color, boolean underline) {
-        FunctionLog.f("HighlightRules", "addHighlightRule", regex, style, color, underline);
         HighliteRender.HighlightRuleType type = HighliteRender.HighlightRuleType.REGEX;
         if (regex.equals(Highlite.RULE_STRING)) type = HighliteRender.HighlightRuleType.STRING;
         else if (regex.equals(Highlite.RULE_BLOCK_COMMENT)) type = HighliteRender.HighlightRuleType.BLOCK_COMMENT;
@@ -64,14 +60,12 @@ public class HighlightRules {
     }
 
     public void clearHighlightRules() {
-        FunctionLog.f("HighlightRules", "clearHighlightRules");
         highlightRules.clear(); regexHighlightRules.clear(); lineCommentDelimiters.clear();
         stringHighlightRule = null; blockCommentHighlightRule = null; lineCommentHighlightRule = null;
         highlite.clearHighlightCaches();
     }
 
     private String extractLineCommentDelimiter(String regex) {
-        FunctionLog.f("HighlightRules", "extractLineCommentDelimiter", regex);
         if (regex == null) return "";
         if (regex.contains("//")) return "//";
         if (regex.contains("#")) return "#";
@@ -81,16 +75,13 @@ public class HighlightRules {
     }
 
     private void addLineCommentDelimiter(String d) {
-        FunctionLog.f("HighlightRules", "addLineCommentDelimiter", d);
         if (d != null && !d.isEmpty() && !lineCommentDelimiters.contains(d)) lineCommentDelimiters.add(d);
     }
 
     public boolean isEmpty() {
-        FunctionLog.f("HighlightRules", "isEmpty");
         return highlightRules.isEmpty() && regexHighlightRules.isEmpty() && lineCommentDelimiters.isEmpty();
     }
     public List<HighliteRender.HighlightSpan> calculateSyntaxSpansForLine(String line, int globalLine) {
-    FunctionLog.f("HighlightRules", "calculateSyntaxSpansForLine", line, globalLine);
     if (editor.view.getLogicalLineLength(globalLine, line) > editor.highliteRender.maxSyntaxLineLength) {
       return Collections.emptyList();
     }
@@ -123,7 +114,6 @@ public class HighlightRules {
   }
 
   public List<HighliteRender.HighlightSpan> getWhitespaceGuideSyntaxSpans(String line, int globalLine) {
-    FunctionLog.f("HighlightRules", "getWhitespaceGuideSyntaxSpans", line, globalLine);
     HighliteRender.HighlightRule stringRule = highlite.stringHighlightRule;
     HighliteRender.HighlightRule commentRule = highlite.blockCommentHighlightRule;
     if (stringRule == null && commentRule == null) {

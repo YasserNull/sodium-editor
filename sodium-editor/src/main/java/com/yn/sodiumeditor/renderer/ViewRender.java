@@ -8,7 +8,6 @@ import com.yn.sodiumeditor.core.guides.bracket.BracketMatch;
 import com.yn.sodiumeditor.core.fold.CodeFold;
 import com.yn.sodiumeditor.core.wordwrap.WordWrap;
 import com.yn.sodiumeditor.core.guides.bracket.BracketGuides;
-import com.yn.sodiumeditor.utils.FunctionLog;
 import java.util.List;
 import java.util.HashMap;
 
@@ -18,10 +17,8 @@ public class ViewRender {
   public int drawBaseLine = 0;
   private final Paint selectionPaint;
   private final RectF tempRectF;
-  private int frameCounter = 0;
 
   public ViewRender(SodiumEditor editor) {
-    FunctionLog.f("ViewRender", "ViewRender", editor);
     this.editor = editor;
     this.selectionPaint = new Paint();
     this.selectionPaint.setStyle(Paint.Style.FILL);
@@ -29,7 +26,6 @@ public class ViewRender {
   }
 
   public void drawContent(Canvas canvas) {
-    FunctionLog.f("ViewRender", "drawContent", canvas);
     int windowStart = editor.windowRender.windowStartLine;
     int windowEnd = windowStart + editor.windowRender.linesWindow.size() - 1;
     boolean fastScroll = editor.scroll.scrollerIsScrolling || editor.scroll.flingStopAnimator != null;
@@ -59,17 +55,14 @@ public class ViewRender {
       // Main wrapped text rendering usually happens in TextRender but depends on implementation
       // For now, assume it's part of drawTextContent or similar
       drawContentUnfolded(canvas, shouldDrawBracketGuides); 
-      editor.bracketGuides.endRenderFrameMaybeLog();
       editor.scroll.bar.draw(canvas);
       return;
     }
     drawContentUnfolded(canvas, shouldDrawBracketGuides);
-    editor.bracketGuides.endRenderFrameMaybeLog();
     editor.scroll.bar.draw(canvas);
   }
   
   private void drawContentUnfolded(Canvas canvas, boolean drawBracketGuides) {
-    FunctionLog.f("ViewRender", "drawContentUnfolded", canvas, drawBracketGuides);
     final boolean drawDecorations = editor.zoom.shouldDrawDecorations();
     
     int firstVisibleIndex = (int) (editor.scroll.scrollY / editor.textRender.lineHeight);
@@ -98,32 +91,6 @@ public class ViewRender {
       lastVisibleLine = lastVisibleIndex;
     }
 
-    FunctionLog.d(
-        "render",
-        "firstVisibleIndex="
-            + firstVisibleIndex
-            + " lastVisibleIndex="
-            + lastVisibleIndex
-            + " firstVisibleLine="
-            + firstVisibleLine
-            + " lastVisibleLine="
-            + lastVisibleLine
-            + " visibleCount="
-            + editor.codeFold.getVisibleLineCount()
-            + " totalLines="
-            + editor.view.getLinesCount()
-            + " windowStart="
-            + editor.windowRender.windowStartLine
-            + " windowSize="
-            + editor.windowRender.linesWindow.size()
-            + " l0='"
-            + editor.windowRender.getLineTextForRender(0)
-            + "' l1='"
-            + editor.windowRender.getLineTextForRender(1)
-            + "' l2='"
-            + editor.windowRender.getLineTextForRender(2)
-            + "'");
-
     drawBaseLine = firstVisibleLine;
     float baseY = firstVisibleIndex * editor.textRender.lineHeight;
     float translateY = -editor.scroll.scrollY + baseY;
@@ -151,17 +118,14 @@ public class ViewRender {
     }
 
     canvas.save();
-    canvas.clipRect(editor.lineNumber.lineNumbersGutterWidth, 0, editor.getWidth(), editor.getHeight());
+    clipTextArea(canvas);
     canvas.translate(editor.lineNumber.lineNumbersGutterWidth - editor.scroll.getEffectiveScrollX(), translateY);
     
-    boolean shouldLog = editor.DEBUG_RENDER_LOGS && (frameCounter++ % 120 == 0);
-    if (shouldLog) {
-        android.util.Log.d("codefold", "Visible: " + firstVisibleIndex + "-" + lastVisibleIndex);
-    }
-
-    drawTextContent(canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine, drawDecorations, drawBracketGuides, shouldLog);
+    drawTextContent(canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine, drawDecorations, drawBracketGuides);
     canvas.restore();
     
+    canvas.save();
+    clipTextArea(canvas);
     if (!editor.selection.hasSelection) {
         editor.caret.drawCaret(canvas);
         // Draw cursor handle when focused and no selection
@@ -173,15 +137,29 @@ public class ViewRender {
     if (editor.selection.hasSelection) {
         editor.selectionHandles.drawHandles(canvas);
     }
+    canvas.restore();
 
     // Draw popup if it's supposed to be shown, even if no selection
     if (editor.popup.showPopup && editor.popup.popupAlpha > 0f) {
         editor.popup.drawPopup(canvas);
     }  }
 
+  private void clipTextArea(Canvas canvas) {
+    float gutterWidth =
+        editor.lineNumber.showLineNumbers ? editor.lineNumber.lineNumbersGutterWidth : 0f;
+    if (gutterWidth <= 0f) {
+      canvas.clipRect(0, 0, editor.getWidth(), editor.getHeight());
+      return;
+    }
+    if (editor.textRender.isRtl) {
+      canvas.clipRect(0, 0, Math.max(0f, editor.getWidth() - gutterWidth), editor.getHeight());
+    } else {
+      canvas.clipRect(gutterWidth, 0, editor.getWidth(), editor.getHeight());
+    }
+  }
+
   private void drawTextContent(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex,
-                                int firstVisibleLine, int lastVisibleLine, boolean drawDecorations, boolean drawBracketGuides, boolean shouldLog) {
-    FunctionLog.f("ViewRender", "drawTextContent", canvas, firstVisibleIndex, lastVisibleIndex, firstVisibleLine, lastVisibleLine, drawDecorations, drawBracketGuides, shouldLog);
+                                int firstVisibleLine, int lastVisibleLine, boolean drawDecorations, boolean drawBracketGuides) {
     Paint selPaint = null;
     if (editor.selection.hasSelection) {
         selPaint = editor.selection.selectionPaint;
@@ -313,22 +291,6 @@ public class ViewRender {
       
       for (int i = firstVisibleLine; i <= lastVisibleLine; i++) {
           String line = editor.windowRender.getLineTextForRenderWithDirect(i, directLines);
-          if ((line == null || line.isEmpty())
-              && editor.cursor != null
-              && editor.cursor.cursorLine == i
-              && editor.cursor.cursorChar > 0
-              && com.yn.sodiumeditor.SodiumEditor.DEBUG_RENDER_LOGS) {
-              android.util.Log.d(
-                  "SodiumRender",
-                  "draw empty line at cursor line="
-                      + i
-                      + " ch="
-                      + editor.cursor.cursorChar
-                      + " windowStart="
-                      + editor.windowRender.windowStartLine
-                      + " windowSize="
-                      + editor.windowRender.linesWindow.size());
-          }
           float y = (i - firstVisibleLine) * editor.textRender.lineHeight + editor.textRender.lineHeight - editor.textRender.paint.descent();
           editor.textRender.drawHighlightedLine(canvas, line, i, y);
           // Draw whitespace guides and indent guides after text
@@ -351,17 +313,14 @@ public class ViewRender {
   }
 
   public void drawColorCodeBackgrounds(Canvas canvas, String line, int globalLine) {
-      FunctionLog.f("ViewRender", "drawColorCodeBackgrounds", canvas, line, globalLine);
       editor.colorCodeHighlight.drawColorCodeBackgrounds(canvas, line, globalLine);
   }
 
   public void drawSearchHighlightsForLine(Canvas canvas, String line, int globalLine, float top, float bottom) {
-      FunctionLog.f("ViewRender", "drawSearchHighlightsForLine", canvas, line, globalLine, top, bottom);
       editor.search.drawSearchHighlightsForLine(canvas, line, globalLine, top, bottom);
   }
 
   public void drawSelectionForLine(Canvas canvas, int globalLine, String line, float baseX, float width, Paint selPaint) {
-      FunctionLog.f("ViewRender", "drawSelectionForLine", canvas, globalLine, line, baseX, width, selPaint);
       // Logic for selection highlight per line
       float lineTop = editor.textRender.getDrawLineTop(globalLine);
       float lineBottom = lineTop + editor.textRender.lineHeight;
@@ -370,7 +329,6 @@ public class ViewRender {
   }
 
   public SodiumEditor getEditor() { 
-      FunctionLog.f("ViewRender", "getEditor");
       return editor; 
   }
 }
