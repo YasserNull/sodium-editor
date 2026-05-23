@@ -59,12 +59,12 @@ public class FileIO {
         new java.util.LinkedHashMap<Integer, String>(250, 0.75f, true) {
           @Override
           protected boolean removeEldestEntry(java.util.Map.Entry<Integer, String> eldest) {
-            int maxCacheSize = editor.codeFold.isCodeFoldingEnabled ? 500 : 250;
+            int maxCacheSize = false ? 500 : 250;
             if (size() <= maxCacheSize) return false;
             int firstIdx = (int) (editor.scroll.scrollY / editor.textRender.lineHeight);
             int lastIdx = firstIdx + (int) Math.ceil(editor.getHeight() / editor.textRender.lineHeight) + 5;
             for (int v = firstIdx; v <= lastIdx; v++) {
-                if (eldest.getKey().equals(editor.codeFold.mapVisibleIndexToGlobal(v))) return false;
+                if (eldest.getKey().equals(v)) return false;
             }
             return true;
           }
@@ -150,7 +150,6 @@ public class FileIO {
         editor.binaryRender.applyBinaryFileFeaturePolicy(false);
         editor.selection.clearSelection();
         isIndexReady = false;
-        if (editor.codeFold.isCodeFoldingEnabled) editor.codeFold.clearAllFolds();
         
         // Manual reset of wrap metrics
         editor.wordWrap.wrapMetricsReady = false;
@@ -285,7 +284,6 @@ public class FileIO {
         synchronized (editor.windowRender.avgCharWidthCache) { editor.windowRender.avgCharWidthCache.clear(); }
         synchronized (directLineCache) { directLineCache.clear(); }
         editor.bracketCache.clear();
-        editor.codeFold.clearFoldRanges();
         
         editor.windowRender.currentMaxWindowLineWidth = 0f;
         editor.windowRender.globalMaxLineWidth = 0f;
@@ -304,7 +302,7 @@ public class FileIO {
     }
 
     private boolean shouldWarmBracketIndexForOpen() {
-        return editor.codeFold.isCodeFoldingEnabled
+        return false
                 || editor.bracketGuides.isBracketGuidesEnabled
                 || editor.bracketMatchManager.isBracketMatchingEnabled;
     }

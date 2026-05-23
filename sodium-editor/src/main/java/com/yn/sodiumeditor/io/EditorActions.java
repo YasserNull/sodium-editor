@@ -2,15 +2,12 @@ package com.yn.sodiumeditor.io;
 
 import android.os.Looper;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.fold.CodeFold;
 import java.io.File;
 
 /**
  * High-level editor actions like inserting and deleting characters or text.
  */
 public class EditorActions {
-    private static final String FOLD_TYPING_PERF = "FoldTypingPerf";
-    private static final long FOLD_TYPING_LOG_THRESHOLD_MS = 8L;
     private final SodiumEditor editor;
     private final EditOperators operators;
 
@@ -32,12 +29,6 @@ public class EditorActions {
 
         editor.ime.lastImeCommitText = null;
         editor.ime.lastImeCommitUptime = 0L;
-
-        if (deleteCollapsedFoldIfDeletingClosingToken(true)) {
-            return;
-        }
-
-        handleCodeFoldBeforeEdit();
 
         final int beforeLine = editor.cursor.cursorLine;
         final int beforeChar = editor.cursor.cursorChar;
@@ -70,15 +61,6 @@ public class EditorActions {
                 String modified = base.substring(0, safeCursorChar) + base.substring(deleteEnd);
                 editor.view.updateLocalLine(localIdx, modified);
                 editor.windowRender.modifiedLines.put(editor.cursor.cursorLine, modified);
-                
-                if (editor.codeFold.isCodeFoldingEnabled) {
-                    boolean bracketDelete = com.yn.sodiumeditor.utils.TextUtils.containsBracketChars(removed);
-                    if (bracketDelete) editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
-                    editor.codeFold.adjustFoldRangeForLineEdit(editor.cursor.cursorLine, safeCursorChar, safeCursorChar - deleteEnd, deleteEnd - safeCursorChar);
-                    if (bracketDelete) {
-                        refreshFoldRangesAroundEdit(editor.cursor.cursorLine);
-                    }
-                }
                 editor.highlite.invalidateHighlightCacheForLine(editor.cursor.cursorLine);
                 editor.view.computeWidthForLine(editor.cursor.cursorLine, modified);
                 editor.view.invalidateLineGlobal(editor.cursor.cursorLine);
@@ -107,11 +89,6 @@ public class EditorActions {
                     editor.windowRender.modifiedLines.put(editor.cursor.cursorLine, merged);
                     editor.windowRender.clearStreamedLineInfo(editor.cursor.cursorLine);
                     editor.highlite.invalidateHighlightCacheForLine(editor.cursor.cursorLine);
-                    
-                    if (editor.codeFold.isCodeFoldingEnabled) {
-                        editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
-                        editor.codeFold.adjustFoldRangesForLineEdit(nextGlobal, -1);
-                    }
                     editor.windowRender.linesWindow.remove(currentNextLocal);
                     operators.shifter.shiftModifiedLines(nextGlobal, -1);
 
@@ -121,9 +98,6 @@ public class EditorActions {
                     editor.wordWrap.onLineCountChanged();
                     editor.invalidate();
                     operators.lineCountDelta -= 1;
-                    if (editor.codeFold.isCodeFoldingEnabled) {
-                        editor.codeFold.refreshFoldRangesAroundRange(editor.cursor.cursorLine, nextGlobal);
-                    }
 
                     EditOp op = new EditOp();
                     op.startLine = beforeLine; op.startChar = base.length();
@@ -161,20 +135,10 @@ public class EditorActions {
             editor.ime.onFinishComposingText();
         }
 
-        long foldGuardStartMs = android.os.SystemClock.uptimeMillis();
-        handleCodeFoldBeforeEdit();
-        long foldGuardMs = android.os.SystemClock.uptimeMillis() - foldGuardStartMs;
-
         final int beforeLine = editor.cursor.cursorLine;
         final int beforeChar = editor.cursor.cursorChar;
         int originalLine = beforeLine;
         int originalChar = beforeChar;
-        CodeFold.FoldRange hiddenEditFold = getHiddenCollapsedFoldForCursor();
-
-        if (hiddenEditFold != null) {
-            insertCharIntoHiddenCollapsedFold(c, beforeLine, beforeChar, hiddenEditFold);
-            return;
-        }
 
         long ensureStartMs = android.os.SystemClock.uptimeMillis();
 	        editor.fileIO.ensureLineInWindow(editor.cursor.cursorLine, true);
@@ -203,7 +167,6 @@ public class EditorActions {
 
         boolean fullInvalidate = false;
         long editMs = 0L;
-        long foldAdjustMs = 0L;
         long highlightMs = 0L;
         long widthMs = 0L;
         long invalidateMs = 0L;
@@ -227,10 +190,6 @@ public class EditorActions {
                 editor.windowRender.modifiedLines.put(editor.cursor.cursorLine + 1, after);
                 operators.lineCountDelta += 1;
                 editMs = android.os.SystemClock.uptimeMillis() - editStartMs;
-
-                long foldStartMs = android.os.SystemClock.uptimeMillis();
-                handleCodeFoldNewline(beforeLine, beforeChar);
-                foldAdjustMs = android.os.SystemClock.uptimeMillis() - foldStartMs;
 
                 long widthStartMs = android.os.SystemClock.uptimeMillis();
                 editor.view.computeWidthForLine(editor.cursor.cursorLine, before);
@@ -265,9 +224,6 @@ public class EditorActions {
                     editor.binaryRender.adjustBinaryTokenSpansForEdit(editor.cursor.cursorLine, pos, 1, 0);
                 }
                 editMs = android.os.SystemClock.uptimeMillis() - editStartMs;
-                long foldStartMs = android.os.SystemClock.uptimeMillis();
-                handleCodeFoldAfterCharacterEdit(editor.cursor.cursorLine, pos, c, 1, 0);
-                foldAdjustMs = android.os.SystemClock.uptimeMillis() - foldStartMs;
                 long highlightStartMs = android.os.SystemClock.uptimeMillis();
                 editor.highlite.invalidateHighlightCacheForLine(editor.cursor.cursorLine);
                 highlightMs = android.os.SystemClock.uptimeMillis() - highlightStartMs;
@@ -280,10 +236,6 @@ public class EditorActions {
             if (fullInvalidate) editor.invalidate();
             else editor.view.invalidateLineGlobal(editor.cursor.cursorLine);
             editor.scroll.keepCursorVisibleHorizontally();
-            invalidateMs = android.os.SystemClock.uptimeMillis() - invalidateStartMs;
-        }
-        long dt = android.os.SystemClock.uptimeMillis() - opStartMs;
-        if (dt >= FOLD_TYPING_LOG_THRESHOLD_MS) {
         }
         editor.autoCompletion.updateSuggestion();
 
@@ -299,100 +251,6 @@ public class EditorActions {
         operators.recorder.recordEdit(op);
     }
 
-	    private void insertCharIntoHiddenCollapsedFold(
-	        char c, int beforeLine, int beforeChar, CodeFold.FoldRange hiddenFold) {
-        long startMs = android.os.SystemClock.uptimeMillis();
-        long readStartMs = startMs;
-        String base = getEditableLineText(beforeLine);
-        long readMs = android.os.SystemClock.uptimeMillis() - readStartMs;
-        if (base == null) base = "";
-
-        if (c == '\n') {
-            long splitStartMs = android.os.SystemClock.uptimeMillis();
-            String before = base.substring(0, Math.min(beforeChar, base.length()));
-            String after = base.substring(Math.min(beforeChar, base.length()));
-            long splitMs = android.os.SystemClock.uptimeMillis() - splitStartMs;
-
-            long shiftStartMs = android.os.SystemClock.uptimeMillis();
-            operators.shifter.shiftModifiedLines(beforeLine + 1, 1);
-            editor.windowRender.modifiedLines.put(beforeLine, before);
-            editor.windowRender.modifiedLines.put(beforeLine + 1, after);
-            operators.lineCountDelta += 1;
-            long shiftMs = android.os.SystemClock.uptimeMillis() - shiftStartMs;
-
-            long foldStartMs = android.os.SystemClock.uptimeMillis();
-            handleCodeFoldNewline(beforeLine, beforeChar);
-            long foldMs = android.os.SystemClock.uptimeMillis() - foldStartMs;
-
-            long widthStartMs = android.os.SystemClock.uptimeMillis();
-            editor.view.computeWidthForLine(beforeLine, before);
-            editor.view.computeWidthForLine(beforeLine + 1, after);
-            long widthMs = android.os.SystemClock.uptimeMillis() - widthStartMs;
-            long miscStartMs = android.os.SystemClock.uptimeMillis();
-            editor.lineNumber.invalidateLineNumberCache();
-            editor.cursor.cursorLine = beforeLine + 1;
-            editor.cursor.cursorChar = 0;
-            editor.wordWrap.onLineCountChanged();
-            editor.invalidate();
-            long miscMs = android.os.SystemClock.uptimeMillis() - miscStartMs;
-            long totalMs = android.os.SystemClock.uptimeMillis() - startMs;
-            if (totalMs >= FOLD_TYPING_LOG_THRESHOLD_MS) {
-            }
-        } else {
-            long editStartMs = android.os.SystemClock.uptimeMillis();
-            int pos = Math.max(0, Math.min(beforeChar, base.length()));
-            String modified = base.substring(0, pos) + c + base.substring(pos);
-            editor.windowRender.modifiedLines.put(beforeLine, modified);
-            long editMs = android.os.SystemClock.uptimeMillis() - editStartMs;
-
-            long cacheStartMs = android.os.SystemClock.uptimeMillis();
-            synchronized (editor.windowRender.avgCharWidthCache) {
-                editor.windowRender.avgCharWidthCache.remove(beforeLine);
-            }
-            synchronized (editor.windowRender.lineWidthCache) {
-                editor.windowRender.lineWidthCache.remove(beforeLine);
-            }
-            long cacheMs = android.os.SystemClock.uptimeMillis() - cacheStartMs;
-
-            long foldStartMs = android.os.SystemClock.uptimeMillis();
-            handleCodeFoldAfterCharacterEdit(beforeLine, pos, c, 1, 0);
-            long foldMs = android.os.SystemClock.uptimeMillis() - foldStartMs;
-            long highlightStartMs = android.os.SystemClock.uptimeMillis();
-            editor.highlite.invalidateHighlightCacheForLine(beforeLine);
-            long highlightMs = android.os.SystemClock.uptimeMillis() - highlightStartMs;
-            editor.cursor.cursorChar++;
-            long widthStartMs = android.os.SystemClock.uptimeMillis();
-            editor.view.computeWidthForLine(beforeLine, modified);
-            long widthMs = android.os.SystemClock.uptimeMillis() - widthStartMs;
-            long invalidateStartMs = android.os.SystemClock.uptimeMillis();
-            editor.view.invalidateLineGlobal(hiddenFold.startLine);
-            editor.scroll.keepCursorVisibleHorizontally();
-            long invalidateMs = android.os.SystemClock.uptimeMillis() - invalidateStartMs;
-            long totalMs = android.os.SystemClock.uptimeMillis() - startMs;
-            if (totalMs >= FOLD_TYPING_LOG_THRESHOLD_MS) {
-            }
-        }
-
-        editor.autoCompletion.updateSuggestion();
-
-        EditOp op = new EditOp();
-        op.startLine = beforeLine;
-        op.startChar = beforeChar;
-        op.endLine = beforeLine;
-        op.endChar = beforeChar;
-        op.removedText = "";
-        op.insertedText = String.valueOf(c);
-        EditOp.CursorTarget insertedEnd =
-            operators.recorder.computeCursorAfterInsert(beforeLine, beforeChar, op.insertedText);
-        op.insertedEndLine = insertedEnd.line;
-        op.insertedEndChar = insertedEnd.ch;
-        op.cursorLineBefore = beforeLine;
-        op.cursorCharBefore = beforeChar;
-        op.cursorLineAfter = editor.cursor.cursorLine;
-        op.cursorCharAfter = editor.cursor.cursorChar;
-        op.timestamp = System.currentTimeMillis();
-	        operators.recorder.recordEdit(op);
-	    }
 
     private boolean insertCharIntoOffWindowLine(char c, int beforeLine, int beforeChar) {
         if (isLineInLoadedWindow(beforeLine)) return false;
@@ -408,7 +266,6 @@ public class EditorActions {
             editor.windowRender.modifiedLines.put(beforeLine, before);
             editor.windowRender.modifiedLines.put(beforeLine + 1, after);
             operators.lineCountDelta += 1;
-            handleCodeFoldNewline(beforeLine, beforeChar);
             editor.view.computeWidthForLine(beforeLine, before);
             editor.view.computeWidthForLine(beforeLine + 1, after);
             editor.cursor.cursorLine = beforeLine + 1;
@@ -425,9 +282,6 @@ public class EditorActions {
             }
             synchronized (editor.windowRender.lineWidthCache) {
                 editor.windowRender.lineWidthCache.remove(beforeLine);
-            }
-            if (editor.codeFold.isCodeFoldingEnabled) {
-                handleCodeFoldAfterCharacterEdit(beforeLine, pos, c, 1, 0);
             }
             editor.highlite.invalidateHighlightCacheForLine(beforeLine);
             editor.cursor.cursorLine = beforeLine;
@@ -458,9 +312,6 @@ public class EditorActions {
         op.timestamp = System.currentTimeMillis();
         operators.recorder.recordEdit(op);
 
-        long dt = android.os.SystemClock.uptimeMillis() - startMs;
-        if (dt >= FOLD_TYPING_LOG_THRESHOLD_MS) {
-        }
         return true;
     }
 
@@ -477,12 +328,6 @@ public class EditorActions {
 
         editor.ime.lastImeCommitText = null;
         editor.ime.lastImeCommitUptime = 0L;
-
-        handleCodeFoldBeforeEdit();
-
-        if (deleteCollapsedFoldIfDeletingClosingToken(false)) {
-            return;
-        }
 
         final int beforeLine = editor.cursor.cursorLine;
         final int beforeChar = editor.cursor.cursorChar;
@@ -530,15 +375,6 @@ public class EditorActions {
                     editor.binaryRender.adjustBinaryTokenSpansForEdit(
                             editor.cursor.cursorLine, safeStart, safeStart - safeCursorChar, 0);
                 }
-                
-                if (editor.codeFold.isCodeFoldingEnabled) {
-                    boolean bracketDelete = com.yn.sodiumeditor.utils.TextUtils.containsBracketChars(removed);
-                    if (bracketDelete) editor.codeFold.invalidateFoldRangeForLine(editor.cursor.cursorLine);
-                    editor.codeFold.adjustFoldRangeForLineEdit(editor.cursor.cursorLine, safeStart, safeStart - safeCursorChar, safeCursorChar - safeStart);
-                    if (bracketDelete) {
-                        refreshFoldRangesAroundEdit(editor.cursor.cursorLine);
-                    }
-                }
                 editor.highlite.invalidateHighlightCacheForLine(editor.cursor.cursorLine);
                 editor.cursor.cursorChar = safeStart;
                 editor.view.computeWidthForLine(editor.cursor.cursorLine, modified);
@@ -580,11 +416,6 @@ public class EditorActions {
 
                 editor.highlite.invalidateHighlightCacheForLine(prevGlobal);
                 
-                if (editor.codeFold.isCodeFoldingEnabled) {
-                    editor.codeFold.invalidateFoldRangeForLine(prevGlobal);
-                    editor.codeFold.adjustFoldRangesForLineEdit(deletedLine, -1);
-                }
-                
                 if (currentPrevLocal >= 0 && currentPrevLocal < editor.windowRender.linesWindow.size()) {
                     editor.view.updateLocalLine(currentPrevLocal, merged);
                 }
@@ -604,9 +435,6 @@ public class EditorActions {
                 editor.cursor.cursorChar = prev.length();
                 editor.view.computeWidthForLine(prevGlobal, merged);
                 operators.lineCountDelta -= 1;
-                if (editor.codeFold.isCodeFoldingEnabled) {
-                    editor.codeFold.refreshFoldRangesAroundRange(prevGlobal, deletedLine);
-                }
                 editor.wordWrap.onLineCountChanged();
                 editor.lineNumber.invalidateLineNumberCache();
                 editor.cursor.invalidateCursorArea();
@@ -639,141 +467,10 @@ public class EditorActions {
         return text.offsetByCodePoints(safeOffset, 1);
     }
 
-    private void handleCodeFoldAfterCharacterEdit(
-            int line, int editIndex, char c, int delta, int deleteLen) {
-        if (!editor.codeFold.isCodeFoldingEnabled) return;
 
-        boolean bracketEdit = com.yn.sodiumeditor.utils.TextUtils.containsBracketChars(String.valueOf(c));
-        if (bracketEdit) {
-            editor.bracketCache.invalidateLines(line, line);
-        } else {
-            editor.codeFold.adjustFoldRangeForLineEdit(line, editIndex, delta, deleteLen);
-            return;
-        }
-
-        editor.codeFold.adjustFoldRangeForLineEdit(line, editIndex, delta, deleteLen);
-        editor.codeFold.refreshFoldRangesAroundLine(line);
+    private String getEditableLineText(int line) {
+        return editor.windowRender.getLineTextForRender(line);
     }
-
-    private void refreshFoldRangesAroundEdit(int line) {
-        if (!editor.codeFold.isCodeFoldingEnabled) return;
-        int start = Math.max(0, line - 64);
-        int total = editor.view.getLinesCount();
-        int end = total > 0 ? Math.min(total - 1, line + 64) : line + 64;
-        editor.codeFold.refreshFoldRangesAroundRange(start, end);
-    }
-
-    private void handleCodeFoldBeforeEdit() {
-        if (!editor.codeFold.isCodeFoldingEnabled) return;
-        CodeFold.FoldRange hidden = editor.codeFold.getCollapsedRangeContainingLine(editor.cursor.cursorLine);
-        if (hidden != null) {
-            moveCursorToFoldEnd(hidden);
-        } else {
-            CodeFold.FoldRange start = editor.codeFold.getFoldRangeAtStart(editor.cursor.cursorLine);
-            if (start != null && start.collapsed && editor.cursor.cursorChar > start.openCharIndex) {
-                moveCursorToFoldEnd(start);
-            }
-        }
-    }
-
-    private void moveCursorToFoldEnd(CodeFold.FoldRange fold) {
-        long startMs = android.os.SystemClock.uptimeMillis();
-        boolean endLoaded = isLineInLoadedWindow(fold.endLine);
-        long readStartMs = android.os.SystemClock.uptimeMillis();
-        String endText = getFoldEndLineText(fold);
-        long readMs = android.os.SystemClock.uptimeMillis() - readStartMs;
-        long resolveStartMs = android.os.SystemClock.uptimeMillis();
-        int closeIdx = editor.codeFold.resolveCloseCharIndex(fold, endText == null ? "" : endText);
-        long resolveMs = android.os.SystemClock.uptimeMillis() - resolveStartMs;
-        if (closeIdx < 0) closeIdx = (endText == null ? 0 : endText.length());
-        int endLen = (endText == null ? 0 : endText.length());
-        int closeEnd = Math.min(closeIdx + (fold.isBlockComment ? 2 : 1), endLen);
-        int targetChar =
-                editor.cursor.cursorLine == fold.startLine
-                        ? closeEnd
-                        : Math.max(closeEnd, Math.min(editor.cursor.cursorChar, endLen));
-        editor.cursor.cursorLine = fold.endLine;
-        editor.cursor.cursorChar = targetChar;
-        long totalMs = android.os.SystemClock.uptimeMillis() - startMs;
-        if (totalMs >= FOLD_TYPING_LOG_THRESHOLD_MS) {
-        }
-        // This is an internal cursor correction before editing, not a user-visible move.
-        // Snap immediately so fast typing after a collapsed fold does not inherit a lagging
-        // animation from the hidden end line to the folded visual line.
-        editor.cursorAnimation.snapToPosition(
-            editor.caret.getCaretDocumentX(), editor.caret.getCaretDocumentY());
-    }
-
-    private void handleCodeFoldNewline(int beforeLine, int beforeChar) {
-        if (!editor.codeFold.isCodeFoldingEnabled) return;
-        CodeFold.FoldRange foldAtStart = editor.codeFold.foldRanges.get(beforeLine);
-        if (foldAtStart != null) {
-            if (beforeChar <= foldAtStart.openCharIndex) {
-                CodeFold.FoldRange updated = new CodeFold.FoldRange(beforeLine + 1, foldAtStart.endLine + 1, foldAtStart.openCharIndex, foldAtStart.openChar, foldAtStart.closeChar, foldAtStart.closeCharIndex, foldAtStart.isBlockComment, foldAtStart.isIndentFold);
-                updated.collapsed = foldAtStart.collapsed;
-                editor.codeFold.foldRanges.remove(beforeLine);
-                editor.codeFold.foldRanges.put(beforeLine + 1, updated);
-            } else {
-                CodeFold.FoldRange updated = new CodeFold.FoldRange(beforeLine, foldAtStart.endLine + 1, foldAtStart.openCharIndex, foldAtStart.openChar, foldAtStart.closeChar, foldAtStart.closeCharIndex, foldAtStart.isBlockComment, foldAtStart.isIndentFold);
-                updated.collapsed = foldAtStart.collapsed;
-                editor.codeFold.foldRanges.put(beforeLine, updated);
-            }
-            editor.codeFold.foldIntervalsDirty = true;
-        } else {
-            CodeFold.FoldRange endingFold = findFoldEndingBeforeSuffixBreak(beforeLine, beforeChar);
-            if (endingFold != null) {
-                // Newlines inserted after the closing token on the fold end line belong outside
-                // the collapsed range. Shift only following ranges, and keep this fold's end line.
-                editor.codeFold.adjustFoldRangesForLineEdit(beforeLine + 1, 1);
-            } else {
-                editor.codeFold.adjustFoldRangesForLineEdit(beforeLine, 1);
-            }
-        }
-        editor.codeFold.refreshFoldRangesAroundRange(beforeLine, beforeLine + 1);
-        editor.post(() -> refreshFoldRangesAroundEdit(beforeLine));
-    }
-
-    private CodeFold.FoldRange findFoldEndingBeforeSuffixBreak(int beforeLine, int beforeChar) {
-        if (!editor.codeFold.isCodeFoldingEnabled) return null;
-        CodeFold.FoldRange range = editor.codeFold.getFoldRangeEndingAtLine(beforeLine);
-        if (range == null) return null;
-        String endText = getFoldEndLineText(range);
-        if (endText == null) endText = "";
-        int closeIdx = editor.codeFold.resolveCloseCharIndex(range, endText);
-        if (closeIdx < 0) closeIdx = range.closeCharIndex;
-        if (closeIdx < 0) return null;
-        int closeEnd = closeIdx + (range.isBlockComment ? 2 : (range.isIndentFold ? 0 : 1));
-        if (beforeChar >= closeEnd) {
-            return range;
-        }
-        return null;
-    }
-
-    private String getFoldEndLineText(CodeFold.FoldRange fold) {
-        String endText = editor.windowRender.getLineTextForRender(fold.endLine);
-        if (endText == null || endText.isEmpty()) {
-            String fallback = editor.codeFold.utils.getEndLineTextForFold(fold);
-            if (fallback != null) {
-                endText = fallback;
-            }
-        }
-        return endText;
-    }
-
-	    private String getEditableLineText(int line) {
-	        String text = editor.windowRender.getLineTextForRender(line);
-        if (text == null || text.isEmpty()) {
-            CodeFold.FoldRange hidden = editor.codeFold.getCollapsedRangeContainingLine(line);
-            if (hidden != null && hidden.endLine == line) {
-                long startMs = android.os.SystemClock.uptimeMillis();
-                String fallback = editor.codeFold.utils.getEndLineTextForFold(hidden);
-                if (fallback != null) {
-                    text = fallback;
-                }
-            }
-        }
-	        return text;
-	    }
 
     private String getDirectEditableLineText(int line) {
         if (line < 0) return null;
@@ -789,120 +486,6 @@ public class EditorActions {
         return direct.containsKey(line) ? direct.get(line) : null;
     }
 
-	    private CodeFold.FoldRange getHiddenCollapsedFoldForCursor() {
-        if (!editor.codeFold.isCodeFoldingEnabled) return null;
-        return editor.codeFold.getCollapsedRangeContainingLine(editor.cursor.cursorLine);
-    }
-
-    private boolean deleteCollapsedFoldIfDeletingClosingToken(boolean forwardDelete) {
-        if (!editor.codeFold.isCodeFoldingEnabled) return false;
-        CodeFold.FoldRange range = getCollapsedFoldAroundCursorForDelete();
-        if (range == null || !range.collapsed || range.isIndentFold) return false;
-
-        String endText = getFoldEndLineText(range);
-        if (endText == null) endText = "";
-        int closeIdx = editor.codeFold.resolveCloseCharIndex(range, endText);
-        if (closeIdx < 0) closeIdx = range.closeCharIndex;
-        if (closeIdx < 0) return false;
-        int closeLen = range.isBlockComment ? 2 : 1;
-        int closeEnd = Math.min(endText.length(), closeIdx + closeLen);
-        if (closeEnd <= closeIdx) return false;
-
-        int line = editor.cursor.cursorLine;
-        int ch = editor.cursor.cursorChar;
-        boolean touchesCloseToken =
-            forwardDelete
-                ? line == range.endLine && ch >= closeIdx && ch < closeEnd
-                : line == range.endLine && ch > closeIdx && ch <= closeEnd;
-        if (!touchesCloseToken) return false;
-
-        applyCollapsedFoldRangeDelete(range, closeEnd);
-        editor.codeFold.clearFoldRanges();
-        editor.cursorAnimation.snapToPosition(
-            editor.caret.getCaretDocumentX(), editor.caret.getCaretDocumentY());
-        editor.ime.updateImeSelection();
-        editor.cursor.invalidateCursorArea();
-        editor.invalidate();
-        return true;
-    }
-
-    private void applyCollapsedFoldRangeDelete(CodeFold.FoldRange range, int closeEnd) {
-        String startText = editor.windowRender.getLineTextForRender(range.startLine);
-        if (startText == null) startText = "";
-        String endText = getFoldEndLineText(range);
-        if (endText == null) endText = "";
-        int startIdx = Math.max(0, Math.min(range.openCharIndex, startText.length()));
-        int endIdx = Math.max(0, Math.min(closeEnd, endText.length()));
-        String merged = startText.substring(0, startIdx) + endText.substring(endIdx);
-        int removedLineCount = Math.max(0, range.endLine - range.startLine);
-
-        synchronized (editor.windowRender.linesWindow) {
-            int startLocal = range.startLine - editor.windowRender.windowStartLine;
-            int endLocal = range.endLine - editor.windowRender.windowStartLine;
-            if (startLocal >= 0 && startLocal < editor.windowRender.linesWindow.size()) {
-                editor.view.updateLocalLine(startLocal, merged);
-                int removeFrom = startLocal + 1;
-                int removeToExclusive =
-                    Math.min(
-                        editor.windowRender.linesWindow.size(),
-                        Math.max(removeFrom, endLocal + 1));
-                if (removeFrom < removeToExclusive) {
-                    editor.windowRender.linesWindow.subList(removeFrom, removeToExclusive).clear();
-                }
-            }
-        }
-
-        operators.shifter.shiftModifiedLines(range.startLine + 1, -removedLineCount);
-        editor.windowRender.modifiedLines.put(range.startLine, merged);
-        operators.lineCountDelta -= removedLineCount;
-        editor.cursor.cursorLine = range.startLine;
-        editor.cursor.cursorChar = startIdx;
-
-        String removedText = null;
-        if (removedLineCount <= 5000) {
-            removedText = editor.fileIO.readRangeText(range.startLine, startIdx, range.endLine, endIdx);
-            if (removedText != null && removedText.length() > EditOperators.UNDO_TEXT_LIMIT) {
-                removedText = null;
-            }
-        }
-
-        EditOp op = new EditOp();
-        op.startLine = range.startLine;
-        op.startChar = startIdx;
-        op.endLine = range.endLine;
-        op.endChar = endIdx;
-        op.removedText = removedText;
-        op.insertedText = "";
-        op.insertedEndLine = range.startLine;
-        op.insertedEndChar = startIdx;
-        op.cursorLineBefore = range.endLine;
-        op.cursorCharBefore = closeEnd;
-        op.cursorLineAfter = editor.cursor.cursorLine;
-        op.cursorCharAfter = editor.cursor.cursorChar;
-        op.timestamp = System.currentTimeMillis();
-        if (removedText == null) {
-            operators.recorder.recordEditNoUndo(op);
-        } else {
-            operators.recorder.recordEdit(op);
-        }
-
-        editor.highlite.invalidateHighlightCacheForLine(range.startLine);
-        editor.view.computeWidthForLine(range.startLine, merged);
-        editor.windowRender.recalculateMaxLineWidth();
-        editor.wordWrap.onLineCountChanged();
-        editor.lineNumber.invalidateLineNumberCache();
-        editor.loadingCircle.endLargeEditUi(false);
-    }
-
-    private CodeFold.FoldRange getCollapsedFoldAroundCursorForDelete() {
-        int line = editor.cursor.cursorLine;
-        CodeFold.FoldRange range = editor.codeFold.getCollapsedRangeEndingAtLine(line);
-        if (range != null) return range;
-        range = editor.codeFold.getCollapsedRangeContainingLine(line);
-        if (range != null) return range;
-        range = editor.codeFold.getFoldRangeAtStart(line);
-        return (range != null && range.collapsed) ? range : null;
-    }
 
     private String printableChar(char c) {
         if (c == '\n') return "\\n";
@@ -931,7 +514,6 @@ public class EditorActions {
         }
 
         if (editor.fileIO.sourceFile != null && !editor.fileIO.isFileCleared && operators.recorder.isLargePasteText(text)) {
-            handleCodeFoldBeforeEdit();
             editor.loadingCircle.beginLargeEditUiIfNeeded(true, editor.cursor.cursorLine, editor.cursor.cursorLine, true);
             EditOp.CursorTarget target = operators.recorder.computeCursorAfterInsert(editor.cursor.cursorLine, editor.cursor.cursorChar, text);
             operators.fileHandler.rewriteReplaceRangeAsync(operators.editVersion.incrementAndGet(), editor.fileIO.sourceFile, editor.cursor.cursorLine, editor.cursor.cursorChar, editor.cursor.cursorLine, editor.cursor.cursorChar, text, target, true);

@@ -59,7 +59,6 @@ public class BinaryFileFeaturePolicyGuardTest {
     assertTrue(body.contains("editor.errorUnderline.setErrorUnderlineEnabled(false)"));
     assertTrue(body.contains("editor.bracketMatchManager.setBracketMatchingEnabled(false)"));
     assertTrue(body.contains("editor.bracketGuides.setBracketGuidesEnabled(false)"));
-    assertTrue(body.contains("editor.codeFold.setCodeFoldingEnabled(false)"));
     assertTrue(body.contains("editor.indentGuides.setIndentGuidesEnabled(false)"));
     assertTrue(body.contains("editor.whitespaceGuides.setWhitespaceGuidesEnabled(false)"));
     assertTrue(body.contains("editor.autoCompletion.setAutoCompletionEnabled(false)"));

@@ -34,11 +34,6 @@ public class SelectionCutNoAutosaveGuardTest {
     String body = methodBody(src, "invalidateFoldStateForReplace(int startLine, int endLine)");
 
     assertTrue(
-        "BUG: cutting folded/bracketed lines must clear stale fold markers and fold ranges.",
-        body.contains("invalidateFoldRangesIntersectingRange(startLine, endLine)")
-            && body.contains("invalidateFoldRangesInRange(startLine, endLine)")
-            && body.contains("invalidateFoldCaches()"));
-    assertTrue(
         "BUG: cutting lines must invalidate bracket/highlight dependent caches.",
         body.contains("editor.highlite.invalidateHighlightEnsureRange()")
             && body.contains("editor.bracketGuides.invalidateBracketGuideCache(true)"));

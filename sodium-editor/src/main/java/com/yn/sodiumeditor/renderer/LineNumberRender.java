@@ -24,9 +24,9 @@ public class LineNumberRender {
 
     public void drawLineNumbersDirectUnwrapped(Canvas canvas, int firstIdx, int lastIdx, int firstLine, int lastLine) {
         float lineNumX = getLineNumXUnwrapped();
-        if (editor.codeFold.isCodeFoldingEnabled) {
+        if (false) {
             for (int v = firstIdx; v <= lastIdx; v++) {
-                int i = editor.codeFold.mapVisibleIndexToGlobal(v);
+                int i = v;
                 if (i == editor.cursor.cursorLine) continue;
                 drawSingleLineNumber(canvas, i + 1, lineNumX, v * editor.textRender.lineHeight - editor.scroll.scrollY);
             }
@@ -69,9 +69,8 @@ public class LineNumberRender {
 
     public float getLineNumXUnwrapped() {
         boolean rtl = editor.textRender.isRtl;
-        float markerW = editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.animation.foldMarkerGutterWidth : 0f;
-        return rtl ? lineNumber.getGutterStartX() + LineNumber.GUTTER_TEXT_PADDING + markerW
-                   : lineNumber.getGutterStartX() + lineNumber.lineNumbersGutterWidth - markerW - LineNumber.GUTTER_TEXT_PADDING;
+        return rtl ? lineNumber.getGutterStartX() + LineNumber.GUTTER_TEXT_PADDING
+                   : lineNumber.getGutterStartX() + lineNumber.lineNumbersGutterWidth - LineNumber.GUTTER_TEXT_PADDING;
     }
 
     public float getLineNumXWrapped() {

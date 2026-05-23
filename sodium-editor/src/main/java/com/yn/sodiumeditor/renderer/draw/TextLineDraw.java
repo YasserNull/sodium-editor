@@ -2,6 +2,7 @@ package com.yn.sodiumeditor.renderer.draw;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.util.Log;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.TextRender;
@@ -16,8 +17,10 @@ import java.util.List;
  * - Drawing delete animations
  */
 public class TextLineDraw {
+    private static final String TAG = "SodiumCharAnim";
 
     private final SodiumEditor editor;
+    private int charFadeDrawLogCount = 0;
 
     public TextLineDraw(SodiumEditor editor) {
         this.editor = editor;
@@ -91,10 +94,17 @@ public class TextLineDraw {
         int fadeSegStart = Math.max(start, fadeStart);
         int fadeSegEnd = Math.min(end, fadeEnd);
         if (fadeSegStart < fadeSegEnd) {
+            logCharFadeDraw(line, fadeSegStart, fadeSegEnd, fadeAlpha, currentX, y, false);
             editor.charAnimation.charAnimTmpPaint.set(segmentPaint);
             int baseAlpha = segmentPaint.getAlpha();
             editor.charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))));
-            canvas.drawText(line, fadeSegStart, fadeSegEnd, currentX, y, editor.charAnimation.charAnimTmpPaint);
+            canvas.drawText(
+                    line,
+                    fadeSegStart,
+                    fadeSegEnd,
+                    currentX,
+                    y + getCharAnimOffsetY(fadeAlpha, segmentPaint),
+                    editor.charAnimation.charAnimTmpPaint);
             currentX += segmentPaint.measureText(line, fadeSegStart, fadeSegEnd);
         }
 
@@ -232,11 +242,14 @@ public class TextLineDraw {
         if (start >= end) return 0f;
 
         Paint drawPaint = segmentPaint;
+        float drawY = y;
         if (alphaMultiplier < 1f) {
+          logCharFadeDraw(line, start, end, alphaMultiplier, x, y, true);
           editor.charAnimation.charAnimTmpPaint.set(segmentPaint);
           int baseAlpha = segmentPaint.getAlpha();
           editor.charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, alphaMultiplier))));
           drawPaint = editor.charAnimation.charAnimTmpPaint;
+          drawY = y + getCharAnimOffsetY(alphaMultiplier, segmentPaint);
         }
 
         int len = end - start;
@@ -256,7 +269,7 @@ public class TextLineDraw {
           boolean isVirtualSpace = (c == ' ' || c == '\t');
           if (isVirtualSpace) {
             if (runStart < charIndex) {
-              canvas.drawText(line, runStart, charIndex, runX, y, drawPaint);
+              canvas.drawText(line, runStart, charIndex, runX, drawY, drawPaint);
             }
             currentX += adv;
             runStart = charIndex + 1;
@@ -267,9 +280,42 @@ public class TextLineDraw {
         }
 
         if (runStart < end) {
-          canvas.drawText(line, runStart, end, runX, y, drawPaint);
+          canvas.drawText(line, runStart, end, runX, drawY, drawPaint);
         }
         return currentX - x;
+    }
+
+    private float getCharAnimOffsetY(float alpha, Paint paint) {
+        float t = Math.max(0f, Math.min(1f, alpha));
+        return (1f - t) * paint.getTextSize() * 0.35f;
+    }
+
+    private void logCharFadeDraw(
+            String line, int start, int end, float alpha, float x, float y, boolean visualSpaces) {
+        if (charFadeDrawLogCount >= 80) return;
+        charFadeDrawLogCount++;
+        String text = "";
+        if (line != null && start >= 0 && end >= start && end <= line.length()) {
+            text = line.substring(start, end).replace("\n", "\\n").replace("\r", "\\r");
+            if (text.length() > 24) text = text.substring(0, 24) + "...";
+        }
+        Log.d(
+                TAG,
+                "draw fade segment start="
+                        + start
+                        + " end="
+                        + end
+                        + " alpha="
+                        + alpha
+                        + " x="
+                        + x
+                        + " y="
+                        + y
+                        + " visualSpaces="
+                        + visualSpaces
+                        + " text='"
+                        + text
+                        + "'");
     }
 
     /**

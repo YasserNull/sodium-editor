@@ -1,7 +1,6 @@
 package com.yn.sodiumeditor.core.guides.bracket; 
 
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.fold.CodeFold;
 import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.Nullable;
@@ -10,9 +9,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import android.util.SparseArray;
-
 /**
- * Caches bracket and quote positions for fast fold detection and bracket matching.
+ * Caches bracket and quote positions for bracket matching.
  * This avoids re-scanning the entire file on every edit.
  */
 public class BracketCache {
@@ -183,9 +181,6 @@ public class BracketCache {
             }
 
             if (myToken == scanToken && newCache.size() > 0) {
-                ConcurrentHashMap<Integer, CodeFold.FoldRange> newFoldRanges =
-                    buildFoldRangesFromCache(newCache);
-
                 final int finalVersion = cacheVersion;
                 editor.caret.mainHandler.post(() -> {
                     long dt = android.os.SystemClock.uptimeMillis() - startMs;
@@ -194,37 +189,6 @@ public class BracketCache {
 	                        for (int i = 0; i < newCache.size(); i++) {
 	                            lineCache.put(newCache.keyAt(i), newCache.valueAt(i));
 	                        }
-                            if (hasPendingInMemoryEdits()) {
-                                CodeFold.log("scanFileAsync skipped foldRanges replace because memory edits are pending"
-                                        + " newRanges=" + newFoldRanges.size()
-                                        + " currentRanges=" + editor.codeFold.foldRanges.size()
-                                        + " lineDelta=" + editor.editOperators.lineCountDelta
-                                        + " modifiedLines=" + editor.windowRender.modifiedLines.size());
-                                editor.codeFold.invalidateFoldCaches();
-                                isScanning = false;
-                                editor.invalidate();
-                                if (onComplete != null) onComplete.run();
-                                return;
-                            }
-	                        ConcurrentHashMap<Integer, CodeFold.FoldRange> previousRanges =
-	                            new ConcurrentHashMap<>(editor.codeFold.foldRanges);
-	                        for (CodeFold.FoldRange range : newFoldRanges.values()) {
-	                            CodeFold.FoldRange old = previousRanges.get(range.startLine);
-	                            if (old != null
-	                                    && old.endLine == range.endLine
-	                                    && old.openCharIndex == range.openCharIndex
-	                                    && old.openChar == range.openChar
-	                                    && old.closeChar == range.closeChar
-	                                    && old.isBlockComment == range.isBlockComment
-	                                    && old.isIndentFold == range.isIndentFold) {
-	                                range.collapsed = old.collapsed;
-	                            }
-	                        }
-	                        editor.codeFold.foldRanges.clear();
-	                        if (editor.codeFold.isCodeFoldingEnabled) {
-	                            editor.codeFold.foldRanges.putAll(newFoldRanges);
-	                        }
-                        editor.codeFold.invalidateFoldCaches();
                         isScanning = false;
                         editor.invalidate();
                     }
@@ -249,93 +213,18 @@ public class BracketCache {
         scanFileAsync();
     }
 
-    /**
-     * Rebuild fold ranges in background thread using efficient O(N) stack-based matching.
-     */
-    private ConcurrentHashMap<Integer, CodeFold.FoldRange> buildFoldRangesFromCache(
-        SparseArray<LineBracketInfo> cache) {
-        ConcurrentHashMap<Integer, CodeFold.FoldRange> ranges = new ConcurrentHashMap<>();
-
-	        // Use one stack so cross-type nesting cannot create false fold pairs.
-	        java.util.ArrayDeque<BracketPosition> bracketStack = new java.util.ArrayDeque<>();
-	        BracketPosition blockCommentStart = null;
-
-        int totalLines = cache.size();
-        for (int i = 0; i < totalLines; i++) {
-            int lineNum = cache.keyAt(i);
-            LineBracketInfo info = cache.valueAt(i);
-            if (info == null) continue;
-            
-            for (BracketPosition bp : info.brackets) {
-	                if (bp.isOpening) {
-	                    bracketStack.push(bp);
-	                } else if (!bracketStack.isEmpty()) {
-	                    BracketPosition open = bracketStack.peek();
-	                    if (BracketPosition.getMatchingBracket(open.bracket) == bp.bracket) {
-	                        bracketStack.pop();
-	                        if (lineNum > open.line) {
-	                            CodeFold.FoldRange range =
-	                                new CodeFold.FoldRange(
-	                                    open.line,
-	                                    lineNum,
-	                                    open.column,
-	                                    open.bracket,
-	                                    bp.bracket,
-	                                    bp.column,
-	                                    false,
-	                                    false);
-	                            ranges.put(open.line, range);
-	                        }
-	                    }
-	                }
-	            }
-
-	            if (info.blockCommentStartColumn >= 0) {
-	                blockCommentStart = new BracketPosition(lineNum, info.blockCommentStartColumn, '/');
-	            }
-	            if (blockCommentStart != null && info.blockCommentEndColumn >= 0 && lineNum > blockCommentStart.line) {
-	                CodeFold.FoldRange range =
-	                    new CodeFold.FoldRange(
-	                        blockCommentStart.line,
-	                        lineNum,
-	                        blockCommentStart.column,
-	                        '/',
-	                        '/',
-	                        info.blockCommentEndColumn,
-	                        true,
-	                        false);
-	                ranges.putIfAbsent(blockCommentStart.line, range);
-	                blockCommentStart = null;
-	            }
-	        }
-	        if (editor.indentGuides.isIndentationBlocksEnabled) {
-	            addIndentFoldRanges(cache, ranges);
-	        }
-	        return ranges;
-	    }
-
     private void postScanComplete(@Nullable Runnable onComplete) {
         if (onComplete == null) return;
         mainHandler.post(onComplete);
     }
 
     /**
-     * Quick check if column is in string/comment using pre-parsed info.
+     * Invalidate cache for a specific line range.
      */
-    private boolean isInStringOrCommentQuick(LineBracketInfo info, int column) {
-        for (QuotePosition quote : info.quotes) {
-            if (column >= quote.startColumn && column <= quote.endColumn) {
-                return true;
-            }
+    public void invalidateLines(int startLine, int endLine) {
+        for (int i = startLine; i <= endLine; i++) {
+            lineCache.remove(i);
         }
-        return info.isInBlockComment;
-    }
-
-    /**
-     * Parse a single line for brackets and quotes.
-     */
-    public LineBracketInfo parseLine(int lineNum, String line, boolean startInBlockComment, int startStringState) {
-        return parseLineInternal(lineNum, line, startInBlockComment, startStringState, (char) 0, false);
     }
 
     private LineBracketInfo parseLineInternal(
@@ -487,74 +376,6 @@ public class BracketCache {
                 && line.charAt(index) == '/'
                 && line.charAt(index + 1) == '/'
                 && !isEscaped(line, index);
-    }
-
-    private void addIndentFoldRanges(
-            SparseArray<LineBracketInfo> cache, ConcurrentHashMap<Integer, CodeFold.FoldRange> ranges) {
-        int total = cache.size();
-        for (int i = 0; i < total; i++) {
-            int lineNum = cache.keyAt(i);
-            LineBracketInfo info = cache.valueAt(i);
-            if (info == null || info.isInBlockComment || info.stringState != 0) continue;
-            String line = info.text;
-            String trimmed = rstripWhitespace(line);
-            if (!isIndentFoldCandidate(trimmed)) continue;
-            int baseIndent = getIndentWidth(line);
-            int endLine = -1;
-            for (int j = i + 1; j < total; j++) {
-                LineBracketInfo nextInfo = cache.valueAt(j);
-                if (nextInfo == null) break;
-                String next = nextInfo.text;
-                String nextTrimmed = rstripWhitespace(next);
-                if (nextTrimmed.isEmpty()) continue;
-                if (getIndentWidth(next) <= baseIndent) break;
-                endLine = cache.keyAt(j);
-            }
-            if (endLine > lineNum) {
-                int openIdx = Math.max(0, trimmed.length() - 1);
-                ranges.putIfAbsent(
-                        lineNum,
-                        new CodeFold.FoldRange(lineNum, endLine, openIdx, ':', ':', -1, false, true));
-            }
-        }
-    }
-
-    private boolean isIndentFoldCandidate(String trimmed) {
-        if (trimmed == null || trimmed.length() < 2 || !trimmed.endsWith(":")) return false;
-        char beforeColon = trimmed.charAt(trimmed.length() - 2);
-        return beforeColon != '}' && beforeColon != ']' && beforeColon != ')';
-    }
-
-    private int getIndentWidth(String line) {
-        if (line == null) return 0;
-        int count = 0;
-        for (int i = 0; i < line.length(); i++) {
-            char c = line.charAt(i);
-            if (c == ' ') count++;
-            else if (c == '\t') count += 4;
-            else break;
-        }
-        return count;
-    }
-
-    private String rstripWhitespace(String line) {
-        if (line == null || line.isEmpty()) return "";
-        int end = line.length();
-        while (end > 0 && Character.isWhitespace(line.charAt(end - 1))) end--;
-        return line.substring(0, end);
-    }
-
-    /**
-     * Invalidate cache for a specific line range.
-     */
-    public void invalidateLines(int startLine, int endLine) {
-        for (int i = startLine; i <= endLine; i++) {
-            lineCache.remove(i);
-        }
-	        // Also invalidate any folds that might be affected
-	        if (editor.codeFold.isCodeFoldingEnabled) {
-	            editor.codeFold.invalidateFoldRangesIntersectingRange(startLine, endLine);
-	        }
     }
 
     /**

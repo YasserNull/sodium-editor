@@ -39,7 +39,6 @@ public class BinaryRender {
     private boolean savedErrorUnderlineEnabled;
     private boolean savedBracketMatchingEnabled;
     private boolean savedBracketGuidesEnabled;
-    private boolean savedCodeFoldingEnabled;
     private boolean savedIndentGuidesEnabled;
     private boolean savedIndentationBlocksEnabled;
     private boolean savedWhitespaceGuidesEnabled;
@@ -94,9 +93,7 @@ public class BinaryRender {
             editor.errorUnderline.setErrorUnderlineEnabled(false);
             editor.bracketMatchManager.setBracketMatchingEnabled(false);
             editor.bracketGuides.setBracketGuidesEnabled(false);
-            editor.codeFold.setCodeFoldingEnabled(false);
             editor.indentGuides.setIndentGuidesEnabled(false);
-            editor.codeFold.setIndentationBlocksEnabled(false);
             editor.whitespaceGuides.setWhitespaceGuidesEnabled(false);
             editor.autoCompletion.setAutoCompletionEnabled(false);
             editor.autoPathCompletion.setAutoPathCompletionEnabled(false);
@@ -122,7 +119,6 @@ public class BinaryRender {
         savedErrorUnderlineEnabled = editor.errorUnderline.errorUnderlineEnabled;
         savedBracketMatchingEnabled = editor.bracketMatchManager.isBracketMatchingEnabled;
         savedBracketGuidesEnabled = editor.bracketGuides.isBracketGuidesEnabled;
-        savedCodeFoldingEnabled = editor.codeFold.isCodeFoldingEnabled;
         savedIndentGuidesEnabled = editor.indentGuides.isIndentGuidesEnabled;
         savedIndentationBlocksEnabled = editor.indentGuides.isIndentationBlocksEnabled;
         savedWhitespaceGuidesEnabled = editor.whitespaceGuides.isWhitespaceGuidesEnabled;
@@ -144,9 +140,7 @@ public class BinaryRender {
         editor.errorUnderline.setErrorUnderlineEnabled(savedErrorUnderlineEnabled);
         editor.bracketMatchManager.setBracketMatchingEnabled(savedBracketMatchingEnabled);
         editor.bracketGuides.setBracketGuidesEnabled(savedBracketGuidesEnabled);
-        editor.codeFold.setCodeFoldingEnabled(savedCodeFoldingEnabled);
         editor.indentGuides.setIndentGuidesEnabled(savedIndentGuidesEnabled);
-        editor.codeFold.setIndentationBlocksEnabled(savedIndentationBlocksEnabled);
         editor.whitespaceGuides.setWhitespaceGuidesEnabled(savedWhitespaceGuidesEnabled);
         editor.autoCompletion.setAutoCompletionEnabled(savedAutoCompletionEnabled);
         editor.autoPathCompletion.setAutoPathCompletionEnabled(savedAutoPathCompletionEnabled);

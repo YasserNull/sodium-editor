@@ -1,6 +1,5 @@
 package com.yn.sodiumeditor.core.features; 
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.fold.CodeFold;
 import java.util.HashMap;
 /**
  * Manages the click-after-end-to-add-line functionality for the SodiumEditor.
@@ -68,7 +67,7 @@ public class ClickAfterEndToAddLine {
     int totalVisible =
         editor.wordWrap.isWordWrapEnabled
             ? editor.wordWrap.getTotalVisualLineCount()
-            : editor.codeFold.getVisibleLineCount();
+            : Math.max(1, editor.view.getLinesCount());
     moveCursorToEndOfLastLine(getLastVisibleContentLine(totalVisible));
   }
 
@@ -76,7 +75,7 @@ public class ClickAfterEndToAddLine {
     int lastVisibleIndex = Math.max(0, totalVisible - 1);
     while (lastVisibleIndex > 0) {
       int line = mapVisibleIndexToLine(lastVisibleIndex);
-      if (!getLineTextForAfterEnd(line).isEmpty() || isCollapsedFoldStart(line)) {
+      if (!getLineTextForAfterEnd(line).isEmpty()) {
         return line;
       }
       lastVisibleIndex--;
@@ -88,13 +87,7 @@ public class ClickAfterEndToAddLine {
     if (editor.wordWrap.isWordWrapEnabled) {
       return editor.wordWrap.getVisualPositionForIndex(visibleIndex).line;
     }
-    return editor.codeFold.mapVisibleIndexToGlobal(visibleIndex);
-  }
-
-  private boolean isCollapsedFoldStart(int line) {
-    CodeFold.FoldRange range =
-        editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.getFoldRangeAtStart(line) : null;
-    return range != null && range.collapsed;
+    return visibleIndex;
   }
 
   private String getLineTextForAfterEnd(int line) {
@@ -110,24 +103,6 @@ public class ClickAfterEndToAddLine {
   private void moveCursorToEndOfLastLine(int lastLineIndex) {
     int line = Math.max(0, lastLineIndex);
     String lastLineText = editor.windowRender.getLineTextForRender(line);
-    CodeFold.FoldRange hidden =
-        editor.codeFold.isCodeFoldingEnabled
-            ? editor.codeFold.getCollapsedRangeContainingLine(line)
-            : null;
-    if (hidden != null && hidden.collapsed) {
-      line = hidden.endLine;
-      String endText = editor.codeFold.utils.getEndLineTextForFold(hidden);
-      if (endText != null) {
-        lastLineText = endText;
-      }
-    }
-    if ((lastLineText == null || lastLineText.isEmpty()) && editor.codeFold.isCodeFoldingEnabled) {
-      CodeFold.FoldRange endingFold = editor.codeFold.getCollapsedRangeEndingAtLine(line);
-      if (endingFold != null) {
-        String endText = editor.codeFold.utils.getEndLineTextForFold(endingFold);
-        if (endText != null) lastLineText = endText;
-      }
-    }
     if (lastLineText == null) lastLineText = "";
     editor.cursor.cursorLine = line;
     editor.cursor.cursorChar = lastLineText.length();

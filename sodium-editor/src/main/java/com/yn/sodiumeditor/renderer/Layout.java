@@ -53,7 +53,6 @@ public class Layout {
     if (Direction == isRtl) return;
     isRtl = Direction;
     editor.lineNumber.lineNumbersPaint.setTextAlign(editor.textRender.isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
-    editor.codeFold.animation.foldMarkerPaint.setTextAlign(editor.textRender.isRtl ? Paint.Align.LEFT : Paint.Align.RIGHT);
     editor.lineNumber.invalidateLineNumberCache();
     editor.requestLayout();
     if (editor.wordWrap.isWordWrapEnabled) editor.wordWrap.invalidateWrapMetrics(true);

@@ -273,11 +273,11 @@ public float baseCursorWidthPx = cursorWidth;
       editor.cursor.cursorChar = sC;
     }
 
-    if (editor.codeFold.isCodeFoldingEnabled && !editor.wordWrap.isWordWrapEnabled) {
-      int visible = editor.codeFold.getVisibleIndexForGlobalLine(editor.cursor.cursorLine);
+    if (false && !editor.wordWrap.isWordWrapEnabled) {
+      int visible = editor.cursor.cursorLine;
       int targetVisible = visible - 1;
       if (targetVisible >= 0) {
-        int targetLine = editor.codeFold.mapVisibleIndexToGlobal(targetVisible);
+        int targetLine = targetVisible;
         editor.cursor.cursorLine = targetLine;
         editor.fileIO.ensureLineInWindow(targetLine, true);
         String ln = editor.windowRender.getLineTextForRender(targetLine);
@@ -317,11 +317,11 @@ public float baseCursorWidthPx = cursorWidth;
       editor.cursor.cursorChar = eC;
     }
 
-    if (editor.codeFold.isCodeFoldingEnabled && !editor.wordWrap.isWordWrapEnabled) {
-      int visible = editor.codeFold.getVisibleIndexForGlobalLine(editor.cursor.cursorLine);
+    if (false && !editor.wordWrap.isWordWrapEnabled) {
+      int visible = editor.cursor.cursorLine;
       int targetVisible = visible + 1;
-      if (targetVisible < editor.codeFold.getVisibleLineCount()) {
-        int targetLine = editor.codeFold.mapVisibleIndexToGlobal(targetVisible);
+      if (targetVisible < Math.max(1, editor.view.getLinesCount())) {
+        int targetLine = targetVisible;
         editor.cursor.cursorLine = targetLine;
         editor.fileIO.ensureLineInWindow(targetLine, true);
         String ln = editor.windowRender.getLineTextForRender(targetLine);
@@ -420,7 +420,7 @@ public float baseCursorWidthPx = cursorWidth;
       editor.invalidate();
       return;
     }
-    int idx = editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.getVisibleIndexForGlobalLine(cursorLine) : cursorLine;
+    int idx = false ? cursorLine : cursorLine;
     float top = (idx * editor.textRender.lineHeight) - editor.scroll.scrollY;
     Rect dirty = new Rect(
             0,

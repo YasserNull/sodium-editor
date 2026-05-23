@@ -1,13 +1,10 @@
 package com.yn.sodiumeditor.renderer.animation; 
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.graphics.Paint;
-import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.view.View;
+import android.util.Log;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 /**
@@ -15,12 +12,14 @@ import com.yn.sodiumeditor.SodiumEditor;
  * Handles animations for typed characters and deleted characters.
  */
 public class CharAnimation {
+  private static final String TAG = "SodiumCharAnim";
+  private static final boolean DEBUG_LOGS = true;
 
   // Animation configuration
-  public boolean isCharAnimationEnabled = false;
-  public int charAnimationDurationMs = 200;
-  public int charAnimFastDurationMs = 60;
-  public long charAnimFastThresholdMs = 80;
+  public boolean isCharAnimationEnabled = true;
+  public int charAnimationDurationMs = 280;
+  public int charAnimFastDurationMs = 160;
+  public long charAnimFastThresholdMs = 70;
 
   // Typed character animation state
   public long lastCharAnimUptime = 0L;
@@ -29,6 +28,7 @@ public class CharAnimation {
   public int charAnimEndChar = 0;
   public float charAnimAlpha = 0f;
   @Nullable public ValueAnimator charAnimAnimator;
+  private int charAnimToken = 0;
   public final Paint charAnimTmpPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
   // Deleted character animation state
@@ -38,6 +38,7 @@ public class CharAnimation {
   @Nullable public Paint delAnimPaint;
   public float delAnimAlpha = 0f;
   @Nullable public ValueAnimator delAnimAnimator;
+  private int delAnimToken = 0;
 
   // Reference to parent editor
   private final SodiumEditor editor;
@@ -85,11 +86,24 @@ public class CharAnimation {
    * @param committedText The text that was committed
    */
   public void startCharAnimationFromText(CharSequence committedText) {
-    if (!isCharAnimationEnabled) return;
-    if (committedText == null) return;
+    if (!isCharAnimationEnabled) {
+      log("skip start: disabled");
+      return;
+    }
+    if (committedText == null) {
+      log("skip start: committedText=null");
+      return;
+    }
 
     final int targetLine = editor.cursor.cursorLine;
     final int targetEndChar = editor.cursor.cursorChar;
+    log(
+        "request start text='"
+            + summarize(committedText)
+            + "' cursor="
+            + targetLine
+            + ":"
+            + targetEndChar);
 
     // Extract the last non-whitespace code point from the committed text
     int extractedCodePoint = -1;
@@ -106,7 +120,10 @@ public class CharAnimation {
       extractedCharCount = Character.charCount(codePoint);
       break;
     }
-    if (extractedCodePoint == -1) return;
+    if (extractedCodePoint == -1) {
+      log("skip start: no non-whitespace codepoint text='" + summarize(committedText) + "'");
+      return;
+    }
 
     final int finalCharCount = extractedCharCount;
     long now = SystemClock.uptimeMillis();
@@ -123,38 +140,75 @@ public class CharAnimation {
           // Cancel any existing animations
           if (delAnimAnimator != null) delAnimAnimator.cancel();
           if (charAnimAnimator != null) charAnimAnimator.cancel();
+          delAnimToken++;
+          delAnimAlpha = 0f;
+          delAnimLine = -1;
+          delAnimAtChar = 0;
+          delAnimText = null;
+          delAnimPaint = null;
+          final int token = ++charAnimToken;
           
           charAnimLine = targetLine;
           charAnimEndChar = Math.max(0, targetEndChar);
           charAnimStartChar = Math.max(0, charAnimEndChar - finalCharCount);
-          charAnimAlpha = 0.2f;
-          editor.view.invalidateLineGlobal(charAnimLine);
+          charAnimAlpha = 0f;
+          log(
+              "start char line="
+                  + charAnimLine
+                  + " range="
+                  + charAnimStartChar
+                  + ".."
+                  + charAnimEndChar
+                  + " duration="
+                  + animDuration
+                  + "ms"
+                  + " delta="
+                  + delta
+                  + "ms"
+                  + " token="
+                  + token);
+          editor.invalidate();
 
-          charAnimAnimator = ValueAnimator.ofFloat(0.2f, 1f);
-          charAnimAnimator.setDuration(animDuration);
-          charAnimAnimator.addUpdateListener(
-              a -> {
-                Object v = a.getAnimatedValue();
-                charAnimAlpha = (v instanceof Float) ? (Float) v : 0f;
-                editor.view.invalidateLineGlobal(charAnimLine);
-              });
-          charAnimAnimator.addListener(
-              new AnimatorListenerAdapter() {
+          final long startUptime = SystemClock.uptimeMillis();
+          final long[] lastFrameLog = new long[] {0L};
+          Runnable step =
+              new Runnable() {
                 @Override
-                public void onAnimationEnd(Animator animation) {
+                public void run() {
+                  if (token != charAnimToken || charAnimLine < 0) return;
+                  float t =
+                      Math.max(
+                          0f,
+                          Math.min(
+                              1f,
+                              (float) (SystemClock.uptimeMillis() - startUptime)
+                                  / (float) animDuration));
+                  charAnimAlpha = t;
+                  long now = SystemClock.uptimeMillis();
+                  if (lastFrameLog[0] == 0L || now - lastFrameLog[0] >= 80L || t >= 1f) {
+                    lastFrameLog[0] = now;
+                    log(
+                        "frame char line="
+                            + charAnimLine
+                            + " alpha="
+                            + charAnimAlpha
+                            + " t="
+                            + t
+                            + " token="
+                            + token);
+                  }
+                  editor.invalidate();
+                  if (t < 1f) {
+                    editor.postOnAnimation(this);
+                    return;
+                  }
                   charAnimAlpha = 0f;
                   charAnimLine = -1;
+                  log("end char token=" + token);
                   editor.invalidate();
                 }
-
-                @Override
-                public void onAnimationCancel(Animator animation) {
-                  charAnimAlpha = 0f;
-                  charAnimLine = -1;
-                  editor.invalidate();
-                }
-              });
-          charAnimAnimator.start();
+              };
+          editor.postOnAnimation(step);
         };
     
     if (Looper.myLooper() == Looper.getMainLooper()) {
@@ -173,8 +227,14 @@ public class CharAnimation {
    */
   public void startDeleteAnimation(
       int targetLine, int atChar, @Nullable String removedText, @Nullable Paint paintToUse) {
-    if (!isCharAnimationEnabled) return;
-    if (removedText == null || removedText.isEmpty()) return;
+    if (!isCharAnimationEnabled) {
+      log("skip delete: disabled");
+      return;
+    }
+    if (removedText == null || removedText.isEmpty()) {
+      log("skip delete: removedText empty");
+      return;
+    }
 
     final int lineForAnim = targetLine;
     final int atForAnim = Math.max(0, atChar);
@@ -195,45 +255,60 @@ public class CharAnimation {
           // Cancel any existing animations
           if (charAnimAnimator != null) charAnimAnimator.cancel();
           if (delAnimAnimator != null) delAnimAnimator.cancel();
+          charAnimToken++;
+          charAnimAlpha = 0f;
+          charAnimLine = -1;
+          charAnimStartChar = 0;
+          charAnimEndChar = 0;
+          final int token = ++delAnimToken;
           
           delAnimLine = lineForAnim;
           delAnimAtChar = atForAnim;
           delAnimText = textForAnim;
           delAnimPaint = p;
           delAnimAlpha = 1f;
-          editor.view.invalidateLineGlobal(lineForAnim);
+          log(
+              "start delete line="
+                  + delAnimLine
+                  + " at="
+                  + delAnimAtChar
+                  + " text='"
+                  + summarize(textForAnim)
+                  + "' duration="
+                  + animDuration
+                  + "ms token="
+                  + token);
+          editor.invalidate();
 
-          delAnimAnimator = ValueAnimator.ofFloat(1f, 0f);
-          delAnimAnimator.setDuration(animDuration);
-          delAnimAnimator.addUpdateListener(
-              a -> {
-                Object v = a.getAnimatedValue();
-                delAnimAlpha = (v instanceof Float) ? (Float) v : 0f;
-                editor.view.invalidateLineGlobal(lineForAnim);
-              });
-          delAnimAnimator.addListener(
-              new AnimatorListenerAdapter() {
+          final long startUptime = SystemClock.uptimeMillis();
+          Runnable step =
+              new Runnable() {
                 @Override
-                public void onAnimationEnd(Animator animation) {
+                public void run() {
+                  if (token != delAnimToken || delAnimLine < 0) return;
+                  float t =
+                      Math.max(
+                          0f,
+                          Math.min(
+                              1f,
+                              (float) (SystemClock.uptimeMillis() - startUptime)
+                                  / (float) animDuration));
+                  delAnimAlpha = 1f - t;
+                  editor.invalidate();
+                  if (t < 1f) {
+                    editor.postOnAnimation(this);
+                    return;
+                  }
                   delAnimAlpha = 0f;
                   delAnimLine = -1;
                   delAnimAtChar = 0;
                   delAnimText = null;
                   delAnimPaint = null;
+                  log("end delete token=" + token);
                   editor.invalidate();
                 }
-
-                @Override
-                public void onAnimationCancel(Animator animation) {
-                  delAnimAlpha = 0f;
-                  delAnimLine = -1;
-                  delAnimAtChar = 0;
-                  delAnimText = null;
-                  delAnimPaint = null;
-                  editor.invalidate();
-                }
-              });
-          delAnimAnimator.start();
+              };
+          editor.postOnAnimation(step);
         };
 
     if (Looper.myLooper() == Looper.getMainLooper()) {
@@ -251,6 +326,7 @@ public class CharAnimation {
       charAnimAnimator.cancel();
       charAnimAnimator = null;
     }
+    charAnimToken++;
     charAnimAlpha = 0f;
     charAnimLine = -1;
     charAnimStartChar = 0;
@@ -260,6 +336,7 @@ public class CharAnimation {
       delAnimAnimator.cancel();
       delAnimAnimator = null;
     }
+    delAnimToken++;
     delAnimAlpha = 0f;
     delAnimLine = -1;
     delAnimAtChar = 0;
@@ -275,6 +352,7 @@ public class CharAnimation {
       charAnimAnimator.cancel();
       charAnimAnimator = null;
     }
+    charAnimToken++;
     charAnimAlpha = 0f;
     charAnimLine = -1;
     charAnimStartChar = 0;
@@ -289,6 +367,7 @@ public class CharAnimation {
       delAnimAnimator.cancel();
       delAnimAnimator = null;
     }
+    delAnimToken++;
     delAnimAlpha = 0f;
     delAnimLine = -1;
     delAnimAtChar = 0;
@@ -301,7 +380,7 @@ public class CharAnimation {
    * @return true if running
    */
   public boolean isCharAnimationRunning() {
-    return charAnimAnimator != null && charAnimAlpha > 0f;
+    return charAnimLine >= 0 && charAnimAlpha > 0f;
   }
 
   /**
@@ -309,7 +388,7 @@ public class CharAnimation {
    * @return true if running
    */
   public boolean isDeleteAnimationRunning() {
-    return delAnimAnimator != null && delAnimAlpha > 0f;
+    return delAnimLine >= 0 && delAnimAlpha > 0f;
   }
 
   /**
@@ -342,5 +421,15 @@ public class CharAnimation {
    */
   public int getDelAnimLine() {
     return delAnimLine;
+  }
+
+  private static void log(String message) {
+    if (DEBUG_LOGS) Log.d(TAG, message);
+  }
+
+  private static String summarize(CharSequence text) {
+    if (text == null) return "null";
+    String s = text.toString().replace("\n", "\\n").replace("\r", "\\r");
+    return s.length() > 24 ? s.substring(0, 24) + "..." : s;
   }
 }

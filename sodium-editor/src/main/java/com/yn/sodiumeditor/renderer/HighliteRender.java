@@ -4,6 +4,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.Typeface;
+import android.util.Log;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import java.util.ArrayList;
@@ -15,8 +16,10 @@ import java.util.regex.Pattern;
  * HighliteRender handles syntax highlighting rendering logic for SodiumEditor.
  */
 public class HighliteRender {
+    private static final String CHAR_ANIM_TAG = "SodiumCharAnim";
 
     private final SodiumEditor editor;
+    private int charAnimRenderLogCount = 0;
     
     // Moved from TextRender
     public final RectF binaryTokenRect = new RectF();
@@ -166,8 +169,27 @@ public class HighliteRender {
      * Draw a highlighted line with syntax highlighting, underlines, and animations
      */
     public void drawHighlightedLine(Canvas canvas, String line, int globalLine, float y) {
+        boolean tracingCharAnimLine = isTracingCharAnimLine(globalLine);
+        if (tracingCharAnimLine) {
+            logCharAnimRender(
+                    "enter drawHighlightedLine line="
+                            + globalLine
+                            + " textLen="
+                            + (line == null ? -1 : line.length())
+                            + " animRange="
+                            + editor.charAnimation.charAnimStartChar
+                            + ".."
+                            + editor.charAnimation.charAnimEndChar
+                            + " alpha="
+                            + editor.charAnimation.charAnimAlpha
+                            + " binary="
+                            + editor.binaryRender.isBinarySafeRenderingEnabled()
+                            + " rules="
+                            + editor.highlite.highlightRules.size());
+        }
         // Fast path for binary rendering - completely bypass normal highlighting
         if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
+            if (tracingCharAnimLine) logCharAnimRender("render branch=binary-safe bypasses char fade");
             editor.textRender.getVisibleCharRangeForLine(line, globalLine, editor.textRender.visibleCharRangeTmp);
             int visibleStart = editor.textRender.visibleCharRangeTmp[0];
             int visibleEnd   = editor.textRender.visibleCharRangeTmp[1];
@@ -192,6 +214,7 @@ public class HighliteRender {
             return;
         }
         if (line.isEmpty()) {
+            if (tracingCharAnimLine) logCharAnimRender("render branch=empty-line return");
             // Avoid drawing delete-animation ghosts on fully empty lines.
             return;
         }
@@ -201,9 +224,23 @@ public class HighliteRender {
         int visibleStart = editor.textRender.visibleCharRangeTmp[0];
         int visibleEnd = editor.textRender.visibleCharRangeTmp[1];
         int len = editor.view.getLogicalLineLength(globalLine, line);
+        if (tracingCharAnimLine) {
+            logCharAnimRender(
+                    "visible line="
+                            + globalLine
+                            + " visible="
+                            + visibleStart
+                            + ".."
+                            + visibleEnd
+                            + " logicalLen="
+                            + len
+                            + " maxSyntax="
+                            + maxSyntaxLineLength);
+        }
 
         // Handle lines exceeding max syntax length
         if (len > maxSyntaxLineLength) {
+            if (tracingCharAnimLine) logCharAnimRender("render branch=max-syntax bypasses char fade");
             if (visibleEnd > visibleStart) {
                 int sliceStart = editor.windowRender.getStreamedLineSliceStart(globalLine);
                 int sliceEnd = sliceStart + line.length();
@@ -220,6 +257,7 @@ public class HighliteRender {
 
         // Handle partial visibility
         if (visibleStart > 0 || visibleEnd < len) {
+            if (tracingCharAnimLine) logCharAnimRender("render branch=partial-visible range draw");
             drawHighlightedLineRange(canvas, line, globalLine, visibleStart, visibleEnd, y);
             return;
         }
@@ -233,12 +271,22 @@ public class HighliteRender {
                         && editor.charAnimation.delAnimText != null
                         && !editor.charAnimation.delAnimText.isEmpty()
                         && editor.charAnimation.delAnimAlpha > 0f;
+        if (tracingCharAnimLine) {
+            logCharAnimRender(
+                    "fade state hasCharFade="
+                            + hasCharFade
+                            + " hasDeleteGhost="
+                            + hasDeleteGhost
+                            + " alpha="
+                            + editor.charAnimation.charAnimAlpha);
+        }
         if (editor.highlite.highlightRules.isEmpty()
                 && !editor.urlUnderline.isUrlUnderliningActive()
                 && !editor.pathUnderline.isPathUnderliningActive()
                 && !editor.errorUnderline.errorUnderlineEnabled
                 && !hasCharFade
                 && !hasDeleteGhost) {
+            if (tracingCharAnimLine) logCharAnimRender("render branch=plain-fast no fade");
             canvas.drawText(line, 0, line.length(), 0f, y, editor.textRender.paint);
             return;
         }
@@ -271,12 +319,24 @@ public class HighliteRender {
                 fadeEnd = -1;
             }
         }
+        if (tracingCharAnimLine) {
+            logCharAnimRender(
+                    "fade computed start="
+                            + fadeStart
+                            + " end="
+                            + fadeEnd
+                            + " alpha="
+                            + fadeAlpha
+                            + " lineLen="
+                            + line.length());
+        }
 
         float lineTop = editor.textRender.getDrawLineTop(globalLine);
         float lineBottom = lineTop + editor.textRender.lineHeight;
 
         // Draw with or without syntax highlighting
         if (editor.highlite.highlightRules.isEmpty()) {
+            if (tracingCharAnimLine) logCharAnimRender("render branch=no-highlight draw fadeStart=" + fadeStart + " fadeEnd=" + fadeEnd);
             editor.textRender.drawTextSegmentWithFadeAndUnderlines(
                     canvas, line, 0, line.length(), 0f, y, editor.textRender.paint,
                     fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
@@ -307,6 +367,7 @@ public class HighliteRender {
         }
 
         if (spans.isEmpty()) {
+            if (tracingCharAnimLine) logCharAnimRender("render branch=empty-spans draw fadeStart=" + fadeStart + " fadeEnd=" + fadeEnd);
             editor.textRender.drawTextSegmentWithFadeAndUnderlines(
                     canvas, line, 0, line.length(), 0f, y, editor.textRender.paint,
                     fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
@@ -329,6 +390,7 @@ public class HighliteRender {
         }
 
         // Draw with syntax highlighting
+        if (tracingCharAnimLine) logCharAnimRender("render branch=highlight spans=" + spans.size() + " fadeStart=" + fadeStart + " fadeEnd=" + fadeEnd);
         float currentX = 0f;
         int lastEnd = 0;
 
@@ -370,6 +432,18 @@ public class HighliteRender {
             canvas.drawText(editor.charAnimation.delAnimText, x, y, editor.charAnimation.charAnimTmpPaint);
         }
         editor.errorUnderline.drawErrorUnderlinesForLine(canvas, line, globalLine, y, lineTop, lineBottom);
+    }
+
+    private boolean isTracingCharAnimLine(int globalLine) {
+        return globalLine == editor.charAnimation.charAnimLine
+                && editor.charAnimation.charAnimEndChar > editor.charAnimation.charAnimStartChar
+                && editor.charAnimation.charAnimAlpha < 1f;
+    }
+
+    private void logCharAnimRender(String message) {
+        if (charAnimRenderLogCount >= 120) return;
+        charAnimRenderLogCount++;
+        Log.d(CHAR_ANIM_TAG, message);
     }
 
     private void drawUrlAndPathUnderlinesForBinaryLine(Canvas canvas, String line, int globalLine, float y) {

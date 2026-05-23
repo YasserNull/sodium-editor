@@ -27,7 +27,7 @@ public class ScrollBounds {
     public float getMaxScrollYForClamp() {
         if (editor.wordWrap.isWordWrapEnabled && !editor.wordWrap.wrapMetricsReady && (editor.zoom.isScaling || editor.zoom.mJustFinishedScale)) return scroll.scrollY;
         float effectiveHeight = (editor.view.keyboardHeight > 0) ? editor.getHeight() - editor.view.keyboardHeight : editor.getHeight();
-        int lineCount = editor.wordWrap.isWordWrapEnabled ? editor.wordWrap.getTotalVisualLineCount() : (editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.getVisibleLineCount() : Math.max(1, editor.view.getLinesCount()));
+        int lineCount = editor.wordWrap.isWordWrapEnabled ? editor.wordWrap.getTotalVisualLineCount() : (false ? Math.max(1, editor.view.getLinesCount()) : Math.max(1, editor.view.getLinesCount()));
         if (editor.wordWrap.isWordWrapEnabled && (editor.selection.isSelectAllActive || editor.selection.isEntireFileSelected)) lineCount = Math.max(lineCount, editor.selection.selEndLine + 1);
         boolean contentEndKnown = editor.fileIO.isEof || editor.fileIO.isIndexReady;
         if (contentEndKnown) {

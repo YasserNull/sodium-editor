@@ -33,14 +33,10 @@ public class FileWindowLoader {
             fL = editor.wordWrap.getVisualPositionForIndex(firstIdx).line;
             lL = editor.wordWrap.getVisualPositionForIndex(lastIdx).line;
         } else {
-            fL = editor.codeFold.mapVisibleIndexToGlobal(firstIdx);
-            lL = editor.codeFold.mapVisibleIndexToGlobal(lastIdx);
+            fL = firstIdx;
+            lL = lastIdx;
         }
         int loadTarget = fL;
-        if (editor.codeFold.isCodeFoldingEnabled) {
-            com.yn.sodiumeditor.core.fold.CodeFold.FoldRange fr = editor.codeFold.getFoldRangeAtStart(fL);
-            if (fr != null && fr.collapsed && (fr.endLine - fr.startLine) > (editor.windowRender.windowSize / 2)) loadTarget = fr.endLine + 1;
-        }
         int winEnd;
         synchronized (editor.windowRender.linesWindow) { winEnd = editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size() - 1; }
         boolean top = editor.windowRender.windowStartLine > 0 && loadTarget < editor.windowRender.windowStartLine + editor.windowRender.prefetchLines;

@@ -45,9 +45,7 @@ public class LineNumberCache {
                 || lineNumber.lineNumberCacheTypeface != lineNumber.lineNumbersPaint.getTypeface()
                 || lineNumber.lineNumberCacheRtl != editor.textRender.isRtl
                 || lineNumber.lineNumberCacheWrapped != wrapped
-                || lineNumber.lineNumberCacheCodeFolding != editor.codeFold.isCodeFoldingEnabled
                 || Math.abs(lineNumber.lineNumberCacheGutterWidth - lineNumber.lineNumbersGutterWidth) > 0.1f
-                || Math.abs(lineNumber.lineNumberCacheFoldMarkerWidth - editor.codeFold.animation.foldMarkerGutterWidth) > 0.1f
                 || Math.abs(lineNumber.lineNumberCacheLineHeight - editor.textRender.lineHeight) > 0.1f
                 || lineNumber.lineNumberCacheColor != lineNumber.lineNumbersPaint.getColor();
     }
@@ -60,9 +58,7 @@ public class LineNumberCache {
         lineNumber.lineNumberCacheTypeface = lineNumber.lineNumbersPaint.getTypeface();
         lineNumber.lineNumberCacheRtl = editor.textRender.isRtl;
         lineNumber.lineNumberCacheWrapped = wrapped;
-        lineNumber.lineNumberCacheCodeFolding = editor.codeFold.isCodeFoldingEnabled;
         lineNumber.lineNumberCacheGutterWidth = lineNumber.lineNumbersGutterWidth;
-        lineNumber.lineNumberCacheFoldMarkerWidth = editor.codeFold.animation.foldMarkerGutterWidth;
         lineNumber.lineNumberCacheLineHeight = editor.textRender.lineHeight;
         lineNumber.lineNumberCacheColor = lineNumber.lineNumbersPaint.getColor();
     }

@@ -6,7 +6,6 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Looper;
-import com.yn.sodiumeditor.core.fold.CodeFold;
 import java.util.HashMap;
 
 /**
@@ -80,18 +79,6 @@ public class Caret {
    * Get caret X position relative to document start (no scroll)
    */
   public float getCaretDocumentX() {
-    if (editor.codeFold.isCodeFoldingEnabled) {
-      CodeFold.FoldRange hidden = editor.codeFold.getCollapsedRangeContainingLine(cursor.cursorLine);
-      if (hidden != null) {
-        return getCollapsedFoldCaretDocumentX(hidden, cursor.cursorChar);
-      }
-
-      CodeFold.FoldRange start = editor.codeFold.getFoldRangeAtStart(cursor.cursorLine);
-      if (start != null && start.collapsed && cursor.cursorChar > start.openCharIndex) {
-        return getCollapsedFoldCaretDocumentX(start, cursor.cursorChar);
-      }
-    }
-
     String lineText = editor.windowRender.getLineTextForRender(cursor.cursorLine);
     if (lineText == null) return 0f;
     int safeChar = Math.max(0, Math.min(cursor.cursorChar, lineText.length()));
@@ -103,88 +90,8 @@ public class Caret {
    */
   public float getCaretDocumentY() {
     int lineForVisual = cursor.cursorLine;
-    if (editor.codeFold.isCodeFoldingEnabled) {
-      CodeFold.FoldRange hidden = editor.codeFold.getCollapsedRangeContainingLine(cursor.cursorLine);
-      if (hidden != null) {
-        lineForVisual = hidden.startLine;
-      } else {
-        CodeFold.FoldRange start = editor.codeFold.getFoldRangeAtStart(cursor.cursorLine);
-        if (start != null && start.collapsed && cursor.cursorChar > start.openCharIndex) {
-          lineForVisual = start.startLine;
-        }
-      }
-    }
     int visualLine = editor.wordWrap.getVisualIndexForLineAndChar(lineForVisual, cursor.cursorChar);
     return visualLine * editor.textRender.lineHeight;
-  }
-
-  private float getCollapsedFoldCaretDocumentX(CodeFold.FoldRange fold, int cursorChar) {
-    String startLineText = getLineTextForCollapsedFoldCaret(fold.startLine);
-
-    int prefixEnd;
-    if (fold.isBlockComment) {
-      prefixEnd = Math.min(fold.openCharIndex + 2, startLineText.length());
-    } else if (fold.isIndentFold) {
-      prefixEnd = startLineText.length();
-    } else {
-      prefixEnd = Math.min(fold.openCharIndex + 1, startLineText.length());
-    }
-
-    float x = editor.highlite.measureHighlightedSegmentWidth(startLineText, fold.startLine, 0, prefixEnd);
-    x += Math.max(0f, editor.textRender.paint.measureText(CodeFold.FOLD_PLACEHOLDER_TEXT));
-
-    String endLineText = getLineTextForCollapsedFoldCaret(fold.endLine);
-    if (endLineText == null || endLineText.isEmpty()) {
-      String foldEndText = editor.codeFold.utils.getEndLineTextForFold(fold);
-      if (foldEndText != null) endLineText = foldEndText;
-    }
-    if (endLineText == null) endLineText = "";
-
-    int closeIdx = editor.codeFold.resolveCloseCharIndex(fold, endLineText);
-    if (closeIdx < 0) closeIdx = fold.closeCharIndex;
-    if (closeIdx < 0) closeIdx = endLineText.length();
-
-    if (fold.isBlockComment) {
-      String close = "*/";
-      float closeWidth = editor.textRender.paint.measureText(close);
-      int closeEnd = Math.min(endLineText.length(), Math.max(0, closeIdx + 2));
-      if (cursorChar <= closeEnd) {
-        return x + Math.min(closeWidth, editor.textRender.paint.measureText(close, 0, Math.min(close.length(), Math.max(0, cursorChar - Math.max(0, closeIdx)))));
-      }
-      x += closeWidth;
-      int suffixStart = closeEnd;
-      int safeChar = Math.max(suffixStart, Math.min(cursorChar, endLineText.length()));
-      return x
-          + editor.highlite.measureHighlightedSegmentWidth(
-              endLineText, fold.endLine, suffixStart, safeChar);
-    }
-
-    if (!fold.isIndentFold) {
-      String close = String.valueOf(fold.closeChar);
-      float closeWidth = editor.textRender.paint.measureText(close);
-      int closeEnd = Math.min(endLineText.length(), Math.max(0, closeIdx + 1));
-      if (cursorChar <= closeEnd) {
-        return x + Math.min(closeWidth, editor.textRender.paint.measureText(close, 0, Math.min(close.length(), Math.max(0, cursorChar - Math.max(0, closeIdx)))));
-      }
-      x += closeWidth;
-      int suffixStart = closeEnd;
-      int safeChar = Math.max(suffixStart, Math.min(cursorChar, endLineText.length()));
-      return x
-          + editor.highlite.measureHighlightedSegmentWidth(
-              endLineText, fold.endLine, suffixStart, safeChar);
-    }
-
-    return x;
-  }
-
-  private String getLineTextForCollapsedFoldCaret(int line) {
-    String text = editor.windowRender.getLineTextForRender(line);
-    if (text != null && !text.isEmpty()) return text;
-    if (line < 0 || editor.fileIO.sourceFile == null) return text == null ? "" : text;
-    HashMap<Integer, String> direct = new HashMap<>();
-    editor.fileIO.populateDirectLinesForRange(line, line, direct);
-    String directText = editor.windowRender.getLineTextForRenderWithDirect(line, direct);
-    return directText == null ? "" : directText;
   }
 
   /**

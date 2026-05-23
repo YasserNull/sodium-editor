@@ -12,7 +12,7 @@ import org.junit.Test;
  * Regression test for direct-line disk reads with pending edits.
  *
  * This is a source-level (static) test so it can run in plain JVM unit tests on Termux.
- * Direct reads are allowed for unchanged lines because folded large files need off-window
+ * Direct reads are allowed for unchanged lines.
  * start/end line text. The guard must live at the line read/cache layer so modified lines never
  * get replaced by stale disk content.
  */

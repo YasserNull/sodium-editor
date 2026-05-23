@@ -6,7 +6,6 @@ import android.graphics.Path;
 import android.graphics.RectF;
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.fold.CodeFold;
 import com.yn.sodiumeditor.core.scroll.Popup;
 
 /**

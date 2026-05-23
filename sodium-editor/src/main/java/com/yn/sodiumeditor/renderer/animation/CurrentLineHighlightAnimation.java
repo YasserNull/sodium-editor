@@ -40,17 +40,6 @@ public class CurrentLineHighlightAnimation {
         if (editor.wordWrap.isWordWrapEnabled) {
             return (float) editor.wordWrap.getVisualIndexForLineAndChar(editor.cursor.cursorLine, editor.cursor.cursorChar);
         }
-        if (editor.codeFold.isCodeFoldingEnabled) {
-            int visibleIdx = editor.codeFold.getVisibleIndexForGlobalLine(editor.cursor.cursorLine);
-            if (visibleIdx < 0) {
-                // If cursor is on a hidden line, highlight the fold start
-                com.yn.sodiumeditor.core.fold.CodeFold.FoldRange range = editor.codeFold.getCollapsedRangeContainingLine(editor.cursor.cursorLine);
-                if (range != null) {
-                    visibleIdx = editor.codeFold.getVisibleIndexForGlobalLine(range.startLine);
-                }
-            }
-            return (float) Math.max(0, visibleIdx);
-        }
         return (float) editor.cursor.cursorLine;
     }
 

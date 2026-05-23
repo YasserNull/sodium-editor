@@ -159,7 +159,7 @@ public class SelectionActionHandler {
         }
 
         finalizeAction(removedNl, insertedNl, sL, sC, eL, eC, removedText, insertText, beforeLine, beforeChar);
-        invalidateFoldStateForReplace(sL, target.line);
+        invalidateFeatureStateForReplace(sL, target.line);
     }
 
     private void handleSelectAllReplace(String insertText, int sL, int sC, int eL, int eC, String removedText, int beforeL, int beforeC, int remNl, int insNl) {
@@ -168,7 +168,6 @@ public class SelectionActionHandler {
         synchronized (editor.windowRender.modifiedLines) { editor.windowRender.modifiedLines.clear(); }
         synchronized (editor.windowRender.lineWidthCache) { editor.windowRender.lineWidthCache.clear(); }
         editor.windowRender.clearStreamedLineCaches(); editor.bracketGuides.invalidateBracketGuideCache(true);
-        if (editor.codeFold.isCodeFoldingEnabled) { editor.codeFold.foldRanges.clear(); editor.codeFold.foldIntervals.clear(); editor.codeFold.invalidateFoldCaches(); }
         editor.windowRender.currentMaxWindowLineWidth = 0f; editor.windowRender.globalMaxLineWidth = 0f;
         editor.fileIO.isFileCleared = true;
         synchronized (editor.fileIO.lineOffsetsLock) { editor.fileIO.lineOffsets = new long[0]; }
@@ -188,7 +187,7 @@ public class SelectionActionHandler {
         editor.wordWrap.onLineCountChanged(); editor.loadingCircle.endLargeEditUi(true);
         editor.windowRender.recalculateMaxLineWidth(); editor.requestLayout();
         finalizeAction(remNl, insNl, sL, sC, eL, eC, removedText, insertText, beforeL, beforeC);
-        invalidateFoldStateForReplace(0, insertedEndLine);
+        invalidateFeatureStateForReplace(0, insertedEndLine);
     }
 
     private void handleSingleLineReplace(String insertText, int sL, int sC, int eL, int eC, String removedText, int beforeL, int beforeC, int remNl, int insNl) {
@@ -209,19 +208,13 @@ public class SelectionActionHandler {
             }
         }
         selection.state.clearSelectionStateAfterDelete(); editor.invalidate(); editor.scroll.keepCursorVisibleHorizontally(); editor.loadingCircle.endLargeEditUi(false);
-        invalidateFoldStateForReplace(sL, eL);
+        invalidateFeatureStateForReplace(sL, eL);
         finalizeAction(remNl, insNl, sL, sC, eL, eC, removedText, insertText, beforeL, beforeC);
     }
 
-    private void invalidateFoldStateForReplace(int startLine, int endLine) {
+    private void invalidateFeatureStateForReplace(int startLine, int endLine) {
         editor.highlite.invalidateHighlightEnsureRange();
         editor.bracketGuides.invalidateBracketGuideCache(true);
-        if (editor.codeFold.isCodeFoldingEnabled) {
-            editor.codeFold.invalidateFoldRangesIntersectingRange(startLine, endLine);
-            editor.codeFold.invalidateFoldRangesInRange(startLine, endLine);
-            editor.codeFold.invalidateFoldCaches();
-            editor.codeFold.refreshFoldRangesAroundRange(startLine, endLine);
-        }
     }
 
     private void finalizeAction(int remNl, int insNl, int sL, int sC, int eL, int eC, String rem, String ins, int bL, int bC) {

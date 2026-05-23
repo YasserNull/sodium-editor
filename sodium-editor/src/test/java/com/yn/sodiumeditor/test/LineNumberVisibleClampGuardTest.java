@@ -17,10 +17,10 @@ public class LineNumberVisibleClampGuardTest {
     public void viewRender_shouldClampVisibleLinesToDocumentLineCount() throws Exception {
         String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/ViewRender.java");
         int at = src.indexOf("} else {");
-        assertTrue("Expected non-codefold branch in ViewRender.", at >= 0);
+        assertTrue("Expected normal branch in ViewRender.", at >= 0);
         String around = src.substring(at, Math.min(src.length(), at + 700));
         assertTrue(
-                "BUG: ViewRender should clamp visible indices using getLinesCount() in non-codefold mode.",
+                "BUG: ViewRender should clamp visible indices using getLinesCount().",
                 around.contains("editor.view.getLinesCount()")
                         && around.contains("Math.min(lastVisibleIndex, totalLines - 1)"));
     }
@@ -36,29 +36,6 @@ public class LineNumberVisibleClampGuardTest {
                 around.contains("editor.view.getLinesCount()")
                         && around.contains("Math.min(lI, totalLines - 1)")
                         && around.contains("Math.min(lL, totalLines - 1)"));
-        assertTrue(
-                "BUG: LineNumber should cap visible count by totalLines before drawing cached unwrapped line numbers.",
-                around.contains("Math.min(editor.codeFold.getVisibleLineCount(), totalLines)")
-                        && around.contains("safeVisibleCount - 1"));
-    }
-
-    @Test
-    public void codeFoldAndViewRender_shouldNotExposeVisibleCountBeyondTotalLines() throws Exception {
-        String codeFoldSrc = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/fold/CodeFold.java");
-        assertTrue(
-                "BUG: CodeFold.getVisibleLineCount should clamp cached visible count to totalLines.",
-                codeFoldSrc.contains("Math.min(last[3] + 1, totalLines)"));
-
-        String renderSrc = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/ViewRender.java");
-        int at = renderSrc.indexOf("} else if (editor.codeFold.isCodeFoldingEnabled) {");
-        assertTrue("Expected codefold branch in ViewRender.", at >= 0);
-        String around = renderSrc.substring(at, Math.min(renderSrc.length(), at + 900));
-        assertTrue(
-                "BUG: ViewRender should cap codefold visibleCount by totalLines.",
-                around.contains("Math.min(editor.codeFold.getVisibleLineCount(), totalLines)"));
-        assertTrue(
-                "BUG: ViewRender should clamp mapped global lines to totalLines - 1.",
-                around.contains("Math.min(editor.codeFold.mapVisibleIndexToGlobal(lastVisibleIndex), totalLines - 1)"));
     }
 
     private static String readSource(String relativePath) throws Exception {

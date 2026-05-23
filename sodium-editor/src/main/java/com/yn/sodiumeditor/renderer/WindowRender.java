@@ -75,7 +75,7 @@ public class WindowRender {
             return (text != null) ? text : "";
         }
 
-        // Direct batch (during fast fling / folded-line render). Modified lines were
+        // Direct batch (during fast fling). Modified lines were
         // checked above, so disk-backed lines are safe for unchanged positions.
         boolean canUseFileLine = canUseFileBackedLineForRender(line);
         if (direct != null && canUseFileLine) {
@@ -342,8 +342,8 @@ public class WindowRender {
             firstVisibleGlobal = editor.wordWrap.getVisualPositionForIndex(firstVisibleIndex).line;
             lastVisibleGlobal = editor.wordWrap.getVisualPositionForIndex(lastVisibleIndex).line;
         } else {
-            firstVisibleGlobal = editor.codeFold.mapVisibleIndexToGlobal(firstVisibleIndex);
-            lastVisibleGlobal = editor.codeFold.mapVisibleIndexToGlobal(lastVisibleIndex);
+            firstVisibleGlobal = firstVisibleIndex;
+            lastVisibleGlobal = lastVisibleIndex;
         }
         firstVisibleGlobal = Math.max(0, firstVisibleGlobal);
         lastVisibleGlobal = Math.max(firstVisibleGlobal, lastVisibleGlobal);
@@ -366,22 +366,7 @@ public class WindowRender {
             for (int i = 0; i < linesWindow.size(); i++) {
                 int globalLine = windowStartLine + i;
                 String line = linesWindow.get(i);
-                float w;
-                if (editor.codeFold.isCodeFoldingEnabled) {
-                    com.yn.sodiumeditor.core.fold.CodeFold.FoldRange fold =
-                            editor.codeFold.getFoldRangeAtStart(globalLine);
-                    if (fold != null && fold.collapsed) {
-                        String endLineText =
-                                (fold.endLine == globalLine)
-                                        ? line
-                                        : editor.windowRender.getLineTextForRender(fold.endLine);
-                        w = editor.codeFold.getCollapsedFoldVisualWidth(fold, line, endLineText);
-                    } else {
-                        w = editor.view.getWidthForLine(globalLine, line);
-                    }
-                } else {
-                    w = editor.view.getWidthForLine(globalLine, line);
-                }
+                float w = editor.view.getWidthForLine(globalLine, line);
                 if (w > maxW) maxW = w;
             }
         }

@@ -75,7 +75,6 @@ import com.yn.sodiumeditor.core.binary.*;
 import com.yn.sodiumeditor.core.cursor.*;
 import com.yn.sodiumeditor.core.features.*;
 import com.yn.sodiumeditor.core.search.*;
-import com.yn.sodiumeditor.core.fold.*;
 import com.yn.sodiumeditor.core.guides.indent.*;
 import com.yn.sodiumeditor.core.guides.bracket.*;
 import com.yn.sodiumeditor.core.guides.whitespace.*;
@@ -140,8 +139,6 @@ public class SodiumEditor extends View {
   public final CursorHandle cursorHandle;
   public final Selection selection;
   public final SelectionHandles selectionHandles;
-  public final CodeFold codeFold;
-  public final CodeFoldRender codeFoldRender;
   public final CurrentLineHighlight currentLineHighlight;
   public final ClickAfterEndToAddLine clickAfterEndToAddLine;
   public final BracketCache bracketCache;
@@ -161,8 +158,6 @@ public class SodiumEditor extends View {
   highliteRender = new HighliteRender(this);
   lineNumber = new LineNumber(this);
   currentLineHighlight = new CurrentLineHighlight(this);
-  codeFold = new CodeFold(this);
-  codeFoldRender = new CodeFoldRender(this);
   clickAfterEndToAddLine = new ClickAfterEndToAddLine(this);
   highlite = new Highlite(this);
   highlightRules = new HighlightRules(this, highlite);
@@ -217,8 +212,6 @@ public class SodiumEditor extends View {
   textRender.paint.setSubpixelText(true);
   textRender.paint.setHinting(Paint.HINTING_ON);
   textRender.paint.setUnderlineText(false); 
-  codeFold.animation.foldMarkerTextScale = 1f;
-  codeFold.animation.foldMarkerPaint.setTextSize(textRender.paint.getTextSize());
   textRender.baseTypeface = (textRender.paint.getTypeface() != null) ? textRender.paint.getTypeface() : Typeface.MONOSPACE;
   textRender.lineHeight = textRender.paint.getFontSpacing();
   lineNumber.lineNumbersPaint.setTextSize(36);

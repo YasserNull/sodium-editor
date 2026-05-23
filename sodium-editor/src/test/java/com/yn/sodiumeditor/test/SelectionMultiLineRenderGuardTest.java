@@ -20,11 +20,6 @@ public class SelectionMultiLineRenderGuardTest {
                 "if (editor.selection.hasSelection && selPaint != null)",
                 "int startChar = (i == selStartLine) ? selStartChar : 0;",
                 "int endChar = (i == selEndLine) ? selEndChar : line.length();");
-        assertRendererContains(
-                "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/CodeFoldRender.java",
-                "if (globalLine >= selStartLine && globalLine <= selEndLine)",
-                "int startChar = (globalLine == selStartLine) ? selStartChar : 0;",
-                "int endChar = (globalLine == selEndLine) ? selEndChar : line.length();");
     }
 
     @Test
@@ -36,13 +31,6 @@ public class SelectionMultiLineRenderGuardTest {
                 "? startX",
                 "float right = (isFirstLine && !isSingleLine) || fillsWholeLine",
                 ": endX;");
-        assertRendererContains(
-                "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/CodeFoldRender.java",
-                "if (globalLine >= selStartLine && globalLine <= selEndLine)",
-                "float left = isSingleLine",
-                "? startX",
-                "float right = (isFirstLine && !isSingleLine) || fillsWholeLine",
-                ": endX;");
     }
 
     @Test
@@ -50,12 +38,6 @@ public class SelectionMultiLineRenderGuardTest {
         assertRendererContains(
                 "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/ViewRender.java",
                 "if (editor.selection.hasSelection && selPaint != null)",
-                ": isFirstLine && !isSingleLine",
-                "? startX",
-                "? viewportRight");
-        assertRendererContains(
-                "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/CodeFoldRender.java",
-                "if (globalLine >= selStartLine && globalLine <= selEndLine)",
                 ": isFirstLine && !isSingleLine",
                 "? startX",
                 "? viewportRight");
@@ -73,16 +55,6 @@ public class SelectionMultiLineRenderGuardTest {
                 "? viewportLeft",
                 "|| fillsWholeLine",
                 "? viewportRight");
-        assertRendererContains(
-                "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/CodeFoldRender.java",
-                "if (globalLine >= selStartLine && globalLine <= selEndLine)",
-                "float viewportLeft = editor.scroll.getEffectiveScrollX();",
-                "float viewportRight = viewportLeft + editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth;",
-                "boolean fillsWholeLine = !isSingleLine && !isFirstLine && !isLastLine;",
-                ": fillsWholeLine",
-                "? viewportLeft",
-                "|| fillsWholeLine",
-                "? viewportRight");
     }
 
     @Test
@@ -92,11 +64,6 @@ public class SelectionMultiLineRenderGuardTest {
                 "if (editor.selection.hasSelection && selPaint != null)",
                 "float endX = textStartX + editor.textRender.measureTextWithVisualSpaces(line, 0, endChar, editor.textRender.paint);",
                 ": endX;");
-        assertRendererContains(
-                "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/CodeFoldRender.java",
-                "if (globalLine >= selStartLine && globalLine <= selEndLine)",
-                "float endX = textStartX + editor.textRender.measureTextWithVisualSpaces(line, 0, endChar, editor.textRender.paint);",
-                ": endX;");
     }
 
     @Test
@@ -104,15 +71,6 @@ public class SelectionMultiLineRenderGuardTest {
         assertRendererContains(
                 "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/ViewRender.java",
                 "if (editor.selection.hasSelection && selPaint != null)",
-                "if (isSingleLine)",
-                "true, true, true, true, selPaint",
-                "else if (isFirstLine)",
-                "true, true, false, false, selPaint",
-                "else if (isLastLine)",
-                "false, false, true, true, selPaint");
-        assertRendererContains(
-                "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/CodeFoldRender.java",
-                "if (globalLine >= selStartLine && globalLine <= selEndLine)",
                 "if (isSingleLine)",
                 "true, true, true, true, selPaint",
                 "else if (isFirstLine)",

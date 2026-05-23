@@ -242,18 +242,6 @@ public class SelectionHandles {
    * Get character X position
    */
   public float getCharX(int line, int ch) {
-    if (editor.codeFold.isCodeFoldingEnabled) {
-      com.yn.sodiumeditor.core.fold.CodeFold.FoldRange hidden =
-          editor.codeFold.getCollapsedRangeContainingLine(line);
-      if (hidden != null) {
-        return editor.layout.getTextStartX() + getCollapsedFoldCharDocumentX(hidden, ch) - editor.scroll.scrollX;
-      }
-      com.yn.sodiumeditor.core.fold.CodeFold.FoldRange start =
-          editor.codeFold.getFoldRangeAtStart(line);
-      if (start != null && start.collapsed && ch > start.openCharIndex) {
-        return editor.layout.getTextStartX() + getCollapsedFoldCharDocumentX(start, ch) - editor.scroll.scrollX;
-      }
-    }
     String lineText = editor.windowRender.getLineTextForRender(line);
     if (lineText == null) return editor.layout.getTextStartX();
 
@@ -268,73 +256,12 @@ public class SelectionHandles {
    */
   public float getLineY(int line) {
     int lineForVisual = line;
-    if (editor.codeFold.isCodeFoldingEnabled) {
-      com.yn.sodiumeditor.core.fold.CodeFold.FoldRange hidden =
-          editor.codeFold.getCollapsedRangeContainingLine(line);
-      if (hidden != null) {
-        lineForVisual = hidden.startLine;
-      }
-    }
     int visualLine = lineForVisual;
     if (editor.wordWrap.isWordWrapEnabled) {
       visualLine = editor.wordWrap.getVisualIndexForLineAndChar(lineForVisual, 0);
       return (visualLine * editor.textRender.lineHeight) - editor.scroll.scrollY;
     }
     return editor.textRender.getDrawLineTop(lineForVisual);
-  }
-
-  private float getCollapsedFoldCharDocumentX(
-      com.yn.sodiumeditor.core.fold.CodeFold.FoldRange fold, int ch) {
-    String startLineText = editor.windowRender.getLineTextForRender(fold.startLine);
-    if (startLineText == null) startLineText = "";
-
-    int prefixEnd;
-    if (fold.isBlockComment) {
-      prefixEnd = Math.min(fold.openCharIndex + 2, startLineText.length());
-    } else if (fold.isIndentFold) {
-      prefixEnd = startLineText.length();
-    } else {
-      prefixEnd = Math.min(fold.openCharIndex + 1, startLineText.length());
-    }
-
-    float x =
-        editor.highlite.measureHighlightedSegmentWidth(startLineText, fold.startLine, 0, prefixEnd);
-    x += Math.max(0f, editor.textRender.paint.measureText(com.yn.sodiumeditor.core.fold.CodeFold.FOLD_PLACEHOLDER_TEXT));
-
-    String endLineText = editor.windowRender.getLineTextForRender(fold.endLine);
-    if (endLineText == null) endLineText = "";
-
-    int closeIdx = editor.codeFold.resolveCloseCharIndex(fold, endLineText);
-    if (closeIdx < 0) closeIdx = fold.closeCharIndex;
-    if (closeIdx < 0) closeIdx = endLineText.length();
-
-    if (fold.isBlockComment) {
-      String close = "*/";
-      float closeWidth = editor.textRender.paint.measureText(close);
-      int closeEnd = Math.min(endLineText.length(), Math.max(0, closeIdx + 2));
-      if (ch <= closeEnd) return x + closeWidth;
-      x += closeWidth;
-      int suffixStart = closeEnd;
-      int safeChar = Math.max(suffixStart, Math.min(ch, endLineText.length()));
-      return x
-          + editor.highlite.measureHighlightedSegmentWidth(
-              endLineText, fold.endLine, suffixStart, safeChar);
-    }
-
-    if (!fold.isIndentFold) {
-      String close = String.valueOf(fold.closeChar);
-      float closeWidth = editor.textRender.paint.measureText(close);
-      int closeEnd = Math.min(endLineText.length(), Math.max(0, closeIdx + 1));
-      if (ch <= closeEnd) return x + closeWidth;
-      x += closeWidth;
-      int suffixStart = closeEnd;
-      int safeChar = Math.max(suffixStart, Math.min(ch, endLineText.length()));
-      return x
-          + editor.highlite.measureHighlightedSegmentWidth(
-              endLineText, fold.endLine, suffixStart, safeChar);
-    }
-
-    return x;
   }
 
   /**

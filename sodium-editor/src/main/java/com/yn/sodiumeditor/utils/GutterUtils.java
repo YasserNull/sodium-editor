@@ -42,12 +42,6 @@ public class GutterUtils {
         int total = editor.view.getLinesCount();
         String maxLineNum = String.valueOf(Math.max(1, total));
         float baseWidth = lineNumber.lineNumbersPaint.measureText(maxLineNum) + (LineNumber.GUTTER_TEXT_PADDING * 2);
-        float foldMarkerGutterWidth = 0f;
-        if (editor.codeFold.isCodeFoldingEnabled) {
-            foldMarkerGutterWidth = editor.codeFold.animation.foldMarkerPaint.measureText("v")
-                    + editor.codeFold.animation.foldMarkerSpacing
-                    + editor.codeFold.animation.foldMarkerEdgePadding;
-        }
-        return baseWidth + foldMarkerGutterWidth + lineNumber.gutterSeparatorWidth;
+        return baseWidth + lineNumber.gutterSeparatorWidth;
     }
 }

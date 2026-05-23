@@ -18,7 +18,7 @@ public class LoadingCircleAnimation {
     public final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     public final RectF rect = new RectF();
 
-    public boolean showLoadingCircle = false;
+    public boolean showLoadingCircle = true;
     public float radius = 40f;
     public int color = 0xFF3F51B5;
     public float strokeWidth = 8f;

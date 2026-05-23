@@ -9,7 +9,6 @@ import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.fold.CodeFold;
 import com.yn.sodiumeditor.io.EditOperators;
 import com.yn.sodiumeditor.io.EditOp;
 
@@ -17,7 +16,6 @@ import com.yn.sodiumeditor.io.EditOp;
  * Ime handles all Input Method Editor (IME) logic for SodiumEditor.
  */
 public class Ime {
-  private static final String FOLD_TYPING_PERF = "FoldTypingPerf";
 
   public static final int IME_CONTEXT_BEFORE_CHARS = 2048;
   public static final int IME_CONTEXT_AFTER_CHARS = 2048;
@@ -243,7 +241,6 @@ public class Ime {
     }
     long insertStartMs = android.os.SystemClock.uptimeMillis();
     editor.editOperators.insertTextAtCursor(str);
-    snapCollapsedFoldTypingCursor();
     long insertMs = android.os.SystemClock.uptimeMillis() - insertStartMs;
     long composingStartMs = android.os.SystemClock.uptimeMillis();
     commitComposing(true);
@@ -259,20 +256,6 @@ public class Ime {
     long completionMs = android.os.SystemClock.uptimeMillis() - completionStartMs;
     long totalMs = android.os.SystemClock.uptimeMillis() - startMs;
     return true;
-  }
-
-  private void snapCollapsedFoldTypingCursor() {
-    if (!editor.codeFold.isCodeFoldingEnabled) return;
-    CodeFold.FoldRange hidden = editor.codeFold.getCollapsedRangeContainingLine(editor.cursor.cursorLine);
-    CodeFold.FoldRange start = editor.codeFold.getFoldRangeAtStart(editor.cursor.cursorLine);
-    boolean foldedCaret =
-        hidden != null
-            || (start != null
-                && start.collapsed
-                && editor.cursor.cursorChar > start.openCharIndex);
-    if (!foldedCaret) return;
-    editor.cursorAnimation.snapToPosition(
-        editor.caret.getCaretDocumentX(), editor.caret.getCaretDocumentY());
   }
 
   public boolean onSetComposingText(CharSequence text, int newCursorPosition) {

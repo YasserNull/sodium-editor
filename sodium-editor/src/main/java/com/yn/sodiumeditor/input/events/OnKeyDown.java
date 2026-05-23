@@ -59,6 +59,7 @@ public class OnKeyDown {
     String text = getPrintingText(event);
     if (text != null) {
       editor.editOperators.insertTextAtCursor(text);
+      editor.charAnimation.startCharAnimationFromText(text);
       return true;
     }
     return false;
@@ -122,6 +123,7 @@ public class OnKeyDown {
     String text = getPrintingText(event);
     if (text != null) {
       editor.editOperators.insertTextAtCursor(text);
+      editor.charAnimation.startCharAnimationFromText(text);
       return true;
     }
     return false;

@@ -49,9 +49,7 @@ public class LineNumber {
     @Nullable public Typeface lineNumberCacheTypeface;
     public boolean lineNumberCacheRtl = false;
     public boolean lineNumberCacheWrapped = false;
-    public boolean lineNumberCacheCodeFolding = false;
     public float lineNumberCacheGutterWidth = 0f;
-    public float lineNumberCacheFoldMarkerWidth = 0f;
     public float lineNumberCacheLineHeight = 0f;
     public int lineNumberCacheColor = 0;
 
@@ -78,7 +76,6 @@ public class LineNumber {
         if (this.showLineNumbers == show) return;
         this.showLineNumbers = show;
         if (!show) {
-            if (editor.codeFold.isCodeFoldingEnabled) editor.codeFold.setCodeFoldingEnabled(false);
             if (highlightCurrentLineInGutter) setCurrentLineGutterHighlightEnabled(false);
         }
         invalidateLineNumberCache(); editor.requestLayout();
@@ -232,10 +229,8 @@ public class LineNumber {
     public void drawLineNumbersCachedUnwrapped(Canvas canvas, int fI, int lI, int fL, int lL) {
         if (!cache.shouldUseCache()) { render.drawLineNumbersDirectUnwrapped(canvas, fI, lI, fL, lL); return; }
         int totalLines = Math.max(1, editor.view.getLinesCount());
-        int safeVisibleCount = Math.max(1, Math.min(editor.codeFold.getVisibleLineCount(), totalLines));
-        int drawLastI = editor.codeFold.isCodeFoldingEnabled
-                ? Math.min(lI, safeVisibleCount - 1)
-                : Math.min(lI, totalLines - 1);
+        int safeVisibleCount = Math.max(1, Math.min(Math.max(1, editor.view.getLinesCount()), totalLines));
+        int drawLastI = Math.min(lI, totalLines - 1);
         int drawLastL = Math.min(lL, totalLines - 1);
         int gw = Math.max(1, Math.round(lineNumbersGutterWidth));
         float pad = editor.textRender.lineHeight;
@@ -247,11 +242,7 @@ public class LineNumber {
             if (lineNumberCacheCanvas == null) { render.drawLineNumbersDirectUnwrapped(canvas, fI, lI, fL, lL); return; }
             lineNumberCacheBitmap.eraseColor(0);
             float lineNumX = render.getLineNumXUnwrapped() - getGutterStartX();
-            if (editor.codeFold.isCodeFoldingEnabled) {
-                for (int v = fI; v <= drawLastI; v++) render.drawSingleLineNumber(lineNumberCacheCanvas, editor.codeFold.mapVisibleIndexToGlobal(v) + 1, lineNumX, v * pad - baseY);
-            } else {
-                for (int i = fL; i <= drawLastL; i++) render.drawSingleLineNumber(lineNumberCacheCanvas, i + 1, lineNumX, i * pad - baseY);
-            }
+            for (int i = fL; i <= drawLastL; i++) render.drawSingleLineNumber(lineNumberCacheCanvas, i + 1, lineNumX, i * pad - baseY);
             cache.updateMetadata(fI, drawLastI, baseY, false);
         }
         if (lineNumberCacheBitmap != null) canvas.drawBitmap(lineNumberCacheBitmap, getGutterStartX(), baseY - editor.scroll.scrollY, null);
@@ -283,8 +274,7 @@ public class LineNumber {
 
     public void drawCurrentLineNumberUnwrapped(Canvas canvas, int fI, int lI) {
         if (!showLineNumbers || editor.selection.hasSelection) return;
-        if (editor.codeFold.isCodeFoldingEnabled && editor.codeFold.isLineHiddenByFold(editor.cursor.cursorLine)) return;
-        int vI = editor.codeFold.isCodeFoldingEnabled ? editor.codeFold.getVisibleIndexForGlobalLine(editor.cursor.cursorLine) : editor.cursor.cursorLine;
+        int vI = editor.cursor.cursorLine;
         if (vI < fI || vI > lI) return;
         int orig = lineNumbersPaint.getColor(); lineNumbersPaint.setColor(currentLineNumberColor);
         render.drawSingleLineNumber(canvas, editor.cursor.cursorLine + 1, render.getLineNumXUnwrapped(), vI * editor.textRender.lineHeight - editor.scroll.scrollY);

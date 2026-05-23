@@ -138,9 +138,6 @@ public class SodiumInputConnection extends BaseInputConnection {
         if (text == null) return super.commitText(text, newCursorPosition);
         int beforeLine = editor.cursor.cursorLine;
         int beforeChar = editor.cursor.cursorChar;
-        boolean foldHidden =
-                editor.codeFold.isCodeFoldingEnabled
-                        && editor.codeFold.getCollapsedRangeContainingLine(editor.cursor.cursorLine) != null;
         long startMs = android.os.SystemClock.uptimeMillis();
         boolean result = ime.onCommitText(text, newCursorPosition);
         long totalMs = android.os.SystemClock.uptimeMillis() - startMs;

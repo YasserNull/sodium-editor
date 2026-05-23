@@ -22,13 +22,7 @@ public class onMeasure {
             }
             String maxLineNum = String.valueOf(maxLines);
             float baseWidth = editor.lineNumber.lineNumbersPaint.measureText(maxLineNum) + (editor.lineNumber.GUTTER_TEXT_PADDING * 2);
-            if (editor.codeFold.isCodeFoldingEnabled) {
-                editor.codeFold.animation.foldMarkerGutterWidth =
-                        editor.codeFold.animation.foldMarkerPaint.measureText("v") + editor.codeFold.animation.foldMarkerSpacing + editor.codeFold.animation.foldMarkerEdgePadding;
-            } else {
-                editor.codeFold.animation.foldMarkerGutterWidth = 0f;
-            }
-            editor.lineNumber.lineNumbersGutterWidth = baseWidth + editor.codeFold.animation.foldMarkerGutterWidth + editor.lineNumber.gutterSeparatorWidth;
+            editor.lineNumber.lineNumbersGutterWidth = baseWidth + editor.lineNumber.gutterSeparatorWidth;
         } else {
             editor.lineNumber.lineNumbersGutterWidth = 0f;
         }
