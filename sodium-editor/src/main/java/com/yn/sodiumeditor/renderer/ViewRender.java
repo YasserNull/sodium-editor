@@ -304,6 +304,9 @@ public class ViewRender {
                     + (directLines != null));
         }
         editor.textRender.drawHighlightedLine(canvas, line, i, y);
+        if (editor.autoCompletion != null && line != null) {
+            editor.autoCompletion.drawAutoSuggestion(canvas, line, i, y);
+        }
         if (i == editor.charAnimation.charAnimLine
             && editor.charAnimation.charAnimEndChar > editor.charAnimation.charAnimStartChar
             && editor.charAnimation.charAnimAlpha < 1f) {

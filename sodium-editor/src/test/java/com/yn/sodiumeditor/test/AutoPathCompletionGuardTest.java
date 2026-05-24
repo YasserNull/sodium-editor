@@ -117,6 +117,19 @@ public class AutoPathCompletionGuardTest {
   }
 
   @Test
+  public void drawTextContent_shouldRenderAutoSuggestionAfterHighlightedLine() throws Exception {
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/ViewRender.java");
+    String body = methodBody(src, "void drawTextContent(Canvas canvas, int firstVisibleIndex");
+    int highlightCall = body.indexOf("editor.textRender.drawHighlightedLine(canvas, line, i, y)");
+    int suggestionCall = body.indexOf("editor.autoCompletion.drawAutoSuggestion(canvas, line, i, y)");
+
+    assertTrue(
+        "BUG: drawAutoSuggestion must be called after drawHighlightedLine in drawTextContent.",
+        highlightCall >= 0 && suggestionCall > highlightCall);
+  }
+
+  @Test
   public void touchSuggestionTap_shouldAcceptPathCompletionWithPathHandler() throws Exception {
     String src =
         readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/input/events/OnTouch.java");
