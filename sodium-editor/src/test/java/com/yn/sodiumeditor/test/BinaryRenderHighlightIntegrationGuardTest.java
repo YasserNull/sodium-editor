@@ -65,7 +65,7 @@ public class BinaryRenderHighlightIntegrationGuardTest {
     String drawBody =
         methodBody(
             src,
-            "drawBinaryLineSlice(Canvas canvas, String line, int globalLine, int relStart, int relEnd, int sliceStart, float y, Paint defaultPaint, android.util.SparseArray<int[]> binaryTokenSpans)");
+            "drawBinaryLineSlice(\n            Canvas canvas,\n            String line,\n            int globalLine,\n            int relStart,\n            int relEnd,\n            int sliceStart,\n            float y,\n            Paint defaultPaint,\n            android.util.SparseArray<int[]> binaryTokenSpans,\n            int fadeStart,\n            int fadeEnd,\n            float fadeAlpha)");
 
     assertTrue(
         "BUG: binary X calculation must measure normal text with Paint for Unicode/proportional glyphs.",

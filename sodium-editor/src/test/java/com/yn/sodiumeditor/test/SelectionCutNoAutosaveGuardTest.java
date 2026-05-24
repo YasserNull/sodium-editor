@@ -31,7 +31,7 @@ public class SelectionCutNoAutosaveGuardTest {
     String src =
         readSource(
             "sodium-editor/src/main/java/com/yn/sodiumeditor/core/selection/SelectionActionHandler.java");
-    String body = methodBody(src, "invalidateFoldStateForReplace(int startLine, int endLine)");
+    String body = methodBody(src, "invalidateFeatureStateForReplace(int startLine, int endLine)");
 
     assertTrue(
         "BUG: cutting lines must invalidate bracket/highlight dependent caches.",

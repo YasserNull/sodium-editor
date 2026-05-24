@@ -381,6 +381,33 @@ public class BinaryRender {
         lineDrawer.drawBinaryLineSlice(canvas, line, globalLine, relStart, relEnd, sliceStart, y, defaultPaint, binaryTokenSpans);
     }
 
+    public void drawBinaryLineSliceWithFade(
+            android.graphics.Canvas canvas,
+            String line,
+            int globalLine,
+            int relStart,
+            int relEnd,
+            int sliceStart,
+            float y,
+            android.graphics.Paint defaultPaint,
+            int fadeStart,
+            int fadeEnd,
+            float fadeAlpha) {
+        lineDrawer.drawBinaryLineSlice(
+                canvas,
+                line,
+                globalLine,
+                relStart,
+                relEnd,
+                sliceStart,
+                y,
+                defaultPaint,
+                binaryTokenSpans,
+                fadeStart,
+                fadeEnd,
+                fadeAlpha);
+    }
+
     public android.graphics.Paint getBinaryTokenFillPaint() { return lineDrawer.getBinaryTokenFillPaint(); }
     public android.graphics.Paint getBinaryTokenStrokePaint() { return lineDrawer.getBinaryTokenStrokePaint(); }
 }

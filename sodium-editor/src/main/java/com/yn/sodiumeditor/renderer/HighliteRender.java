@@ -171,7 +171,7 @@ public class HighliteRender {
     public void drawHighlightedLine(Canvas canvas, String line, int globalLine, float y) {
         boolean tracingCharAnimLine = isTracingCharAnimLine(globalLine);
         if (tracingCharAnimLine) {
-            logCharAnimRender(
+            logCharAnimRenderAlways(
                     "enter drawHighlightedLine line="
                             + globalLine
                             + " textLen="
@@ -189,7 +189,7 @@ public class HighliteRender {
         }
         // Fast path for binary rendering - completely bypass normal highlighting
         if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
-            if (tracingCharAnimLine) logCharAnimRender("render branch=binary-safe bypasses char fade");
+            if (tracingCharAnimLine) logCharAnimRender("RENDER_BINARY char fade supported");
             editor.textRender.getVisibleCharRangeForLine(line, globalLine, editor.textRender.visibleCharRangeTmp);
             int visibleStart = editor.textRender.visibleCharRangeTmp[0];
             int visibleEnd   = editor.textRender.visibleCharRangeTmp[1];
@@ -202,20 +202,36 @@ public class HighliteRender {
                     int relStart = Math.max(0, drawStart - sliceStart);
                     int relEnd   = Math.max(relStart, Math.min(line.length(), drawEnd - sliceStart));
                     
-                    // Use optimized binary line drawing
-                    editor.binaryRender.drawBinaryLineSlice(
-                        canvas, line, globalLine, relStart, relEnd, sliceStart, y, editor.textRender.paint);
+                    int fadeStart = -1;
+                    int fadeEnd = -1;
+                    float fadeAlpha = 1f;
+                    if (editor.charAnimation.isCharAnimationEnabled
+                            && globalLine == editor.charAnimation.charAnimLine
+                            && editor.charAnimation.charAnimEndChar > editor.charAnimation.charAnimStartChar
+                            && editor.charAnimation.charAnimAlpha < 1f) {
+                        fadeStart = Math.max(0, Math.min(editor.charAnimation.charAnimStartChar - sliceStart, line.length()));
+                        fadeEnd = Math.max(0, Math.min(editor.charAnimation.charAnimEndChar - sliceStart, line.length()));
+                        fadeAlpha = Math.max(0f, Math.min(1f, editor.charAnimation.charAnimAlpha));
+                        if (fadeEnd <= fadeStart) {
+                            fadeStart = -1;
+                            fadeEnd = -1;
+                        }
+                    }
+                    editor.binaryRender.drawBinaryLineSliceWithFade(
+                        canvas, line, globalLine, relStart, relEnd, sliceStart, y, editor.textRender.paint,
+                        fadeStart, fadeEnd, fadeAlpha);
                 }
             }
             // Draw error underlines even in binary mode
             drawUrlAndPathUnderlinesForBinaryLine(canvas, line, globalLine, y);
             editor.errorUnderline.drawErrorUnderlinesForLine(canvas, line, globalLine, y, 
                 editor.textRender.getDrawLineTop(globalLine), editor.textRender.getDrawLineBottom(globalLine));
+            drawDeleteAnimationGhost(canvas, line, globalLine, y);
             return;
         }
         if (line.isEmpty()) {
             if (tracingCharAnimLine) logCharAnimRender("render branch=empty-line return");
-            // Avoid drawing delete-animation ghosts on fully empty lines.
+            drawDeleteAnimationGhost(canvas, line, globalLine, y);
             return;
         }
 
@@ -240,7 +256,7 @@ public class HighliteRender {
 
         // Handle lines exceeding max syntax length
         if (len > maxSyntaxLineLength) {
-            if (tracingCharAnimLine) logCharAnimRender("render branch=max-syntax bypasses char fade");
+            if (tracingCharAnimLine) logCharAnimRender("RENDER_BYPASS max-syntax draws base text without char fade");
             if (visibleEnd > visibleStart) {
                 int sliceStart = editor.windowRender.getStreamedLineSliceStart(globalLine);
                 int sliceEnd = sliceStart + line.length();
@@ -257,7 +273,7 @@ public class HighliteRender {
 
         // Handle partial visibility
         if (visibleStart > 0 || visibleEnd < len) {
-            if (tracingCharAnimLine) logCharAnimRender("render branch=partial-visible range draw");
+            if (tracingCharAnimLine) logCharAnimRender("RENDER_PARTIAL visible range draw with fade support");
             drawHighlightedLineRange(canvas, line, globalLine, visibleStart, visibleEnd, y);
             return;
         }
@@ -286,7 +302,7 @@ public class HighliteRender {
                 && !editor.errorUnderline.errorUnderlineEnabled
                 && !hasCharFade
                 && !hasDeleteGhost) {
-            if (tracingCharAnimLine) logCharAnimRender("render branch=plain-fast no fade");
+            if (tracingCharAnimLine) logCharAnimRender("RENDER_BASE plain-fast no active fade");
             canvas.drawText(line, 0, line.length(), 0f, y, editor.textRender.paint);
             return;
         }
@@ -440,9 +456,35 @@ public class HighliteRender {
                 && editor.charAnimation.charAnimAlpha < 1f;
     }
 
+    private void drawDeleteAnimationGhost(Canvas canvas, String line, int globalLine, float y) {
+        if (globalLine != editor.charAnimation.delAnimLine
+                || editor.charAnimation.delAnimText == null
+                || editor.charAnimation.delAnimText.isEmpty()
+                || editor.charAnimation.delAnimAlpha <= 0f) {
+            return;
+        }
+        int at = Math.max(0, Math.min(editor.charAnimation.delAnimAtChar, line.length()));
+        float x = editor.textRender.measureText(line, at, globalLine);
+        Paint ghostPaint = (editor.charAnimation.delAnimPaint != null)
+                ? editor.charAnimation.delAnimPaint
+                : editor.textRender.paint;
+        editor.charAnimation.charAnimTmpPaint.set(ghostPaint);
+        editor.charAnimation.charAnimTmpPaint.setUnderlineText(false);
+        int baseAlpha = ghostPaint.getAlpha();
+        editor.charAnimation.charAnimTmpPaint.setAlpha(
+                (int) (baseAlpha * Math.max(0f, Math.min(1f, editor.charAnimation.delAnimAlpha))));
+        canvas.drawText(editor.charAnimation.delAnimText, x, y, editor.charAnimation.charAnimTmpPaint);
+    }
+
     private void logCharAnimRender(String message) {
+        if (!SodiumEditor.DEBUG_LOGS) return;
         if (charAnimRenderLogCount >= 120) return;
         charAnimRenderLogCount++;
+        Log.d(CHAR_ANIM_TAG, message);
+    }
+
+    private void logCharAnimRenderAlways(String message) {
+        if (!SodiumEditor.DEBUG_LOGS) return;
         Log.d(CHAR_ANIM_TAG, message);
     }
 

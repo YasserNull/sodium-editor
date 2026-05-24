@@ -92,6 +92,7 @@ import com.yn.sodiumeditor.renderer.*;
 import com.yn.sodiumeditor.input.Ime;
 
 public class SodiumEditor extends View {
+  public static boolean DEBUG_LOGS = true;
 
   public final FileIO fileIO;
   public final Scroll scroll;

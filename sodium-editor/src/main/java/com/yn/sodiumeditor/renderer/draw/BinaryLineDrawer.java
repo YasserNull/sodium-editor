@@ -264,10 +264,27 @@ public class BinaryLineDrawer {
      * @param binaryTokenSpans the token spans array
      */
     public void drawBinaryLineSlice(Canvas canvas, String line, int globalLine, int relStart, int relEnd, int sliceStart, float y, Paint defaultPaint, android.util.SparseArray<int[]> binaryTokenSpans) {
+        drawBinaryLineSlice(canvas, line, globalLine, relStart, relEnd, sliceStart, y, defaultPaint, binaryTokenSpans, -1, -1, 1f);
+    }
+
+    public void drawBinaryLineSlice(
+            Canvas canvas,
+            String line,
+            int globalLine,
+            int relStart,
+            int relEnd,
+            int sliceStart,
+            float y,
+            Paint defaultPaint,
+            android.util.SparseArray<int[]> binaryTokenSpans,
+            int fadeStart,
+            int fadeEnd,
+            float fadeAlpha) {
         if (line == null || relStart >= relEnd) return;
 
         int len = line.length();
         int[] spans = binaryTokenSpans.get(globalLine);
+        boolean hasFade = fadeStart >= 0 && fadeEnd > fadeStart && fadeAlpha < 1f;
 
         // Use cached character width
         float charWidth = getCachedCharWidth();
@@ -275,7 +292,7 @@ public class BinaryLineDrawer {
 
         // Fast path: no spans, draw entire slice at once
         if (spans == null || spans.length == 0) {
-            canvas.drawText(line, relStart, relEnd, 0f, y, defaultPaint);
+            drawBinaryTextRunWithFade(canvas, line, relStart, relEnd, 0f, y, defaultPaint, fadeStart, fadeEnd, fadeAlpha);
             return;
         }
 
@@ -301,7 +318,7 @@ public class BinaryLineDrawer {
 
             // Draw normal text before this span
             if (safeS > idx) {
-                canvas.drawText(line, idx, safeS, x, y, defaultPaint);
+                drawBinaryTextRunWithFade(canvas, line, idx, safeS, x, y, defaultPaint, fadeStart, fadeEnd, fadeAlpha);
                 x += defaultPaint.measureText(line, idx, safeS);
             }
 
@@ -319,7 +336,11 @@ public class BinaryLineDrawer {
             String tokenText = line.substring(safeS, safeE);
             binaryTokenTextPaint.setTextSize(defaultPaint.getTextSize());
             binaryTokenTextPaint.setTypeface(defaultPaint.getTypeface());
-            canvas.drawText(tokenText, x + padX, y, binaryTokenTextPaint);
+            if (hasFade && safeS < fadeEnd && safeE > fadeStart) {
+                drawBinaryTextRunWithFade(canvas, line, safeS, safeE, x + padX, y, binaryTokenTextPaint, fadeStart, fadeEnd, fadeAlpha);
+            } else {
+                canvas.drawText(tokenText, x + padX, y, binaryTokenTextPaint);
+            }
 
             x += tokenTotalWidth;
             idx = safeE;
@@ -327,7 +348,62 @@ public class BinaryLineDrawer {
 
         // Draw remaining normal text
         if (idx < relEnd) {
-            canvas.drawText(line, idx, relEnd, x, y, defaultPaint);
+            drawBinaryTextRunWithFade(canvas, line, idx, relEnd, x, y, defaultPaint, fadeStart, fadeEnd, fadeAlpha);
         }
+    }
+
+    private float drawBinaryTextRunWithFade(
+            Canvas canvas,
+            String line,
+            int start,
+            int end,
+            float x,
+            float y,
+            Paint paint,
+            int fadeStart,
+            int fadeEnd,
+            float fadeAlpha) {
+        if (start >= end) return 0f;
+        boolean hasFade = fadeStart >= 0 && fadeEnd > fadeStart && fadeAlpha < 1f;
+        if (!hasFade || end <= fadeStart || start >= fadeEnd) {
+            canvas.drawText(line, start, end, x, y, paint);
+            return paint.measureText(line, start, end);
+        }
+
+        float currentX = x;
+        int beforeEnd = Math.min(end, fadeStart);
+        if (start < beforeEnd) {
+            canvas.drawText(line, start, beforeEnd, currentX, y, paint);
+            currentX += paint.measureText(line, start, beforeEnd);
+        }
+
+        int fadeSegStart = Math.max(start, fadeStart);
+        int fadeSegEnd = Math.min(end, fadeEnd);
+        if (fadeSegStart < fadeSegEnd) {
+            editor.charAnimation.charAnimTmpPaint.set(paint);
+            int baseAlpha = paint.getAlpha();
+            float alpha = Math.max(0f, Math.min(1f, fadeAlpha));
+            editor.charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * alpha));
+            canvas.drawText(
+                    line,
+                    fadeSegStart,
+                    fadeSegEnd,
+                    currentX,
+                    y + getCharAnimOffsetY(alpha, paint),
+                    editor.charAnimation.charAnimTmpPaint);
+            currentX += paint.measureText(line, fadeSegStart, fadeSegEnd);
+        }
+
+        int afterStart = Math.max(start, fadeEnd);
+        if (afterStart < end) {
+            canvas.drawText(line, afterStart, end, currentX, y, paint);
+            currentX += paint.measureText(line, afterStart, end);
+        }
+
+        return currentX - x;
+    }
+
+    private float getCharAnimOffsetY(float alpha, Paint paint) {
+        return 0f;
     }
 }

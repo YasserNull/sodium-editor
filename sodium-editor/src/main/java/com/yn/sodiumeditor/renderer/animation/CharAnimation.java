@@ -7,13 +7,13 @@ import android.os.SystemClock;
 import android.util.Log;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.utils.TextArabicUtils;
 /**
  * Manages character fade animations for SodiumEditor.
  * Handles animations for typed characters and deleted characters.
  */
 public class CharAnimation {
   private static final String TAG = "SodiumCharAnim";
-  private static final boolean DEBUG_LOGS = true;
 
   // Animation configuration
   public boolean isCharAnimationEnabled = true;
@@ -94,6 +94,10 @@ public class CharAnimation {
       log("skip start: committedText=null");
       return;
     }
+    if (TextArabicUtils.containsArabicScript(committedText, 0, committedText.length())) {
+      log("skip start: arabic-script text='" + summarize(committedText) + "'");
+      return;
+    }
 
     final int targetLine = editor.cursor.cursorLine;
     final int targetEndChar = editor.cursor.cursorChar;
@@ -126,6 +130,21 @@ public class CharAnimation {
     }
 
     final int finalCharCount = extractedCharCount;
+    final int targetStartChar = Math.max(0, Math.max(0, targetEndChar) - finalCharCount);
+    if (charAnimLine == targetLine
+        && charAnimStartChar == targetStartChar
+        && charAnimEndChar == Math.max(0, targetEndChar)
+        && charAnimAlpha < 1f) {
+      log(
+          "skip start: duplicate active range line="
+              + targetLine
+              + " range="
+              + targetStartChar
+              + ".."
+              + targetEndChar);
+      return;
+    }
+
     long now = SystemClock.uptimeMillis();
     long delta = (lastCharAnimUptime == 0L) ? Long.MAX_VALUE : (now - lastCharAnimUptime);
     lastCharAnimUptime = now;
@@ -150,7 +169,7 @@ public class CharAnimation {
           
           charAnimLine = targetLine;
           charAnimEndChar = Math.max(0, targetEndChar);
-          charAnimStartChar = Math.max(0, charAnimEndChar - finalCharCount);
+          charAnimStartChar = targetStartChar;
           charAnimAlpha = 0f;
           log(
               "start char line="
@@ -233,6 +252,10 @@ public class CharAnimation {
     }
     if (removedText == null || removedText.isEmpty()) {
       log("skip delete: removedText empty");
+      return;
+    }
+    if (TextArabicUtils.containsArabicScript(removedText, 0, removedText.length())) {
+      log("skip delete: arabic-script text='" + summarize(removedText) + "'");
       return;
     }
 
@@ -424,7 +447,7 @@ public class CharAnimation {
   }
 
   private static void log(String message) {
-    if (DEBUG_LOGS) Log.d(TAG, message);
+    if (SodiumEditor.DEBUG_LOGS) Log.d(TAG, message);
   }
 
   private static String summarize(CharSequence text) {

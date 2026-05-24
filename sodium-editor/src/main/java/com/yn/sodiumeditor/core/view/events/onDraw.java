@@ -3,10 +3,14 @@ package com.yn.sodiumeditor.core.view.events;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
+import android.util.Log;
 import com.yn.sodiumeditor.SodiumEditor;
 
 public class onDraw {
+    private static final String TAG = "SodiumCharAnim";
+    private static final int MAX_DRAW_FRAME_LOGS = 220;
     private final SodiumEditor editor;
+    private int drawFrameLogCount = 0;
 
     public onDraw(SodiumEditor editor) {
         this.editor = editor;
@@ -17,6 +21,31 @@ public class onDraw {
     }
 
     public void onDraw(Canvas canvas) {
+        if (SodiumEditor.DEBUG_LOGS
+                && editor.charAnimation.charAnimLine >= 0
+                && editor.charAnimation.charAnimEndChar > editor.charAnimation.charAnimStartChar
+                && editor.charAnimation.charAnimAlpha < 1f
+                && drawFrameLogCount < MAX_DRAW_FRAME_LOGS) {
+            drawFrameLogCount++;
+            Log.d(
+                    TAG,
+                    "ON_DRAW frame line="
+                            + editor.charAnimation.charAnimLine
+                            + " range="
+                            + editor.charAnimation.charAnimStartChar
+                            + ".."
+                            + editor.charAnimation.charAnimEndChar
+                            + " alpha="
+                            + editor.charAnimation.charAnimAlpha
+                            + " size="
+                            + editor.getWidth()
+                            + "x"
+                            + editor.getHeight()
+                            + " scroll="
+                            + editor.scroll.getEffectiveScrollX()
+                            + ","
+                            + editor.scroll.scrollY);
+        }
         // If the editor background is transparent, previously-rendered glyphs can "ghost"
         // when a line becomes empty (we skip drawing text for empty lines). CLEAR ensures
         // the current clip is wiped every frame before drawing.

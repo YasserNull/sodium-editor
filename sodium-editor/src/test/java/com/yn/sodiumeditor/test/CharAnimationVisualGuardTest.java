@@ -1,5 +1,6 @@
 package com.yn.sodiumeditor.test;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
@@ -8,20 +9,24 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.Test;
 
-/**
- * Static guard that typed character animation has a visible positional component.
- */
+/** Static guard that typed character animation is fade-only. */
 public class CharAnimationVisualGuardTest {
 
     @Test
-    public void drawTextSegmentWithFade_shouldOffsetAnimatingGlyph() throws Exception {
+    public void drawTextSegmentWithFade_shouldFadeWithoutVerticalOffset() throws Exception {
         String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/draw/TextLineDraw.java");
 
         assertTrue(
-                "BUG: char animation only changes alpha; it should offset the glyph so the animation is visible.",
+                "BUG: typed char animation should still isolate the animated glyph and apply alpha.",
                 src.contains("getCharAnimOffsetY(fadeAlpha, segmentPaint)")
                         && src.contains("getCharAnimOffsetY(alphaMultiplier, segmentPaint)")
-                        && src.contains("paint.getTextSize() * 0.35f"));
+                        && src.contains("charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))))"));
+        assertFalse(
+                "BUG: typed char animation must be fade-only; do not move the glyph vertically.",
+                src.contains("paint.getTextSize() * 0.35f"));
+        assertTrue(
+                "BUG: fade-only animation should return zero vertical offset.",
+                src.contains("private float getCharAnimOffsetY(float alpha, Paint paint) {\n        return 0f;\n    }"));
     }
 
     private static String readSource(String relativePath) throws Exception {

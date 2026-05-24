@@ -207,6 +207,7 @@ public class SelectionActionHandler {
                 editor.view.computeWidthForLine(sL, merged); editor.windowRender.recalculateMaxLineWidth();
             }
         }
+        if (!insertText.isEmpty()) editor.charAnimation.startCharAnimationFromText(insertText);
         selection.state.clearSelectionStateAfterDelete(); editor.invalidate(); editor.scroll.keepCursorVisibleHorizontally(); editor.loadingCircle.endLargeEditUi(false);
         invalidateFeatureStateForReplace(sL, eL);
         finalizeAction(remNl, insNl, sL, sC, eL, eC, removedText, insertText, beforeL, beforeC);

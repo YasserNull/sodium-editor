@@ -6,6 +6,7 @@ import android.util.Log;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.TextRender;
+import com.yn.sodiumeditor.utils.TextArabicUtils;
 import java.util.List;
 
 /**
@@ -18,9 +19,11 @@ import java.util.List;
  */
 public class TextLineDraw {
     private static final String TAG = "SodiumCharAnim";
+    private static final int MAX_DRAW_TRACE_LOGS = 300;
 
     private final SodiumEditor editor;
     private int charFadeDrawLogCount = 0;
+    private int charDrawTraceLogCount = 0;
 
     public TextLineDraw(SodiumEditor editor) {
         this.editor = editor;
@@ -38,20 +41,38 @@ public class TextLineDraw {
             Paint segmentPaint, int fadeStart, int fadeEnd, float fadeAlpha) {
         if (start >= end) return 0f;
         boolean hasFade = fadeStart >= 0 && fadeEnd > fadeStart && fadeAlpha < 1f;
+        if (hasFade && start < fadeEnd && end > fadeStart) {
+            logCharDrawTraceAlways(
+                    "ENTER_TEXT_SEGMENT",
+                    line,
+                    start,
+                    end,
+                    fadeAlpha,
+                    x,
+                    y,
+                    fadeStart,
+                    fadeEnd,
+                    "drawTextSegmentWithFade");
+        }
         if (hasFade
                 && !editor.binaryRender.isBinarySafeRenderingEnabled()
-                && com.yn.sodiumeditor.utils.TextArabicUtils.containsArabicScript(line, start, end)) {
-            int spaceScale = editor.textRender.getVisualSpaceScale();
-            int tabIndex = line.indexOf('\t', start);
-            if (spaceScale > 1 || (tabIndex >= 0 && tabIndex < end)) {
-                return drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, segmentPaint, 1f);
-            }
-            canvas.drawText(line, start, end, x, y, segmentPaint);
-            return segmentPaint.measureText(line, start, end);
+                && TextArabicUtils.containsArabicScript(line, start, end)) {
+            return drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, segmentPaint, 1f);
         }
         final int spaceScale = editor.textRender.getVisualSpaceScale();
         if (spaceScale > 1) {
             if (!hasFade || end <= fadeStart || start >= fadeEnd) {
+                logCharDrawTrace(
+                        "DRAW_VISUAL_BASE",
+                        line,
+                        start,
+                        end,
+                        1f,
+                        x,
+                        y,
+                        fadeStart,
+                        fadeEnd,
+                        "no-overlap-or-no-fade");
                 return drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, segmentPaint, 1f);
             }
 
@@ -59,6 +80,17 @@ public class TextLineDraw {
 
             int beforeEnd = Math.min(end, fadeStart);
             if (start < beforeEnd) {
+                logCharDrawTrace(
+                        "DRAW_VISUAL_BASE_BEFORE",
+                        line,
+                        start,
+                        beforeEnd,
+                        1f,
+                        currentX,
+                        y,
+                        fadeStart,
+                        fadeEnd,
+                        "before-anim");
                 currentX += drawTextSegmentWithVisualSpaces(
                         canvas, line, start, beforeEnd, currentX, y, segmentPaint, 1f);
             }
@@ -66,12 +98,35 @@ public class TextLineDraw {
             int fadeSegStart = Math.max(start, fadeStart);
             int fadeSegEnd = Math.min(end, fadeEnd);
             if (fadeSegStart < fadeSegEnd) {
+                // Reserve the glyph's advance in the base text stream, then draw only the animated glyph.
+                logCharDrawTrace(
+                        "DRAW_VISUAL_ANIM",
+                        line,
+                        fadeSegStart,
+                        fadeSegEnd,
+                        fadeAlpha,
+                        currentX,
+                        y,
+                        fadeStart,
+                        fadeEnd,
+                        "animated-visual-spaces");
                 currentX += drawTextSegmentWithVisualSpaces(
                         canvas, line, fadeSegStart, fadeSegEnd, currentX, y, segmentPaint, fadeAlpha);
             }
 
             int afterStart = Math.max(start, fadeEnd);
             if (afterStart < end) {
+                logCharDrawTrace(
+                        "DRAW_VISUAL_BASE_AFTER",
+                        line,
+                        afterStart,
+                        end,
+                        1f,
+                        currentX,
+                        y,
+                        fadeStart,
+                        fadeEnd,
+                        "after-anim");
                 currentX += drawTextSegmentWithVisualSpaces(
                         canvas, line, afterStart, end, currentX, y, segmentPaint, 1f);
             }
@@ -79,6 +134,17 @@ public class TextLineDraw {
             return currentX - x;
         }
         if (!hasFade || end <= fadeStart || start >= fadeEnd) {
+            logCharDrawTrace(
+                    "DRAW_BASE_DIRECT",
+                    line,
+                    start,
+                    end,
+                    1f,
+                    x,
+                    y,
+                    fadeStart,
+                    fadeEnd,
+                    "no-overlap-or-no-fade");
             canvas.drawText(line, start, end, x, y, segmentPaint);
             return segmentPaint.measureText(line, start, end);
         }
@@ -87,6 +153,17 @@ public class TextLineDraw {
 
         int beforeEnd = Math.min(end, fadeStart);
         if (start < beforeEnd) {
+            logCharDrawTrace(
+                    "DRAW_BASE_BEFORE",
+                    line,
+                    start,
+                    beforeEnd,
+                    1f,
+                    currentX,
+                    y,
+                    fadeStart,
+                    fadeEnd,
+                    "before-anim");
             canvas.drawText(line, start, beforeEnd, currentX, y, segmentPaint);
             currentX += segmentPaint.measureText(line, start, beforeEnd);
         }
@@ -94,6 +171,17 @@ public class TextLineDraw {
         int fadeSegStart = Math.max(start, fadeStart);
         int fadeSegEnd = Math.min(end, fadeEnd);
         if (fadeSegStart < fadeSegEnd) {
+            logCharDrawTrace(
+                    "DRAW_ANIM",
+                    line,
+                    fadeSegStart,
+                    fadeSegEnd,
+                    fadeAlpha,
+                    currentX,
+                    y,
+                    fadeStart,
+                    fadeEnd,
+                    "animated-glyph");
             logCharFadeDraw(line, fadeSegStart, fadeSegEnd, fadeAlpha, currentX, y, false);
             editor.charAnimation.charAnimTmpPaint.set(segmentPaint);
             int baseAlpha = segmentPaint.getAlpha();
@@ -110,6 +198,17 @@ public class TextLineDraw {
 
         int afterStart = Math.max(start, fadeEnd);
         if (afterStart < end) {
+            logCharDrawTrace(
+                    "DRAW_BASE_AFTER",
+                    line,
+                    afterStart,
+                    end,
+                    1f,
+                    currentX,
+                    y,
+                    fadeStart,
+                    fadeEnd,
+                    "after-anim");
             canvas.drawText(line, afterStart, end, currentX, y, segmentPaint);
             currentX += segmentPaint.measureText(line, afterStart, end);
         }
@@ -286,12 +385,197 @@ public class TextLineDraw {
     }
 
     private float getCharAnimOffsetY(float alpha, Paint paint) {
-        float t = Math.max(0f, Math.min(1f, alpha));
-        return (1f - t) * paint.getTextSize() * 0.35f;
+        return 0f;
+    }
+
+    private float drawArabicTextSegmentWithFade(
+            Canvas canvas,
+            String line,
+            int start,
+            int end,
+            float x,
+            float y,
+            Paint segmentPaint,
+            int fadeStart,
+            int fadeEnd,
+            float fadeAlpha) {
+        if (end <= fadeStart || start >= fadeEnd) {
+            if (editor.textRender.getVisualSpaceScale() > 1) {
+                logCharDrawTrace(
+                        "DRAW_ARABIC_VISUAL_BASE",
+                        line,
+                        start,
+                        end,
+                        1f,
+                        x,
+                        y,
+                        fadeStart,
+                        fadeEnd,
+                        "arabic-no-overlap-visual");
+                return drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, segmentPaint, 1f);
+            }
+            logCharDrawTrace(
+                    "DRAW_ARABIC_BASE_DIRECT",
+                    line,
+                    start,
+                    end,
+                    1f,
+                    x,
+                    y,
+                    fadeStart,
+                    fadeEnd,
+                    "arabic-no-overlap");
+            canvas.drawText(line, start, end, x, y, segmentPaint);
+            return segmentPaint.measureText(line, start, end);
+        }
+
+        if (editor.textRender.getVisualSpaceScale() > 1) {
+            float currentX = x;
+            int beforeEnd = Math.min(end, fadeStart);
+            if (start < beforeEnd) {
+                logCharDrawTrace(
+                        "DRAW_ARABIC_VISUAL_BASE_BEFORE",
+                        line,
+                        start,
+                        beforeEnd,
+                        1f,
+                        currentX,
+                        y,
+                        fadeStart,
+                        fadeEnd,
+                        "before-anim");
+                currentX += drawTextSegmentWithVisualSpaces(canvas, line, start, beforeEnd, currentX, y, segmentPaint, 1f);
+            }
+            int fadeSegStart = Math.max(start, fadeStart);
+            int fadeSegEnd = Math.min(end, fadeEnd);
+            if (fadeSegStart < fadeSegEnd) {
+                logCharDrawTrace(
+                        "DRAW_ARABIC_VISUAL_ANIM",
+                        line,
+                        fadeSegStart,
+                        fadeSegEnd,
+                        fadeAlpha,
+                        currentX,
+                        y,
+                        fadeStart,
+                        fadeEnd,
+                        "animated-visual");
+                currentX += drawTextSegmentWithVisualSpaces(canvas, line, fadeSegStart, fadeSegEnd, currentX, y, segmentPaint, fadeAlpha);
+            }
+            int afterStart = Math.max(start, fadeEnd);
+            if (afterStart < end) {
+                logCharDrawTrace(
+                        "DRAW_ARABIC_VISUAL_BASE_AFTER",
+                        line,
+                        afterStart,
+                        end,
+                        1f,
+                        currentX,
+                        y,
+                        fadeStart,
+                        fadeEnd,
+                        "after-anim");
+                currentX += drawTextSegmentWithVisualSpaces(canvas, line, afterStart, end, currentX, y, segmentPaint, 1f);
+            }
+            return currentX - x;
+        }
+
+        float currentX = x;
+
+        int beforeEnd = Math.min(end, fadeStart);
+        if (start < beforeEnd) {
+            logCharDrawTrace(
+                    "DRAW_ARABIC_BASE_BEFORE",
+                    line,
+                    start,
+                    beforeEnd,
+                    1f,
+                    currentX,
+                    y,
+                    fadeStart,
+                    fadeEnd,
+                    "context-before-anim");
+            drawTextRunWithContext(canvas, line, start, beforeEnd, start, end, currentX, y, segmentPaint);
+            currentX += segmentPaint.measureText(line, start, beforeEnd);
+        }
+
+        int fadeSegStart = Math.max(start, fadeStart);
+        int fadeSegEnd = Math.min(end, fadeEnd);
+        if (fadeSegStart < fadeSegEnd) {
+            float alpha = Math.max(0f, Math.min(1f, fadeAlpha));
+            logCharDrawTrace(
+                    "DRAW_ARABIC_ANIM",
+                    line,
+                    fadeSegStart,
+                    fadeSegEnd,
+                    alpha,
+                    currentX,
+                    y,
+                    fadeStart,
+                    fadeEnd,
+                    "context-animated-glyph");
+            logCharFadeDraw(line, fadeSegStart, fadeSegEnd, alpha, currentX, y, false);
+            editor.charAnimation.charAnimTmpPaint.set(segmentPaint);
+            int baseAlpha = segmentPaint.getAlpha();
+            editor.charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * alpha));
+            drawTextRunWithContext(
+                    canvas,
+                    line,
+                    fadeSegStart,
+                    fadeSegEnd,
+                    start,
+                    end,
+                    currentX,
+                    y + getCharAnimOffsetY(alpha, segmentPaint),
+                    editor.charAnimation.charAnimTmpPaint);
+            currentX += segmentPaint.measureText(line, fadeSegStart, fadeSegEnd);
+        }
+
+        int afterStart = Math.max(start, fadeEnd);
+        if (afterStart < end) {
+            logCharDrawTrace(
+                    "DRAW_ARABIC_BASE_AFTER",
+                    line,
+                    afterStart,
+                    end,
+                    1f,
+                    currentX,
+                    y,
+                    fadeStart,
+                    fadeEnd,
+                    "context-after-anim");
+            drawTextRunWithContext(canvas, line, afterStart, end, start, end, currentX, y, segmentPaint);
+            currentX += segmentPaint.measureText(line, afterStart, end);
+        }
+
+        return currentX - x;
+    }
+
+    private void drawTextRunWithContext(
+            Canvas canvas,
+            String line,
+            int start,
+            int end,
+            int contextStart,
+            int contextEnd,
+            float x,
+            float y,
+            Paint paint) {
+        canvas.drawTextRun(
+                line,
+                start,
+                end,
+                Math.max(0, contextStart),
+                Math.min(line.length(), contextEnd),
+                x,
+                y,
+                editor.textRender.isRtl,
+                paint);
     }
 
     private void logCharFadeDraw(
             String line, int start, int end, float alpha, float x, float y, boolean visualSpaces) {
+        if (!SodiumEditor.DEBUG_LOGS) return;
         if (charFadeDrawLogCount >= 80) return;
         charFadeDrawLogCount++;
         String text = "";
@@ -316,6 +600,102 @@ public class TextLineDraw {
                         + " text='"
                         + text
                         + "'");
+    }
+
+    private void logCharDrawTrace(
+            String phase,
+            String line,
+            int start,
+            int end,
+            float alpha,
+            float x,
+            float y,
+            int fadeStart,
+            int fadeEnd,
+            String note) {
+        if (!SodiumEditor.DEBUG_LOGS) return;
+        if (charDrawTraceLogCount >= MAX_DRAW_TRACE_LOGS) return;
+        if (!isTraceRelevant(start, end, fadeStart, fadeEnd, alpha)) return;
+        charDrawTraceLogCount++;
+        boolean overlapsAnim =
+                fadeStart >= 0 && fadeEnd > fadeStart && start < fadeEnd && end > fadeStart;
+        Log.d(
+                TAG,
+                phase
+                        + " range="
+                        + start
+                        + ".."
+                        + end
+                        + " animRange="
+                        + fadeStart
+                        + ".."
+                        + fadeEnd
+                        + " overlapsAnim="
+                        + overlapsAnim
+                        + " alpha="
+                        + alpha
+                        + " x="
+                        + x
+                        + " y="
+                        + y
+                        + " note="
+                        + note
+                        + " text='"
+                        + summarizeLine(line, start, end)
+                        + "'");
+    }
+
+    private void logCharDrawTraceAlways(
+            String phase,
+            String line,
+            int start,
+            int end,
+            float alpha,
+            float x,
+            float y,
+            int fadeStart,
+            int fadeEnd,
+            String note) {
+        if (!SodiumEditor.DEBUG_LOGS) return;
+        boolean overlapsAnim =
+                fadeStart >= 0 && fadeEnd > fadeStart && start < fadeEnd && end > fadeStart;
+        Log.d(
+                TAG,
+                phase
+                        + " range="
+                        + start
+                        + ".."
+                        + end
+                        + " animRange="
+                        + fadeStart
+                        + ".."
+                        + fadeEnd
+                        + " overlapsAnim="
+                        + overlapsAnim
+                        + " alpha="
+                        + alpha
+                        + " x="
+                        + x
+                        + " y="
+                        + y
+                        + " note="
+                        + note
+                        + " text='"
+                        + summarizeLine(line, start, end)
+                        + "'");
+    }
+
+    private boolean isTraceRelevant(int start, int end, int fadeStart, int fadeEnd, float alpha) {
+        if (alpha < 1f) return true;
+        return fadeStart >= 0 && fadeEnd > fadeStart && start < fadeEnd && end > fadeStart;
+    }
+
+    private String summarizeLine(String line, int start, int end) {
+        if (line == null) return "null";
+        int safeStart = Math.max(0, Math.min(start, line.length()));
+        int safeEnd = Math.max(safeStart, Math.min(end, line.length()));
+        String text = line.substring(safeStart, safeEnd).replace("\n", "\\n").replace("\r", "\\r");
+        return text.length() > 24 ? text.substring(0, 24) + "..." : text;
     }
 
     /**

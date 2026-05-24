@@ -58,12 +58,15 @@ public class EditorActions {
                 int safeCursorChar = Math.max(0, Math.min(editor.cursor.cursorChar, base.length()));
                 int deleteEnd = nextCodePointEnd(base, safeCursorChar);
                 String removed = base.substring(safeCursorChar, deleteEnd);
+                android.graphics.Paint removedPaint =
+                        editor.highliteRender.getPaintForChar(beforeLine, safeCursorChar, base);
                 String modified = base.substring(0, safeCursorChar) + base.substring(deleteEnd);
                 editor.view.updateLocalLine(localIdx, modified);
                 editor.windowRender.modifiedLines.put(editor.cursor.cursorLine, modified);
                 editor.highlite.invalidateHighlightCacheForLine(editor.cursor.cursorLine);
                 editor.view.computeWidthForLine(editor.cursor.cursorLine, modified);
                 editor.view.invalidateLineGlobal(editor.cursor.cursorLine);
+                editor.charAnimation.startDeleteAnimation(beforeLine, safeCursorChar, removed, removedPaint);
 
                 EditOp op = new EditOp();
                 op.startLine = beforeLine; op.startChar = safeCursorChar;
@@ -228,6 +231,7 @@ public class EditorActions {
                 editor.highlite.invalidateHighlightCacheForLine(editor.cursor.cursorLine);
                 highlightMs = android.os.SystemClock.uptimeMillis() - highlightStartMs;
                 editor.cursor.cursorChar++;
+                editor.charAnimation.startCharAnimationFromText(String.valueOf(c));
                 long widthStartMs = android.os.SystemClock.uptimeMillis();
                 editor.view.computeWidthForLine(editor.cursor.cursorLine, modified);
                 widthMs = android.os.SystemClock.uptimeMillis() - widthStartMs;
@@ -367,6 +371,8 @@ public class EditorActions {
                     }
                 }
                 String removed = base.substring(safeStart, safeCursorChar);
+                android.graphics.Paint removedPaint =
+                        editor.highliteRender.getPaintForChar(beforeLine, safeStart, base);
                 
                 String modified = base.substring(0, safeStart) + base.substring(safeCursorChar);
                 editor.view.updateLocalLine(localIdx, modified);
@@ -380,6 +386,7 @@ public class EditorActions {
                 editor.view.computeWidthForLine(editor.cursor.cursorLine, modified);
                 editor.view.invalidateLineGlobal(editor.cursor.cursorLine);
                 editor.cursor.invalidateCursorArea();
+                editor.charAnimation.startDeleteAnimation(beforeLine, safeStart, removed, removedPaint);
 
                 EditOp op = new EditOp();
                 op.startLine = beforeLine; op.startChar = safeStart;
