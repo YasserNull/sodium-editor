@@ -1,6 +1,7 @@
 package com.yn.sodiumeditor.core.autocompletion; 
 import com.yn.sodiumeditor.SodiumEditor;
 import androidx.annotation.Nullable;
+import android.util.Log;
 import com.yn.sodiumeditor.renderer.TextRender;
 import java.io.File;
 import java.util.ArrayList;
@@ -12,6 +13,23 @@ import java.util.List;
  * Handles file system path suggestions.
  */
 public class AutoPathCompletion {
+
+    private static final String TAG = "SodiumPathCompletion";
+    private static final String ANDROID_PUBLIC_STORAGE_ROOT = "/storage/emulated/0";
+    private static final String[] ANDROID_PUBLIC_DIRECTORY_NAMES = {
+            "Alarms/",
+            "Android/",
+            "Audiobooks/",
+            "DCIM/",
+            "Documents/",
+            "Download/",
+            "Movies/",
+            "Music/",
+            "Notifications/",
+            "Pictures/",
+            "Podcasts/",
+            "Ringtones/"
+    };
 
     private final SodiumEditor editor;
 
@@ -49,7 +67,7 @@ public class AutoPathCompletion {
      */
     @Nullable
     public String findPathSuggestion(String fragment) {
-        if (fragment.equals(lastPathQuery)) {
+        if (fragment.equals(lastPathQuery) && lastPathSuggestion != null) {
             return lastPathSuggestion;
         }
 
@@ -68,16 +86,43 @@ public class AutoPathCompletion {
         String prefix = lastSlash >= 0 ? expanded.substring(lastSlash + 1) : expanded;
         File dir = resolveBaseDir(expanded, fragment, dirPart, home);
         if (dir == null || !dir.exists() || !dir.isDirectory()) {
+            List<String> androidPublicFallbackNames =
+                    dir == null ? null : getAndroidPublicDirectoryFallbackNames(dir);
+            if (androidPublicFallbackNames != null && !androidPublicFallbackNames.isEmpty()) {
+                String suggestion = buildSuggestionFromNames(fragment, prefix, androidPublicFallbackNames);
+                logPathCompletion("fallback android-root invalid-dir fragment='" + fragment
+                        + "' prefix='" + prefix + "' suggestion='" + suggestion + "'");
+                lastPathQuery = fragment;
+                lastPathSuggestion = suggestion;
+                return suggestion;
+            }
+            logPathCompletion("miss invalid-dir fragment='" + fragment + "' dir="
+                    + (dir == null ? "null" : dir.getAbsolutePath())
+                    + " exists=" + (dir != null && dir.exists())
+                    + " isDirectory=" + (dir != null && dir.isDirectory()));
             lastPathQuery = fragment;
             lastPathSuggestion = null;
             return null;
         }
 
         File[] entries = dir.listFiles();
+        List<String> androidPublicFallbackNames = getAndroidPublicDirectoryFallbackNames(dir);
         if (entries == null || entries.length == 0) {
+            if (androidPublicFallbackNames == null || androidPublicFallbackNames.isEmpty()) {
+                logPathCompletion("miss empty-dir fragment='" + fragment + "' dir="
+                        + dir.getAbsolutePath()
+                        + " canRead=" + dir.canRead()
+                        + " entriesNull=" + (entries == null));
+                lastPathQuery = fragment;
+                lastPathSuggestion = null;
+                return null;
+            }
+            String suggestion = buildSuggestionFromNames(fragment, prefix, androidPublicFallbackNames);
+            logPathCompletion("fallback android-root fragment='" + fragment + "' prefix='" + prefix
+                    + "' suggestion='" + suggestion + "'");
             lastPathQuery = fragment;
-            lastPathSuggestion = null;
-            return null;
+            lastPathSuggestion = suggestion;
+            return suggestion;
         }
 
         List<String> matches = new ArrayList<>();
@@ -85,7 +130,7 @@ public class AutoPathCompletion {
         for (File entry : entries) {
             String name = entry.getName();
             if (!allowHidden && name.startsWith(".")) continue;
-            if (name.startsWith(prefix)) {
+            if (startsWithIgnoreCase(name, prefix)) {
                 matches.add(entry.isDirectory() ? name + "/" : name);
             }
         }
@@ -98,9 +143,14 @@ public class AutoPathCompletion {
             String fallback = chooseClosestByCommonPrefix(entries, prefix, allowHidden);
             if (fallback != null) {
                 suggestion = fragment + fallback;
+            } else if (androidPublicFallbackNames != null && !androidPublicFallbackNames.isEmpty()) {
+                suggestion = buildSuggestionFromNames(fragment, prefix, androidPublicFallbackNames);
             }
         }
 
+        logPathCompletion("result fragment='" + fragment + "' dir=" + dir.getAbsolutePath()
+                + " prefix='" + prefix + "' entries=" + entries.length
+                + " suggestion='" + suggestion + "'");
         lastPathQuery = fragment;
         lastPathSuggestion = suggestion;
         return suggestion;
@@ -156,7 +206,7 @@ public class AutoPathCompletion {
         for (String name : matches) {
             if (name.length() < best.length()) {
                 best = name;
-            } else if (name.length() == best.length() && name.compareTo(best) < 0) {
+            } else if (name.length() == best.length() && name.compareToIgnoreCase(best) < 0) {
                 best = name;
             }
         }
@@ -173,15 +223,15 @@ public class AutoPathCompletion {
         for (File entry : entries) {
             String name = entry.getName();
             if (!allowHidden && name.startsWith(".")) continue;
-            int score = commonPrefixLength(prefix, name);
+            int score = commonPrefixLengthIgnoreCase(prefix, name);
             if (score > bestScore) {
                 bestScore = score;
                 bestName = entry.isDirectory() ? name + "/" : name;
-            } else if (score == bestScore && bestName != null && name.compareTo(bestName) < 0) {
+            } else if (score == bestScore && bestName != null && name.compareToIgnoreCase(bestName) < 0) {
                 bestName = entry.isDirectory() ? name + "/" : name;
             }
         }
-        return (bestScore <= 0) ? null : bestName;
+        return (bestScore <= 0 || bestName == null) ? null : bestName.substring(bestScore);
     }
 
     /**
@@ -194,11 +244,67 @@ public class AutoPathCompletion {
         return i;
     }
 
+    public int commonPrefixLengthIgnoreCase(String a, String b) {
+        int len = Math.min(a.length(), b.length());
+        int i = 0;
+        while (i < len && Character.toLowerCase(a.charAt(i)) == Character.toLowerCase(b.charAt(i))) i++;
+        return i;
+    }
+
+    public boolean startsWithIgnoreCase(String value, String prefix) {
+        if (prefix.length() > value.length()) return false;
+        return value.regionMatches(true, 0, prefix, 0, prefix.length());
+    }
+
+    @Nullable
+    public List<String> getAndroidPublicDirectoryFallbackNames(File dir) {
+        String path = dir.getAbsolutePath();
+        if (!ANDROID_PUBLIC_STORAGE_ROOT.equals(path)) return null;
+        List<String> names = new ArrayList<>(ANDROID_PUBLIC_DIRECTORY_NAMES.length);
+        Collections.addAll(names, ANDROID_PUBLIC_DIRECTORY_NAMES);
+        return names;
+    }
+
+    @Nullable
+    public String buildSuggestionFromNames(String fragment, String prefix, List<String> names) {
+        List<String> matches = new ArrayList<>();
+        boolean allowHidden = prefix.startsWith(".");
+        for (String name : names) {
+            if (!allowHidden && name.startsWith(".")) continue;
+            if (startsWithIgnoreCase(name, prefix)) {
+                matches.add(name);
+            }
+        }
+        if (!matches.isEmpty()) {
+            Collections.sort(matches, String.CASE_INSENSITIVE_ORDER);
+            String chosen = chooseClosestPrefix(matches);
+            return fragment + chosen.substring(prefix.length());
+        }
+
+        int bestScore = -1;
+        String bestName = null;
+        for (String name : names) {
+            if (!allowHidden && name.startsWith(".")) continue;
+            int score = commonPrefixLengthIgnoreCase(prefix, name);
+            if (score > bestScore) {
+                bestScore = score;
+                bestName = name;
+            } else if (score == bestScore && bestName != null && name.compareToIgnoreCase(bestName) < 0) {
+                bestName = name;
+            }
+        }
+        return bestScore <= 0 || bestName == null ? null : fragment + bestName.substring(bestScore);
+    }
+
     /**
      * Check if a character is a valid path character.
      */
     public boolean isPathChar(char c) {
         return Character.isLetterOrDigit(c) || c == '/' || c == '.' || c == '_' || c == '-' || c == '~';
+    }
+
+    private void logPathCompletion(String message) {
+        if (SodiumEditor.DEBUG_LOGS) Log.d(TAG, message);
     }
 
     /**
@@ -279,21 +385,6 @@ public class AutoPathCompletion {
                 editor.autoCompletion.clearActiveSuggestion();
             }
             return false;
-        }
-
-        // Prevent suggestions inside syntax highlighting
-        List<com.yn.sodiumeditor.renderer.HighliteRender.HighlightSpan> spans = editor.highlite.highlightCache.get(editor.cursor.cursorLine);
-        if (spans == null) {
-            spans = editor.highlite.calculateSpansForLine(line, editor.cursor.cursorLine);
-            editor.highlite.highlightCache.put(editor.cursor.cursorLine, spans);
-        }
-        for (com.yn.sodiumeditor.renderer.HighliteRender.HighlightSpan span : spans) {
-            if (editor.cursor.cursorChar > span.start && editor.cursor.cursorChar <= span.end) {
-                if (editor.autoCompletion != null) {
-                    editor.autoCompletion.clearActiveSuggestion();
-                }
-                return true;
-            }
         }
 
         String suggestion = findPathSuggestion(pathFragment);

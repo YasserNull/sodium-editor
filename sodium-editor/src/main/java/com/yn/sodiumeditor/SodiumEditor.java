@@ -215,6 +215,7 @@ public class SodiumEditor extends View {
   textRender.paint.setUnderlineText(false); 
   textRender.baseTypeface = (textRender.paint.getTypeface() != null) ? textRender.paint.getTypeface() : Typeface.MONOSPACE;
   textRender.lineHeight = textRender.paint.getFontSpacing();
+  whitespaceGuides.updateMetrics();
   lineNumber.lineNumbersPaint.setTextSize(36);
   selectionHandles.baseHandleTextSizePx = textRender.paint.getTextSize();
   cursor.baseCursorTextSizePx = textRender.paint.getTextSize();

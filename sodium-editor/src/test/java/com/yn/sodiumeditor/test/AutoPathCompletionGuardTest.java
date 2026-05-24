@@ -1,8 +1,11 @@
 package com.yn.sodiumeditor.test;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import com.yn.sodiumeditor.core.autocompletion.AutoPathCompletion;
 import java.io.File;
+import java.util.Arrays;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -64,6 +67,53 @@ public class AutoPathCompletionGuardTest {
         "BUG: path cursor contexts must return true after resolving a path suggestion.",
         body.contains("String suggestion = findPathSuggestion(pathFragment)")
             && body.lastIndexOf("return true;") > body.indexOf("String suggestion = findPathSuggestion(pathFragment)"));
+  }
+
+  @Test
+  public void pathCompletionUpdate_shouldAllowPathsInsideSyntaxSpans() throws Exception {
+    String src =
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/autocompletion/AutoPathCompletion.java");
+    String body = methodBody(src, "updatePathSuggestionInternal(boolean clearNonPathSuggestion)");
+    int pathContext = body.indexOf("String pathFragment = getCurrentPathFragment()");
+    int suggestion = body.indexOf("String suggestion = findPathSuggestion(pathFragment)");
+
+    assertTrue("Expected path fragment and suggestion lookup in path completion.", pathContext >= 0 && suggestion > pathContext);
+    assertTrue(
+        "BUG: path completion must work inside string/comment syntax spans; only word completion should be blocked there.",
+        !body.substring(pathContext, suggestion).contains("calculateSpansForLine")
+            && !body.substring(pathContext, suggestion).contains("HighlightSpan span"));
+  }
+
+  @Test
+  public void pathCompletion_shouldFallbackForAndroidPublicStorageRoot() throws Exception {
+    String src =
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/autocompletion/AutoPathCompletion.java");
+    String body = methodBody(src, "public String findPathSuggestion(String fragment)");
+
+    assertTrue(
+        "BUG: /storage/emulated/0 may return null or empty entries under scoped storage; path completion needs an Android public-directory fallback before returning null.",
+        body.contains("getAndroidPublicDirectoryFallbackNames")
+            && body.indexOf("getAndroidPublicDirectoryFallbackNames")
+                < body.indexOf("entries == null || entries.length == 0"));
+    assertTrue(
+        "BUG: path completion should match Download for /storage/emulated/0/Do and also tolerate /do.",
+        src.contains("startsWithIgnoreCase"));
+  }
+
+  @Test
+  public void pathCompletionFallback_shouldCompleteAndroidDownloadIgnoringCase() {
+    AutoPathCompletion completion = new AutoPathCompletion(null);
+
+    assertEquals(
+        "/storage/emulated/0/Download/",
+        completion.buildSuggestionFromNames(
+            "/storage/emulated/0/Do", "Do", Arrays.asList("Documents/", "Download/")));
+    assertEquals(
+        "/storage/emulated/0/download/",
+        completion.buildSuggestionFromNames(
+            "/storage/emulated/0/do", "do", Arrays.asList("Documents/", "Download/")));
   }
 
   @Test
