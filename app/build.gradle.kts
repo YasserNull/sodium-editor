@@ -52,5 +52,8 @@ configurations.all {
 
 dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.preference:preference:1.2.1")
+    implementation("com.google.android.material:material:1.12.0")
+    implementation("com.github.angads25:filepicker:1.1.1")
     implementation(project(":sodium-editor"))
 }

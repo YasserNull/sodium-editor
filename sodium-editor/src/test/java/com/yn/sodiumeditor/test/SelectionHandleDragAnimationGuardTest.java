@@ -14,16 +14,17 @@ import org.junit.Test;
 public class SelectionHandleDragAnimationGuardTest {
 
     @Test
-    public void draggedSelectionHandle_shouldAnimateAndOnlyBypassOnScrollChanges() throws Exception {
+    public void draggedSelectionHandle_shouldAnimateOnlyWhileDraggingAndBypassScrollOrIdleUpdates() throws Exception {
         String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/selection/SelectionHandles.java");
         int at = src.indexOf("float leftTargetY = startY + editor.textRender.lineHeight;");
         assertTrue("Expected handle position update target block.", at >= 0);
         String around = src.substring(at, Math.min(src.length(), at + 2200));
 
         assertTrue(
-                "BUG: left handle should enable fast drag animation only during active handle dragging and bypass only when scroll changes.",
-                around.contains("animation.setFastDragAnimationActive(draggingHandle == 1 || draggingHandle == 2);")
-                        && around.contains("boolean bypassLeftAnimation = scrollChanged;")
+                "BUG: left handle should animate only during active dragging and snap during scroll or idle target changes.",
+                around.contains("boolean handleDragActive = draggingHandle == 1 || draggingHandle == 2;")
+                        && around.contains("animation.setFastDragAnimationActive(handleDragActive);")
+                        && around.contains("boolean bypassLeftAnimation = scrollChanged || !handleDragActive;")
                         && around.contains("if (bypassLeftAnimation)")
                         && around.contains("animation.snapHandlePosition(true, startX, leftTargetY);")
                         && around.contains("bypassLeftAnimation")
@@ -31,9 +32,9 @@ public class SelectionHandleDragAnimationGuardTest {
                         && around.contains("animation.getAnimatedHandlePosition(true, startX, leftTargetY);"));
 
         assertTrue(
-                "BUG: right handle should enable fast drag animation only during active handle dragging and bypass only when scroll changes.",
-                around.contains("boolean bypassLeftAnimation = scrollChanged;")
-                        && around.contains("boolean bypassRightAnimation = scrollChanged;")
+                "BUG: right handle should animate only during active dragging and snap during scroll or idle target changes.",
+                around.contains("boolean bypassLeftAnimation = scrollChanged || !handleDragActive;")
+                        && around.contains("boolean bypassRightAnimation = scrollChanged || !handleDragActive;")
                         && around.contains("if (bypassRightAnimation)")
                         && around.contains("animation.snapHandlePosition(false, endX, rightTargetY);")
                         && around.contains("bypassRightAnimation")

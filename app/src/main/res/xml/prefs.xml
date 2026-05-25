@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <ListPreference
+        android:key="theme"
+        android:title="Theme"
+        android:summary="Choose app theme"
+        android:entries="@array/theme_labels"
+        android:entryValues="@array/theme_values"
+        android:defaultValue="light"
+        android:icon="@drawable/ic_theme" />
+
+    <ListPreference
+        android:key="scroll_mode"
+        android:title="Scroll Mode"
+        android:summary="Choose scroll behavior"
+        android:entries="@array/scroll_mode_labels"
+        android:entryValues="@array/scroll_mode_values"
+        android:defaultValue="2"
+        android:icon="@drawable/ic_scroll" />
+
+</PreferenceScreen>

@@ -2,16 +2,34 @@ package com.yn.sodiumeditor.test;
 
 import static org.junit.Assert.assertTrue;
 
+import com.yn.sodiumeditor.renderer.animation.SelectionHandlesAnimation;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
+import org.robolectric.annotation.Config;
 
 /**
  * Regression guard for stale selection handle animation state after scroll.
  */
+@RunWith(RobolectricTestRunner.class)
+@Config(sdk = 34)
 public class SelectionHandleScrollSnapGuardTest {
+
+    @Test
+    public void snappedSelectionHandle_shouldNotRemainAnimating() {
+        SelectionHandlesAnimation animation = new SelectionHandlesAnimation();
+
+        animation.getAnimatedHandlePosition(true, 10f, 20f);
+        animation.snapHandlePosition(true, 40f, 60f);
+
+        assertTrue(
+                "BUG: snapping a selection handle during scroll must not leave animation active.",
+                !animation.isAnimating());
+    }
 
     @Test
     public void selectionHandleScrollBypass_shouldSnapAnimationStateToCurrentTarget() throws Exception {
@@ -23,12 +41,12 @@ public class SelectionHandleScrollSnapGuardTest {
 
         assertTrue(
                 "BUG: scroll-triggered animation bypass must snap the left handle animation state to the current target.",
-                around.contains("boolean bypassLeftAnimation = scrollChanged;")
+                around.contains("boolean bypassLeftAnimation = scrollChanged || !handleDragActive;")
                         && around.contains("animation.snapHandlePosition(true, startX, leftTargetY);"));
 
         assertTrue(
                 "BUG: scroll-triggered animation bypass must snap the right handle animation state to the current target.",
-                around.contains("boolean bypassRightAnimation = scrollChanged;")
+                around.contains("boolean bypassRightAnimation = scrollChanged || !handleDragActive;")
                         && around.contains("animation.snapHandlePosition(false, endX, rightTargetY);"));
 
         String animSrc =

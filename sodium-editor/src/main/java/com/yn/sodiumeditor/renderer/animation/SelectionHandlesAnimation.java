@@ -109,7 +109,7 @@ public class SelectionHandlesAnimation {
             leftTargetX = targetX;
             leftTargetY = targetY;
             leftStartTime = now;
-            leftAnimDuration = FAST_REDIRECT_MIN_DURATION;
+            leftAnimDuration = 0L;
             animLeftX = targetX;
             animLeftY = targetY;
         } else {
@@ -118,7 +118,7 @@ public class SelectionHandlesAnimation {
             rightTargetX = targetX;
             rightTargetY = targetY;
             rightStartTime = now;
-            rightAnimDuration = FAST_REDIRECT_MIN_DURATION;
+            rightAnimDuration = 0L;
             animRightX = targetX;
             animRightY = targetY;
         }

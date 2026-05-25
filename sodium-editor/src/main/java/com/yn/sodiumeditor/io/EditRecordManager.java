@@ -28,6 +28,13 @@ public class EditRecordManager {
             return;
         }
 
+        if (tryAbsorbDeleteIntoPendingInsert(op)) {
+            operators.history.redoStack.clear();
+            operators.history.pendingRedo.clear();
+            operators.lastEditTimestamp = op.timestamp;
+            return;
+        }
+
         boolean insertOnly = (op.removedText == null || op.removedText.isEmpty())
                 && op.insertedText != null && !op.insertedText.isEmpty();
 
@@ -77,6 +84,70 @@ public class EditRecordManager {
         operators.history.pendingEdits.addLast(op);
         operators.history.pendingRedo.clear();
         operators.lastEditTimestamp = op.timestamp;
+    }
+
+    private boolean tryAbsorbDeleteIntoPendingInsert(EditOp op) {
+        if (!isDeleteOnly(op)) return false;
+
+        EditOp lastPending = operators.history.pendingEdits.peekLast();
+        if (!isSingleLineInsertOnly(lastPending)) return false;
+        if (lastPending.startLine != op.startLine
+                || lastPending.startLine != op.endLine
+                || lastPending.startChar > op.startChar
+                || lastPending.insertedEndChar < op.endChar) {
+            return false;
+        }
+
+        int relativeStart = op.startChar - lastPending.startChar;
+        int relativeEnd = op.endChar - lastPending.startChar;
+        String inserted = lastPending.insertedText;
+        if (relativeStart < 0 || relativeEnd > inserted.length() || relativeStart >= relativeEnd) {
+            return false;
+        }
+        String deletedFromPendingInsert = inserted.substring(relativeStart, relativeEnd);
+        if (!deletedFromPendingInsert.equals(op.removedText)) return false;
+
+        String remainingInsert = inserted.substring(0, relativeStart) + inserted.substring(relativeEnd);
+        if (remainingInsert.isEmpty()) {
+            operators.history.pendingEdits.removeLast();
+            removeMatchingUndo(lastPending);
+            if (operators.history.pendingEdits.isEmpty() && operators.lineCountDelta == 0) {
+                synchronized (editor.windowRender.modifiedLines) {
+                    editor.windowRender.modifiedLines.remove(op.startLine);
+                }
+            }
+        } else {
+            lastPending.insertedText = remainingInsert;
+            lastPending.insertedEndChar = lastPending.startChar + remainingInsert.length();
+            lastPending.cursorLineAfter = op.cursorLineAfter;
+            lastPending.cursorCharAfter = op.cursorCharAfter;
+            lastPending.timestamp = op.timestamp;
+        }
+        return true;
+    }
+
+    private boolean isDeleteOnly(EditOp op) {
+        return op != null
+                && (op.insertedText == null || op.insertedText.isEmpty())
+                && op.removedText != null
+                && !op.removedText.isEmpty();
+    }
+
+    private boolean isSingleLineInsertOnly(EditOp op) {
+        return op != null
+                && (op.removedText == null || op.removedText.isEmpty())
+                && op.insertedText != null
+                && !op.insertedText.isEmpty()
+                && op.startLine == op.endLine
+                && op.startLine == op.insertedEndLine;
+    }
+
+    private void removeMatchingUndo(EditOp op) {
+        if (operators.history.undoStack.peekLast() == op) {
+            operators.history.undoStack.removeLast();
+        } else {
+            operators.history.undoStack.remove(op);
+        }
     }
 
     public void recordEditNoUndo(EditOp op) {

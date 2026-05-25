@@ -109,6 +109,10 @@ public class FileIO {
         sourceFile = file;
         editor.selection.clearSelection();
         editor.lineNumber.invalidateLineNumberCache();
+        editor.editOperators.clearUndoRedoHistory();
+        editor.autoCompletion.clearActiveSuggestion();
+        isIndexReady = false;
+        isIndexBuilding = false;
         
         // Manual reset of wrap metrics
         editor.wordWrap.wrapMetricsReady = false;

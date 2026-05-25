@@ -9,36 +9,99 @@
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#FF1976D2"
+        android:background="?attr/colorPrimary"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:padding="8dp">
+        android:paddingVertical="4dp"
+        android:paddingLeft="12dp"
+        android:paddingRight="4dp">
 
-        <Button
-            android:id="@+id/openFileBtn"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="Open"
-            android:textAllCaps="false" />
+            android:layout_weight="1"
+            android:orientation="vertical">
 
-        <Button
-            android:id="@+id/settingsBtn"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Settings"
-            android:textAllCaps="false" />
+            <TextView
+                android:id="@+id/fileNameText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sodium Editor"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end" />
 
-        <Button
-            android:id="@+id/copyLogBtn"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Log"
-            android:textAllCaps="false" />
+            <TextView
+                android:id="@+id/filePathText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textColor="#BBDEFB"
+                android:textSize="10sp"
+                android:maxLines="1"
+                android:ellipsize="middle" />
+
+        </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/saveBtn"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Save"
+            android:padding="6dp"
+            android:src="@drawable/ic_save" />
+
+        <ImageButton
+            android:id="@+id/undoBtn"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Undo"
+            android:padding="6dp"
+            android:src="@drawable/ic_undo" />
+
+        <ImageButton
+            android:id="@+id/redoBtn"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Redo"
+            android:padding="6dp"
+            android:src="@drawable/ic_redo" />
+
+        <ImageButton
+            android:id="@+id/overflowBtn"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="More options"
+            android:padding="10dp"
+            android:src="@drawable/ic_overflow" />
+
     </LinearLayout>
+
+    <HorizontalScrollView
+        android:id="@+id/tabScroll"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#E0E0E0"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/tabContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+
+    </HorizontalScrollView>
 
     <com.yn.sodiumeditor.SodiumEditor
         android:id="@+id/editor"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1" />
+
 </LinearLayout>

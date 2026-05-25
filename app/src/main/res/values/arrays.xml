@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="scroll_mode_labels">
+        <item>Axis</item>
+        <item>Grid</item>
+        <item>Free</item>
+    </string-array>
+    <string-array name="scroll_mode_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+    <string-array name="theme_labels">
+        <item>White</item>
+        <item>Dark</item>
+        <item>Black</item>
+    </string-array>
+    <string-array name="theme_values">
+        <item>light</item>
+        <item>dark</item>
+        <item>black</item>
+    </string-array>
+</resources>

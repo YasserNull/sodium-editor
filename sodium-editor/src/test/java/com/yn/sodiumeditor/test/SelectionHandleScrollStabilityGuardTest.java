@@ -26,10 +26,11 @@ public class SelectionHandleScrollStabilityGuardTest {
                         && around.contains("lastHandleScrollY"));
 
         assertTrue(
-                "BUG: selection handles should bypass move animation while scroll changes, otherwise handles lag and drift.",
+                "BUG: selection handles should bypass move animation while scroll changes or when handles are not actively dragged, otherwise handles lag and drift.",
                 around.contains("boolean scrollChanged")
-                        && around.contains("boolean bypassLeftAnimation = scrollChanged;")
-                        && around.contains("boolean bypassRightAnimation = scrollChanged;")
+                        && around.contains("boolean handleDragActive = draggingHandle == 1 || draggingHandle == 2;")
+                        && around.contains("boolean bypassLeftAnimation = scrollChanged || !handleDragActive;")
+                        && around.contains("boolean bypassRightAnimation = scrollChanged || !handleDragActive;")
                         && around.contains("animation.snapHandlePosition(true, startX, leftTargetY);")
                         && around.contains("animation.snapHandlePosition(false, endX, rightTargetY);")
                         && around.contains("new float[] {startX, leftTargetY}")
@@ -52,6 +53,22 @@ public class SelectionHandleScrollStabilityGuardTest {
                 "BUG: cursor handle should apply current scroll when converting document coordinates to screen coordinates.",
                 around.contains("float x = editor.layout.getTextStartX() + docX - editor.scroll.scrollX;")
                         && around.contains("float y = docY - editor.scroll.scrollY;"));
+    }
+
+    @Test
+    public void selectionHandles_shouldUseAbsoluteScrollYInsteadOfDrawBaseLine() throws Exception {
+        String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/selection/SelectionHandles.java");
+        int at = src.indexOf("public float getLineY(int line)");
+        assertTrue("Expected getLineY in SelectionHandles.", at >= 0);
+        String around = src.substring(at, Math.min(src.length(), at + 900));
+
+        assertTrue(
+                "BUG: selection handles must use absolute view coordinates so scroll moves them smoothly.",
+                around.contains("return (lineForVisual * editor.textRender.lineHeight) - editor.scroll.scrollY;"));
+
+        assertTrue(
+                "BUG: selection handles must not use drawBaseLine-relative getDrawLineTop; it quantizes handle Y during smooth scroll.",
+                !around.contains("getDrawLineTop"));
     }
 
     private static String readSource(String relativePath) throws Exception {
