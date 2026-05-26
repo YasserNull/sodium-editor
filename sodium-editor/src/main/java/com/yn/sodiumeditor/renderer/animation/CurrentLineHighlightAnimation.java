@@ -115,4 +115,15 @@ public class CurrentLineHighlightAnimation {
             lineAnimator.cancel();
         }
     }
+
+    /**
+     * Reset the animation state to the current cursor target immediately,
+     * preventing any ongoing or pending slide animation.
+     */
+    public void resetToTarget() {
+        cancelAnimation();
+        float target = getTargetVisualIndex();
+        animatedVisualIndex = target;
+        lastTargetIndex = target;
+    }
 }

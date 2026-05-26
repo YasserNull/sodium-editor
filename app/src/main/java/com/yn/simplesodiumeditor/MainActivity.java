@@ -34,11 +34,17 @@ import androidx.preference.PreferenceManager;
 import com.github.angads25.filepicker.model.DialogProperties;
 import com.github.angads25.filepicker.model.DialogConfigs;
 import com.github.angads25.filepicker.view.FilePickerDialog;
+import android.util.SparseIntArray;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.io.EditOp;
 import com.yn.sodiumeditor.ui.Theme;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.nio.charset.Charset;
+import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -60,6 +66,7 @@ public class MainActivity extends AppCompatActivity {
   private final java.util.List<FileTab> openTabs = new java.util.ArrayList<>();
   private int currentTabIndex = -1;
   private final Handler dirtyHandler = new Handler();
+  private boolean isSwitchingTab = false;
   private final Runnable dirtyChecker = new Runnable() {
     @Override
     public void run() {
@@ -73,6 +80,26 @@ public class MainActivity extends AppCompatActivity {
     File file;
     String name;
     String path;
+    // Editor state cache (in-memory, no reload from disk)
+    ArrayDeque<EditOp> undoStack;
+    ArrayDeque<EditOp> redoStack;
+    ArrayDeque<EditOp> pendingEdits;
+    ArrayDeque<EditOp> pendingRedo;
+    int lineCountDelta;
+    long lastEditTimestamp;
+    int cursorLine, cursorChar;
+    float scrollX, scrollY;
+    int selStartLine, selStartChar, selEndLine, selEndChar;
+    boolean hasSelection, selecting;
+    // Window content cache
+    ArrayList<String> linesWindow;
+    int windowStartLine;
+    HashMap<Integer, String> modifiedLines;
+    SparseIntArray streamedLineLengths;
+    SparseIntArray streamedLineSliceStarts;
+    boolean isEof, isFileCleared, isIndexReady;
+    Charset fileCharset;
+    long[] lineOffsets;
     FileTab(File file, String name, String path) {
       this.file = file;
       this.name = name;
@@ -262,27 +289,54 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void switchToTab(int index) {
-    if (index < 0 || index >= openTabs.size()) return;
+    if (index < 0 || index >= openTabs.size() || isSwitchingTab) return;
+    isSwitchingTab = true;
+    final int targetIndex = index;
+    flushAndSaveCurrentTabState(() -> {
+      doSwitchToTab(targetIndex);
+      isSwitchingTab = false;
+    });
+  }
+
+  private void doSwitchToTab(int index) {
+    editor.caret.isCursorVisible = false;
     FileTab tab = openTabs.get(index);
-    editor.fileIO.loadFromFile(tab.file);
+    if (tab.linesWindow != null) {
+      restoreEditorState(tab);
+    } else {
+      editor.fileIO.loadFromFile(tab.file);
+    }
     currentTabIndex = index;
     updateDirtyIndicator();
     updateTabStyles();
-    tabScroll.fullScroll(HorizontalScrollView.FOCUS_RIGHT);
+    editor.caret.isCursorVisible = true;
+    editor.invalidate();
   }
 
   private void removeTab(int index) {
-    if (index < 0 || index >= openTabs.size()) return;
-    openTabs.remove(index);
-    tabContainer.removeViewAt(index);
-    if (openTabs.isEmpty()) {
-      currentTabIndex = -1;
-      editor.fileIO.clearContent();
-      updateDirtyIndicator();
-      createTempFileTab();
+    if (index < 0 || index >= openTabs.size() || isSwitchingTab) return;
+    boolean removingCurrent = index == currentTabIndex;
+    if (removingCurrent) {
+      isSwitchingTab = true;
+      flushAndSaveCurrentTabState(() -> {
+        openTabs.remove(index);
+        tabContainer.removeViewAt(index);
+        if (openTabs.isEmpty()) {
+          currentTabIndex = -1;
+          editor.fileIO.clearContent();
+          updateDirtyIndicator();
+          createTempFileTab();
+        } else {
+          int newIndex = Math.min(index, openTabs.size() - 1);
+          doSwitchToTab(newIndex);
+        }
+        isSwitchingTab = false;
+      });
     } else {
-      int newIndex = Math.min(index, openTabs.size() - 1);
-      switchToTab(newIndex);
+      openTabs.remove(index);
+      tabContainer.removeViewAt(index);
+      if (currentTabIndex > index) currentTabIndex--;
+      updateTabStyles();
     }
   }
 
@@ -365,6 +419,165 @@ public class MainActivity extends AppCompatActivity {
   private void closeCurrentFile() {
     if (currentTabIndex < 0 || currentTabIndex >= openTabs.size()) return;
     removeTab(currentTabIndex);
+  }
+
+  private void flushAndSaveCurrentTabState(Runnable onDone) {
+    if (currentTabIndex < 0 || currentTabIndex >= openTabs.size()) {
+      onDone.run();
+      return;
+    }
+    FileTab tab = openTabs.get(currentTabIndex);
+    if (editor.editOperators.getPendingEditsCount() > 0) {
+      editor.editOperators.applyPendingEditsToFileAsync(() ->
+          runOnUiThread(() -> {
+            captureStateToTab(tab);
+            onDone.run();
+          })
+      );
+    } else {
+      captureStateToTab(tab);
+      onDone.run();
+    }
+  }
+
+  private void captureStateToTab(FileTab tab) {
+    tab.undoStack = new ArrayDeque<>(editor.editOperators.undoStack);
+    tab.redoStack = new ArrayDeque<>(editor.editOperators.redoStack);
+    tab.pendingEdits = new ArrayDeque<>(editor.editOperators.pendingEdits);
+    tab.pendingRedo = new ArrayDeque<>(editor.editOperators.pendingRedo);
+    tab.lineCountDelta = editor.editOperators.lineCountDelta;
+    tab.lastEditTimestamp = editor.editOperators.lastEditTimestamp;
+    tab.cursorLine = editor.cursor.getLine();
+    tab.cursorChar = editor.cursor.getChar();
+    tab.scrollX = editor.scroll.scrollX;
+    tab.scrollY = editor.scroll.scrollY;
+    tab.selStartLine = editor.selection.selStartLine;
+    tab.selStartChar = editor.selection.selStartChar;
+    tab.selEndLine = editor.selection.selEndLine;
+    tab.selEndChar = editor.selection.selEndChar;
+    tab.hasSelection = editor.selection.hasSelection;
+    tab.selecting = editor.selection.selecting;
+    // Window content cache
+    synchronized (editor.windowRender.linesWindow) {
+      tab.linesWindow = new ArrayList<>(editor.windowRender.linesWindow);
+    }
+    tab.windowStartLine = editor.windowRender.windowStartLine;
+    synchronized (editor.windowRender.modifiedLines) {
+      tab.modifiedLines = new HashMap<>(editor.windowRender.modifiedLines);
+    }
+    synchronized (editor.windowRender.streamedLinesLock) {
+      tab.streamedLineLengths = editor.windowRender.streamedLineLengths.clone();
+      tab.streamedLineSliceStarts = editor.windowRender.streamedLineSliceStarts.clone();
+    }
+    tab.isEof = editor.fileIO.isEof;
+    tab.isFileCleared = editor.fileIO.isFileCleared;
+    tab.fileCharset = editor.fileIO.fileCharset;
+    tab.isIndexReady = editor.fileIO.isIndexReady;
+    synchronized (editor.fileIO.lineOffsetsLock) {
+      tab.lineOffsets = editor.fileIO.lineOffsets.clone();
+    }
+  }
+
+  private void restoreEditorState(FileTab tab) {
+    editor.fileIO.invalidatePendingIOForEdit();
+    editor.fileIO.sourceFile = tab.file;
+    editor.fileIO.isEof = tab.isEof;
+    editor.fileIO.isFileCleared = tab.isFileCleared;
+    editor.fileIO.fileCharset = tab.fileCharset;
+    editor.fileIO.isIndexBuilding = false;
+    editor.fileIO.isIndexReady = tab.isIndexReady;
+    synchronized (editor.fileIO.lineOffsetsLock) {
+      editor.fileIO.lineOffsets = tab.lineOffsets.clone();
+    }
+
+    editor.windowRender.windowStartLine = tab.windowStartLine;
+    synchronized (editor.windowRender.linesWindow) {
+      editor.windowRender.linesWindow.clear();
+      editor.windowRender.linesWindow.addAll(tab.linesWindow);
+    }
+    synchronized (editor.windowRender.modifiedLines) {
+      editor.windowRender.modifiedLines.clear();
+      editor.windowRender.modifiedLines.putAll(tab.modifiedLines);
+    }
+    synchronized (editor.windowRender.streamedLinesLock) {
+      editor.windowRender.streamedLineLengths.clear();
+      editor.windowRender.streamedLineSliceStarts.clear();
+      for (int i = 0; i < tab.streamedLineLengths.size(); i++) {
+        int key = tab.streamedLineLengths.keyAt(i);
+        editor.windowRender.streamedLineLengths.put(key, tab.streamedLineLengths.valueAt(i));
+      }
+      for (int i = 0; i < tab.streamedLineSliceStarts.size(); i++) {
+        int key = tab.streamedLineSliceStarts.keyAt(i);
+        editor.windowRender.streamedLineSliceStarts.put(key, tab.streamedLineSliceStarts.valueAt(i));
+      }
+    }
+
+    editor.windowRender.currentMaxWindowLineWidth = 0f;
+    editor.windowRender.globalMaxLineWidth = 0f;
+    editor.scroll.maxLineWidthForScroll = 0f;
+    editor.windowRender.clearStreamedLineCaches();
+    editor.highlite.clearHighlightCaches();
+    editor.wordWrap.wrapMetricsReady = false;
+    editor.wordWrap.wrapLineCounts = null;
+    editor.wordWrap.wrapLinePrefix = null;
+    editor.wordWrap.totalWrapVisualLines = 0;
+    editor.wordWrap.wrapPrefixValidUpToLine = -1;
+    editor.lineNumber.invalidateLineNumberCache();
+    synchronized (editor.fileIO.directLineCache) { editor.fileIO.directLineCache.clear(); }
+    editor.bracketCache.clear();
+    editor.autoCompletion.clearActiveSuggestion();
+
+    // Abort any ongoing scroll animation from previous tab
+    if (!editor.scroll.scroller.isFinished()) editor.scroll.scroller.abortAnimation();
+    if (editor.scroll.flingStopAnimator != null) {
+      editor.scroll.flingStopAnimator.cancel();
+      editor.scroll.flingStopAnimator = null;
+    }
+    editor.scroll.scrollerIsScrolling = false;
+
+    // Set scroll fields directly (avoid keepCursorVisibleHorizontally side effects)
+    editor.scroll.scrollX = tab.scrollX;
+    editor.scroll.scrollY = tab.scrollY;
+    editor.scroll.clampScrollX();
+    editor.scroll.clampScrollY();
+    // Set cursor fields directly — avoid resetBlink/keepCursorVisibleHorizontally side effects
+    editor.cursor.cursorLine = tab.cursorLine;
+    editor.cursor.cursorChar = tab.cursorChar;
+    // Suppress current-line-slide animation — it would animate from old tab's line
+    editor.currentLineHighlight.animation.resetToTarget();
+    // Suppress cursor-slide animation — use raw document coordinates until first real move
+    editor.cursorAnimation.cancelAnimation();
+    editor.cursorAnimation.cursorAnimValid = false;
+    if (tab.hasSelection) {
+      editor.selection.selStartLine = tab.selStartLine;
+      editor.selection.selStartChar = tab.selStartChar;
+      editor.selection.selEndLine = tab.selEndLine;
+      editor.selection.selEndChar = tab.selEndChar;
+      editor.selection.hasSelection = true;
+      editor.selection.selecting = true;
+    } else {
+      editor.selection.clearSelection();
+    }
+
+    editor.editOperators.clearUndoRedoHistory();
+    editor.editOperators.undoStack.addAll(tab.undoStack);
+    editor.editOperators.redoStack.addAll(tab.redoStack);
+    editor.editOperators.pendingEdits.addAll(tab.pendingEdits);
+    editor.editOperators.pendingRedo.addAll(tab.pendingRedo);
+    editor.editOperators.lineCountDelta = tab.lineCountDelta;
+    editor.editOperators.lastEditTimestamp = tab.lastEditTimestamp;
+
+    editor.binaryRender.applyBinaryFileFeaturePolicy(editor.fileIO.metadata.isBinaryFile(tab.file));
+    editor.loadingCircle.isInitialFileOpenLoading = false;
+    editor.view.setDisable(false);
+    editor.loadingCircle.showLoadingCircle(false);
+
+    editor.caret.stopBlink();
+    if (!tab.isIndexReady) {
+      editor.fileIO.ioHandler.post(() -> editor.fileIO.indexer.buildFileIndex());
+    }
+    editor.requestLayout();
+    editor.invalidate();
   }
 
   private void openSettings() {

@@ -1,6 +1,7 @@
 package com.yn.sodiumeditor.core.selection;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.inputmethod.InputMethodManager;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
@@ -12,8 +13,13 @@ import java.io.File;
  * Handles complex selection actions like selectAll and multi-line replacement.
  */
 public class SelectionActionHandler {
+    private static final String TAG = "SodiumSelectionEdit";
+    private static final int MAX_SELECTION_EDIT_LOGS = 400;
+    public static boolean DEBUG_SELECTION_EDIT_LOGS = true;
+
     private final SodiumEditor editor;
     private final Selection selection;
+    private int selectionEditLogCount = 0;
 
     public SelectionActionHandler(SodiumEditor editor, Selection selection) {
         this.editor = editor;
@@ -113,18 +119,56 @@ public class SelectionActionHandler {
     }
 
     public void replaceSelectionWithText(String insertText) {
+        final int originalSelectionStartLine = selection.selStartLine;
+        final int originalSelectionStartChar = selection.selStartChar;
+        final int originalSelectionEndLine = selection.selEndLine;
+        final int originalSelectionEndChar = selection.selEndChar;
+        logSelectionEdit(
+                "replace.start",
+                originalSelectionStartLine,
+                originalSelectionStartChar,
+                originalSelectionEndLine,
+                originalSelectionEndChar,
+                insertText,
+                null,
+                null,
+                "hasSelection=" + selection.hasSelection);
         if (editor.view.isReadOnly) return;
         editor.fileIO.invalidatePendingIOForEdit();
         final int opToken = editor.editOperators.editVersion.incrementAndGet();
         editor.autoCompletion.clearActiveSuggestion();
         if (insertText == null) insertText = "";
-        if (!selection.hasSelection) { if (!insertText.isEmpty()) editor.editOperators.insertTextAtCursor(insertText); editor.autoCompletion.updateSuggestion(); return; }
+        if (!selection.hasSelection) {
+            logSelectionEdit(
+                    "replace.noSelection",
+                    originalSelectionStartLine,
+                    originalSelectionStartChar,
+                    originalSelectionEndLine,
+                    originalSelectionEndChar,
+                    insertText,
+                    null,
+                    null,
+                    "cursor=" + editor.cursor.cursorLine + ":" + editor.cursor.cursorChar);
+            if (!insertText.isEmpty()) editor.editOperators.insertTextAtCursor(insertText);
+            editor.autoCompletion.updateSuggestion();
+            return;
+        }
 
         int sL = selection.selStartLine, sC = selection.selStartChar, eL = selection.selEndLine, eC = selection.selEndChar;
         if (selection.state.comparePos(sL, sC, eL, eC) > 0) { int tL = sL, tC = sC; sL = eL; sC = eC; eL = tL; eC = tC; }
         final int beforeLine = editor.cursor.cursorLine, beforeChar = editor.cursor.cursorChar;
         String removedText = null;
         if (Math.abs(eL - sL) <= 5000) { removedText = editor.fileIO.readRangeText(sL, sC, eL, eC); if (removedText != null && removedText.length() > EditOperators.UNDO_TEXT_LIMIT) removedText = null; }
+        logSelectionEdit(
+                "replace.before",
+                sL,
+                sC,
+                eL,
+                eC,
+                insertText,
+                removedText,
+                getLineSnapshot(sL),
+                "cursorBefore=" + beforeLine + ":" + beforeChar);
         int removedNl = editor.editOperators.countNewlines(removedText);
         if (removedText == null && eL >= sL) removedNl = Math.max(0, eL - sL);
         int insertedNl = editor.editOperators.countNewlines(insertText);
@@ -147,7 +191,7 @@ public class SelectionActionHandler {
         if (fullyInWindow) editor.windowRender.applyMultiLineReplaceInWindowNow(sL, sC, eL, eC, insertText, target);
         else { editor.cursor.cursorLine = sL; editor.cursor.cursorChar = sC; }
 
-        selection.state.clearSelectionStateAfterDelete();
+        selection.clearSelectionStateAfterDelete();
         editor.scroll.keepCursorVisibleHorizontally(); editor.loadingCircle.endLargeEditUi(false);
 
         if (!fullyInWindow) {
@@ -163,6 +207,7 @@ public class SelectionActionHandler {
     }
 
     private void handleSelectAllReplace(String insertText, int sL, int sC, int eL, int eC, String removedText, int beforeL, int beforeC, int remNl, int insNl) {
+        logSelectionEdit("replace.selectAll.before", sL, sC, eL, eC, insertText, removedText, getLineSnapshot(sL), "lineCount=" + editor.view.getLinesCount());
         synchronized (editor.windowRender.linesWindow) { editor.windowRender.linesWindow.clear(); editor.windowRender.linesWindow.add(""); editor.windowRender.windowStartLine = 0; editor.fileIO.isEof = true; }
         synchronized (editor.fileIO.directLineCache) { editor.fileIO.directLineCache.clear(); }
         synchronized (editor.windowRender.modifiedLines) { editor.windowRender.modifiedLines.clear(); }
@@ -174,7 +219,7 @@ public class SelectionActionHandler {
         editor.fileIO.isIndexReady = false; editor.fileIO.isIndexBuilding = false;
         editor.cursor.cursorLine = 0; editor.cursor.cursorChar = 0;
         selection.selStartLine = 0; selection.selEndLine = 0; selection.selStartChar = 0; selection.selEndChar = 0;
-        editor.scroll.scrollY = 0; editor.scroll.scrollX = 0; selection.state.clearSelectionStateAfterDelete();
+        editor.scroll.scrollY = 0; editor.scroll.scrollX = 0; selection.clearSelectionStateAfterDelete();
 
         int insertedEndLine = 0;
         if (!insertText.isEmpty()) {
@@ -188,9 +233,12 @@ public class SelectionActionHandler {
         editor.windowRender.recalculateMaxLineWidth(); editor.requestLayout();
         finalizeAction(remNl, insNl, sL, sC, eL, eC, removedText, insertText, beforeL, beforeC);
         invalidateFeatureStateForReplace(0, insertedEndLine);
+        logSelectionEdit("replace.selectAll.after", sL, sC, eL, eC, insertText, removedText, editor.fileIO.getTextSnapshot(), "cursorAfter=" + editor.cursor.cursorLine + ":" + editor.cursor.cursorChar);
     }
 
     private void handleSingleLineReplace(String insertText, int sL, int sC, int eL, int eC, String removedText, int beforeL, int beforeC, int remNl, int insNl) {
+        String beforeLineText = getLineSnapshot(sL);
+        logSelectionEdit("replace.singleLine.before", sL, sC, eL, eC, insertText, removedText, beforeLineText, "local=" + (sL - editor.windowRender.windowStartLine));
         editor.fileIO.ensureLineInWindow(sL, true);
         if (editor.fileIO.isWindowLoading && (sL < editor.windowRender.windowStartLine || sL >= editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size())) {
             editor.post(() -> replaceSelectionWithText(insertText)); return;
@@ -205,12 +253,14 @@ public class SelectionActionHandler {
                 editor.view.updateLocalLine(local, merged); editor.windowRender.modifiedLines.put(sL, merged);
                 editor.cursor.cursorLine = sL; editor.cursor.cursorChar = a + insertText.length();
                 editor.view.computeWidthForLine(sL, merged); editor.windowRender.recalculateMaxLineWidth();
+                logSelectionEdit("replace.singleLine.merged", sL, a, sL, b, insertText, removedText, merged, "beforeLine=" + safeTextForLog(beforeLineText));
             }
         }
         if (!insertText.isEmpty()) editor.charAnimation.startCharAnimationFromText(insertText);
-        selection.state.clearSelectionStateAfterDelete(); editor.invalidate(); editor.scroll.keepCursorVisibleHorizontally(); editor.loadingCircle.endLargeEditUi(false);
+        selection.clearSelectionStateAfterDelete(); editor.invalidate(); editor.scroll.keepCursorVisibleHorizontally(); editor.loadingCircle.endLargeEditUi(false);
         invalidateFeatureStateForReplace(sL, eL);
         finalizeAction(remNl, insNl, sL, sC, eL, eC, removedText, insertText, beforeL, beforeC);
+        logSelectionEdit("replace.singleLine.after", sL, sC, eL, eC, insertText, removedText, getLineSnapshot(sL), "cursorAfter=" + editor.cursor.cursorLine + ":" + editor.cursor.cursorChar + " hasSelection=" + selection.hasSelection + " stateHasSelection=" + selection.state.hasSelection);
     }
 
     private void invalidateFeatureStateForReplace(int startLine, int endLine) {
@@ -221,5 +271,95 @@ public class SelectionActionHandler {
     private void finalizeAction(int remNl, int insNl, int sL, int sC, int eL, int eC, String rem, String ins, int bL, int bC) {
         editor.autoCompletion.updateSuggestion(); editor.editOperators.lineCountDelta += (insNl - remNl);
         selection.recordReplaceSelectionEdit(sL, sC, eL, eC, rem, ins, bL, bC);
+        logSelectionEdit(
+                "replace.finalize",
+                sL,
+                sC,
+                eL,
+                eC,
+                ins,
+                rem,
+                getLineSnapshot(sL),
+                "lineDelta=" + editor.editOperators.lineCountDelta
+                        + " pendingEdits="
+                        + editor.editOperators.getPendingEditsCount()
+                        + " undo="
+                        + editor.editOperators.canUndo());
+    }
+
+    private String getLineSnapshot(int line) {
+        if (line < 0) return "";
+        String text = editor.windowRender.getLineTextForRender(line);
+        return text == null ? "" : text;
+    }
+
+    private void logSelectionEdit(
+            String operation,
+            int sL,
+            int sC,
+            int eL,
+            int eC,
+            @Nullable String inserted,
+            @Nullable String removed,
+            @Nullable String lineSnapshot,
+            String extra) {
+        if (!shouldLogSelectionEdit() || selectionEditLogCount >= MAX_SELECTION_EDIT_LOGS) return;
+        selectionEditLogCount++;
+        Log.d(
+                TAG,
+                "[SodiumEditor] operation="
+                        + operation
+                        + " count="
+                        + selectionEditLogCount
+                        + " selection="
+                        + sL
+                        + ":"
+                        + sC
+                        + ".."
+                        + eL
+                        + ":"
+                        + eC
+                        + " facadeSelection="
+                        + selection.selStartLine
+                        + ":"
+                        + selection.selStartChar
+                        + ".."
+                        + selection.selEndLine
+                        + ":"
+                        + selection.selEndChar
+                        + " hasSelection="
+                        + selection.hasSelection
+                        + " stateHasSelection="
+                        + selection.state.hasSelection
+                        + " cursor="
+                        + editor.cursor.cursorLine
+                        + ":"
+                        + editor.cursor.cursorChar
+                        + " scroll="
+                        + editor.scroll.scrollX
+                        + ","
+                        + editor.scroll.scrollY
+                        + " insert="
+                        + safeTextForLog(inserted)
+                        + " removed="
+                        + safeTextForLog(removed)
+                        + " line="
+                        + safeTextForLog(lineSnapshot)
+                        + " "
+                        + (extra == null ? "" : extra)
+                        + " thread="
+                        + Thread.currentThread().getName());
+    }
+
+    private boolean shouldLogSelectionEdit() {
+        return DEBUG_SELECTION_EDIT_LOGS || SodiumEditor.DEBUG_LOGS;
+    }
+
+    private String safeTextForLog(@Nullable String text) {
+        if (text == null) return "<null>";
+        String escaped = text.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
+        int max = 180;
+        if (escaped.length() > max) return escaped.substring(0, max) + "...(len=" + text.length() + ")";
+        return escaped + "(len=" + text.length() + ")";
     }
 }

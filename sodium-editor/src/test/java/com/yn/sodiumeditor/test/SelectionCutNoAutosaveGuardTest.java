@@ -40,6 +40,19 @@ public class SelectionCutNoAutosaveGuardTest {
   }
 
   @Test
+  public void replaceSelectionWithText_shouldClearSelectionThroughFacade() throws Exception {
+    String src =
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/selection/SelectionActionHandler.java");
+    String body = methodBody(src, "replaceSelectionWithText(String insertText)");
+
+    assertTrue(
+        "BUG: selection replacement must clear through Selection so facade hasSelection stays synced with state.",
+        body.contains("selection.clearSelectionStateAfterDelete()")
+            && !body.contains("selection.state.clearSelectionStateAfterDelete()"));
+  }
+
+  @Test
   public void windowReload_shouldNotOverwritePendingInMemoryEdits() throws Exception {
     String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileWindowLoader.java");
     String body = methodBody(src, "private boolean hasPendingInMemoryEdits()");
