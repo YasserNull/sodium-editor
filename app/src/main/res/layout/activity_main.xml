@@ -98,10 +98,17 @@
 
     </HorizontalScrollView>
 
-    <com.yn.sodiumeditor.SodiumEditor
-        android:id="@+id/editor"
+    <FrameLayout
+        android:id="@+id/editorContainer"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_weight="1">
+
+        <com.yn.sodiumeditor.SodiumEditor
+            android:id="@+id/editor"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+    </FrameLayout>
 
 </LinearLayout>

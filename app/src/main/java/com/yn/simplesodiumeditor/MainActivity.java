@@ -581,9 +581,12 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void openSettings() {
+    LinearLayout toolbar = findViewById(R.id.toolbar);
+    if (toolbar != null) toolbar.setVisibility(View.GONE);
+    tabScroll.setVisibility(View.GONE);
     getSupportFragmentManager()
         .beginTransaction()
-        .replace(R.id.root, new SettingsFragment())
+        .replace(R.id.editorContainer, new SettingsFragment())
         .addToBackStack("settings")
         .commit();
   }
@@ -1001,9 +1004,12 @@ public class MainActivity extends AppCompatActivity {
 
   @Override
   public void onBackPressed() {
-    Fragment f = getSupportFragmentManager().findFragmentById(R.id.root);
+    Fragment f = getSupportFragmentManager().findFragmentById(R.id.editorContainer);
     if (f instanceof SettingsFragment) {
       getSupportFragmentManager().popBackStack();
+      LinearLayout toolbar = findViewById(R.id.toolbar);
+      if (toolbar != null) toolbar.setVisibility(View.VISIBLE);
+      tabScroll.setVisibility(View.VISIBLE);
       return;
     }
     super.onBackPressed();

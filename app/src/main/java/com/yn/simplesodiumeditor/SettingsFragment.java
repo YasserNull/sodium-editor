@@ -2,6 +2,12 @@ package com.yn.simplesodiumeditor;
 
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.widget.Toolbar;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
@@ -18,6 +24,25 @@ public class SettingsFragment extends PreferenceFragmentCompat
     prefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
     updateSummary(findPreference("theme"));
     updateSummary(findPreference("scroll_mode"));
+  }
+
+  @NonNull
+  @Override
+  public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+    View superView = super.onCreateView(inflater, container, savedInstanceState);
+    View root = inflater.inflate(R.layout.settings_fragment, container, false);
+    ViewGroup rootListContainer = root.findViewById(android.R.id.list_container);
+    if (superView.getParent() != null) ((ViewGroup) superView.getParent()).removeView(superView);
+    rootListContainer.addView(superView, new ViewGroup.LayoutParams(
+        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    return root;
+  }
+
+  @Override
+  public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+    super.onViewCreated(view, savedInstanceState);
+    Toolbar toolbar = view.findViewById(R.id.settingsToolbar);
+    toolbar.setNavigationOnClickListener(v -> requireActivity().onBackPressed());
   }
 
   @Override
