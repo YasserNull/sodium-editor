@@ -6,6 +6,7 @@ import android.animation.ValueAnimator;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.util.Log;
 import com.yn.sodiumeditor.SodiumEditor;
 
 /**
@@ -55,16 +56,17 @@ public class ScrollBar {
                         || editor.onTouch.pointerDown
                         || scroll.scrollerIsScrolling
                         || scroll.flingStopAnimator != null;
+        if (SodiumEditor.DEBUG_LOGS) Log.d("SodiumScrollBar", "draw alpha=" + alpha + " interacting=" + interacting + " fadeAnimatorRunning=" + (fadeAnimator != null && fadeAnimator.isRunning()) + " maxScroll=" + scroll.getMaxScrollYForClamp());
         if (fadeEnabled && alpha <= 0f) {
-            if (interacting) alpha = 1f;
-            else return;
+            if (interacting && fadeAnimator == null) show();
+            if (!interacting) return;
         }
         int w = editor.getWidth();
         int h = editor.getHeight();
         if (w <= 0 || h <= 0) return;
         float maxScroll = scroll.getMaxScrollYForClamp();
         if (maxScroll <= 0f) {
-            if (!interacting) return;
+            if (!interacting && alpha <= 0f) return;
             float right = w - marginPx;
             float left = right - widthPx;
             thumbRect.set(left, 0f, right, h);
@@ -103,11 +105,24 @@ public class ScrollBar {
     public void show() {
         if (!enabled) return;
         if (!fadeEnabled) { alpha = 1f; editor.invalidate(); return; }
+        if (SodiumEditor.DEBUG_LOGS) Log.d("SodiumScrollBar", "show called alpha=" + alpha + " animatorRunning=" + (fadeAnimator != null && fadeAnimator.isRunning()));
+        if (alpha >= 1f || (fadeAnimator != null && fadeAnimator.isRunning())) {
+            editor.caret.mainHandler.removeCallbacks(hideRunnable);
+            editor.caret.mainHandler.postDelayed(hideRunnable, fadeDelayMs);
+            return;
+        }
         cancelFade();
-        alpha = 1f;
-        editor.invalidate();
         editor.caret.mainHandler.removeCallbacks(hideRunnable);
-        editor.caret.mainHandler.postDelayed(hideRunnable, fadeDelayMs);
+        fadeAnimator = ValueAnimator.ofFloat(alpha, 1f);
+        fadeAnimator.setDuration(fadeDurationMs);
+        fadeAnimator.addUpdateListener(a -> { alpha = (float) a.getAnimatedValue(); editor.invalidate(); });
+        fadeAnimator.addListener(new AnimatorListenerAdapter() {
+            @Override public void onAnimationEnd(Animator a) {
+                fadeAnimator = null;
+                editor.caret.mainHandler.postDelayed(hideRunnable, fadeDelayMs);
+            }
+        });
+        fadeAnimator.start();
     }
 
     public void startFadeOut() {
