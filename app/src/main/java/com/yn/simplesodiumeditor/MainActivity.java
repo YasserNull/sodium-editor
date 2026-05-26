@@ -63,6 +63,7 @@ public class MainActivity extends AppCompatActivity {
   private boolean hasFileOpened = false;
   private LinearLayout tabContainer;
   private HorizontalScrollView tabScroll;
+  private String currentTheme;
   private final java.util.List<FileTab> openTabs = new java.util.ArrayList<>();
   private int currentTabIndex = -1;
   private final Handler dirtyHandler = new Handler();
@@ -111,6 +112,7 @@ public class MainActivity extends AppCompatActivity {
   protected void onCreate(Bundle savedInstanceState) {
     String theme =
         PreferenceManager.getDefaultSharedPreferences(this).getString("theme", "light");
+    this.currentTheme = theme;
     applyTheme(theme);
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
@@ -353,13 +355,13 @@ public class MainActivity extends AppCompatActivity {
     nameView.setText(tab.name);
     nameView.setTextSize(13);
     nameView.setPadding(12, 6, 12, 6);
-    nameView.setTextColor(Color.BLACK);
+    nameView.setTextColor(getTabTextColor());
 
     GradientDrawable bg = new GradientDrawable();
     bg.setShape(GradientDrawable.RECTANGLE);
     bg.setCornerRadius(4);
-    bg.setColor(Color.LTGRAY);
-    bg.setStroke(1, Color.GRAY);
+    bg.setColor(getInactiveTabFill());
+    bg.setStroke(1, getInactiveTabStroke());
     nameView.setBackground(bg);
     nameView.setClickable(true);
     nameView.setFocusable(true);
@@ -373,14 +375,58 @@ public class MainActivity extends AppCompatActivity {
   private void updateTabStyles() {
     for (int i = 0; i < tabContainer.getChildCount(); i++) {
       View child = tabContainer.getChildAt(i);
+      TextView tabText = (TextView) child;
       GradientDrawable bg = (GradientDrawable) child.getBackground();
       if (i == currentTabIndex) {
-        bg.setColor(0xFFBBDEFB);
-        bg.setStroke(2, 0xFF1976D2);
+        bg.setColor(getActiveTabFill());
+        bg.setStroke(2, getActiveTabStroke());
       } else {
-        bg.setColor(Color.LTGRAY);
-        bg.setStroke(1, Color.GRAY);
+        bg.setColor(getInactiveTabFill());
+        bg.setStroke(1, getInactiveTabStroke());
+        tabText.setTextColor(getTabTextColor());
       }
+    }
+  }
+
+  private int getTabTextColor() {
+    switch (currentTheme) {
+      case "dark":
+      case "black":
+        return Color.WHITE;
+      default:
+        return Color.BLACK;
+    }
+  }
+
+  private int getActiveTabFill() {
+    switch (currentTheme) {
+      case "dark": return 0xFF546E7A;
+      case "black": return 0xFF424242;
+      default: return 0xFFBBDEFB;
+    }
+  }
+
+  private int getActiveTabStroke() {
+    switch (currentTheme) {
+      case "dark": return 0xFF80CBC4;
+      case "black": return 0xFF80CBC4;
+      default: return 0xFF1976D2;
+    }
+  }
+
+  private int getInactiveTabFill() {
+    switch (currentTheme) {
+      case "dark": return 0xFF455A64;
+      case "black": return 0xFF2C2C2C;
+      default: return Color.LTGRAY;
+    }
+  }
+
+  private int getInactiveTabStroke() {
+    switch (currentTheme) {
+      case "dark": return 0xFF37474F;
+      case "black": return 0xFF1A1A1A;
+      default: return Color.GRAY;
     }
   }
 
@@ -633,8 +679,8 @@ public class MainActivity extends AppCompatActivity {
   private void setTabBarColor(String themeValue) {
     int color;
     switch (themeValue) {
-      case "dark": color = 0xFF37474F; break;
-      case "black": color = 0xFF212121; break;
+      case "dark": color = 0xFF455A64; break;
+      case "black": color = 0xFF1A1A1A; break;
       default: color = 0xFFE0E0E0; break;
     }
     tabScroll.setBackgroundColor(color);
