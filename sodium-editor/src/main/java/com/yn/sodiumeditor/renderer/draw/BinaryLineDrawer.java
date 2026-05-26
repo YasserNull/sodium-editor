@@ -319,11 +319,11 @@ public class BinaryLineDrawer {
             // Draw normal text before this span
             if (safeS > idx) {
                 drawBinaryTextRunWithFade(canvas, line, idx, safeS, x, y, defaultPaint, fadeStart, fadeEnd, fadeAlpha);
-                x += defaultPaint.measureText(line, idx, safeS);
+                x += editor.textRender.measureTextWithVisualSpaces(line, idx, safeS, defaultPaint);
             }
 
             // Draw token box if enabled
-            float tokenTextWidth = defaultPaint.measureText(line, safeS, safeE);
+            float tokenTextWidth = editor.textRender.measureTextWithVisualSpaces(line, safeS, safeE, defaultPaint);
             float tokenTotalWidth = tokenTextWidth + (padX * 2f);
 
             if (binaryTokenBoxEnabled) {
@@ -366,6 +366,9 @@ public class BinaryLineDrawer {
         if (start >= end) return 0f;
         boolean hasFade = fadeStart >= 0 && fadeEnd > fadeStart && fadeAlpha < 1f;
         if (!hasFade || end <= fadeStart || start >= fadeEnd) {
+            if (line.indexOf('\t', start) < end) {
+                return editor.textLineDraw.drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, paint, 1f);
+            }
             canvas.drawText(line, start, end, x, y, paint);
             return paint.measureText(line, start, end);
         }
@@ -373,8 +376,12 @@ public class BinaryLineDrawer {
         float currentX = x;
         int beforeEnd = Math.min(end, fadeStart);
         if (start < beforeEnd) {
-            canvas.drawText(line, start, beforeEnd, currentX, y, paint);
-            currentX += paint.measureText(line, start, beforeEnd);
+            if (line.indexOf('\t', start) < beforeEnd) {
+                currentX += editor.textLineDraw.drawTextSegmentWithVisualSpaces(canvas, line, start, beforeEnd, currentX, y, paint, 1f);
+            } else {
+                canvas.drawText(line, start, beforeEnd, currentX, y, paint);
+                currentX += paint.measureText(line, start, beforeEnd);
+            }
         }
 
         int fadeSegStart = Math.max(start, fadeStart);
@@ -384,20 +391,28 @@ public class BinaryLineDrawer {
             int baseAlpha = paint.getAlpha();
             float alpha = Math.max(0f, Math.min(1f, fadeAlpha));
             editor.charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * alpha));
-            canvas.drawText(
-                    line,
-                    fadeSegStart,
-                    fadeSegEnd,
-                    currentX,
-                    y + getCharAnimOffsetY(alpha, paint),
-                    editor.charAnimation.charAnimTmpPaint);
-            currentX += paint.measureText(line, fadeSegStart, fadeSegEnd);
+            if (line.indexOf('\t', fadeSegStart) < fadeSegEnd) {
+                currentX += editor.textLineDraw.drawTextSegmentWithVisualSpaces(canvas, line, fadeSegStart, fadeSegEnd, currentX, y, editor.charAnimation.charAnimTmpPaint, fadeAlpha);
+            } else {
+                canvas.drawText(
+                        line,
+                        fadeSegStart,
+                        fadeSegEnd,
+                        currentX,
+                        y + getCharAnimOffsetY(alpha, paint),
+                        editor.charAnimation.charAnimTmpPaint);
+                currentX += paint.measureText(line, fadeSegStart, fadeSegEnd);
+            }
         }
 
         int afterStart = Math.max(start, fadeEnd);
         if (afterStart < end) {
-            canvas.drawText(line, afterStart, end, currentX, y, paint);
-            currentX += paint.measureText(line, afterStart, end);
+            if (line.indexOf('\t', afterStart) < end) {
+                currentX += editor.textLineDraw.drawTextSegmentWithVisualSpaces(canvas, line, afterStart, end, currentX, y, paint, 1f);
+            } else {
+                canvas.drawText(line, afterStart, end, currentX, y, paint);
+                currentX += paint.measureText(line, afterStart, end);
+            }
         }
 
         return currentX - x;

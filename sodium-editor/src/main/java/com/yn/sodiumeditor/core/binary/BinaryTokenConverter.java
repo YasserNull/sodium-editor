@@ -196,10 +196,11 @@ public class BinaryTokenConverter {
         return String.valueOf(c);
     }
 
-    public boolean needsEscaping(char c) { return c < 0x20 || c == 0x7F; }
+    public boolean needsEscaping(char c) { return c != '\t' && (c < 0x20 || c == 0x7F); }
 
     public int getDisplayWidth(char c, boolean binarySafeRenderingEnabled) {
         if (!binarySafeRenderingEnabled) return 1;
+        if (c == '\t') return 1;
         if (needsEscaping(c)) {
             int b = c & 0xFF;
             if (b <= 0x1F)              return BYTE_TOKEN_LEN[b];

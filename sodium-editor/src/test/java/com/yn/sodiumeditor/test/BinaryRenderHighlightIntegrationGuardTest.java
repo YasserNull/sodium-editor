@@ -73,7 +73,8 @@ public class BinaryRenderHighlightIntegrationGuardTest {
             && xBody.contains("paint.measureText(line, pos, s)"));
     assertTrue(
         "BUG: binary drawing must advance normal text by measured width, not fixed char count.",
-        drawBody.contains("defaultPaint.measureText(line, idx, safeS)"));
+        drawBody.contains("defaultPaint.measureText(line, idx, safeS)")
+            || drawBody.contains("measureTextWithVisualSpaces(line, idx, safeS, defaultPaint)"));
   }
 
   private static String methodBody(String src, String signature) {
