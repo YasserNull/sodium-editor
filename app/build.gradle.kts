@@ -3,12 +3,12 @@ plugins {
 }
 
 android {
-    namespace = "com.yn.simplesodiumeditor"
+    namespace = "com.yn.sodiumeditordemo"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.yn.simplesodiumeditor"
-        minSdk = 23
+        applicationId = "com.yn.sodiumeditordemo"
+        minSdk = 21
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"

@@ -11,7 +11,7 @@
         android:allowBackup="true"
  android:requestLegacyExternalStorage="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="pop"
+        android:label="@string/app_name"
 android:enableOnBackInvokedCallback="true"
         android:theme="@style/app_theme">
         <activity

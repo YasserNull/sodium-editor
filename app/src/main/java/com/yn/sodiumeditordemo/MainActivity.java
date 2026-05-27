@@ -1,4 +1,4 @@
-package com.yn.simplesodiumeditor;
+package com.yn.sodiumeditordemo;
 
 import android.content.ClipData;
 import android.content.ClipboardManager;
