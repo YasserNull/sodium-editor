@@ -2,6 +2,7 @@ package com.yn.sodiumeditordemo;
 
 import android.content.ClipData;
 import android.content.ClipboardManager;
+import android.content.ContentUris;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
@@ -9,6 +10,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Process;
+import android.provider.DocumentsContract;
+import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.provider.Settings;
 import android.view.MenuItem;
@@ -31,9 +34,6 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 import androidx.preference.PreferenceManager;
-import com.github.angads25.filepicker.model.DialogProperties;
-import com.github.angads25.filepicker.model.DialogConfigs;
-import com.github.angads25.filepicker.view.FilePickerDialog;
 import android.util.SparseIntArray;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.io.EditOp;
@@ -182,8 +182,19 @@ public class MainActivity extends AppCompatActivity {
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
               if (result.getResultCode() != RESULT_OK || result.getData() == null) return;
-              Uri uri = result.getData().getData();
+              Intent data = result.getData();
+              Uri uri = data.getData();
               if (uri == null) return;
+              int flags =
+                  data.getFlags()
+                      & (Intent.FLAG_GRANT_READ_URI_PERMISSION
+                          | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+              if (flags != 0) {
+                try {
+                  getContentResolver().takePersistableUriPermission(uri, flags);
+                } catch (Exception ignored) {
+                }
+              }
               loadUriIntoEditor(uri);
             });
 
@@ -747,40 +758,16 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void openFilePicker() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-      if (!Environment.isExternalStorageManager()) {
-        checkPermissionsAndStart();
-        return;
-      }
-    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-      if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
-          != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-        checkPermissionsAndStart();
-        return;
-      }
-    }
+    launchSystemFilePicker();
+  }
 
-    DialogProperties properties = new DialogProperties();
-    properties.selection_mode = DialogConfigs.SINGLE_MODE;
-    properties.selection_type = DialogConfigs.FILE_SELECT;
-    properties.root = Environment.getExternalStorageDirectory();
-    properties.error_dir = new File(DialogConfigs.DEFAULT_DIR);
-    properties.offset = new File(DialogConfigs.DEFAULT_DIR);
-
-    FilePickerDialog dialog = new FilePickerDialog(this, properties);
-    dialog.setDialogSelectionListener(
-        files -> {
-          if (files != null && files.length > 0) {
-            File file = new File(files[0]);
-            int existing = findTabByPath(file.getAbsolutePath());
-            if (existing >= 0) {
-              switchToTab(existing);
-            } else {
-              addTab(file, file.getName(), file.getAbsolutePath());
-            }
-          }
-        });
-    dialog.show();
+  private void launchSystemFilePicker() {
+    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+    intent.addCategory(Intent.CATEGORY_OPENABLE);
+    intent.setType("*/*");
+    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+    intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+    openFileLauncher.launch(intent);
   }
 
   private void clearLogcat() {
@@ -979,25 +966,6 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void loadUriIntoEditor(Uri uri) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-      if (!Environment.isExternalStorageManager()) {
-        pendingUri = uri;
-        checkPermissionsAndStart();
-        return;
-      }
-    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-      if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
-          != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-        pendingUri = uri;
-        requestPermissionLauncher.launch(
-            new String[] {
-              android.Manifest.permission.READ_EXTERNAL_STORAGE,
-              android.Manifest.permission.WRITE_EXTERNAL_STORAGE
-            });
-        return;
-      }
-    }
-
     clearLogcat();
 
     new Thread(
@@ -1021,7 +989,6 @@ public class MainActivity extends AppCompatActivity {
                   return;
                 }
 
-                long size = file.length();
                 runOnUiThread(
                     () -> {
                       int existing = findTabByPath(file.getAbsolutePath());
@@ -1069,53 +1036,132 @@ public class MainActivity extends AppCompatActivity {
     }
 
     if ("content".equals(uri.getScheme())) {
-      try (Cursor cursor =
-          getContentResolver()
-              .query(
-                  uri,
-                  new String[] {android.provider.MediaStore.Files.FileColumns.DATA},
-                  null,
-                  null,
-                  null)) {
-        if (cursor != null && cursor.moveToFirst()) {
-          int idx = cursor.getColumnIndex(android.provider.MediaStore.Files.FileColumns.DATA);
-          if (idx >= 0) {
-            return cursor.getString(idx);
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT && DocumentsContract.isDocumentUri(this, uri)) {
+        try {
+          String docId = DocumentsContract.getDocumentId(uri);
+          if (isExternalStorageDocument(uri)) {
+            String path = getExternalStorageDocumentPath(docId);
+            if (path != null) return path;
+          } else if (isDownloadsDocument(uri)) {
+            String path = getDownloadsDocumentPath(uri, docId);
+            if (path != null) return path;
+          } else if (isMediaDocument(uri)) {
+            String path = getMediaDocumentPath(docId);
+            if (path != null) return path;
           }
+        } catch (Exception ignored) {
         }
-      } catch (Exception ignored) {
       }
 
-      try {
-        String docId = android.provider.DocumentsContract.getDocumentId(uri);
-        if (docId != null && docId.contains(":")) {
-          String[] parts = docId.split(":");
-          String type = parts[0];
-          String id = parts[1];
-
-          if ("primary".equalsIgnoreCase(type)) {
-            return android.os.Environment.getExternalStorageDirectory() + "/" + id;
-          }
-
-          java.io.File[] dirs = getExternalFilesDirs(null);
-          for (java.io.File dir : dirs) {
-            if (dir != null) {
-              String path =
-                  dir.getAbsolutePath().replace("/Android/data/" + getPackageName() + "/files", "");
-              if (dir.exists()) {
-                java.io.File target = new java.io.File(path + "/" + id);
-                if (target.exists()) {
-                  return target.getAbsolutePath();
-                }
-              }
-            }
-          }
-        }
-      } catch (Exception ignored) {
-      }
+      return getDataColumn(uri, null, null);
     }
 
-    return uri.getPath();
+    return null;
+  }
+
+  private String getExternalStorageDocumentPath(String docId) {
+    if (docId == null || !docId.contains(":")) return null;
+    String[] parts = docId.split(":", 2);
+    String type = parts[0];
+    String id = parts.length > 1 ? parts[1] : "";
+
+    if ("primary".equalsIgnoreCase(type)) {
+      return new File(Environment.getExternalStorageDirectory(), id).getAbsolutePath();
+    }
+
+    File[] dirs = getExternalFilesDirs(null);
+    for (File dir : dirs) {
+      if (dir == null) continue;
+      String root = dir.getAbsolutePath();
+      int androidData = root.indexOf("/Android/data/");
+      if (androidData >= 0) {
+        root = root.substring(0, androidData);
+      }
+      File target = new File(root, id);
+      if (target.exists()) {
+        return target.getAbsolutePath();
+      }
+    }
+    return null;
+  }
+
+  private String getDownloadsDocumentPath(Uri uri, String docId) {
+    if (docId == null) return null;
+    if (docId.startsWith("raw:")) {
+      return docId.substring(4);
+    }
+
+    String path = getDataColumn(uri, null, null);
+    if (path != null) return path;
+
+    try {
+      long id = Long.parseLong(docId);
+      Uri[] contentUris = new Uri[] {
+          Uri.parse("content://downloads/public_downloads"),
+          Uri.parse("content://downloads/my_downloads"),
+          Uri.parse("content://downloads/all_downloads")
+      };
+      for (Uri contentUri : contentUris) {
+        path = getDataColumn(ContentUris.withAppendedId(contentUri, id), null, null);
+        if (path != null) return path;
+      }
+    } catch (NumberFormatException ignored) {
+    }
+
+    return null;
+  }
+
+  private String getMediaDocumentPath(String docId) {
+    if (docId == null || !docId.contains(":")) return null;
+    String[] parts = docId.split(":", 2);
+    String type = parts[0];
+    String id = parts.length > 1 ? parts[1] : "";
+
+    Uri contentUri;
+    if ("image".equals(type)) {
+      contentUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+    } else if ("video".equals(type)) {
+      contentUri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
+    } else if ("audio".equals(type)) {
+      contentUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
+    } else {
+      contentUri = MediaStore.Files.getContentUri("external");
+    }
+
+    return getDataColumn(contentUri, "_id=?", new String[] {id});
+  }
+
+  private String getDataColumn(Uri uri, String selection, String[] selectionArgs) {
+    try (Cursor cursor =
+        getContentResolver()
+            .query(
+                uri,
+                new String[] {MediaStore.Files.FileColumns.DATA},
+                selection,
+                selectionArgs,
+                null)) {
+      if (cursor != null && cursor.moveToFirst()) {
+        int idx = cursor.getColumnIndex(MediaStore.Files.FileColumns.DATA);
+        if (idx >= 0) {
+          String path = cursor.getString(idx);
+          if (path != null && !path.isEmpty()) return path;
+        }
+      }
+    } catch (Exception ignored) {
+    }
+    return null;
+  }
+
+  private boolean isExternalStorageDocument(Uri uri) {
+    return "com.android.externalstorage.documents".equals(uri.getAuthority());
+  }
+
+  private boolean isDownloadsDocument(Uri uri) {
+    return "com.android.providers.downloads.documents".equals(uri.getAuthority());
+  }
+
+  private boolean isMediaDocument(Uri uri) {
+    return "com.android.providers.media.documents".equals(uri.getAuthority());
   }
 
   private String queryDisplayName(Uri uri) {
