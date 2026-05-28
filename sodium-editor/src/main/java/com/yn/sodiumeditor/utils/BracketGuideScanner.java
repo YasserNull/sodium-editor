@@ -169,7 +169,7 @@ public class BracketGuideScanner {
 
       if ((c == '{' || c == '}' || c == '(' || c == ')' || c == '[' || c == ']') && !Highlite.isEscaped(line, i)) {
         if (c == '{' || c == '(' || c == '[') {
-          int column = (c == '{') ? editor.view.getBraceGuideColumnForLine(line, globalLine, i, firstNonSpace) : i;
+          int column = getOpeningBracketGuideColumn(i, firstNonSpace);
           float x = bracketGuideDraw.getGuideX(line, column, globalLine);
           state.stack.push(new BracketGuideToken(column, x, c));
         } else {
@@ -279,12 +279,7 @@ public class BracketGuideScanner {
           state.pendingParen = false;
         }
         if (c == '{' || c == '(' || c == '[') {
-          int column;
-          if (c == '{') {
-            column = editor.view.getBraceGuideColumnForLine(line, globalLine, i, firstNonSpace);
-          } else {
-            column = (firstNonSpace >= 0) ? firstNonSpace : i;
-          }
+          int column = getOpeningBracketGuideColumn(i, firstNonSpace);
           int openLine = globalLine;
           int guideStartLine;
           if (c == '{') {
@@ -324,6 +319,10 @@ public class BracketGuideScanner {
 
       i++;
     }
+  }
+
+  private int getOpeningBracketGuideColumn(int bracketIndex, int firstNonSpace) {
+    return (firstNonSpace >= 0) ? firstNonSpace : bracketIndex;
   }
 
   /**
