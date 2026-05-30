@@ -236,6 +236,8 @@ public class View {
         editor.textRender.lineHeight = editor.textRender.paint.getFontSpacing();
         editor.windowRender.recalculateMaxLineWidth();
         editor.whitespaceGuides.updateMetrics();
+        editor.cursorHandle.updateHandleMetricsForTextSize(sizePx);
+        editor.selectionHandles.updateHandleMetricsForTextSize(sizePx);
         editor.lineNumber.invalidateLineNumberCache();
 
         editor.textRender.clearCachesOnTypefaceChange();

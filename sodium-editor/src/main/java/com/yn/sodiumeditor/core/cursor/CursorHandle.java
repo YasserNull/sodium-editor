@@ -18,6 +18,10 @@ public class CursorHandle {
   public float cursorHandleHeight = 40f; // Square for perfect circle
   public int cursorHandleColor = 0xFF2196F3; // Blue
   public float cursorHandleRadius = 6f;
+  public float baseCursorHandleWidthPx = cursorHandleWidth;
+  public float baseCursorHandleHeightPx = cursorHandleHeight;
+  public float baseCursorHandleRadiusPx = cursorHandleRadius;
+  public float baseCursorHandleTextSizePx = 0f;
   
   // Cursor handle rect
   public RectF cursorHandleRect = new RectF();
@@ -121,8 +125,11 @@ public class CursorHandle {
 
   public void setCursorHandleSize(float width, float height) {
     if (width <= 0f || height <= 0f) return;
-    cursorHandleWidth = width;
-    cursorHandleHeight = height;
+    baseCursorHandleWidthPx = width;
+    baseCursorHandleHeightPx = height;
+    baseCursorHandleTextSizePx = editor.textRender.paint.getTextSize();
+    updateHandleMetricsForTextSize(baseCursorHandleTextSizePx);
+    editor.invalidate();
   }
 
   public void setCursorHandleColor(int color) {
@@ -132,7 +139,22 @@ public class CursorHandle {
 
   public void setCursorHandleRadius(float radius) {
     if (radius < 0f) return;
-    cursorHandleRadius = radius;
+    baseCursorHandleRadiusPx = radius;
+    baseCursorHandleTextSizePx = editor.textRender.paint.getTextSize();
+    updateHandleMetricsForTextSize(baseCursorHandleTextSizePx);
+    editor.invalidate();
+  }
+
+  public void updateHandleMetricsForTextSize(float sizePx) {
+    cursorHandleWidth =
+        editor.view.scaleByTextSize(
+            baseCursorHandleWidthPx, baseCursorHandleTextSizePx, sizePx);
+    cursorHandleHeight =
+        editor.view.scaleByTextSize(
+            baseCursorHandleHeightPx, baseCursorHandleTextSizePx, sizePx);
+    cursorHandleRadius =
+        editor.view.scaleByTextSize(
+            baseCursorHandleRadiusPx, baseCursorHandleTextSizePx, sizePx);
   }
 
   public RectF getHandleRect() {

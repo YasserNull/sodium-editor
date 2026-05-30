@@ -218,6 +218,9 @@ public class SodiumEditor extends View {
   whitespaceGuides.updateMetrics();
   lineNumber.lineNumbersPaint.setTextSize(36);
   selectionHandles.baseHandleTextSizePx = textRender.paint.getTextSize();
+  selectionHandles.updateHandleMetricsForTextSize(textRender.paint.getTextSize());
+  cursorHandle.baseCursorHandleTextSizePx = textRender.paint.getTextSize();
+  cursorHandle.updateHandleMetricsForTextSize(textRender.paint.getTextSize());
   cursor.baseCursorTextSizePx = textRender.paint.getTextSize();
   highlightRules.whitespaceStringRule =
     new HighliteRender.HighlightRule(

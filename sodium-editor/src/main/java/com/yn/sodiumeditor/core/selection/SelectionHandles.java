@@ -29,6 +29,8 @@ public class SelectionHandles {
     public int selectionHandleColor = 0xFF2196F3; // Blue
     public float handleRadius = 6f;
 
+    public float baseHandleWidthPx = handleWidth;
+    public float baseHandleHeightPx = handleHeight;
     public float baseHandleRadiusPx = handleRadius;
     public float baseHandleTextSizePx = 0f;
 
@@ -362,8 +364,11 @@ public class SelectionHandles {
 
   public void setHandleSize(float width, float height) {
     if (width <= 0f || height <= 0f) return;
-    handleWidth = width;
-    handleHeight = height;
+    baseHandleWidthPx = width;
+    baseHandleHeightPx = height;
+    baseHandleTextSizePx = editor.textRender.paint.getTextSize();
+    updateHandleMetricsForTextSize(baseHandleTextSizePx);
+    editor.invalidate();
   }
 
   public void setHandleColor(int color) {
@@ -376,7 +381,16 @@ public void setSelectionHandleColor(int color) {
   }
   public void setHandleRadius(float radius) {
     if (radius < 0f) return;
-    handleRadius = radius;
+    baseHandleRadiusPx = radius;
+    baseHandleTextSizePx = editor.textRender.paint.getTextSize();
+    updateHandleMetricsForTextSize(baseHandleTextSizePx);
+    editor.invalidate();
+  }
+
+  public void updateHandleMetricsForTextSize(float sizePx) {
+    handleWidth = editor.view.scaleByTextSize(baseHandleWidthPx, baseHandleTextSizePx, sizePx);
+    handleHeight = editor.view.scaleByTextSize(baseHandleHeightPx, baseHandleTextSizePx, sizePx);
+    handleRadius = editor.view.scaleByTextSize(baseHandleRadiusPx, baseHandleTextSizePx, sizePx);
   }
 
   public RectF getLeftHandleRect() {
