@@ -28,7 +28,8 @@ public class Layout {
     public boolean isRtl = false;
 
     // Padding constants
-    public float paddingLeft = 0f;
+    public float textStartGap = 12f;
+    public float paddingLeft = textStartGap;
     public float paddingRight = 0f;
     public float paddingTop = 0f;
     public float paddingBottom = 0f;
@@ -316,6 +317,16 @@ public class Layout {
      */
     public void setPaddingLeft(float padding) {
         this.paddingLeft = padding;
+        editor.requestLayout();
+        editor.invalidate();
+    }
+
+    /**
+     * Set the gap between the gutter separator and text start.
+     */
+    public void setTextStartGap(float gap) {
+        textStartGap = Math.max(0f, gap);
+        paddingLeft = textStartGap;
         editor.requestLayout();
         editor.invalidate();
     }

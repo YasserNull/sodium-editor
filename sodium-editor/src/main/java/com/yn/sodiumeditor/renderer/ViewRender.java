@@ -240,13 +240,12 @@ public class ViewRender {
                     boolean fillsWholeLine = !isSingleLine && !isFirstLine && !isLastLine;
                     float startX = textStartX + editor.textRender.measureTextWithVisualSpaces(line, 0, startChar, editor.textRender.paint);
                     float endX = textStartX + editor.textRender.measureTextWithVisualSpaces(line, 0, endChar, editor.textRender.paint);
+                    float visibleSelectionStartX = Math.max(textStartX, viewportLeft);
                     float left = isSingleLine
                             ? startX
                             : isFirstLine && !isSingleLine
                             ? startX
-                            : fillsWholeLine
-                            ? viewportLeft
-                            : Math.min(textStartX, viewportLeft);
+                            : visibleSelectionStartX;
                     float top = lineTop;
                     float right = (isFirstLine && !isSingleLine) || fillsWholeLine
                             ? viewportRight
@@ -280,6 +279,8 @@ public class ViewRender {
         }
     }
     
+    canvas.save();
+    canvas.translate(editor.layout.paddingLeft, 0f);
     for (int i = firstVisibleLine; i <= lastVisibleLine; i++) {
         String line = editor.windowRender.getLineTextForRenderWithDirect(i, directLines);
         float y = (i - firstVisibleLine) * editor.textRender.lineHeight + editor.textRender.lineHeight - editor.textRender.paint.descent();
@@ -334,6 +335,7 @@ public class ViewRender {
     if (editor.bracketGuides.isBracketGuidesEnabled && drawDecorations && drawBracketGuides) {
         editor.bracketGuides.drawBracketGuidesForVisibleRange(canvas, firstVisibleLine, lastVisibleLine);
     }
+    canvas.restore();
   }
 
   public void drawColorCodeBackgrounds(Canvas canvas, String line, int globalLine) {

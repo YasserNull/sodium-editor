@@ -133,8 +133,8 @@ public class Caret {
       left = (editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth) - cx + editor.scroll.scrollX;
       right = left - caretWidth;
     } else {
-      left += editor.lineNumber.lineNumbersGutterWidth;
-      right += editor.lineNumber.lineNumbersGutterWidth;
+      left += editor.layout.getTextStartX();
+      right += editor.layout.getTextStartX();
     }
     caretPaint.setColor(caretColor);
     canvas.drawRect(left, top, right, bottom, caretPaint);
