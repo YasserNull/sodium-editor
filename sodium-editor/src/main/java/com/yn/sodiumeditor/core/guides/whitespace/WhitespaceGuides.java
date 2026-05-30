@@ -16,6 +16,7 @@ public class WhitespaceGuides {
   // Whitespace guide constants
   public static final String WHITESPACE_GUIDE_SPACE = "·";
   public static final String WHITESPACE_GUIDE_TAB = "→";
+  public static final int WHITESPACE_GUIDE_COLOR = 0xFF555555;
 
   private final SodiumEditor editor;
 
@@ -37,10 +38,10 @@ public class WhitespaceGuides {
   }
 
   private void initPaint() {
-    whitespaceGuidePaint.setColor(0xFFCCCCCC);
+    whitespaceGuidePaint.setColor(WHITESPACE_GUIDE_COLOR);
     whitespaceGuidePaint.setStyle(Paint.Style.FILL);
     whitespaceGuidePaint.setUnderlineText(false);
-    whitespaceGuideDotPaint.setColor(0xFFCCCCCC);
+    whitespaceGuideDotPaint.setColor(WHITESPACE_GUIDE_COLOR);
     whitespaceGuideDotPaint.setStyle(Paint.Style.STROKE);
     whitespaceGuideDotPaint.setStrokeCap(Paint.Cap.ROUND);
     updateMetrics();

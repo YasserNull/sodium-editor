@@ -6,22 +6,25 @@
         <item name="colorPrimary">#FF1976D2</item>
         <item name="colorPrimaryDark">#FF1565C0</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="android:statusBarColor">#FF1565C0</item>
+        <item name="android:windowBackground">#FFFFFF</item>
+        <item name="android:statusBarColor">#FFFFFF</item>
         <item name="android:navigationBarColor">#FFFFFF</item>
     </style>
 
     <style name="AppTheme.Dark" parent="Theme.MaterialComponents.NoActionBar">
-        <item name="colorPrimary">#FF37474F</item>
-        <item name="colorPrimaryDark">#FF263238</item>
+        <item name="colorPrimary">#121212</item>
+        <item name="colorPrimaryDark">#121212</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="android:statusBarColor">#FF263238</item>
-        <item name="android:navigationBarColor">#FF37474F</item>
+        <item name="android:windowBackground">#121212</item>
+        <item name="android:statusBarColor">#121212</item>
+        <item name="android:navigationBarColor">#121212</item>
     </style>
 
     <style name="AppTheme.Black" parent="Theme.MaterialComponents.NoActionBar">
         <item name="colorPrimary">#FF000000</item>
         <item name="colorPrimaryDark">#FF000000</item>
         <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="android:windowBackground">#000000</item>
         <item name="android:statusBarColor">#FF000000</item>
         <item name="android:navigationBarColor">#FF000000</item>
     </style>

@@ -24,7 +24,7 @@ public class Theme {
     t.editorBackground = Color.WHITE;
     t.textColor = Color.BLACK;
     t.caretColor = 0xFF000000;
-    t.gutterBackground = 0xFFF5F5F5;
+    t.gutterBackground = Color.WHITE;
     t.gutterSeparator = 0xFFDDDDDD;
     t.lineNumberColor = 0xFF888888;
     t.currentLineNumberColor = 0xFF1976D2;
@@ -33,25 +33,25 @@ public class Theme {
 
   public static Theme dark() {
     Theme t = new Theme();
-    t.editorBackground = 0xFF1E1E1E;
-    t.textColor = 0xFFD4D4D4;
+    t.editorBackground = 0xFF121212;
+    t.textColor = 0xFFFFFFFF;
     t.caretColor = 0xFFFFFFFF;
-    t.gutterBackground = 0xFF252525;
+    t.gutterBackground = 0xFF121212;
     t.gutterSeparator = 0xFF444444;
     t.lineNumberColor = 0xFF888888;
-    t.currentLineNumberColor = 0xFFBBBBBB;
+    t.currentLineNumberColor = 0xFFFFFFFF;
     return t;
   }
 
   public static Theme black() {
     Theme t = new Theme();
     t.editorBackground = Color.BLACK;
-    t.textColor = 0xFFCCCCCC;
+    t.textColor = 0xFFFFFFFF;
     t.caretColor = 0xFFFFFFFF;
     t.gutterBackground = Color.BLACK;
     t.gutterSeparator = 0xFF333333;
     t.lineNumberColor = 0xFF666666;
-    t.currentLineNumberColor = 0xFF999999;
+    t.currentLineNumberColor = 0xFFFFFFFF;
     return t;
   }
 

@@ -3,13 +3,14 @@
     android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:background="?android:windowBackground">
 
     <LinearLayout
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="?attr/colorPrimary"
+        android:background="?android:windowBackground"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingVertical="4dp"
@@ -87,16 +88,22 @@
         android:id="@+id/tabScroll"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#E0E0E0"
+        android:background="?android:windowBackground"
         android:scrollbars="none">
 
         <LinearLayout
             android:id="@+id/tabContainer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal" />
+            android:orientation="horizontal"
+            android:background="?android:windowBackground" />
 
     </HorizontalScrollView>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#555555" />
 
     <FrameLayout
         android:id="@+id/editorContainer"

@@ -17,6 +17,8 @@ import java.util.List;
  */
 public class BracketGuides {
 
+  public static final int BRACKET_GUIDE_COLOR = 0xFF555555;
+
   private final SodiumEditor editor;
 
   // Bracket guides state
@@ -48,7 +50,7 @@ public class BracketGuides {
 
   public BracketGuides(SodiumEditor editor) {
     this.editor = editor;
-    bracketGuidePaint.setColor(0xFFCCCCCC);
+    bracketGuidePaint.setColor(BRACKET_GUIDE_COLOR);
     bracketGuidePaint.setStyle(Paint.Style.STROKE);
     bracketGuidePaint.setStrokeWidth(bracketGuideStrokeWidth);
 

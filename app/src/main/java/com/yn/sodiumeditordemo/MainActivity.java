@@ -4,6 +4,7 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ContentUris;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
@@ -27,12 +28,10 @@ import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.fragment.app.Fragment;
 import androidx.preference.PreferenceManager;
 import android.util.SparseIntArray;
 import com.yn.sodiumeditor.SodiumEditor;
@@ -116,6 +115,7 @@ public class MainActivity extends AppCompatActivity {
     applyTheme(theme);
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
+    applySystemWindowInsets(findViewById(R.id.root));
 
     editor = findViewById(R.id.editor);
     fileNameText = findViewById(R.id.fileNameText);
@@ -129,6 +129,7 @@ public class MainActivity extends AppCompatActivity {
 
     applyEditorColors(theme);
     styleSystemBars(theme);
+    styleToolbar(theme);
     setTabBarColor(theme);
 
     currentScrollMode =
@@ -144,12 +145,7 @@ public class MainActivity extends AppCompatActivity {
                   if (pendingUri != null) {
                     loadUriIntoEditor(pendingUri);
                     pendingUri = null;
-                  } else {
-                    Toast.makeText(this, "تم منح صلاحية الوصول للملفات", Toast.LENGTH_SHORT).show();
                   }
-                } else {
-                  Toast.makeText(this, "لم يتم منح صلاحية الوصول للملفات", Toast.LENGTH_SHORT)
-                      .show();
                 }
               }
             });
@@ -172,8 +168,6 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                   openFilePicker();
                 }
-              } else {
-                Toast.makeText(this, "يجب منح الصلاحيات للوصول للملفات", Toast.LENGTH_SHORT).show();
               }
             });
 
@@ -212,6 +206,12 @@ public class MainActivity extends AppCompatActivity {
     if (openTabs.isEmpty()) {
       createTempFileTab();
     }
+  }
+
+  @Override
+  protected void onResume() {
+    super.onResume();
+    syncSettingsFromPreferences();
   }
 
   private void showOverflowMenu(View anchor) {
@@ -254,11 +254,7 @@ public class MainActivity extends AppCompatActivity {
                 fos.close();
                 File finalTmp = tmpFile;
                 runOnUiThread(() -> addTab(finalTmp, finalTmp.getName(), finalTmp.getAbsolutePath()));
-              } catch (Exception e) {
-                runOnUiThread(
-                    () ->
-                        Toast.makeText(this, "Failed to create temp file", Toast.LENGTH_SHORT)
-                            .show());
+              } catch (Exception ignored) {
               }
             })
         .start();
@@ -269,9 +265,7 @@ public class MainActivity extends AppCompatActivity {
         () ->
             runOnUiThread(
                 () -> {
-                  String name = editor.fileIO.sourceFile != null ? editor.fileIO.sourceFile.getName() : "file";
                   updateDirtyIndicator();
-                  Toast.makeText(this, "Saved: " + name, Toast.LENGTH_SHORT).show();
                 }));
   }
 
@@ -279,8 +273,6 @@ public class MainActivity extends AppCompatActivity {
     if (editor.editOperators.canUndo()) {
       editor.editOperators.undo();
       updateDirtyIndicator();
-    } else {
-      Toast.makeText(this, "Nothing to undo", Toast.LENGTH_SHORT).show();
     }
   }
 
@@ -288,8 +280,6 @@ public class MainActivity extends AppCompatActivity {
     if (editor.editOperators.canRedo()) {
       editor.editOperators.redo();
       updateDirtyIndicator();
-    } else {
-      Toast.makeText(this, "Nothing to redo", Toast.LENGTH_SHORT).show();
     }
   }
 
@@ -411,43 +401,36 @@ public class MainActivity extends AppCompatActivity {
 
   private int getActiveTabFill() {
     switch (currentTheme) {
-      case "dark": return 0xFF546E7A;
-      case "black": return 0xFF424242;
-      default: return 0xFFBBDEFB;
+      case "dark":
+        return 0xFF2A2A2A;
+      case "black":
+        return 0xFF1E1E1E;
+      default:
+        return 0xFFE8E8E8;
     }
   }
 
   private int getActiveTabStroke() {
-    switch (currentTheme) {
-      case "dark": return 0xFF80CBC4;
-      case "black": return 0xFF80CBC4;
-      default: return 0xFF1976D2;
-    }
+    return 0xFF555555;
   }
 
   private int getInactiveTabFill() {
-    switch (currentTheme) {
-      case "dark": return 0xFF455A64;
-      case "black": return 0xFF2C2C2C;
-      default: return Color.LTGRAY;
-    }
+    return getAppBackgroundColor(currentTheme);
   }
 
   private int getInactiveTabStroke() {
-    switch (currentTheme) {
-      case "dark": return 0xFF37474F;
-      case "black": return 0xFF1A1A1A;
-      default: return Color.GRAY;
-    }
+    return 0xFF555555;
   }
 
   private void updateToolbarButtons() {
     boolean canUndo = editor.editOperators.canUndo();
     boolean canRedo = editor.editOperators.canRedo();
     boolean canSave = editor.editOperators.getPendingEditsCount() > 0;
-    undoBtn.setColorFilter(canUndo ? Color.WHITE : 0xFF999999, PorterDuff.Mode.SRC_IN);
-    redoBtn.setColorFilter(canRedo ? Color.WHITE : 0xFF999999, PorterDuff.Mode.SRC_IN);
-    saveBtn.setColorFilter(canSave ? Color.WHITE : 0xFF999999, PorterDuff.Mode.SRC_IN);
+    int activeColor = getToolbarContentColor(currentTheme);
+    undoBtn.setColorFilter(canUndo ? activeColor : 0xFF999999, PorterDuff.Mode.SRC_IN);
+    redoBtn.setColorFilter(canRedo ? activeColor : 0xFF999999, PorterDuff.Mode.SRC_IN);
+    saveBtn.setColorFilter(canSave ? activeColor : 0xFF999999, PorterDuff.Mode.SRC_IN);
+    overflowBtn.setColorFilter(activeColor, PorterDuff.Mode.SRC_IN);
   }
 
   private boolean isDirty() {
@@ -638,19 +621,26 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void openSettings() {
-    LinearLayout toolbar = findViewById(R.id.toolbar);
-    if (toolbar != null) toolbar.setVisibility(View.GONE);
-    tabScroll.setVisibility(View.GONE);
-    getSupportFragmentManager()
-        .beginTransaction()
-        .replace(R.id.editorContainer, new SettingsFragment())
-        .addToBackStack("settings")
-        .commit();
+    startActivity(new Intent(this, SettingsActivity.class));
   }
 
   public void onScrollModeChanged(int mode) {
     currentScrollMode = mode;
     editor.scroll.setScrollMode(mode);
+  }
+
+  private void syncSettingsFromPreferences() {
+    SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+    String theme = prefs.getString("theme", "light");
+    if (!theme.equals(currentTheme)) {
+      recreate();
+      return;
+    }
+
+    int scrollMode = Integer.parseInt(prefs.getString("scroll_mode", "2"));
+    if (scrollMode != currentScrollMode) {
+      onScrollModeChanged(scrollMode);
+    }
   }
 
   private void applyEditorColors(String themeValue) {
@@ -667,6 +657,7 @@ public class MainActivity extends AppCompatActivity {
         break;
     }
     theme.apply(editor);
+    editor.setBackgroundColor(getAppBackgroundColor(themeValue));
   }
 
   public void onThemeChanged() {
@@ -688,31 +679,72 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void setTabBarColor(String themeValue) {
-    int color;
-    switch (themeValue) {
-      case "dark": color = 0xFF455A64; break;
-      case "black": color = 0xFF1A1A1A; break;
-      default: color = 0xFFE0E0E0; break;
-    }
-    tabScroll.setBackgroundColor(color);
+    tabScroll.setBackgroundColor(getAppBackgroundColor(themeValue));
+    tabContainer.setBackgroundColor(getAppBackgroundColor(themeValue));
   }
 
   private void styleSystemBars(String themeValue) {
-    if ("light".equals(themeValue)) {
-      getWindow().setStatusBarColor(0xFF1565C0);
-      getWindow().setNavigationBarColor(0xFFFFFFFF);
-      if (Build.VERSION.SDK_INT >= 23) {
-        int flags = getWindow().getDecorView().getSystemUiVisibility();
-        flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
-        getWindow().getDecorView().setSystemUiVisibility(flags);
+    int backgroundColor = getAppBackgroundColor(themeValue);
+    getWindow().setStatusBarColor(backgroundColor);
+    getWindow().setNavigationBarColor(backgroundColor);
+    if (Build.VERSION.SDK_INT >= 23) {
+      int flags = getWindow().getDecorView().getSystemUiVisibility();
+      flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+      if (Build.VERSION.SDK_INT >= 26) {
+        flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
       }
-    } else if ("dark".equals(themeValue)) {
-      getWindow().setStatusBarColor(0xFF263238);
-      getWindow().setNavigationBarColor(0xFF37474F);
-    } else {
-      getWindow().setStatusBarColor(0xFF000000);
-      getWindow().setNavigationBarColor(0xFF000000);
+      if ("light".equals(themeValue)) {
+        flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+        if (Build.VERSION.SDK_INT >= 26) {
+          flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        }
+      }
+      getWindow().getDecorView().setSystemUiVisibility(flags);
     }
+  }
+
+  private void styleToolbar(String themeValue) {
+    int backgroundColor = getAppBackgroundColor(themeValue);
+    int contentColor = getToolbarContentColor(themeValue);
+    View toolbar = findViewById(R.id.toolbar);
+    toolbar.setBackgroundColor(backgroundColor);
+    fileNameText.setTextColor(contentColor);
+    filePathText.setTextColor("light".equals(themeValue) ? 0xFF555555 : 0xFFBDBDBD);
+  }
+
+  private int getAppBackgroundColor(String themeValue) {
+    switch (themeValue) {
+      case "dark":
+        return 0xFF121212;
+      case "black":
+        return 0xFF000000;
+      default:
+        return 0xFFFFFFFF;
+    }
+  }
+
+  private int getToolbarContentColor(String themeValue) {
+    return "light".equals(themeValue) ? 0xFF111111 : 0xFFFFFFFF;
+  }
+
+  private void applySystemWindowInsets(View root) {
+    if (Build.VERSION.SDK_INT < 20 || root == null) {
+      return;
+    }
+    int initialLeft = root.getPaddingLeft();
+    int initialTop = root.getPaddingTop();
+    int initialRight = root.getPaddingRight();
+    int initialBottom = root.getPaddingBottom();
+    root.setOnApplyWindowInsetsListener(
+        (view, insets) -> {
+          view.setPadding(
+              initialLeft + insets.getSystemWindowInsetLeft(),
+              initialTop + insets.getSystemWindowInsetTop(),
+              initialRight + insets.getSystemWindowInsetRight(),
+              initialBottom + insets.getSystemWindowInsetBottom());
+          return insets;
+        });
+    root.requestApplyInsets();
   }
 
   private void updateFileTitle(String name, String path) {
@@ -893,7 +925,6 @@ public class MainActivity extends AppCompatActivity {
         v -> {
           clearLogcat();
           textView.setText("Log cleared");
-          Toast.makeText(this, "Log cleared", Toast.LENGTH_SHORT).show();
         });
 
     copyButton.setOnClickListener(
@@ -901,7 +932,6 @@ public class MainActivity extends AppCompatActivity {
           ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
           if (cm != null) {
             cm.setPrimaryClip(ClipData.newPlainText("log", textView.getText().toString()));
-            Toast.makeText(this, "Log copied", Toast.LENGTH_SHORT).show();
           }
         });
 
@@ -973,19 +1003,11 @@ public class MainActivity extends AppCompatActivity {
               try {
                 String path = getPathFromUri(uri);
                 if (path == null) {
-                  runOnUiThread(
-                      () ->
-                          Toast.makeText(this, "تعذر الحصول على مسار الملف", Toast.LENGTH_SHORT)
-                              .show());
                   return;
                 }
 
                 File file = new File(path);
                 if (!file.exists()) {
-                  runOnUiThread(
-                      () ->
-                          Toast.makeText(this, "الملف غير موجود: " + path, Toast.LENGTH_SHORT)
-                              .show());
                   return;
                 }
 
@@ -998,12 +1020,7 @@ public class MainActivity extends AppCompatActivity {
                         addTab(file, file.getName(), file.getAbsolutePath());
                       }
                     });
-              } catch (Exception e) {
-                runOnUiThread(
-                    () ->
-                        Toast.makeText(
-                                this, "تعذر فتح الملف: " + e.getMessage(), Toast.LENGTH_SHORT)
-                            .show());
+              } catch (Exception ignored) {
               }
             })
         .start();
@@ -1017,14 +1034,6 @@ public class MainActivity extends AppCompatActivity {
 
   @Override
   public void onBackPressed() {
-    Fragment f = getSupportFragmentManager().findFragmentById(R.id.editorContainer);
-    if (f instanceof SettingsFragment) {
-      getSupportFragmentManager().popBackStack();
-      LinearLayout toolbar = findViewById(R.id.toolbar);
-      if (toolbar != null) toolbar.setVisibility(View.VISIBLE);
-      tabScroll.setVisibility(View.VISIBLE);
-      return;
-    }
     super.onBackPressed();
   }
 
