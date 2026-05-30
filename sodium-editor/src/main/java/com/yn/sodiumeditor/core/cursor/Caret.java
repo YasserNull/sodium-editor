@@ -20,17 +20,21 @@ public class Caret {
   // Caret blink state
   public boolean isCursorVisible = true;
   public boolean caretBlinkEnabled = true;
+  public boolean pauseBlinkWhileTypingEnabled = true;
   public long caretBlinkPeriodMs = 500;
+  public long caretTypingResumeDelayMs = 650;
 
   // Caret appearance
   public float caretWidth = 4f;
   public int caretColor = 0xFF000000;
 
   public final Runnable blinkRunnable;
+  public final Runnable resumeBlinkAfterTypingRunnable;
   public final Handler mainHandler = new Handler(Looper.getMainLooper());
 
   private final SodiumEditor editor;
   private final Cursor cursor;
+  private boolean blinkPausedByTyping = false;
 
   public Caret(SodiumEditor editor, Cursor cursor) {
     this.editor = editor;
@@ -46,6 +50,13 @@ public class Caret {
         }
       }
     };
+
+    this.resumeBlinkAfterTypingRunnable = new Runnable() {
+      @Override
+      public void run() {
+        resumeBlinkAfterTyping();
+      }
+    };
   }
 
   /**
@@ -53,7 +64,7 @@ public class Caret {
    */
   public void startBlink() {
     stopBlink();
-    if (caretBlinkEnabled) {
+    if (caretBlinkEnabled && !blinkPausedByTyping) {
       isCursorVisible = true;
       mainHandler.postDelayed(blinkRunnable, caretBlinkPeriodMs);
     }
@@ -73,6 +84,40 @@ public class Caret {
   public void resetBlink() {
     stopBlink();
     startBlink();
+  }
+
+  public void setPauseBlinkWhileTypingEnabled(boolean enabled) {
+    if (pauseBlinkWhileTypingEnabled == enabled) return;
+    pauseBlinkWhileTypingEnabled = enabled;
+    if (!enabled) {
+      mainHandler.removeCallbacks(resumeBlinkAfterTypingRunnable);
+      blinkPausedByTyping = false;
+      resetBlink();
+    }
+  }
+
+  public boolean isPauseBlinkWhileTypingEnabled() {
+    return pauseBlinkWhileTypingEnabled;
+  }
+
+  public void pauseBlinkForTyping() {
+    if (!pauseBlinkWhileTypingEnabled) return;
+    blinkPausedByTyping = true;
+    stopBlink();
+    mainHandler.removeCallbacks(resumeBlinkAfterTypingRunnable);
+    mainHandler.postDelayed(resumeBlinkAfterTypingRunnable, caretTypingResumeDelayMs);
+    editor.invalidate();
+  }
+
+  public void resumeBlinkAfterCursorPlacement() {
+    mainHandler.removeCallbacks(resumeBlinkAfterTypingRunnable);
+    resumeBlinkAfterTyping();
+  }
+
+  public void resumeBlinkAfterTyping() {
+    if (!blinkPausedByTyping) return;
+    blinkPausedByTyping = false;
+    resetBlink();
   }
 
   /**

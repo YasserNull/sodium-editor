@@ -61,6 +61,7 @@ public class OnSingleTapUp {
     }
     editor.selection.selecting = false;
     editor.cursorHandle.showAfterCursorPlacement();
+    editor.caret.resumeBlinkAfterCursorPlacement();
     editor.invalidate();
     editor.caret.resetBlink();
     editor.ime.showKeyboard();

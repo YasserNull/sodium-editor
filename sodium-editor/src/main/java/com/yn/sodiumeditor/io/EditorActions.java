@@ -19,6 +19,7 @@ public class EditorActions {
     public void deleteForwardAtCursor() {
         if (editor.view.isReadOnly) return;
         editor.cursorHandle.hideForTyping();
+        editor.caret.pauseBlinkForTyping();
         editor.fileIO.invalidatePendingIOForEdit();
         operators.editVersion.incrementAndGet();
         editor.autoCompletion.clearActiveSuggestion();
@@ -128,6 +129,7 @@ public class EditorActions {
         long opStartMs = android.os.SystemClock.uptimeMillis();
         if (editor.view.isReadOnly) return;
         editor.cursorHandle.hideForTyping();
+        editor.caret.pauseBlinkForTyping();
         editor.fileIO.invalidatePendingIOForEdit();
         operators.editVersion.incrementAndGet();
 
@@ -324,6 +326,7 @@ public class EditorActions {
     public void deleteCharAtCursor() {
         if (editor.view.isReadOnly) return;
         editor.cursorHandle.hideForTyping();
+        editor.caret.pauseBlinkForTyping();
         editor.fileIO.invalidatePendingIOForEdit();
         operators.editVersion.incrementAndGet();
         editor.autoCompletion.clearActiveSuggestion();
@@ -519,6 +522,7 @@ public class EditorActions {
     public void insertTextAtCursor(String text) {
         if (editor.view.isReadOnly || text == null || text.isEmpty()) return;
         editor.cursorHandle.hideForTyping();
+        editor.caret.pauseBlinkForTyping();
         if (editor.selection.hasSelection) {
             editor.selection.replaceSelectionWithText(text);
             return;

@@ -56,6 +56,7 @@ public float baseCursorWidthPx = cursorWidth;
     }
     editor.caret.resetBlink();
     editor.cursorHandle.showAfterCursorPlacement();
+    editor.caret.resumeBlinkAfterCursorPlacement();
     editor.scroll.keepCursorVisibleHorizontally();
     // Trigger cursor animation
     editor.cursor.invalidateCursorArea();
@@ -199,6 +200,7 @@ public float baseCursorWidthPx = cursorWidth;
     editor.selection.isEntireFileSelected = false;
     editor.caret.resetBlink();
     editor.cursorHandle.showAfterCursorPlacement();
+    editor.caret.resumeBlinkAfterCursorPlacement();
     editor.cursor.invalidateCursorArea();
     editor.scroll.keepCursorVisibleHorizontally();
     editor.autoCompletion.updateSuggestion();
@@ -252,6 +254,7 @@ public float baseCursorWidthPx = cursorWidth;
     editor.selection.isEntireFileSelected = false;
     editor.caret.resetBlink();
     editor.cursorHandle.showAfterCursorPlacement();
+    editor.caret.resumeBlinkAfterCursorPlacement();
     editor.cursor.invalidateCursorArea();
     editor.scroll.keepCursorVisibleHorizontally();
     editor.autoCompletion.updateSuggestion();
@@ -297,6 +300,7 @@ public float baseCursorWidthPx = cursorWidth;
     editor.selection.isEntireFileSelected = false;
     editor.caret.resetBlink();
     editor.cursorHandle.showAfterCursorPlacement();
+    editor.caret.resumeBlinkAfterCursorPlacement();
     editor.cursor.invalidateCursorArea();
     editor.scroll.keepCursorVisibleHorizontally();
     editor.autoCompletion.updateSuggestion();
@@ -347,6 +351,7 @@ public float baseCursorWidthPx = cursorWidth;
     editor.selection.isEntireFileSelected = false;
     editor.caret.resetBlink();
     editor.cursorHandle.showAfterCursorPlacement();
+    editor.caret.resumeBlinkAfterCursorPlacement();
     editor.cursor.invalidateCursorArea();
     editor.scroll.keepCursorVisibleHorizontally();
     editor.autoCompletion.updateSuggestion();
@@ -373,6 +378,7 @@ public float baseCursorWidthPx = cursorWidth;
     }
     editor.caret.resetBlink();
     editor.cursorHandle.showAfterCursorPlacement();
+    editor.caret.resumeBlinkAfterCursorPlacement();
     editor.scroll.keepCursorVisibleHorizontally();
     // Trigger cursor animation
     editor.cursor.invalidateCursorArea();

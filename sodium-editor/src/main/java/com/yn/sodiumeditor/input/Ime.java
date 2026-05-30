@@ -399,6 +399,7 @@ public class Ime {
   public void replaceComposingWith(CharSequence textSeq) {
     if (editor.view.isReadOnly) return;
     editor.cursorHandle.hideForTyping();
+    editor.caret.pauseBlinkForTyping();
     editor.fileIO.invalidatePendingIOForEdit();
     editor.editOperators.editVersion.incrementAndGet();
     editor.fileIO.ensureLineInWindow(composingLine, true);
