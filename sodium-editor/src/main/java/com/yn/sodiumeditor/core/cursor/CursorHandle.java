@@ -22,6 +22,7 @@ public class CursorHandle {
   public float baseCursorHandleHeightPx = cursorHandleHeight;
   public float baseCursorHandleRadiusPx = cursorHandleRadius;
   public float baseCursorHandleTextSizePx = 0f;
+  public boolean hideWhileTypingEnabled = true;
   
   // Cursor handle rect
   public RectF cursorHandleRect = new RectF();
@@ -29,6 +30,7 @@ public class CursorHandle {
   private final SodiumEditor editor;
   private final Cursor cursor;
   private final Caret caret;
+  private boolean hiddenByTyping = false;
 
   public CursorHandle(SodiumEditor editor, Cursor cursor, Caret caret) {
     this.editor = editor;
@@ -81,7 +83,7 @@ public class CursorHandle {
    * Draw cursor handle
    */
   public void drawCursorHandle(Canvas canvas) {
-    if (!editor.isFocused() || editor.selection.hasSelection) {
+    if (!shouldShow()) {
       return;
     }
 
@@ -102,6 +104,7 @@ public class CursorHandle {
    * Check if point hits cursor handle
    */
   public boolean hitTest(float x, float y) {
+    if (!shouldShow()) return false;
     updateCursorHandlePosition();
     // Expand hit area for easier grabbing
     float expand = 20f;
@@ -118,10 +121,37 @@ public class CursorHandle {
    * Check if cursor handle should be shown
    */
   public boolean shouldShow() {
-    return editor.isFocused() && !editor.selection.hasSelection;
+    return editor.isFocused() && !editor.selection.hasSelection && !hiddenByTyping;
   }
 
   // Getters and Setters
+
+  public void setHideWhileTypingEnabled(boolean enabled) {
+    if (hideWhileTypingEnabled == enabled) return;
+    hideWhileTypingEnabled = enabled;
+    if (!enabled) hiddenByTyping = false;
+    editor.invalidate();
+  }
+
+  public boolean isHideWhileTypingEnabled() {
+    return hideWhileTypingEnabled;
+  }
+
+  public void hideForTyping() {
+    if (!hideWhileTypingEnabled || hiddenByTyping) return;
+    hiddenByTyping = true;
+    editor.invalidate();
+  }
+
+  public void showAfterCursorPlacement() {
+    if (!hiddenByTyping) return;
+    hiddenByTyping = false;
+    editor.invalidate();
+  }
+
+  public boolean isHiddenByTyping() {
+    return hiddenByTyping;
+  }
 
   public void setCursorHandleSize(float width, float height) {
     if (width <= 0f || height <= 0f) return;

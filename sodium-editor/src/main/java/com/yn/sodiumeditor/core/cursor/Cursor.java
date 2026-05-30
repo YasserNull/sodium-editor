@@ -55,6 +55,7 @@ public float baseCursorWidthPx = cursorWidth;
       cursorChar = targetCol;
     }
     editor.caret.resetBlink();
+    editor.cursorHandle.showAfterCursorPlacement();
     editor.scroll.keepCursorVisibleHorizontally();
     // Trigger cursor animation
     editor.cursor.invalidateCursorArea();
@@ -197,6 +198,7 @@ public float baseCursorWidthPx = cursorWidth;
     editor.selection.isSelectAllActive = false;
     editor.selection.isEntireFileSelected = false;
     editor.caret.resetBlink();
+    editor.cursorHandle.showAfterCursorPlacement();
     editor.cursor.invalidateCursorArea();
     editor.scroll.keepCursorVisibleHorizontally();
     editor.autoCompletion.updateSuggestion();
@@ -249,6 +251,7 @@ public float baseCursorWidthPx = cursorWidth;
     editor.selection.isSelectAllActive = false;
     editor.selection.isEntireFileSelected = false;
     editor.caret.resetBlink();
+    editor.cursorHandle.showAfterCursorPlacement();
     editor.cursor.invalidateCursorArea();
     editor.scroll.keepCursorVisibleHorizontally();
     editor.autoCompletion.updateSuggestion();
@@ -293,6 +296,7 @@ public float baseCursorWidthPx = cursorWidth;
     editor.selection.isSelectAllActive = false;
     editor.selection.isEntireFileSelected = false;
     editor.caret.resetBlink();
+    editor.cursorHandle.showAfterCursorPlacement();
     editor.cursor.invalidateCursorArea();
     editor.scroll.keepCursorVisibleHorizontally();
     editor.autoCompletion.updateSuggestion();
@@ -342,6 +346,7 @@ public float baseCursorWidthPx = cursorWidth;
     editor.selection.isSelectAllActive = false;
     editor.selection.isEntireFileSelected = false;
     editor.caret.resetBlink();
+    editor.cursorHandle.showAfterCursorPlacement();
     editor.cursor.invalidateCursorArea();
     editor.scroll.keepCursorVisibleHorizontally();
     editor.autoCompletion.updateSuggestion();
@@ -367,6 +372,7 @@ public float baseCursorWidthPx = cursorWidth;
       cursorChar = targetCol;
     }
     editor.caret.resetBlink();
+    editor.cursorHandle.showAfterCursorPlacement();
     editor.scroll.keepCursorVisibleHorizontally();
     // Trigger cursor animation
     editor.cursor.invalidateCursorArea();

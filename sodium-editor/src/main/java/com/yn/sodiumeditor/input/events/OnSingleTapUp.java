@@ -60,6 +60,7 @@ public class OnSingleTapUp {
           editor.caret.getCaretDocumentX(), editor.caret.getCaretDocumentY());
     }
     editor.selection.selecting = false;
+    editor.cursorHandle.showAfterCursorPlacement();
     editor.invalidate();
     editor.caret.resetBlink();
     editor.ime.showKeyboard();

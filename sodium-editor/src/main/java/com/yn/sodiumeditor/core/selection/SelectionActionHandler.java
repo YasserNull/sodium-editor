@@ -134,6 +134,7 @@ public class SelectionActionHandler {
                 null,
                 "hasSelection=" + selection.hasSelection);
         if (editor.view.isReadOnly) return;
+        editor.cursorHandle.hideForTyping();
         editor.fileIO.invalidatePendingIOForEdit();
         final int opToken = editor.editOperators.editVersion.incrementAndGet();
         editor.autoCompletion.clearActiveSuggestion();
