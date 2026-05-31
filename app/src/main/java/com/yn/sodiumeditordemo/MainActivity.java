@@ -232,6 +232,9 @@ public class MainActivity extends AppCompatActivity {
     } else if (id == R.id.action_close) {
       closeCurrentFile();
       return true;
+    } else if (id == R.id.action_terminal) {
+      startActivity(new Intent(this, TerminalActivity.class));
+      return true;
     } else if (id == R.id.action_settings) {
       openSettings();
       return true;

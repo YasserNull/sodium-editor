@@ -19,3 +19,5 @@ dependencyResolutionManagement {
 rootProject.name = "simple-sodium-editor"
 include(":app")
 include(":sodium-editor")
+include(":terminal-emulator")
+include(":terminal-view")

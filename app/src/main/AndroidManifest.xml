@@ -18,6 +18,11 @@ android:enableOnBackInvokedCallback="true"
             android:name=".SettingsActivity"
             android:exported="false" />
         <activity
+            android:name=".TerminalActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
             android:name=".MainActivity"
            
             android:windowSoftInputMode="stateAlwaysVisible|adjustResize"

@@ -10,6 +10,9 @@
         android:id="@+id/action_close"
         android:title="Close" />
     <item
+        android:id="@+id/action_terminal"
+        android:title="Terminal" />
+    <item
         android:id="@+id/action_settings"
         android:title="Settings" />
     <item
