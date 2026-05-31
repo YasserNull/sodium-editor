@@ -25,9 +25,7 @@ public class OnSingleTapUp {
     if (editor.onTouch.multiTouchActive || editor.onTouch.hadMultiTouch) return true;
 
     if (editor.selection.hasSelection) {
-      editor.selection.hasSelection = false;
-      editor.selection.isSelectAllActive = false;
-      editor.selection.isEntireFileSelected = false;
+      editor.selection.clearSelection();
     }
     float y = e.getY() + editor.scroll.scrollY;
     int visibleIndex = Math.max(0, (int) (y / editor.textRender.lineHeight));

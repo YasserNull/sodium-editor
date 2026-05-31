@@ -26,6 +26,7 @@ public class SmartSelection {
         int[] bounds = editor.view.computeWordBounds(line, pos);
         if (bounds != null && bounds[0] != bounds[1]) {
             selection.setSelection(editor.cursor.cursorLine, bounds[0], editor.cursor.cursorLine, bounds[1]);
+            selection.state.animation.startSmartSelectionGeometryAnimation();
         }
     }
 
@@ -33,6 +34,7 @@ public class SmartSelection {
         String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
         if (line == null) return;
         selection.setSelection(editor.cursor.cursorLine, 0, editor.cursor.cursorLine, line.length());
+        selection.state.animation.startSmartSelectionGeometryAnimation();
     }
 
     public ArrayList<SelectionTextRange> buildDoubleTapCandidates(String line, int charIndex, int wStart, int wEnd) {
@@ -85,6 +87,7 @@ public class SmartSelection {
 
         SelectionTextRange pick = candidates.get(nextIdx);
         selection.setSelection(line, pick.start, line, pick.end);
+        selection.state.animation.startSmartSelectionGeometryAnimation();
         selection.isSelectAllActive = false;
         selection.isEntireFileSelected = false;
         selection.selecting = true;

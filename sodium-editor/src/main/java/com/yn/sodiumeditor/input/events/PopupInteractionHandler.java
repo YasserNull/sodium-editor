@@ -63,8 +63,7 @@ public class PopupInteractionHandler {
                 // 1. Perform action immediately
                 if (actionForTap == Popup.POPUP_ACTION_COPY) {
                     editor.selection.copyOrCutSelection(false);
-                    editor.selection.hasSelection = false;
-                    editor.selection.isSelectAllActive = false;
+                    editor.selection.clearSelection();
                     editor.invalidate();
                 } else if (actionForTap == Popup.POPUP_ACTION_CUT) {
                     editor.selection.copyOrCutSelection(true);

@@ -120,7 +120,9 @@ public class OnLongPress {
         // Clear any previous selection so long press drag starts fresh
         editor.selection.state.longPressFreeForm = true; // Drag selection
         editor.selection.syncFromState();
-        editor.selection.hasSelection = false;
+        if (editor.selection.hasSelection) {
+          editor.selection.clearSelection();
+        }
         editor.selection.selecting = true;
         // Show minimal popup with Paste and Select All options
         editor.popup.showMinimalPopupAtCursor();

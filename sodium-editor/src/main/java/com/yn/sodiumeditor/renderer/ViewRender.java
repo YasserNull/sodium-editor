@@ -183,7 +183,7 @@ public class ViewRender {
   private void drawTextContent(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex,
                                 int firstVisibleLine, int lastVisibleLine, boolean drawDecorations, boolean drawBracketGuides) {
     Paint selPaint = null;
-    if (editor.selection.hasSelection) {
+    if (editor.selection.state.animation.shouldDrawSelectionHighlight()) {
         selPaint = editor.selection.selectionPaint;
         int baseAlpha = editor.selection.selectionColor >>> 24;
         float alphaProgress = Math.max(0f, Math.min(1f, editor.selection.state.getSelectionAlpha()));
@@ -208,11 +208,16 @@ public class ViewRender {
       bracketMatchResult = editor.bracketMatchManager.findAndCacheBracketMatch(firstVisibleLine, lastVisibleLine, directLines);
     }
 
-    if (editor.selection.hasSelection && selPaint != null) {
-        int selStartLine = editor.selection.selStartLine;
-        int selStartChar = editor.selection.selStartChar;
-        int selEndLine = editor.selection.selEndLine;
-        int selEndChar = editor.selection.selEndChar;
+    if (editor.selection.state.animation.shouldDrawSelectionHighlight() && selPaint != null) {
+        boolean drawingFadeOut = editor.selection.state.animation.isDrawingFadeOutSelection();
+        int selStartLine =
+            drawingFadeOut ? editor.selection.state.animation.fadeOutStartLine : editor.selection.selStartLine;
+        int selStartChar =
+            drawingFadeOut ? editor.selection.state.animation.fadeOutStartChar : editor.selection.selStartChar;
+        int selEndLine =
+            drawingFadeOut ? editor.selection.state.animation.fadeOutEndLine : editor.selection.selEndLine;
+        int selEndChar =
+            drawingFadeOut ? editor.selection.state.animation.fadeOutEndChar : editor.selection.selEndChar;
         if (editor.editOperators.comparePos(selStartLine, selStartChar, selEndLine, selEndChar) > 0) {
             int tmpL = selStartLine;
             int tmpC = selStartChar;
@@ -398,4 +403,5 @@ public class ViewRender {
             + " "
             + details);
   }
+
 }

@@ -97,6 +97,7 @@ public class SelectionState {
     selEndChar = endChar;
     hasSelection = !(selStartLine == selEndLine && selStartChar == selEndChar);
     selecting = false;
+    updateSelectionVisibility(hasSelection);
 
     // Reset handle animation state when selection changes
     editor.selectionHandles.animation.resetAnimationState();

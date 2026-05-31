@@ -1,6 +1,8 @@
 package com.yn.sodiumeditor.renderer.animation;
 
 import android.animation.ValueAnimator;
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.view.animation.PathInterpolator;
 import com.yn.sodiumeditor.SodiumEditor;
 
@@ -9,8 +11,8 @@ import com.yn.sodiumeditor.SodiumEditor;
  * highlights and handles.
  */
 public class SelectionAnimation {
-    private static final long FADE_DURATION_MS = 140L;
-    private static final long GEOMETRY_DURATION_MS = 120L;
+    private static final long FADE_DURATION_MS = 220L;
+    private static final long SMART_GEOMETRY_DURATION_MS = 220L;
 
     private final SodiumEditor editor;
     private final PathInterpolator smoothInterpolator = new PathInterpolator(0.4f, 0f, 0.2f, 1f);
@@ -20,9 +22,14 @@ public class SelectionAnimation {
     public float selectionAlpha = 1f;
     public float handleAlpha = 1f;
     public float geometryProgress = 1f;
+    public int fadeOutStartLine = 0;
+    public int fadeOutStartChar = 0;
+    public int fadeOutEndLine = 0;
+    public int fadeOutEndChar = 0;
     private ValueAnimator selectionFadeAnimator;
-    private ValueAnimator selectionGeometryAnimator;
+    private ValueAnimator smartGeometryAnimator;
     private boolean lastHasSelection = false;
+    private boolean drawingFadeOutSelection = false;
 
     public SelectionAnimation(SodiumEditor editor) {
         this.editor = editor;
@@ -42,9 +49,9 @@ public class SelectionAnimation {
                 selectionFadeAnimator.cancel();
                 selectionFadeAnimator = null;
             }
-            if (selectionGeometryAnimator != null) {
-                selectionGeometryAnimator.cancel();
-                selectionGeometryAnimator = null;
+            if (smartGeometryAnimator != null) {
+                smartGeometryAnimator.cancel();
+                smartGeometryAnimator = null;
             }
             editor.invalidate();
         }
@@ -57,10 +64,17 @@ public class SelectionAnimation {
     public void updateSelectionVisibility(boolean nowHasSelection) {
         if (nowHasSelection == lastHasSelection) return;
         lastHasSelection = nowHasSelection;
+        if (nowHasSelection) {
+            drawingFadeOutSelection = false;
+        } else {
+            captureFadeOutSelection();
+            drawingFadeOutSelection = true;
+        }
         if (!selectionAnimationEnabled) {
             selectionAlpha = nowHasSelection ? 1f : 0f;
             handleAlpha = nowHasSelection ? 1f : 0f;
             geometryProgress = 1f;
+            drawingFadeOutSelection = false;
             return;
         }
         if (selectionFadeAnimator != null) {
@@ -77,33 +91,41 @@ public class SelectionAnimation {
             handleAlpha = v;
             editor.invalidate();
         });
+        selectionFadeAnimator.addListener(
+                new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        if (!lastHasSelection) {
+                            drawingFadeOutSelection = false;
+                            editor.invalidate();
+                        }
+                    }
+                });
         selectionFadeAnimator.start();
     }
 
     public void updateSelectionGeometry(boolean hasSelection, boolean geometryChanged) {
-        if (!hasSelection || !geometryChanged) return;
+        geometryProgress = 1f;
+    }
+
+    public void startSmartSelectionGeometryAnimation() {
         if (!selectionAnimationEnabled) {
             geometryProgress = 1f;
             return;
         }
-        if (selectionGeometryAnimator != null) {
-            selectionGeometryAnimator.cancel();
+        if (smartGeometryAnimator != null) {
+            smartGeometryAnimator.cancel();
         }
-        float start = Math.max(0f, Math.min(1f, geometryProgress));
-        if (start > 0.98f) {
-            start = 0.72f;
-        } else {
-            start = Math.max(0.58f, start * 0.82f);
-        }
-        selectionGeometryAnimator = ValueAnimator.ofFloat(start, 1f);
-        selectionGeometryAnimator.setDuration(GEOMETRY_DURATION_MS);
-        selectionGeometryAnimator.setInterpolator(smoothInterpolator);
-        selectionGeometryAnimator.addUpdateListener(
+        geometryProgress = 0.68f;
+        smartGeometryAnimator = ValueAnimator.ofFloat(geometryProgress, 1f);
+        smartGeometryAnimator.setDuration(SMART_GEOMETRY_DURATION_MS);
+        smartGeometryAnimator.setInterpolator(smoothInterpolator);
+        smartGeometryAnimator.addUpdateListener(
                 a -> {
                     geometryProgress = (float) a.getAnimatedValue();
                     editor.invalidate();
                 });
-        selectionGeometryAnimator.start();
+        smartGeometryAnimator.start();
     }
 
     /**
@@ -113,8 +135,8 @@ public class SelectionAnimation {
         if (selectionFadeAnimator != null) {
             selectionFadeAnimator.cancel();
         }
-        if (selectionGeometryAnimator != null) {
-            selectionGeometryAnimator.cancel();
+        if (smartGeometryAnimator != null) {
+            smartGeometryAnimator.cancel();
         }
     }
 
@@ -123,6 +145,21 @@ public class SelectionAnimation {
      */
     public boolean isAnimating() {
         return (selectionFadeAnimator != null && selectionFadeAnimator.isRunning())
-                || (selectionGeometryAnimator != null && selectionGeometryAnimator.isRunning());
+                || (smartGeometryAnimator != null && smartGeometryAnimator.isRunning());
+    }
+
+    public boolean shouldDrawSelectionHighlight() {
+        return editor.selection.hasSelection || (drawingFadeOutSelection && selectionAlpha > 0f);
+    }
+
+    public boolean isDrawingFadeOutSelection() {
+        return drawingFadeOutSelection && !editor.selection.hasSelection;
+    }
+
+    private void captureFadeOutSelection() {
+        fadeOutStartLine = editor.selection.selStartLine;
+        fadeOutStartChar = editor.selection.selStartChar;
+        fadeOutEndLine = editor.selection.selEndLine;
+        fadeOutEndChar = editor.selection.selEndChar;
     }
 }
