@@ -341,6 +341,14 @@ onSizeChanged.onSizeChanged(w, h, oldw, oldh);
   highlite.setMultiCommentsHighlite(startDelimiter, endDelimiter, color, style);
   }
 
+  public void setStringsHighlite(String delimiter, boolean multiLine, int color, int style) {
+  highlite.setStringsHighlite(delimiter, multiLine, color, style);
+  }
+
+  public void clearStringsHighlite() {
+  highlite.clearStringsHighlite();
+  }
+
   @Override
   public boolean onTouchEvent(MotionEvent event) {
   return onTouch.onTouchEvent(event);

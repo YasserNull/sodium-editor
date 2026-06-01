@@ -719,6 +719,8 @@ public class MainActivity extends AppCompatActivity {
     if (editor == null) return;
     if (isCurrentShellScript()) {
       editor.setSingleCommentsHighlite("#", 0xFFFF0000, FontStyle.STYLE_ITALIC);
+      editor.setStringsHighlite("\"", true, 0xFF00FF00, FontStyle.STYLE_NORMAL);
+      editor.setStringsHighlite("'", true, 0xFF00FF00, FontStyle.STYLE_NORMAL);
       if (SodiumEditor.DEBUG_LOGS) {
         Log.d(
             "SodiumHighlight",
@@ -732,6 +734,7 @@ public class MainActivity extends AppCompatActivity {
     } else {
       editor.highlite.setSingleLineCommentSyntax(
           false, FontStyle.STYLE_NORMAL, 0xFF888888);
+      editor.clearStringsHighlite();
     }
   }
 

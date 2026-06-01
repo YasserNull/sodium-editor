@@ -30,9 +30,18 @@ public class HighlightParser {
         int i = 0;
         
         if (!highlite.isBlockCommentsEnabled) inBlock = false;
-        if (strState == com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_BACKTICK && !highlite.isBacktickStringsEnabled) strState = 0;
-        if (strState == com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_TRIPLE && !highlite.isTripleQuoteStringsEnabled) strState = 0;
-        if (strState != 0 && !highlite.isMultiLineStringsEnabled && strState != com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_TRIPLE) strState = 0;
+        Highlite.StringHighlightConfig activeStateConfig = highlite.getStringHighlightConfigForState(strState);
+        if (activeStateConfig != null && !activeStateConfig.multiLine) strState = 0;
+        if (activeStateConfig == null
+                && strState == com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_BACKTICK
+                && !highlite.isBacktickStringsEnabled) strState = 0;
+        if (activeStateConfig == null
+                && strState == com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_TRIPLE
+                && !highlite.isTripleQuoteStringsEnabled) strState = 0;
+        if (activeStateConfig == null
+                && strState != 0
+                && !highlite.isMultiLineStringsEnabled
+                && strState != com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_TRIPLE) strState = 0;
 
         while (i < len) {
             if (inBlock) {
@@ -47,13 +56,18 @@ public class HighlightParser {
             }
 
             if (strState != 0) {
-                StringEndResult res = findStringEndForState(line, i, strState);
+                Highlite.StringHighlightConfig config = highlite.getStringHighlightConfigForState(strState);
+                StringEndResult res =
+                    config != null
+                        ? findStringEndForConfig(line, i, config)
+                        : findStringEndForState(line, i, strState);
+                HighliteRender.HighlightRule activeStringRule = config != null ? config.rule : strRule;
                 if (res.found) {
-                    if (collectSpans && strRule != null) spans.add(new HighliteRender.HighlightSpan(0, res.endIndex, strRule.paint));
+                    if (collectSpans && activeStringRule != null) spans.add(new HighliteRender.HighlightSpan(0, res.endIndex, activeStringRule.paint));
                     i = res.endIndex; strState = 0; continue;
                 }
-                if (collectSpans && strRule != null && len > 0) spans.add(new HighliteRender.HighlightSpan(0, len, strRule.paint));
-                return new HighliteRender.LineParseResult(spans, false, strState);
+                if (collectSpans && activeStringRule != null && len > 0) spans.add(new HighliteRender.HighlightSpan(0, len, activeStringRule.paint));
+                return new HighliteRender.LineParseResult(spans, false, config == null || config.multiLine ? strState : 0);
             }
 
             if (isLineCommentStart(line, i)) {
@@ -65,6 +79,20 @@ public class HighlightParser {
             }
 
             char c = line.charAt(i);
+            Highlite.StringHighlightConfig configuredString = highlite.findStringHighlightStart(line, i);
+            if (configuredString != null) {
+                int start = i + configuredString.delimiter.length();
+                int end = highlite.findConfiguredStringEnd(line, start, configuredString.delimiter);
+                if (end >= 0) {
+                    int stringEnd = end + configuredString.delimiter.length();
+                    if (collectSpans) spans.add(new HighliteRender.HighlightSpan(i, stringEnd, configuredString.rule.paint));
+                    i = stringEnd; continue;
+                }
+                if (collectSpans && len > i) spans.add(new HighliteRender.HighlightSpan(i, len, configuredString.rule.paint));
+                return new HighliteRender.LineParseResult(
+                    spans, false, configuredString.multiLine ? configuredString.state : 0);
+            }
+
             if (isTripleQuoteStart(line, i) && !HighlightUtils.isEscaped(line, i)) {
                 int end = HighlightUtils.findTripleQuoteEnd(line, i + 3);
                 if (end >= 0) {
@@ -136,5 +164,10 @@ public class HighlightParser {
         char d = (state == com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_SINGLE) ? '\'' : (state == com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_BACKTICK ? '`' : '"');
         int end = HighlightUtils.findStringEnd(line, start, d);
         return new StringEndResult(end >= 0, end >= 0 ? end + 1 : start);
+    }
+
+    public StringEndResult findStringEndForConfig(String line, int start, Highlite.StringHighlightConfig config) {
+        int end = highlite.findConfiguredStringEnd(line, start, config.delimiter);
+        return new StringEndResult(end >= 0, end >= 0 ? end + config.delimiter.length() : start);
     }
 }

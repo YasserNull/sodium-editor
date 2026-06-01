@@ -47,6 +47,8 @@ public class Highlite {
     private static final long HIGHLIGHT_INVALIDATE_THROTTLE_MS = 50L;
     private long lastTypingMs = 0L;
     private static final long HIGHLIGHT_TYPING_WINDOW_MS = 180L;
+    private static final int CUSTOM_STRING_STATE_BASE = 10;
+    private int nextCustomStringState = CUSTOM_STRING_STATE_BASE;
 
     // --- Syntax Highlighting State ---
     // Deprecated: Use highlite instead
@@ -77,6 +79,22 @@ public class Highlite {
           return size() > 1000;
         }
       };
+    public final LinkedHashMap<String, StringHighlightConfig> stringHighlightConfigs = new LinkedHashMap<>();
+    public final LinkedHashMap<Integer, StringHighlightConfig> stringHighlightConfigsByState = new LinkedHashMap<>();
+
+    public static class StringHighlightConfig {
+        public final String delimiter;
+        public final boolean multiLine;
+        public final int state;
+        public final HighliteRender.HighlightRule rule;
+
+        public StringHighlightConfig(String delimiter, boolean multiLine, int state, HighliteRender.HighlightRule rule) {
+            this.delimiter = delimiter;
+            this.multiLine = multiLine;
+            this.state = state;
+            this.rule = rule;
+        }
+    }
 
     public Highlite(SodiumEditor editor) {
         this.editor = editor;
@@ -152,6 +170,7 @@ public class Highlite {
         syncRulesFromComponent();
     }
     public void clearHighlightRules() {
+        clearStringsHighlite();
         rules.clearHighlightRules(); syncRulesFromComponent();
     }
     
@@ -237,6 +256,9 @@ public class Highlite {
     public boolean isConfiguredBlockCommentStart(String line, int start) {
         return com.yn.sodiumeditor.utils.HighlightUtils.isTokenStart(line, start, blockCommentStartDelimiter);
     }
+    public int findConfiguredStringEnd(String line, int start, String delimiter) {
+        return com.yn.sodiumeditor.utils.HighlightUtils.findTokenEnd(line, start, delimiter);
+    }
 
     public List<HighliteRender.HighlightSpan> getHighlightSpansForLine(String line, int gl) {
         if (!isSyntaxHighlightingEnabled) return new ArrayList<>();
@@ -283,11 +305,26 @@ public class Highlite {
     }
 
     public void invalidateHighlightCacheForLine(int line) {
-        cache.highlightCache.remove(line);
+        removeCachedHighlightStateFromLine(line);
         editor.colorCodeHighlight.clearColorCodeCacheForLine(line);
         editor.urlUnderline.clearUrlUnderlineCacheForLine(line);
         editor.pathUnderline.clearPathUnderlineCacheForLine(line);
         invalidateHighlightEnsureRange();
+    }
+
+    private void removeCachedHighlightStateFromLine(int line) {
+        java.util.Iterator<Integer> highlightKeys = cache.highlightCache.keySet().iterator();
+        while (highlightKeys.hasNext()) {
+            if (highlightKeys.next() >= line) highlightKeys.remove();
+        }
+        java.util.Iterator<Integer> blockKeys = cache.blockCommentEndStateCache.keySet().iterator();
+        while (blockKeys.hasNext()) {
+            if (blockKeys.next() >= line) blockKeys.remove();
+        }
+        java.util.Iterator<Integer> stringKeys = cache.stringEndStateCache.keySet().iterator();
+        while (stringKeys.hasNext()) {
+            if (stringKeys.next() >= line) stringKeys.remove();
+        }
     }
 
     public void setStringsHighlight(boolean enabled, int color) {
@@ -450,6 +487,71 @@ public class Highlite {
 
     public void setSingleCommentsHighlite(String delimiter, int color, int style) {
         setSingleLineCommentSyntax(true, style, color, delimiter);
+    }
+
+    public void setStringsHighlite(String delimiter, boolean multiLine, int color, int style) {
+        if (delimiter == null || delimiter.isEmpty()) return;
+        isSyntaxHighlightingEnabled = true;
+        StringHighlightConfig old = stringHighlightConfigs.remove(delimiter);
+        if (old != null) {
+            stringHighlightConfigsByState.remove(old.state);
+            highlightRules.remove(old.rule);
+        }
+
+        int state = getOrCreateStringStateForDelimiter(delimiter);
+        HighliteRender.HighlightRule rule =
+            new HighliteRender.HighlightRule(
+                "",
+                style,
+                color,
+                editor.textRender.paint.getTextSize(),
+                editor.textRender.paint.getTypeface(),
+                false,
+                HighliteRender.HighlightRuleType.STRING);
+        StringHighlightConfig config = new StringHighlightConfig(delimiter, multiLine, state, rule);
+        stringHighlightConfigs.put(delimiter, config);
+        stringHighlightConfigsByState.put(state, config);
+        highlightRules.add(rule);
+        clearHighlightCaches();
+        editor.invalidate();
+    }
+
+    public void clearStringsHighlite() {
+        if (stringHighlightConfigs.isEmpty()) return;
+        for (StringHighlightConfig config : stringHighlightConfigs.values()) {
+            highlightRules.remove(config.rule);
+        }
+        stringHighlightConfigs.clear();
+        stringHighlightConfigsByState.clear();
+        clearHighlightCaches();
+        editor.invalidate();
+    }
+
+    public StringHighlightConfig getStringHighlightConfigForState(int state) {
+        return stringHighlightConfigsByState.get(state);
+    }
+
+    public StringHighlightConfig findStringHighlightStart(String line, int index) {
+        if (line == null || stringHighlightConfigs.isEmpty()) return null;
+        StringHighlightConfig match = null;
+        for (StringHighlightConfig config : stringHighlightConfigs.values()) {
+            if (match != null && match.delimiter.length() >= config.delimiter.length()) continue;
+            if (com.yn.sodiumeditor.utils.HighlightUtils.isTokenStart(line, index, config.delimiter)) {
+                match = config;
+            }
+        }
+        return match;
+    }
+
+    private int getOrCreateStringStateForDelimiter(String delimiter) {
+        if ("\"".equals(delimiter)) return STRING_STATE_DOUBLE;
+        if ("'".equals(delimiter)) return STRING_STATE_SINGLE;
+        if ("`".equals(delimiter)) return STRING_STATE_BACKTICK;
+        if ("\"\"\"".equals(delimiter)) return STRING_STATE_TRIPLE;
+        for (StringHighlightConfig config : stringHighlightConfigs.values()) {
+            if (delimiter.equals(config.delimiter)) return config.state;
+        }
+        return nextCustomStringState++;
     }
 
     public void setTripleQuoteStringsEnabled(boolean enabled) {

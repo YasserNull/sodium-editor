@@ -152,7 +152,7 @@ public class FileWindowLoader {
             }
             applyStreamedInfo(newLengths, newSliceStarts);
             editor.lineNumber.invalidateLineNumberCache();
-            editor.highlite.invalidateHighlightEnsureRange();
+            editor.highlite.clearHighlightCaches();
             if (recalcWidthSync) editor.windowRender.recalculateMaxLineWidth();
             else fileIO.recalculateMaxLineWidthAsync();
             if (editor.wordWrap.isWordWrapEnabled) {

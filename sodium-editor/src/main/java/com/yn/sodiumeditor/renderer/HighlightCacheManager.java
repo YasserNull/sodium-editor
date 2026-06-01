@@ -36,25 +36,18 @@ public class HighlightCacheManager {
     public void ensureHighlightCacheForVisibleRange(int startLine, int endLine, @Nullable Map<Integer, String> directLines) {
         if (highlite.rules.isEmpty()) return;
         boolean needRegex = !highlite.rules.regexHighlightRules.isEmpty();
-        boolean inBlock = false; int strState = 0;
+        HighliteRender.HighlightLineState rangeStartState = getLineStateAtStart(startLine);
+        boolean inBlock = rangeStartState.inBlockComment;
+        int strState = rangeStartState.stringState;
 
         for (int i = startLine; i <= endLine; i++) {
-            List<HighliteRender.HighlightSpan> cached = highlightCache.get(i);
-            if (cached != null && !needRegex) continue;
-            if (cached != null) {
-                boolean cInBlock = blockCommentEndStateCache.getOrDefault(i, false);
-                int cStrState = stringEndStateCache.getOrDefault(i, 0);
-                if (cInBlock == inBlock && cStrState == strState) continue;
-            }
-
             String line = editor.windowRender.getLineTextForRenderWithDirect(i, directLines);
             if (line == null) line = "";
 
-            HighliteRender.HighlightLineState sState = getLineStateAtStart(i);
             HighliteRender.HighlightRule sRule = highlite.rules.stringHighlightRule;
             HighliteRender.HighlightRule bRule = highlite.rules.blockCommentHighlightRule;
 
-            HighliteRender.LineParseResult res = highlite.parser.parseLineForSyntax(line, sState.inBlockComment, sState.stringState, sRule, bRule, true);
+            HighliteRender.LineParseResult res = highlite.parser.parseLineForSyntax(line, inBlock, strState, sRule, bRule, true);
             List<HighliteRender.HighlightSpan> spans = new ArrayList<>(res.spans);
 
             if (needRegex && !line.isEmpty()) {
