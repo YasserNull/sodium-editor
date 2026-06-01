@@ -151,6 +151,7 @@ public class FileWindowLoader {
                 }
             }
             applyStreamedInfo(newLengths, newSliceStarts);
+            editor.autoBracketPair.clearBalanceCache();
             editor.lineNumber.invalidateLineNumberCache();
             editor.highlite.clearHighlightCaches();
             if (recalcWidthSync) editor.windowRender.recalculateMaxLineWidth();
