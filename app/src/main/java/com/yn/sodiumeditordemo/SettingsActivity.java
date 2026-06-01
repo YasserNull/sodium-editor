@@ -19,6 +19,7 @@ public class SettingsActivity extends AppCompatActivity {
   private SharedPreferences prefs;
   private TextView themeSummary;
   private TextView scrollModeSummary;
+  private TextView keyboardSuggestionsSummary;
 
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -59,6 +60,12 @@ public class SettingsActivity extends AppCompatActivity {
                     getResources().getStringArray(R.array.scroll_mode_labels),
                     getResources().getStringArray(R.array.scroll_mode_values),
                     "2"));
+    keyboardSuggestionsSummary =
+        addSettingsRow(
+            settingsList,
+            "Keyboard Suggestions",
+            R.drawable.ic_keyboard,
+            v -> toggleKeyboardSuggestions());
     updateSummaries();
   }
 
@@ -148,6 +155,14 @@ public class SettingsActivity extends AppCompatActivity {
             getResources().getStringArray(R.array.scroll_mode_labels),
             getResources().getStringArray(R.array.scroll_mode_values),
             prefs.getString("scroll_mode", "2")));
+    keyboardSuggestionsSummary.setText(
+        prefs.getBoolean("keyboard_suggestions", true) ? "On" : "Off");
+  }
+
+  private void toggleKeyboardSuggestions() {
+    boolean enabled = !prefs.getBoolean("keyboard_suggestions", true);
+    prefs.edit().putBoolean("keyboard_suggestions", enabled).apply();
+    updateSummaries();
   }
 
   private String labelForValue(String[] labels, String[] values, String value) {

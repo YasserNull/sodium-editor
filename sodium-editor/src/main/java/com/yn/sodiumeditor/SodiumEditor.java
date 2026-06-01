@@ -325,6 +325,14 @@ onSizeChanged.onSizeChanged(w, h, oldw, oldh);
   return ime.onCreateInputConnection(outAttrs);
   }
 
+  public void setKeyboardSuggestionsEnabled(boolean enabled) {
+  ime.setKeyboardSuggestionsEnabled(enabled);
+  }
+
+  public boolean isKeyboardSuggestionsEnabled() {
+  return ime.isKeyboardSuggestionsEnabled();
+  }
+
   @Override
   public boolean onTouchEvent(MotionEvent event) {
   return onTouch.onTouchEvent(event);
