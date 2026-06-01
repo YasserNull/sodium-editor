@@ -17,7 +17,7 @@ public class SelectionMultiLineRenderGuardTest {
     public void selectionRenderer_shouldComputePerLineSelectionBounds() throws Exception {
         assertRendererContains(
                 "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/ViewRender.java",
-                "if (editor.selection.hasSelection && selPaint != null)",
+                "if (editor.selection.state.animation.shouldDrawSelectionHighlight() && selPaint != null)",
                 "int startChar = (i == selStartLine) ? selStartChar : 0;",
                 "int endChar = (i == selEndLine) ? selEndChar : line.length();");
     }
@@ -26,7 +26,7 @@ public class SelectionMultiLineRenderGuardTest {
     public void selectionRenderer_shouldKeepSingleLineSelectionBetweenHandles() throws Exception {
         assertRendererContains(
                 "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/ViewRender.java",
-                "if (editor.selection.hasSelection && selPaint != null)",
+                "if (editor.selection.state.animation.shouldDrawSelectionHighlight() && selPaint != null)",
                 "float left = isSingleLine",
                 "? startX",
                 "float right = (isFirstLine && !isSingleLine) || fillsWholeLine",
@@ -37,7 +37,7 @@ public class SelectionMultiLineRenderGuardTest {
     public void selectionRenderer_shouldStartFirstMultiLineRowAtStartHandleAndFillViewportRight() throws Exception {
         assertRendererContains(
                 "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/ViewRender.java",
-                "if (editor.selection.hasSelection && selPaint != null)",
+                "if (editor.selection.state.animation.shouldDrawSelectionHighlight() && selPaint != null)",
                 ": isFirstLine && !isSingleLine",
                 "? startX",
                 "? viewportRight");
@@ -47,12 +47,12 @@ public class SelectionMultiLineRenderGuardTest {
     public void selectionRenderer_shouldFillMiddleRowsAcrossVisibleViewportWhileScrolled() throws Exception {
         assertRendererContains(
                 "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/ViewRender.java",
-                "if (editor.selection.hasSelection && selPaint != null)",
+                "if (editor.selection.state.animation.shouldDrawSelectionHighlight() && selPaint != null)",
                 "float viewportLeft = editor.scroll.getEffectiveScrollX();",
                 "float viewportRight = viewportLeft + editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth;",
                 "boolean fillsWholeLine = !isSingleLine && !isFirstLine && !isLastLine;",
-                ": fillsWholeLine",
-                "? viewportLeft",
+                "float visibleSelectionStartX = Math.max(textStartX, viewportLeft);",
+                ": visibleSelectionStartX",
                 "|| fillsWholeLine",
                 "? viewportRight");
     }
@@ -61,7 +61,7 @@ public class SelectionMultiLineRenderGuardTest {
     public void selectionRenderer_shouldClampLastRowToEndHandle() throws Exception {
         assertRendererContains(
                 "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/ViewRender.java",
-                "if (editor.selection.hasSelection && selPaint != null)",
+                "if (editor.selection.state.animation.shouldDrawSelectionHighlight() && selPaint != null)",
                 "float endX = textStartX + editor.textRender.measureTextWithVisualSpaces(line, 0, endChar, editor.textRender.paint);",
                 ": endX;");
     }
@@ -70,7 +70,7 @@ public class SelectionMultiLineRenderGuardTest {
     public void selectionRenderer_shouldPreserveCornerRoundingByRowRole() throws Exception {
         assertRendererContains(
                 "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/ViewRender.java",
-                "if (editor.selection.hasSelection && selPaint != null)",
+                "if (editor.selection.state.animation.shouldDrawSelectionHighlight() && selPaint != null)",
                 "if (isSingleLine)",
                 "true, true, true, true, selPaint",
                 "else if (isFirstLine)",

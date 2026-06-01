@@ -34,7 +34,7 @@ public class HighlightCacheManager {
     }
 
     public void ensureHighlightCacheForVisibleRange(int startLine, int endLine, @Nullable Map<Integer, String> directLines) {
-        if (highlite.rules.highlightRules.isEmpty()) return;
+        if (highlite.rules.isEmpty()) return;
         boolean needRegex = !highlite.rules.regexHighlightRules.isEmpty();
         boolean inBlock = false; int strState = 0;
 
@@ -51,8 +51,8 @@ public class HighlightCacheManager {
             if (line == null) line = "";
 
             HighliteRender.HighlightLineState sState = getLineStateAtStart(i);
-            HighliteRender.HighlightRule sRule = highlite.rules.stringHighlightRule != null ? highlite.rules.stringHighlightRule : highlite.rules.whitespaceStringRule;
-            HighliteRender.HighlightRule bRule = highlite.rules.blockCommentHighlightRule != null ? highlite.rules.blockCommentHighlightRule : highlite.rules.whitespaceCommentRule;
+            HighliteRender.HighlightRule sRule = highlite.rules.stringHighlightRule;
+            HighliteRender.HighlightRule bRule = highlite.rules.blockCommentHighlightRule;
 
             HighliteRender.LineParseResult res = highlite.parser.parseLineForSyntax(line, sState.inBlockComment, sState.stringState, sRule, bRule, true);
             List<HighliteRender.HighlightSpan> spans = new ArrayList<>(res.spans);

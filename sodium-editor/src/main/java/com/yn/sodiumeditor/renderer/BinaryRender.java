@@ -211,6 +211,15 @@ public class BinaryRender {
         return binaryTokenSpans.get(lineIndex);
     }
 
+    public boolean hasBinaryTokenSpans(int lineIndex) {
+        int[] spans = binaryTokenSpans.get(lineIndex);
+        return spans != null && spans.length > 0;
+    }
+
+    public boolean shouldUseBinaryRenderingForLine(int lineIndex) {
+        return binarySafeRenderingEnabled && hasBinaryTokenSpans(lineIndex);
+    }
+
     public void clearBinaryTokenSpansForLine(int lineIndex) {
         binaryTokenSpans.remove(lineIndex);
     }

@@ -36,13 +36,14 @@ public class HighlightParser {
 
         while (i < len) {
             if (inBlock) {
-                int end = HighlightUtils.findBlockCommentEnd(line, i);
+                int end = highlite.findConfiguredBlockCommentEnd(line, i);
                 if (end < 0) {
                     if (collectSpans && blockRule != null && highlite.isBlockCommentsEnabled && len > 0) spans.add(new HighliteRender.HighlightSpan(0, len, blockRule.paint));
                     return new HighliteRender.LineParseResult(spans, true, 0);
                 }
-                if (collectSpans && blockRule != null && highlite.isBlockCommentsEnabled) spans.add(new HighliteRender.HighlightSpan(0, end + 2, blockRule.paint));
-                i = end + 2; inBlock = false; continue;
+                int blockEnd = end + highlite.blockCommentEndDelimiter.length();
+                if (collectSpans && blockRule != null && highlite.isBlockCommentsEnabled) spans.add(new HighliteRender.HighlightSpan(0, blockEnd, blockRule.paint));
+                i = blockEnd; inBlock = false; continue;
             }
 
             if (strState != 0) {
@@ -88,14 +89,15 @@ public class HighlightParser {
                 }
             }
 
-            if (highlite.isBlockCommentsEnabled && c == '/' && i + 1 < len && line.charAt(i + 1) == '*' && !HighlightUtils.isTokenEscaped(line, i)) {
-                int end = HighlightUtils.findBlockCommentEnd(line, i + 2);
+            if (highlite.isBlockCommentsEnabled && highlite.isConfiguredBlockCommentStart(line, i)) {
+                int end = highlite.findConfiguredBlockCommentEnd(line, i + highlite.blockCommentStartDelimiter.length());
                 if (end < 0) {
                     if (collectSpans && blockRule != null && len > 0) spans.add(new HighliteRender.HighlightSpan(i, len, blockRule.paint));
                     return new HighliteRender.LineParseResult(spans, true, 0);
                 }
-                if (collectSpans && blockRule != null) spans.add(new HighliteRender.HighlightSpan(i, end + 2, blockRule.paint));
-                i = end + 2; continue;
+                int blockEnd = end + highlite.blockCommentEndDelimiter.length();
+                if (collectSpans && blockRule != null) spans.add(new HighliteRender.HighlightSpan(i, blockEnd, blockRule.paint));
+                i = blockEnd; continue;
             }
             i++;
         }

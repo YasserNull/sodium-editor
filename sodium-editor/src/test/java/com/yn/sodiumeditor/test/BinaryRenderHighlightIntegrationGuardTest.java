@@ -26,6 +26,29 @@ public class BinaryRenderHighlightIntegrationGuardTest {
   }
 
   @Test
+  public void binaryFastPath_shouldOnlyBypassHighlightingForLinesWithBinarySpans() throws Exception {
+    String render =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/HighliteRender.java");
+    String binary =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/BinaryRender.java");
+    String view = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/view/View.java");
+    String drawBody = methodBody(render, "drawHighlightedLine(Canvas canvas, String line, int globalLine, float y)");
+    String viewBody = methodBody(view, "getCharIndexForX(String text, float x, int globalLine)");
+
+    assertTrue(
+        "BUG: binary mode without token spans must not bypass syntax highlighting for normal text.",
+        drawBody.contains("editor.binaryRender.shouldUseBinaryRenderingForLine(globalLine)"));
+    assertTrue(
+        "BUG: binary renderer needs a per-line gate based on cached token spans.",
+        binary.contains("public boolean shouldUseBinaryRenderingForLine(int lineIndex)")
+            && binary.contains("return binarySafeRenderingEnabled && hasBinaryTokenSpans(lineIndex);"));
+    assertTrue(
+        "BUG: normal text cursor hit-testing must not use binary M-width fallback when there are no binary spans.",
+        viewBody.contains("editor.binaryRender.shouldUseBinaryRenderingForLine(globalLine)")
+            && !viewBody.contains("effectiveAvgWidth"));
+  }
+
+  @Test
   public void binaryUnderlineHelper_shouldCollectBothUrlAndPathSpans() throws Exception {
     String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/HighliteRender.java");
     String body =

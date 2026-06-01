@@ -33,7 +33,7 @@ public class TextCaretScrollStabilityGuardTest {
                 "BUG: text caret should apply current scroll directly at draw time for LTR.",
                 around.contains("float top = cy - editor.scroll.scrollY;")
                         && around.contains("float left = cx - editor.scroll.scrollX;")
-                        && around.contains("left += editor.lineNumber.lineNumbersGutterWidth;"));
+                        && around.contains("left += editor.layout.getTextStartX();"));
 
         assertTrue(
                 "BUG: text caret should apply current scroll directly at draw time for RTL.",

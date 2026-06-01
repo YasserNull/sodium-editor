@@ -51,9 +51,21 @@ public class HighlightUtils {
     }
 
     public static int findBlockCommentEnd(String line, int start) {
-        for (int i = start; i + 1 < line.length(); i++) {
-            if (line.charAt(i) == '*' && line.charAt(i + 1) == '/' && !isTokenEscaped(line, i)) return i;
+        return findTokenEnd(line, start, "*/");
+    }
+
+    public static int findTokenEnd(String line, int start, String token) {
+        if (line == null || token == null || token.isEmpty()) return -1;
+        int max = line.length() - token.length();
+        for (int i = Math.max(0, start); i <= max; i++) {
+            if (line.regionMatches(i, token, 0, token.length()) && !isTokenEscaped(line, i)) return i;
         }
         return -1;
+    }
+
+    public static boolean isTokenStart(String line, int start, String token) {
+        if (line == null || token == null || token.isEmpty()) return false;
+        if (start < 0 || start + token.length() > line.length()) return false;
+        return line.regionMatches(start, token, 0, token.length()) && !isTokenEscaped(line, start);
     }
 }

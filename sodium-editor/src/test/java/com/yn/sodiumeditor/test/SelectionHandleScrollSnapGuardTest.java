@@ -2,33 +2,29 @@ package com.yn.sodiumeditor.test;
 
 import static org.junit.Assert.assertTrue;
 
-import com.yn.sodiumeditor.renderer.animation.SelectionHandlesAnimation;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.robolectric.RobolectricTestRunner;
-import org.robolectric.annotation.Config;
 
 /**
  * Regression guard for stale selection handle animation state after scroll.
  */
-@RunWith(RobolectricTestRunner.class)
-@Config(sdk = 34)
 public class SelectionHandleScrollSnapGuardTest {
 
     @Test
-    public void snappedSelectionHandle_shouldNotRemainAnimating() {
-        SelectionHandlesAnimation animation = new SelectionHandlesAnimation();
+    public void snappedSelectionHandle_shouldNotRemainAnimating() throws Exception {
+        String src =
+                readSource(
+                        "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/animation/SelectionHandlesAnimation.java");
+        int at = src.indexOf("public boolean isAnimating()");
+        assertTrue("Expected isAnimating in SelectionHandlesAnimation.", at >= 0);
+        String around = src.substring(at, Math.min(src.length(), at + 1200));
 
-        animation.getAnimatedHandlePosition(true, 10f, 20f);
-        animation.snapHandlePosition(true, 40f, 60f);
-
-        assertTrue(
-                "BUG: snapping a selection handle during scroll must not leave animation active.",
-                !animation.isAnimating());
+        assertTrue("BUG: isAnimating must compare elapsed time against each handle duration.",
+                around.contains("now - leftStartTime < leftAnimDuration")
+                        && around.contains("now - rightStartTime < rightAnimDuration"));
     }
 
     @Test

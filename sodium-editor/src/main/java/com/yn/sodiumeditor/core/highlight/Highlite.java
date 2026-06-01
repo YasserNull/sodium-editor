@@ -29,6 +29,8 @@ public class Highlite {
     public boolean isBacktickStringsEnabled = false;
     public boolean isBlockCommentsEnabled = false;
     public boolean isSyntaxHighlightingEnabled = true;
+    public String blockCommentStartDelimiter = "/*";
+    public String blockCommentEndDelimiter = "*/";
 
     public static final int STRING_STATE_DOUBLE = 1;
     public static final int STRING_STATE_SINGLE = 2;
@@ -155,10 +157,16 @@ public class Highlite {
     
     public void setLineCommentDelimiter(String d, int s, int c) {
         syncRulesToComponent();
-        if (d == null || d.isEmpty()) { if (rules.lineCommentHighlightRule != null) { rules.lineCommentHighlightRule = null; clearHighlightCaches(); } syncRulesFromComponent(); return; }
-        rules.lineCommentHighlightRule = new HighliteRender.HighlightRule("", s, c, editor.textRender.paint.getTextSize(), editor.textRender.paint.getTypeface(), false, HighliteRender.HighlightRuleType.LINE_COMMENT);
-        clearHighlightCaches();
-        syncRulesFromComponent();
+        if (d == null || d.isEmpty()) {
+            if (rules.lineCommentHighlightRule != null) {
+                rules.highlightRules.remove(rules.lineCommentHighlightRule);
+                rules.lineCommentHighlightRule = null;
+                clearHighlightCaches();
+            }
+            syncRulesFromComponent();
+            return;
+        }
+        setSingleLineCommentSyntax(true, s, c, d);
     }
 
     public void setStringHighlightColor(int color) {
@@ -223,6 +231,12 @@ public class Highlite {
     public static int findStringEnd(String line, int start, char delimiter) { return com.yn.sodiumeditor.utils.HighlightUtils.findStringEnd(line, start, delimiter); }
     public static int findTripleQuoteEnd(String line, int start) { return com.yn.sodiumeditor.utils.HighlightUtils.findTripleQuoteEnd(line, start); }
     public static int findBlockCommentEnd(String line, int start) { return com.yn.sodiumeditor.utils.HighlightUtils.findBlockCommentEnd(line, start); }
+    public int findConfiguredBlockCommentEnd(String line, int start) {
+        return com.yn.sodiumeditor.utils.HighlightUtils.findTokenEnd(line, start, blockCommentEndDelimiter);
+    }
+    public boolean isConfiguredBlockCommentStart(String line, int start) {
+        return com.yn.sodiumeditor.utils.HighlightUtils.isTokenStart(line, start, blockCommentStartDelimiter);
+    }
 
     public List<HighliteRender.HighlightSpan> getHighlightSpansForLine(String line, int gl) {
         if (!isSyntaxHighlightingEnabled) return new ArrayList<>();
@@ -236,11 +250,11 @@ public class Highlite {
         syncRulesToComponent();
         List<HighliteRender.HighlightSpan> spans = new ArrayList<>();
         if (!isSyntaxHighlightingEnabled) return spans;
-        if (editor.view.getLogicalLineLength(gl, line) > editor.highliteRender.maxSyntaxLineLength || rules.highlightRules.isEmpty()) return spans;
+        if (editor.view.getLogicalLineLength(gl, line) > editor.highliteRender.maxSyntaxLineLength || rules.isEmpty()) return spans;
 
         HighliteRender.HighlightLineState sState = cache.getLineStateAtStart(gl);
-        HighliteRender.HighlightRule sRule = rules.stringHighlightRule != null ? rules.stringHighlightRule : rules.whitespaceStringRule;
-        HighliteRender.HighlightRule bRule = rules.blockCommentHighlightRule != null ? rules.blockCommentHighlightRule : rules.whitespaceCommentRule;
+        HighliteRender.HighlightRule sRule = rules.stringHighlightRule;
+        HighliteRender.HighlightRule bRule = rules.blockCommentHighlightRule;
 
         HighliteRender.LineParseResult res = parser.parseLineForSyntax(line, sState.inBlockComment, sState.stringState, sRule, bRule, true);
         spans.addAll(res.spans);
@@ -344,6 +358,22 @@ public class Highlite {
         }
     }
 
+    public void setMultiCommentsHighlite(String startDelimiter, String endDelimiter, int color, int style) {
+        if (startDelimiter == null || startDelimiter.isEmpty() || endDelimiter == null || endDelimiter.isEmpty()) {
+            return;
+        }
+        boolean delimitersChanged =
+            !startDelimiter.equals(blockCommentStartDelimiter)
+                || !endDelimiter.equals(blockCommentEndDelimiter);
+        blockCommentStartDelimiter = startDelimiter;
+        blockCommentEndDelimiter = endDelimiter;
+        setMultiLineComments(true, style, color);
+        if (delimitersChanged) {
+            clearHighlightCaches();
+            editor.invalidate();
+        }
+    }
+
     public void setSingleLineCommentDelimiters(String... delimiters) {
         lineCommentDelimiters.clear();
         if (delimiters != null) {
@@ -375,8 +405,12 @@ public class Highlite {
 
     public void setSingleLineCommentsHighlight(boolean enabled, int style, int color) {
         if (!enabled) {
-            if (lineCommentHighlightRule != null) {
-                lineCommentHighlightRule = null;
+            boolean hadRule = lineCommentHighlightRule != null || rules.lineCommentHighlightRule != null;
+            if (lineCommentHighlightRule != null) highlightRules.remove(lineCommentHighlightRule);
+            if (rules.lineCommentHighlightRule != null) rules.highlightRules.remove(rules.lineCommentHighlightRule);
+            rules.lineCommentHighlightRule = null;
+            lineCommentHighlightRule = null;
+            if (hadRule) {
                 clearHighlightCaches();
                 editor.invalidate();
             }
@@ -384,6 +418,7 @@ public class Highlite {
         }
 
         if (lineCommentHighlightRule == null || lineCommentHighlightRule.style != style) {
+            if (lineCommentHighlightRule != null) highlightRules.remove(lineCommentHighlightRule);
             lineCommentHighlightRule =
                 new HighliteRender.HighlightRule(
                     "",
@@ -396,6 +431,13 @@ public class Highlite {
         } else {
             lineCommentHighlightRule.paint.setColor(color);
         }
+        if (rules.lineCommentHighlightRule != null && rules.lineCommentHighlightRule != lineCommentHighlightRule) {
+            rules.highlightRules.remove(rules.lineCommentHighlightRule);
+        }
+        rules.lineCommentHighlightRule = lineCommentHighlightRule;
+        if (!highlightRules.contains(lineCommentHighlightRule)) {
+            highlightRules.add(lineCommentHighlightRule);
+        }
         clearHighlightCaches();
         editor.invalidate();
     }
@@ -404,6 +446,10 @@ public class Highlite {
         boolean enabled, int style, int color, String... delimiters) {
         setSingleLineCommentDelimiters(delimiters);
         setSingleLineCommentsHighlight(enabled, style, color);
+    }
+
+    public void setSingleCommentsHighlite(String delimiter, int color, int style) {
+        setSingleLineCommentSyntax(true, style, color, delimiter);
     }
 
     public void setTripleQuoteStringsEnabled(boolean enabled) {
@@ -429,7 +475,7 @@ public class Highlite {
             }
         }
 
-        if (rules.highlightRules.isEmpty()) {
+        if (rules.isEmpty()) {
             return editor.textRender.paint.measureText(line, start, end);
         }
 
@@ -476,7 +522,7 @@ public class Highlite {
         end = Math.max(start, Math.min(end, line.length()));
         if (start >= end) return;
 
-        if (rules.highlightRules.isEmpty()) {
+        if (rules.isEmpty()) {
             editor.textRender.paint.setUnderlineText(false);
             canvas.drawText(line, start, end, x, y, editor.textRender.paint);
             return;

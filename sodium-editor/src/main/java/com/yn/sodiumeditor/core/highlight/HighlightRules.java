@@ -49,7 +49,9 @@ public class HighlightRules {
         HighliteRender.HighlightRule rule = new HighliteRender.HighlightRule(regex, style, color, editor.textRender.paint.getTextSize(), editor.textRender.paint.getTypeface(), underline, type);
         if (type == HighliteRender.HighlightRuleType.LINE_COMMENT) {
             addLineCommentDelimiter(extractLineCommentDelimiter(regex));
+            if (lineCommentHighlightRule != null) highlightRules.remove(lineCommentHighlightRule);
             lineCommentHighlightRule = rule;
+            highlightRules.add(rule);
         } else {
             highlightRules.add(rule);
             if (type == HighliteRender.HighlightRuleType.STRING) stringHighlightRule = rule;
@@ -79,7 +81,12 @@ public class HighlightRules {
     }
 
     public boolean isEmpty() {
-        return highlightRules.isEmpty() && regexHighlightRules.isEmpty() && lineCommentDelimiters.isEmpty();
+        return highlightRules.isEmpty()
+            && regexHighlightRules.isEmpty()
+            && lineCommentDelimiters.isEmpty()
+            && stringHighlightRule == null
+            && blockCommentHighlightRule == null
+            && lineCommentHighlightRule == null;
     }
     public List<HighliteRender.HighlightSpan> calculateSyntaxSpansForLine(String line, int globalLine) {
     if (editor.view.getLogicalLineLength(globalLine, line) > editor.highliteRender.maxSyntaxLineLength) {

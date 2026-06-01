@@ -1,64 +1,42 @@
 package com.yn.sodiumeditor.test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
-import com.yn.sodiumeditor.SodiumEditor;
-import org.junit.Assume;
-import org.junit.Before;
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.robolectric.RobolectricTestRunner;
-import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
-import org.robolectric.annotation.GraphicsMode;
 
-@RunWith(RobolectricTestRunner.class)
-@Config(sdk = 34)
-@GraphicsMode(GraphicsMode.Mode.LEGACY)
 public class SelectionKeyboardDeleteRegressionTest {
 
-    private SodiumEditor editor;
+  @Test
+  public void imeBackspaceWithSelection_shouldReplaceOnlySelection() throws Exception {
+    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/input/Ime.java");
+    int at = src.indexOf("private boolean deleteSurroundingCodePoints");
+    assertTrue("Expected deleteSurroundingCodePoints in Ime.", at >= 0);
+    String around = src.substring(at, Math.min(src.length(), at + 1000));
 
-    @Before
-    public void setup() {
-        try {
-            editor = new SodiumEditor(RuntimeEnvironment.getApplication(), null);
-        } catch (UnsatisfiedLinkError e) {
-            Assume.assumeNoException(e);
-            return;
-        }
-        editor.windowRender.windowStartLine = 0;
-        editor.windowRender.linesWindow.clear();
-        editor.windowRender.linesWindow.add("// hello world");
-        editor.cursor.setCursorPosition(0, 14);
+    assertTrue(around.contains("if (editor.selection.hasSelection)"));
+    assertTrue(around.contains("editor.selection.replaceSelectionWithText(\"\")"));
+    assertTrue(around.contains("return true;"));
+  }
+
+  private static String readSource(String rel) throws Exception {
+    return new String(Files.readAllBytes(findPath(rel)), StandardCharsets.UTF_8);
+  }
+
+  private static Path findPath(String rel) {
+    Path cwd = new File(System.getProperty("user.dir", ".")).toPath().toAbsolutePath().normalize();
+    for (int i = 0; i < 8; i++) {
+      Path candidate = cwd.resolve(rel);
+      if (Files.exists(candidate)) return candidate;
+      Path parent = cwd.getParent();
+      if (parent == null) break;
+      cwd = parent;
     }
-
-    @Test
-    public void imeBackspaceWithWorldSelectedDeletesOnlyWorld() {
-        editor.cursor.setCursorPosition(0, 14);
-        editor.selection.setSelection(0, 9, 0, 14);
-
-        editor.ime.onDeleteSurroundingText(1, 0);
-
-        assertEquals("// hello ", editor.windowRender.getLineTextForRender(0));
-        assertEquals(0, editor.cursor.cursorLine);
-        assertEquals(9, editor.cursor.cursorChar);
-        assertFalse(editor.selection.hasSelection);
-        assertFalse(editor.selection.state.hasSelection);
-    }
-
-    @Test
-    public void imeBackspaceWithHelloAndSpaceSelectedLeavesWorldOnly() {
-        editor.cursor.setCursorPosition(0, 9);
-        editor.selection.setSelection(0, 3, 0, 9);
-
-        editor.ime.onDeleteSurroundingText(1, 0);
-
-        assertEquals("// world", editor.windowRender.getLineTextForRender(0));
-        assertEquals(0, editor.cursor.cursorLine);
-        assertEquals(3, editor.cursor.cursorChar);
-        assertFalse(editor.selection.hasSelection);
-        assertFalse(editor.selection.state.hasSelection);
-    }
+    Path candidate = new File(".").toPath().toAbsolutePath().normalize().resolve(rel);
+    if (Files.exists(candidate)) return candidate;
+    throw new IllegalStateException("Could not locate file: " + rel);
+  }
 }

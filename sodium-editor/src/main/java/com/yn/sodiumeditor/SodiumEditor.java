@@ -333,6 +333,14 @@ onSizeChanged.onSizeChanged(w, h, oldw, oldh);
   return ime.isKeyboardSuggestionsEnabled();
   }
 
+  public void setSingleCommentsHighlite(String delimiter, int color, int style) {
+  highlite.setSingleCommentsHighlite(delimiter, color, style);
+  }
+
+  public void setMultiCommentsHighlite(String startDelimiter, String endDelimiter, int color, int style) {
+  highlite.setMultiCommentsHighlite(startDelimiter, endDelimiter, color, style);
+  }
+
   @Override
   public boolean onTouchEvent(MotionEvent event) {
   return onTouch.onTouchEvent(event);

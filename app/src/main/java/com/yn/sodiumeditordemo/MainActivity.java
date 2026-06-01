@@ -15,6 +15,7 @@ import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.provider.Settings;
+import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.graphics.Color;
@@ -35,6 +36,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.preference.PreferenceManager;
 import android.util.SparseIntArray;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.core.view.FontStyle;
 import com.yn.sodiumeditor.io.EditOp;
 import com.yn.sodiumeditor.ui.Theme;
 import java.io.File;
@@ -358,6 +360,7 @@ public class MainActivity extends AppCompatActivity {
       editor.fileIO.loadFromFile(tab.file);
     }
     currentTabIndex = index;
+    applyCurrentFileHighlight();
     updateDirtyIndicator();
     updateTabStyles();
     editor.caret.isCursorVisible = true;
@@ -709,6 +712,27 @@ public class MainActivity extends AppCompatActivity {
     }
     theme.apply(editor);
     editor.setBackgroundColor(getAppBackgroundColor(themeValue));
+    applyCurrentFileHighlight();
+  }
+
+  private void applyCurrentFileHighlight() {
+    if (editor == null) return;
+    if (isCurrentShellScript()) {
+      editor.setSingleCommentsHighlite("#", 0xFFFF0000, FontStyle.STYLE_ITALIC);
+      if (SodiumEditor.DEBUG_LOGS) {
+        Log.d(
+            "SodiumHighlight",
+            "[SodiumEditor] operation=applyShellHighlight file="
+                + openTabs.get(currentTabIndex).name
+                + " delimiters="
+                + editor.highlite.lineCommentDelimiters
+                + " hasRule="
+                + (editor.highlite.lineCommentHighlightRule != null));
+      }
+    } else {
+      editor.highlite.setSingleLineCommentSyntax(
+          false, FontStyle.STYLE_NORMAL, 0xFF888888);
+    }
   }
 
   public void onThemeChanged() {

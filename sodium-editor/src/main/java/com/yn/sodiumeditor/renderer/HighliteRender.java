@@ -187,8 +187,8 @@ public class HighliteRender {
                             + " rules="
                             + editor.highlite.highlightRules.size());
         }
-        // Fast path for binary rendering - completely bypass normal highlighting
-        if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
+        // Fast path only for lines that actually contain binary replacement tokens.
+        if (editor.binaryRender.shouldUseBinaryRenderingForLine(globalLine)) {
             if (tracingCharAnimLine) logCharAnimRender("RENDER_BINARY char fade supported");
             editor.textRender.getVisibleCharRangeForLine(line, globalLine, editor.textRender.visibleCharRangeTmp);
             int visibleStart = editor.textRender.visibleCharRangeTmp[0];
@@ -296,7 +296,7 @@ public class HighliteRender {
                             + " alpha="
                             + editor.charAnimation.charAnimAlpha);
         }
-        if (editor.highlite.highlightRules.isEmpty()
+        if (editor.highlite.rules.isEmpty()
                 && !editor.urlUnderline.isUrlUnderliningActive()
                 && !editor.pathUnderline.isPathUnderliningActive()
                 && !editor.errorUnderline.errorUnderlineEnabled
@@ -351,7 +351,7 @@ public class HighliteRender {
         float lineBottom = lineTop + editor.textRender.lineHeight;
 
         // Draw with or without syntax highlighting
-        if (editor.highlite.highlightRules.isEmpty()) {
+        if (editor.highlite.rules.isEmpty()) {
             if (tracingCharAnimLine) logCharAnimRender("render branch=no-highlight draw fadeStart=" + fadeStart + " fadeEnd=" + fadeEnd);
             editor.textRender.drawTextSegmentWithFadeAndUnderlines(
                     canvas, line, 0, line.length(), 0f, y, editor.textRender.paint,
@@ -564,7 +564,7 @@ public class HighliteRender {
         float currentX = editor.textRender.measureText(line, start, globalLine);
         int lastEnd = start;
 
-        if (editor.highlite.highlightRules.isEmpty()) {
+        if (editor.highlite.rules.isEmpty()) {
             editor.textRender.drawTextSegmentWithFadeAndUnderlines(
                     canvas, line, start, end, currentX, y, editor.textRender.paint,
                     fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
@@ -648,7 +648,7 @@ public class HighliteRender {
             }
         }
 
-        if (editor.highlite.highlightRules.isEmpty()) {
+        if (editor.highlite.rules.isEmpty()) {
             editor.textRender.drawTextSegmentWithFadeAndUnderlines(
                     canvas, line, start, end, 0f, y, editor.textRender.paint,
                     fadeStart, fadeEnd, fadeAlpha, urlUnderlines, lineTop, lineBottom);
