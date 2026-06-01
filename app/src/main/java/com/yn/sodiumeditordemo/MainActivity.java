@@ -52,6 +52,7 @@ public class MainActivity extends AppCompatActivity {
   private TextView filePathText;
   private ImageButton overflowBtn;
   private ImageButton saveBtn;
+  private ImageButton runBtn;
   private ImageButton undoBtn;
   private ImageButton redoBtn;
   private ActivityResultLauncher<Intent> openFileLauncher;
@@ -122,6 +123,7 @@ public class MainActivity extends AppCompatActivity {
     filePathText = findViewById(R.id.filePathText);
     overflowBtn = findViewById(R.id.overflowBtn);
     saveBtn = findViewById(R.id.saveBtn);
+    runBtn = findViewById(R.id.runBtn);
     undoBtn = findViewById(R.id.undoBtn);
     redoBtn = findViewById(R.id.redoBtn);
     tabContainer = findViewById(R.id.tabContainer);
@@ -194,6 +196,7 @@ public class MainActivity extends AppCompatActivity {
 
     overflowBtn.setOnClickListener(this::showOverflowMenu);
     saveBtn.setOnClickListener(v -> saveFile());
+    runBtn.setOnClickListener(v -> runCurrentShellFile());
     undoBtn.setOnClickListener(v -> undo());
     redoBtn.setOnClickListener(v -> redo());
 
@@ -217,6 +220,7 @@ public class MainActivity extends AppCompatActivity {
   private void showOverflowMenu(View anchor) {
     PopupMenu popup = new PopupMenu(this, anchor);
     popup.getMenuInflater().inflate(R.menu.popup_menu, popup.getMenu());
+    popup.getMenu().findItem(R.id.action_run).setVisible(isCurrentShellScript());
     popup.setOnMenuItemClickListener(this::onOverflowMenuItemClick);
     popup.show();
   }
@@ -234,6 +238,9 @@ public class MainActivity extends AppCompatActivity {
       return true;
     } else if (id == R.id.action_terminal) {
       startActivity(new Intent(this, TerminalActivity.class));
+      return true;
+    } else if (id == R.id.action_run) {
+      runCurrentShellFile();
       return true;
     } else if (id == R.id.action_settings) {
       openSettings();
@@ -270,6 +277,42 @@ public class MainActivity extends AppCompatActivity {
                 () -> {
                   updateDirtyIndicator();
                 }));
+  }
+
+  private boolean isCurrentShellScript() {
+    if (currentTabIndex < 0 || currentTabIndex >= openTabs.size()) return false;
+    FileTab tab = openTabs.get(currentTabIndex);
+    String name = tab.name != null ? tab.name : tab.path;
+    return name != null && name.toLowerCase(java.util.Locale.ROOT).endsWith(".sh");
+  }
+
+  private void runCurrentShellFile() {
+    if (currentTabIndex < 0 || currentTabIndex >= openTabs.size()) return;
+    FileTab tab = openTabs.get(currentTabIndex);
+    if (tab.file == null) return;
+    editor.editOperators.applyPendingEditsToFileAsync(
+        () ->
+            runOnUiThread(
+                () -> {
+                  updateDirtyIndicator();
+                  captureStateToTab(tab);
+                  startActivity(
+                      new Intent(this, TerminalActivity.class)
+                          .putExtra(
+                              TerminalActivity.EXTRA_RUN_COMMAND,
+                              buildShellRunCommand(tab.file)));
+                }));
+  }
+
+  private String buildShellRunCommand(File file) {
+    File parent = file.getParentFile();
+    String cwd = parent != null ? parent.getAbsolutePath() : getFilesDir().getAbsolutePath();
+    return "cd " + shellQuote(cwd) + " && sh " + shellQuote(file.getAbsolutePath());
+  }
+
+  private String shellQuote(String value) {
+    if (value == null || value.isEmpty()) return "''";
+    return "'" + value.replace("'", "'\"'\"'") + "'";
   }
 
   private void undo() {
@@ -433,6 +476,8 @@ public class MainActivity extends AppCompatActivity {
     undoBtn.setColorFilter(canUndo ? activeColor : 0xFF999999, PorterDuff.Mode.SRC_IN);
     redoBtn.setColorFilter(canRedo ? activeColor : 0xFF999999, PorterDuff.Mode.SRC_IN);
     saveBtn.setColorFilter(canSave ? activeColor : 0xFF999999, PorterDuff.Mode.SRC_IN);
+    runBtn.setColorFilter(activeColor, PorterDuff.Mode.SRC_IN);
+    runBtn.setVisibility(isCurrentShellScript() ? View.VISIBLE : View.GONE);
     overflowBtn.setColorFilter(activeColor, PorterDuff.Mode.SRC_IN);
   }
 
