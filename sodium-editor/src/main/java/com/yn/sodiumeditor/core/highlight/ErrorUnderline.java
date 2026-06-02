@@ -19,7 +19,7 @@ public class ErrorUnderline {
 
     // Error underline configuration
     public int errorUnderlineColor = 0xFFE53935;
-    public boolean errorUnderlineEnabled = false;
+    public boolean errorUnderlineEnabled = true;
     public final Paint errorUnderlinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     public final Path errorUnderlinePath = new Path();
     public float errorUnderlineHeightScale = 0.18f;
