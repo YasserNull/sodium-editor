@@ -17,7 +17,7 @@ namespace "com.termux.terminal"
         }
 
         ndk {
-            abiFilters 'arm64-v8a'
+            abiFilters 'arm64-v8a', 'x86_64'
         }
     }
 
@@ -59,5 +59,4 @@ task sourceJar(type: Jar) {
     from android.sourceSets.main.java.srcDirs
     archiveClassifier.set("sources")
 }
-
 

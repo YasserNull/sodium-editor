@@ -29,6 +29,10 @@ public class Ime {
   public int composingStartLine = -1;
   public int composingStartChar = 0;
   public boolean composingStartActive = false;
+  public int composingOriginalLine = -1;
+  public int composingOriginalStartChar = 0;
+  public int composingOriginalEndChar = 0;
+  @Nullable public String composingOriginalText = null;
   @Nullable public EditOp composingPendingOp = null;
   @Nullable public String lastComposingTextForCharAnim;
 
@@ -151,6 +155,7 @@ public class Ime {
     composingStartLine = composingLine;
     composingStartChar = composingOffset;
     composingStartActive = true;
+    captureOriginalComposingTextIfNeeded();
     lastComposingTextForCharAnim = null;
     editor.invalidate();
     editor.autoCompletion.updateSuggestion();
@@ -243,6 +248,7 @@ public class Ime {
       int startLine = composingStartActive ? composingStartLine : composingLine;
       int startChar = composingStartActive ? composingStartChar : composingOffset;
       String replacement = getComposingCommitReplacement(str);
+      captureOriginalComposingTextIfNeeded();
       logImeState(
           "commitTextWithComposing",
           "commit="
@@ -317,6 +323,7 @@ public class Ime {
       composingStartChar = composingOffset;
       composingStartActive = true;
     }
+    captureOriginalComposingTextIfNeeded();
     String newText = text.toString();
     String oldText = (lastComposingTextForCharAnim == null) ? "" : lastComposingTextForCharAnim;
     boolean shouldAnim = newText.length() >= oldText.length() && !newText.equals(oldText);
@@ -440,6 +447,7 @@ public class Ime {
     hasComposing = false;
     composingLength = 0;
     composingStartActive = false;
+    clearOriginalComposingText();
     composingPendingOp = null;
     lastComposingTextForCharAnim = null;
     editor.invalidate();
@@ -504,6 +512,7 @@ public class Ime {
     hasComposing = false;
     composingLength = 0;
     composingStartActive = false;
+    clearOriginalComposingText();
     lastComposingTextForCharAnim = null;
   }
 
@@ -513,18 +522,23 @@ public class Ime {
     if (text.length() > EditOperators.UNDO_TEXT_LIMIT) return;
     int startLine = composingStartActive ? composingStartLine : composingLine;
     int startChar = composingStartActive ? composingStartChar : composingOffset;
+    String originalText = getComposingOriginalText();
 
     if (composingPendingOp == null) {
-      if (text.isEmpty()) return;
+      if (text.isEmpty() && isEmptyOriginalComposingReplacement()) return;
       EditOp op = new EditOp();
-      op.startLine = startLine; op.startChar = startChar; op.endLine = startLine; op.endChar = startChar;
-      op.removedText = ""; op.insertedText = text;
+      op.startLine = startLine;
+      op.startChar = startChar;
+      op.endLine = startLine;
+      op.endChar = getComposingOriginalEndChar(startLine, startChar);
+      op.removedText = originalText;
+      op.insertedText = text;
       EditOp.CursorTarget insertedEnd = editor.editOperators.computeCursorAfterInsert(startLine, startChar, text);
       op.insertedEndLine = insertedEnd.line; op.insertedEndChar = insertedEnd.ch;
       op.cursorLineBefore = beforeLine; op.cursorCharBefore = beforeChar;
       op.cursorLineAfter = editor.cursor.cursorLine; op.cursorCharAfter = editor.cursor.cursorChar;
       op.timestamp = System.currentTimeMillis();
-      editor.editOperators.lineCountDelta += editor.editOperators.countNewlines(text);
+      editor.editOperators.lineCountDelta += editor.editOperators.countNewlines(text) - editor.editOperators.countNewlines(originalText);
       composingPendingOp = op;
       editor.editOperators.undoStack.addLast(op);
       while (editor.editOperators.undoStack.size() > EditOperators.UNDO_STACK_LIMIT) editor.editOperators.undoStack.removeFirst();
@@ -539,17 +553,51 @@ public class Ime {
     int prevNewlines = editor.editOperators.countNewlines(prev);
     int newNewlines = editor.editOperators.countNewlines(text);
     editor.editOperators.lineCountDelta += (newNewlines - prevNewlines);
+    composingPendingOp.endChar = getComposingOriginalEndChar(startLine, startChar);
+    composingPendingOp.removedText = originalText;
     composingPendingOp.insertedText = text;
     EditOp.CursorTarget insertedEnd = editor.editOperators.computeCursorAfterInsert(startLine, startChar, text);
     composingPendingOp.insertedEndLine = insertedEnd.line; composingPendingOp.insertedEndChar = insertedEnd.ch;
     composingPendingOp.cursorLineAfter = editor.cursor.cursorLine; composingPendingOp.cursorCharAfter = editor.cursor.cursorChar;
     composingPendingOp.timestamp = System.currentTimeMillis();
     editor.editOperators.lastEditTimestamp = composingPendingOp.timestamp;
-    if (text.isEmpty()) {
+    if (text.isEmpty() && isEmptyOriginalComposingReplacement()) {
       editor.editOperators.pendingEdits.remove(composingPendingOp);
       editor.editOperators.undoStack.remove(composingPendingOp);
       composingPendingOp = null;
     }
+  }
+
+  private void captureOriginalComposingTextIfNeeded() {
+    if (composingOriginalText != null) return;
+    String line = editor.windowRender.getLineTextForRender(composingLine);
+    if (line == null) line = "";
+    int start = Math.max(0, Math.min(composingOffset, line.length()));
+    int end = Math.max(start, Math.min(composingOffset + composingLength, line.length()));
+    composingOriginalLine = composingLine;
+    composingOriginalStartChar = start;
+    composingOriginalEndChar = end;
+    composingOriginalText = line.substring(start, end);
+  }
+
+  private void clearOriginalComposingText() {
+    composingOriginalLine = -1;
+    composingOriginalStartChar = 0;
+    composingOriginalEndChar = 0;
+    composingOriginalText = null;
+  }
+
+  private String getComposingOriginalText() {
+    return composingOriginalText == null ? "" : composingOriginalText;
+  }
+
+  private int getComposingOriginalEndChar(int fallbackLine, int fallbackChar) {
+    if (composingOriginalLine == fallbackLine) return Math.max(fallbackChar, composingOriginalEndChar);
+    return fallbackChar;
+  }
+
+  private boolean isEmptyOriginalComposingReplacement() {
+    return composingOriginalText == null || composingOriginalText.isEmpty();
   }
 
   public void markImeCommit(CharSequence textSeq) {

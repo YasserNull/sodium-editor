@@ -37,7 +37,17 @@ public class FileEditHandler {
             operators.history.pendingRedo.clear();
         }
         if (ops.isEmpty()) {
-            if (onComplete != null) editor.post(onComplete);
+            if (SodiumEditor.DEBUG_LOGS) {
+                editor.fileIO.ioHandler.post(() -> {
+                    final String savedFileContent = editor.fileIO.readSavedFileContentForLog();
+                    editor.post(() -> {
+                        editor.fileIO.logSaveContentComparison(savedFileContent);
+                        if (onComplete != null) onComplete.run();
+                    });
+                });
+            } else if (onComplete != null) {
+                editor.post(onComplete);
+            }
             return;
         }
         editor.fileIO.ioHandler.post(() -> {
@@ -50,10 +60,12 @@ public class FileEditHandler {
                 }
             }
             final boolean success = ok;
+            final String savedFileContent = success ? editor.fileIO.readSavedFileContentForLog() : "";
             editor.post(() -> {
                 if (!success) {
                     operators.history.pendingEdits.addAll(ops);
                 } else {
+                    editor.fileIO.logSaveContentComparison(savedFileContent);
                     synchronized (editor.windowRender.modifiedLines) {
                         editor.windowRender.modifiedLines.clear();
                     }

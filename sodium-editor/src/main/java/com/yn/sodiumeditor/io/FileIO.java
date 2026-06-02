@@ -2,6 +2,7 @@ package com.yn.sodiumeditor.io;
 
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.util.Log;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.StreamedCharSlice;
@@ -19,6 +20,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Main facade for File I/O operations in SodiumEditor.
  */
 public class FileIO {
+    private static final String LOG_TAG = "SodiumEditor";
+    private static final int SAVE_LOG_MAX_CHARS = 64 * 1024;
     private final SodiumEditor editor;
 
     // Sub-components
@@ -373,5 +376,77 @@ public class FileIO {
             if (i < total - 1) sb.append('\n');
         }
         return sb.toString();
+    }
+
+    public void logSaveContentComparison(@Nullable String savedFileContent) {
+        if (!SodiumEditor.DEBUG_LOGS) return;
+        String renderedText = getRenderedTextForSaveLog();
+        Log.d(LOG_TAG,
+                "[SodiumEditor]\n"
+                        + "operation=save-content-compare\n"
+                        + "file=" + ((sourceFile == null) ? "<none>" : sourceFile.getAbsolutePath()) + "\n"
+                        + "fileLength=" + ((sourceFile == null || !sourceFile.exists()) ? -1 : sourceFile.length()) + "\n"
+                        + "cursor=" + editor.cursor.getLine() + ":" + editor.cursor.getChar() + "\n"
+                        + "selection=" + editor.selection.selStartLine + ":" + editor.selection.selStartChar
+                        + "-" + editor.selection.selEndLine + ":" + editor.selection.selEndChar
+                        + " hasSelection=" + editor.selection.hasSelection + "\n"
+                        + "window=" + editor.windowRender.windowStartLine + "+"
+                        + editor.windowRender.linesWindow.size() + "\n"
+                        + "modifiedLines=" + editor.windowRender.modifiedLines.size() + "\n"
+                        + "savedFileContent=\n" + printableForSaveLog(savedFileContent) + "\n"
+                        + "renderedText=\n" + printableForSaveLog(renderedText));
+    }
+
+    public String readSavedFileContentForLog() {
+        if (!SodiumEditor.DEBUG_LOGS || sourceFile == null || !sourceFile.exists()) return "";
+        try (FileInputStream is = new FileInputStream(sourceFile);
+             ByteArrayOutputStream out = new ByteArrayOutputStream(Math.min(SAVE_LOG_MAX_CHARS, (int) Math.min(Integer.MAX_VALUE, sourceFile.length())))) {
+            byte[] buffer = new byte[8192];
+            int remaining = SAVE_LOG_MAX_CHARS;
+            int read;
+            while (remaining > 0 && (read = is.read(buffer, 0, Math.min(buffer.length, remaining))) != -1) {
+                out.write(buffer, 0, read);
+                remaining -= read;
+            }
+            String text = editor.binaryRender.isBinarySafeRenderingEnabled()
+                    ? editor.binaryRender.bytesToControlVisible(out.toByteArray(), out.size(), fileCharset)
+                    : new String(out.toByteArray(), fileCharset);
+            if (sourceFile.length() > out.size()) {
+                text += "\n...[truncated save log at " + SAVE_LOG_MAX_CHARS + " bytes]";
+            }
+            return text;
+        } catch (Exception e) {
+            return "<error reading saved file for log: " + e.getClass().getSimpleName() + ">";
+        }
+    }
+
+    private String getRenderedTextForSaveLog() {
+        int total = editor.view.getLinesCount();
+        if (total <= 0) return "";
+        java.util.HashMap<Integer, String> direct = new java.util.HashMap<>();
+        int maxLines = Math.min(total, 2000);
+        if (isIndexReady && sourceFile != null) populateDirectLinesForRange(0, maxLines - 1, direct);
+        StringBuilder sb = new StringBuilder(Math.min(SAVE_LOG_MAX_CHARS, 4096));
+        for (int i = 0; i < maxLines && sb.length() < SAVE_LOG_MAX_CHARS; i++) {
+            String ln = editor.windowRender.getLineTextForRenderWithDirect(i, direct);
+            if (ln != null) {
+                int remaining = SAVE_LOG_MAX_CHARS - sb.length();
+                sb.append(ln, 0, Math.min(ln.length(), Math.max(0, remaining)));
+            }
+            if (i < total - 1 && sb.length() < SAVE_LOG_MAX_CHARS) sb.append('\n');
+        }
+        if (total > maxLines || sb.length() >= SAVE_LOG_MAX_CHARS) {
+            sb.append("\n...[truncated rendered save log at ")
+                    .append(SAVE_LOG_MAX_CHARS)
+                    .append(" chars]");
+        }
+        return sb.toString();
+    }
+
+    private String printableForSaveLog(@Nullable String text) {
+        if (text == null) return "<null>";
+        if (text.length() <= SAVE_LOG_MAX_CHARS) return text;
+        return text.substring(0, SAVE_LOG_MAX_CHARS)
+                + "\n...[truncated save log at " + SAVE_LOG_MAX_CHARS + " chars]";
     }
 }
