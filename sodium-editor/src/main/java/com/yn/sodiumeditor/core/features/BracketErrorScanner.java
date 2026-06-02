@@ -7,6 +7,10 @@ public class BracketErrorScanner {
 
   private final SodiumEditor editor;
   private int lastScanEditVersion = -1;
+  private int lastScanFirstLine = -1;
+  private int lastScanLastLine = -1;
+  private int lastScanWindowStart = -1;
+  private int lastScanWindowSize = -1;
 
   public boolean unclosedBracketUnderlineEnabled = true;
 
@@ -29,10 +33,6 @@ public class BracketErrorScanner {
     if (!unclosedBracketUnderlineEnabled) return;
     if (!editor.errorUnderline.isErrorUnderlineEnabled()) return;
     int editVersion = editor.editOperators.editVersion.get();
-    if (editVersion == lastScanEditVersion) return;
-    lastScanEditVersion = editVersion;
-
-    editor.errorUnderline.clearErrorUnderlines();
 
     int totalLines = editor.view.getLinesCount();
     if (totalLines <= 0) return;
@@ -40,6 +40,32 @@ public class BracketErrorScanner {
     int firstLine = Math.max(0, editor.viewRender.drawBaseLine);
     int visCount = (int) Math.ceil(editor.getHeight() / editor.textRender.lineHeight) + 1;
     int lastLine = Math.min(totalLines - 1, firstLine + visCount);
+    int windowStart;
+    int windowSize;
+    synchronized (editor.windowRender.linesWindow) {
+      windowStart = editor.windowRender.windowStartLine;
+      windowSize = editor.windowRender.linesWindow.size();
+    }
+    int loadedFirstLine = windowStart;
+    int loadedLastLine = windowStart + windowSize - 1;
+    firstLine = Math.max(firstLine, loadedFirstLine);
+    lastLine = Math.min(lastLine, loadedLastLine);
+    if (firstLine > lastLine) return;
+    if (editVersion == lastScanEditVersion
+        && firstLine == lastScanFirstLine
+        && lastLine == lastScanLastLine
+        && windowStart == lastScanWindowStart
+        && windowSize == lastScanWindowSize) {
+      return;
+    }
+
+    lastScanEditVersion = editVersion;
+    lastScanFirstLine = firstLine;
+    lastScanLastLine = lastLine;
+    lastScanWindowStart = windowStart;
+    lastScanWindowSize = windowSize;
+
+    editor.errorUnderline.clearErrorUnderlines();
 
     ArrayDeque<BracketPos> openStack = new ArrayDeque<>();
     boolean inString = false;
