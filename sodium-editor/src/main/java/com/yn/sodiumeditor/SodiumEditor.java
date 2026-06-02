@@ -73,7 +73,9 @@ import com.yn.sodiumeditor.input.events.OnKeyDown;
 import com.yn.sodiumeditor.core.autocompletion.*;
 import com.yn.sodiumeditor.core.binary.*;
 import com.yn.sodiumeditor.core.cursor.*;
-import com.yn.sodiumeditor.core.features.*;
+import com.yn.sodiumeditor.core.features.AutoBracketNewline;
+import com.yn.sodiumeditor.core.features.AutoBracketPair;
+import com.yn.sodiumeditor.core.features.ClickAfterEndToAddLine;
 import com.yn.sodiumeditor.core.search.*;
 import com.yn.sodiumeditor.core.guides.indent.*;
 import com.yn.sodiumeditor.core.guides.bracket.*;
@@ -142,6 +144,7 @@ public class SodiumEditor extends View {
   public final SelectionHandles selectionHandles;
   public final CurrentLineHighlight currentLineHighlight;
   public final ClickAfterEndToAddLine clickAfterEndToAddLine;
+  public final com.yn.sodiumeditor.core.features.BracketErrorScanner bracketErrorScanner;
   public final BracketCache bracketCache;
   public final EditOperators editOperators;
   public final ViewRender viewRender;
@@ -160,6 +163,7 @@ public class SodiumEditor extends View {
   lineNumber = new LineNumber(this);
   currentLineHighlight = new CurrentLineHighlight(this);
   clickAfterEndToAddLine = new ClickAfterEndToAddLine(this);
+  bracketErrorScanner = new com.yn.sodiumeditor.core.features.BracketErrorScanner(this);
   highlite = new Highlite(this);
   highlightRules = new HighlightRules(this, highlite);
   view = new com.yn.sodiumeditor.core.view.View(this);

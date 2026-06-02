@@ -67,6 +67,7 @@ public class ViewRender {
     if (editor.wordWrap.isWordWrapEnabled) {
       editor.textRender.drawlineNumbersCachedWrapped(canvas, firstVisibleIndex, lastVisibleIndex);
     }
+    editor.bracketErrorScanner.scanForErrors();
     drawContentInternal(canvas, shouldDrawBracketGuides);
     editor.scroll.bar.draw(canvas);
   }
