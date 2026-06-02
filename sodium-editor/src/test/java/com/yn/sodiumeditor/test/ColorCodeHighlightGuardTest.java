@@ -43,6 +43,17 @@ public class ColorCodeHighlightGuardTest {
   }
 
   @Test
+  public void drawColorCodeBackgrounds_shouldBeCalledFromViewRenderDrawLoop() throws Exception {
+    String src =
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/ViewRender.java");
+    String drawLoop = methodBody(src, "void drawTextContent(Canvas canvas,");
+    assertTrue(
+        "BUG: drawColorCodeBackgrounds must be called in the render loop, otherwise color swatches are never drawn.",
+        drawLoop.contains("drawColorCodeBackgrounds(canvas, line, i)"));
+  }
+
+  @Test
   public void colorCodeHighlight_shouldSkipLinesWithoutColorPrefixes() throws Exception {
     String src =
         readSource(

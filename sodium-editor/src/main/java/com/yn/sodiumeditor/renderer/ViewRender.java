@@ -309,6 +309,7 @@ public class ViewRender {
                     + " directLines="
                     + (directLines != null));
         }
+        if (line != null) editor.colorCodeHighlight.drawColorCodeBackgrounds(canvas, line, i);
         editor.textRender.drawHighlightedLine(canvas, line, i, y);
         if (editor.autoCompletion != null && line != null) {
             editor.autoCompletion.drawAutoSuggestion(canvas, line, i, y);
