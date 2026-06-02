@@ -24,10 +24,10 @@ public class AutoBracketPairSmartClosingGuardTest {
                 < handleBody.indexOf("editor.editOperators.insertTextAtCursor(closing)"));
     assertTrue(
         "BUG: unmatched existing closers like ) ] } must suppress duplicate auto-pairing.",
-        helperBody.contains("hasUnmatchedClosingForOpening(balance, opening)"));
+        helperBody.contains("hasUnmatchedClosingForOpening(windowBalance, opening)"));
     assertTrue(
         "BUG: multi-character closers like */ must be reused when they are directly after cursor.",
-        helperBody.contains("balance.unmatchedBlockClose > 0 || balance.unmatchedBlockOpen == 0"));
+        helperBody.contains("windowBalance.unmatchedBlockClose > 0 || windowBalance.unmatchedBlockOpen == 0"));
   }
 
   @Test
@@ -54,7 +54,7 @@ public class AutoBracketPairSmartClosingGuardTest {
     String src =
         readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/features/AutoBracketPair.java");
     String cacheBody = methodBody(src, "private BalanceInfo getBalanceInfo");
-    String computeBody = methodBody(src, "static BalanceInfo compute");
+    String scanBody = methodBody(src, "void scanLine");
 
     assertTrue(
         "BUG: balance cache must be invalidated by typing, paste, undo, redo, and file changes through editVersion/text identity.",
@@ -64,12 +64,29 @@ public class AutoBracketPairSmartClosingGuardTest {
             && cacheBody.contains("cached.textLength == textLength"));
     assertTrue(
         "BUG: balance cache must include brackets, quotes, and block comment tokens.",
-        computeBody.contains("doubleQuoteCount")
-            && computeBody.contains("singleQuoteCount")
-            && computeBody.contains("backtickQuoteCount")
-            && computeBody.contains("unmatchedParenOpen")
-            && computeBody.contains("unmatchedBlockOpen")
-            && computeBody.contains("unmatchedBlockClose"));
+        scanBody.contains("doubleQuoteCount")
+            && scanBody.contains("singleQuoteCount")
+            && scanBody.contains("backtickQuoteCount")
+            && scanBody.contains("unmatchedParenOpen")
+            && scanBody.contains("unmatchedBlockOpen")
+            && scanBody.contains("unmatchedBlockClose"));
+  }
+
+  @Test
+  public void autoPair_shouldUseVisibleWindowBalanceSoClosersOnNextLineAreReused() throws Exception {
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/features/AutoBracketPair.java");
+    String helperBody = methodBody(src, "private boolean shouldSuppressAutoPair");
+
+    assertTrue(
+        "BUG: line-local balance misses an existing closer on the next line and duplicates it.",
+        helperBody.contains("getWindowBalanceInfo()")
+            && helperBody.contains("hasUnmatchedClosingForOpening(windowBalance, opening)"));
+    assertTrue(
+        "BUG: window balance cache must be edit-versioned and must read the visible lines window.",
+        src.contains("private BalanceInfo getWindowBalanceInfo()")
+            && src.contains("windowBalanceCache")
+            && src.contains("editor.windowRender.linesWindow"));
   }
 
   private static String readSource(String rel) throws Exception {

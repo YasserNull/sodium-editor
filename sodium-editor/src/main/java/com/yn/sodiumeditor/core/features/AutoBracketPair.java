@@ -20,6 +20,7 @@ public class AutoBracketPair {
           return size() > BALANCE_CACHE_LIMIT;
         }
       };
+  private BalanceInfo windowBalanceCache;
 
   public AutoBracketPair(SodiumEditor editor) {
     this.editor = editor;
@@ -78,11 +79,12 @@ public class AutoBracketPair {
       if (isQuotePair(opening)) {
           return balance.getQuoteCount(opening) > 0 && (balance.getQuoteCount(opening) % 2) == 0;
       }
+      BalanceInfo windowBalance = getWindowBalanceInfo();
       if (opening == '*') {
-          return balance.unmatchedBlockClose > 0 || balance.unmatchedBlockOpen == 0;
+          return windowBalance.unmatchedBlockClose > 0 || windowBalance.unmatchedBlockOpen == 0;
       }
-      if (hasUnmatchedClosingForOpening(balance, opening)) return true;
-      if (!hasUnmatchedOpeningForOpening(balance, opening)) return true;
+      if (hasUnmatchedClosingForOpening(windowBalance, opening)) return true;
+      if (!hasUnmatchedOpeningForOpening(windowBalance, opening)) return true;
       if (closing.length() == 1) {
           return pos < line.length() && line.charAt(pos) == closing.charAt(0);
       }
@@ -123,14 +125,48 @@ public class AutoBracketPair {
       return computed;
   }
 
+  private BalanceInfo getWindowBalanceInfo() {
+      int version = editor.editOperators.editVersion.get();
+      int windowStart = editor.windowRender.windowStartLine;
+      int textHash = 1;
+      int textLength = 0;
+      int lineCount;
+      synchronized (editor.windowRender.linesWindow) {
+          lineCount = editor.windowRender.linesWindow.size();
+          for (int i = 0; i < lineCount; i++) {
+              String line = editor.windowRender.linesWindow.get(i);
+              textHash = 31 * textHash + (line != null ? line.hashCode() : 0);
+              textLength += line != null ? line.length() : 0;
+          }
+          BalanceInfo cached = windowBalanceCache;
+          if (cached != null
+              && cached.editVersion == version
+              && cached.windowStart == windowStart
+              && cached.lineCount == lineCount
+              && cached.textHash == textHash
+              && cached.textLength == textLength) {
+              return cached;
+          }
+          BalanceInfo computed = new BalanceInfo(version, textHash, textLength, windowStart, lineCount);
+          for (int i = 0; i < lineCount; i++) {
+              computed.scanLine(editor.windowRender.linesWindow.get(i));
+          }
+          windowBalanceCache = computed;
+          return computed;
+      }
+  }
+
   public void clearBalanceCache() {
       balanceCache.clear();
+      windowBalanceCache = null;
   }
 
   private static class BalanceInfo {
       final int editVersion;
       final int textHash;
       final int textLength;
+      final int windowStart;
+      final int lineCount;
       int doubleQuoteCount;
       int singleQuoteCount;
       int backtickQuoteCount;
@@ -144,9 +180,15 @@ public class AutoBracketPair {
       int unmatchedBlockClose;
 
       BalanceInfo(int editVersion, int textHash, int textLength) {
+          this(editVersion, textHash, textLength, -1, 1);
+      }
+
+      BalanceInfo(int editVersion, int textHash, int textLength, int windowStart, int lineCount) {
           this.editVersion = editVersion;
           this.textHash = textHash;
           this.textLength = textLength;
+          this.windowStart = windowStart;
+          this.lineCount = lineCount;
       }
 
       int getQuoteCount(char quote) {
@@ -158,61 +200,65 @@ public class AutoBracketPair {
 
       static BalanceInfo compute(int editVersion, int textHash, int textLength, String line) {
           BalanceInfo info = new BalanceInfo(editVersion, textHash, textLength);
-          if (line == null || line.isEmpty()) return info;
+          info.scanLine(line);
+          return info;
+      }
+
+      void scanLine(String line) {
+          if (line == null || line.isEmpty()) return;
           for (int i = 0; i < line.length(); i++) {
               char c = line.charAt(i);
               if (isEscaped(line, i)) continue;
               if (i + 1 < line.length()) {
                   char next = line.charAt(i + 1);
                   if (c == '/' && next == '*') {
-                      info.unmatchedBlockOpen++;
+                      unmatchedBlockOpen++;
                       i++;
                       continue;
                   }
                   if (c == '*' && next == '/') {
-                      if (info.unmatchedBlockOpen > 0) info.unmatchedBlockOpen--;
-                      else info.unmatchedBlockClose++;
+                      if (unmatchedBlockOpen > 0) unmatchedBlockOpen--;
+                      else unmatchedBlockClose++;
                       i++;
                       continue;
                   }
               }
               if (c == '"') {
-                  info.doubleQuoteCount++;
+                  doubleQuoteCount++;
                   continue;
               }
               if (c == '\'') {
-                  info.singleQuoteCount++;
+                  singleQuoteCount++;
                   continue;
               }
               if (c == '`') {
-                  info.backtickQuoteCount++;
+                  backtickQuoteCount++;
                   continue;
               }
               switch (c) {
                   case '(':
-                      info.unmatchedParenOpen++;
+                      unmatchedParenOpen++;
                       break;
                   case ')':
-                      if (info.unmatchedParenOpen > 0) info.unmatchedParenOpen--;
-                      else info.unmatchedParenClose++;
+                      if (unmatchedParenOpen > 0) unmatchedParenOpen--;
+                      else unmatchedParenClose++;
                       break;
                   case '{':
-                      info.unmatchedBraceOpen++;
+                      unmatchedBraceOpen++;
                       break;
                   case '}':
-                      if (info.unmatchedBraceOpen > 0) info.unmatchedBraceOpen--;
-                      else info.unmatchedBraceClose++;
+                      if (unmatchedBraceOpen > 0) unmatchedBraceOpen--;
+                      else unmatchedBraceClose++;
                       break;
                   case '[':
-                      info.unmatchedBracketOpen++;
+                      unmatchedBracketOpen++;
                       break;
                   case ']':
-                      if (info.unmatchedBracketOpen > 0) info.unmatchedBracketOpen--;
-                      else info.unmatchedBracketClose++;
+                      if (unmatchedBracketOpen > 0) unmatchedBracketOpen--;
+                      else unmatchedBracketClose++;
                       break;
               }
           }
-          return info;
       }
 
       private static boolean isEscaped(String line, int index) {
