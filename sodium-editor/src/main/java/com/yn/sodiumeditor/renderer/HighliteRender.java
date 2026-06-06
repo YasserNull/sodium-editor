@@ -407,31 +407,9 @@ public class HighliteRender {
 
         // Draw with syntax highlighting
         if (tracingCharAnimLine) logCharAnimRender("render branch=highlight spans=" + spans.size() + " fadeStart=" + fadeStart + " fadeEnd=" + fadeEnd);
-        float currentX = 0f;
-        int lastEnd = 0;
-
-        for (HighlightSpan span : spans) {
-            if (span.start < lastEnd) continue;
-            if (span.start >= line.length()) break;
-            int safeSpanEnd = Math.min(span.end, line.length());
-
-            if (span.start > lastEnd) {
-                currentX += editor.textRender.drawTextSegmentWithFadeAndUnderlines(
-                        canvas, line, lastEnd, span.start, currentX, y, editor.textRender.paint,
-                        fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
-            }
-
-            currentX += editor.textRender.drawTextSegmentWithFadeAndUnderlines(
-                    canvas, line, span.start, safeSpanEnd, currentX, y, span.paint,
-                    fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
-            lastEnd = safeSpanEnd;
-        }
-
-        if (lastEnd < line.length()) {
-            editor.textRender.drawTextSegmentWithFadeAndUnderlines(
-                    canvas, line, lastEnd, line.length(), currentX, y, editor.textRender.paint,
-                    fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
-        }
+        drawSyntaxSpansMaskedByColorCodes(
+                canvas, line, globalLine, 0, line.length(), 0f, y, spans,
+                fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
 
         // Draw delete animation
         if (globalLine == editor.charAnimation.delAnimLine
@@ -574,30 +552,9 @@ public class HighliteRender {
                 spans = editor.highlite.calculateSpansForLine(line, globalLine);
                 editor.highlite.highlightCache.put(globalLine, spans);
             }
-            for (HighlightSpan span : spans) {
-                if (span.end <= start) continue;
-                if (span.start >= end) break;
-
-                int segStart = Math.max(start, span.start);
-                int segEnd = Math.min(end, span.end);
-
-                if (segStart > lastEnd) {
-                    currentX += editor.textRender.drawTextSegmentWithFadeAndUnderlines(
-                            canvas, line, lastEnd, segStart, currentX, y, editor.textRender.paint,
-                            fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
-                }
-                if (segEnd > segStart) {
-                    currentX += editor.textRender.drawTextSegmentWithFadeAndUnderlines(
-                            canvas, line, segStart, segEnd, currentX, y, span.paint,
-                            fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
-                }
-                lastEnd = Math.max(lastEnd, segEnd);
-            }
-            if (lastEnd < end) {
-                editor.textRender.drawTextSegmentWithFadeAndUnderlines(
-                        canvas, line, lastEnd, end, currentX, y, editor.textRender.paint,
-                        fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
-            }
+            drawSyntaxSpansMaskedByColorCodes(
+                    canvas, line, globalLine, start, end, currentX, y, spans,
+                    fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
         }
 
         // Draw delete animation
@@ -661,11 +618,30 @@ public class HighliteRender {
             editor.highlite.highlightCache.put(globalLine, spans);
         }
 
-        float currentX = 0f;
-        int lastEnd = start;
+        drawSyntaxSpansMaskedByColorCodes(
+                canvas, line, globalLine, start, end, 0f, y, spans,
+                fadeStart, fadeEnd, fadeAlpha, urlUnderlines, lineTop, lineBottom);
+    }
 
-        if (!spans.isEmpty()) {
-            for (HighlightSpan span : spans) {
+    private float drawSyntaxSpansMaskedByColorCodes(
+            Canvas canvas,
+            String line,
+            int globalLine,
+            int start,
+            int end,
+            float currentX,
+            float y,
+            List<HighlightSpan> spans,
+            int fadeStart,
+            int fadeEnd,
+            float fadeAlpha,
+            List<TextRender.UnderlineSpan> underlines,
+            float lineTop,
+            float lineBottom) {
+        List<HighlightSpan> maskedSpans = maskColorCodeSpans(line, globalLine, spans);
+        int lastEnd = start;
+        if (!maskedSpans.isEmpty()) {
+            for (HighlightSpan span : maskedSpans) {
                 if (lastEnd >= end) break;
                 if (span.end <= start) continue;
                 if (span.start >= end) break;
@@ -676,23 +652,58 @@ public class HighliteRender {
                 if (segStart > lastEnd) {
                     currentX += editor.textRender.drawTextSegmentWithFadeAndUnderlines(
                             canvas, line, lastEnd, segStart, currentX, y, editor.textRender.paint,
-                            fadeStart, fadeEnd, fadeAlpha, urlUnderlines, lineTop, lineBottom);
+                            fadeStart, fadeEnd, fadeAlpha, underlines, lineTop, lineBottom);
                 }
 
                 if (segEnd > segStart) {
                     currentX += editor.textRender.drawTextSegmentWithFadeAndUnderlines(
                             canvas, line, segStart, segEnd, currentX, y, span.paint,
-                            fadeStart, fadeEnd, fadeAlpha, urlUnderlines, lineTop, lineBottom);
+                            fadeStart, fadeEnd, fadeAlpha, underlines, lineTop, lineBottom);
                 }
                 lastEnd = Math.max(lastEnd, segEnd);
             }
         }
 
         if (lastEnd < end) {
-            editor.textRender.drawTextSegmentWithFadeAndUnderlines(
+            currentX += editor.textRender.drawTextSegmentWithFadeAndUnderlines(
                     canvas, line, lastEnd, end, currentX, y, editor.textRender.paint,
-                    fadeStart, fadeEnd, fadeAlpha, urlUnderlines, lineTop, lineBottom);
+                    fadeStart, fadeEnd, fadeAlpha, underlines, lineTop, lineBottom);
         }
+        return currentX;
+    }
+
+    private List<HighlightSpan> maskColorCodeSpans(String line, int globalLine, List<HighlightSpan> spans) {
+        if (spans == null || spans.isEmpty()) return spans;
+        int[] colorSpans = editor.colorCodeHighlight.getColorCodeSpansForLine(line, globalLine);
+        if (colorSpans.length == 0) return spans;
+
+        ArrayList<HighlightSpan> masked = new ArrayList<>();
+        boolean changedAny = false;
+        for (HighlightSpan span : spans) {
+            int current = span.start;
+            boolean changed = false;
+            for (int i = 0; i + 2 < colorSpans.length; i += 3) {
+                int colorStart = colorSpans[i];
+                int colorEnd = colorSpans[i + 1];
+                if (colorEnd <= current) continue;
+                if (colorStart >= span.end) break;
+                if (colorStart > current) {
+                    masked.add(new HighlightSpan(current, Math.min(colorStart, span.end), span.paint));
+                }
+                current = Math.max(current, Math.min(colorEnd, span.end));
+                changed = true;
+                changedAny = true;
+                if (current >= span.end) break;
+            }
+            if (current < span.end) {
+                masked.add(changed ? new HighlightSpan(current, span.end, span.paint) : span);
+            } else if (!changed) {
+                masked.add(span);
+            }
+        }
+        if (!changedAny) return spans;
+        if (masked.isEmpty()) return java.util.Collections.emptyList();
+        return masked;
     }
     
     public void setMaxSyntaxLineLength(int maxChars) {

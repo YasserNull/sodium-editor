@@ -74,6 +74,11 @@ public class BracketGuideCache {
       BracketGuideState stateBeforeStart,
       BracketGuideFallbackCache fallbackCache) {
 
+    if (editor.shouldSuppressBracketGuidesForSelectAll()) {
+      bracketGuideBuildInProgress = false;
+      return;
+    }
+
     // Save old cache to fallback before swapping (prevents flickering)
     fallbackCache.mergeWithMainCache(
         bracketGuideTokensWindow,
@@ -110,6 +115,11 @@ public class BracketGuideCache {
       BracketGuideState stateAtEnd,
       BracketGuideState stateBeforeStart,
       BracketGuideFallbackCache fallbackCache) {
+
+    if (editor.shouldSuppressBracketGuidesForSelectAll()) {
+      bracketGuideBuildInProgress = false;
+      return;
+    }
 
     // If no existing cache, treat as full swap
     if (bracketGuideCacheStartLine < 0 || bracketGuideCacheEndLine < bracketGuideCacheStartLine) {

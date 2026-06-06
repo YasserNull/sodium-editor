@@ -1,5 +1,6 @@
 package com.yn.sodiumeditor.io;
 import androidx.annotation.Nullable;
+import android.util.Log;
 import com.yn.sodiumeditor.SodiumEditor;
 import java.io.File;
 import java.io.FileInputStream;
@@ -14,6 +15,7 @@ import java.util.ArrayList;
  * Handles asynchronous and blocking file rewrite operations.
  */
 public class FileEditHandler {
+    private static final String TAG = "SodiumEditor";
     private final SodiumEditor editor;
     private final EditOperators operators;
 
@@ -37,6 +39,11 @@ public class FileEditHandler {
             operators.history.pendingRedo.clear();
         }
         if (ops.isEmpty()) {
+            if (operators.fileStateDirtyAfterUndoRestore) {
+                operators.clearFileStateDirtyAfterSave();
+                if (onComplete != null) editor.post(onComplete);
+                return;
+            }
             if (SodiumEditor.DEBUG_LOGS) {
                 editor.fileIO.ioHandler.post(() -> {
                     final String savedFileContent = editor.fileIO.readSavedFileContentForLog();
@@ -50,11 +57,22 @@ public class FileEditHandler {
             }
             return;
         }
+        logSaveUndo("save.pending.start", "ops=" + ops.size() + " file=" + safeFilePath(editor.fileIO.sourceFile));
         editor.fileIO.ioHandler.post(() -> {
             boolean ok = true;
             for (EditOp op : ops) {
-                if (!rewriteReplaceRangeBlocking(
-                        editor.fileIO.sourceFile, op.startLine, op.startChar, op.endLine, op.endChar, op.insertedText)) {
+                logSaveUndo("save.pending.op", describeOp(op));
+                if (!ensureRemovedTextBackupForUndo(op)) {
+                    logSaveUndo("save.backup.failed", describeOp(op));
+                    ok = false;
+                    break;
+                }
+                boolean rewritten = op.entireFileDelete
+                        ? rewriteEntireFileReplaceBlocking(editor.fileIO.sourceFile, op.insertedText)
+                        : rewriteReplaceRangeBlocking(
+                                editor.fileIO.sourceFile, op.startLine, op.startChar, op.endLine, op.endChar, op.insertedText);
+                if (!rewritten) {
+                    logSaveUndo("save.rewrite.failed", describeOp(op));
                     ok = false;
                     break;
                 }
@@ -64,19 +82,99 @@ public class FileEditHandler {
             editor.post(() -> {
                 if (!success) {
                     operators.history.pendingEdits.addAll(ops);
+                    logSaveUndo("save.pending.restore", "ops=" + ops.size());
                 } else {
-                    editor.fileIO.logSaveContentComparison(savedFileContent);
+                    operators.clearFileStateDirtyAfterSave();
+                    logSaveUndo("save.pending.success", "ops=" + ops.size() + " fileLength=" + editor.fileIO.sourceFile.length());
                     synchronized (editor.windowRender.modifiedLines) {
                         editor.windowRender.modifiedLines.clear();
                     }
+                    synchronized (editor.fileIO.directLineCache) {
+                        editor.fileIO.directLineCache.clear();
+                    }
+                    synchronized (editor.windowRender.lineWidthCache) {
+                        editor.windowRender.lineWidthCache.clear();
+                    }
+                    editor.windowRender.clearStreamedLineCaches();
                     operators.lineCountDelta = 0;
                     editor.lineNumber.invalidateLineNumberCache();
-                    editor.requestLayout();
-                    editor.invalidate();
+                    int reloadStart = Math.max(0, editor.cursor.cursorLine - editor.windowRender.prefetchLines);
+                    editor.fileIO.loadWindowAround(reloadStart, () -> {
+                        editor.fileIO.logSaveContentComparison(savedFileContent);
+                        editor.requestLayout();
+                        editor.invalidate();
+                        if (onComplete != null) onComplete.run();
+                    }, false);
+                    return;
                 }
                 if (onComplete != null) onComplete.run();
             });
         });
+    }
+
+    private boolean ensureRemovedTextBackupForUndo(EditOp op) {
+        if (op == null || op.removedText != null || editor.fileIO.sourceFile == null) return true;
+        if (op.removedTextBackupFile != null && op.removedTextBackupFile.exists()) return true;
+        if (!op.entireFileDelete
+                && (op.endLine < op.startLine || (op.endLine == op.startLine && op.endChar <= op.startChar))) {
+            return true;
+        }
+        try {
+            File backup = File.createTempFile("sodium_removed_", ".bak", editor.getContext().getCacheDir());
+            try (RandomAccessFile rafIn = new RandomAccessFile(editor.fileIO.sourceFile, "r");
+                 FileChannel inCh = rafIn.getChannel();
+                 RandomAccessFile rafOut = new RandomAccessFile(backup, "rw");
+                 FileChannel outCh = rafOut.getChannel()) {
+                long fileLen = editor.fileIO.sourceFile.length();
+                long startByte = 0L;
+                long endByte = fileLen;
+                if (!op.entireFileDelete) {
+                    EditOp.RangeBytes range = operators.locator.computeByteRangeFastOrScan(
+                            editor.fileIO.sourceFile, op.startLine, op.startChar, op.endLine, op.endChar);
+                    if (range == null) return false;
+                    startByte = Math.max(0, Math.min(range.startByte, fileLen));
+                    endByte = Math.max(0, Math.min(range.endByte, fileLen));
+                }
+                if (endByte < startByte) {
+                    long t = startByte;
+                    startByte = endByte;
+                    endByte = t;
+                }
+                transferRange(inCh, outCh, startByte, endByte - startByte);
+                outCh.force(true);
+            }
+            op.removedTextBackupFile = backup;
+            logSaveUndo(
+                    "save.backup.created",
+                    describeOp(op) + " backup=" + safeFilePath(backup) + " bytes=" + backup.length());
+            return true;
+        } catch (Exception e) {
+            logSaveUndo("save.backup.exception", e.getClass().getSimpleName() + " " + describeOp(op));
+            return false;
+        }
+    }
+
+    public boolean rewriteEntireFileReplaceBlocking(File inFile, @Nullable String insertText) {
+        if (inFile == null || !inFile.exists()) return false;
+        try (RandomAccessFile raf = new RandomAccessFile(inFile, "rw");
+             FileChannel ch = raf.getChannel()) {
+            byte[] insertBytes = (insertText == null) ? new byte[0] : insertText.getBytes(StandardCharsets.UTF_8);
+            raf.setLength(0L);
+            if (insertBytes.length > 0) {
+                ch.write(ByteBuffer.wrap(insertBytes), 0L);
+            }
+            ch.force(true);
+            editor.fileIO.sourceFile = inFile;
+            synchronized (editor.fileIO.lineOffsetsLock) {
+                editor.fileIO.lineOffsets = new long[0];
+            }
+            editor.fileIO.isIndexReady = false;
+            editor.fileIO.isIndexBuilding = false;
+            editor.fileIO.ioHandler.post(editor.fileIO::buildFileIndex);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public boolean rewriteReplaceRangeBlocking(
@@ -277,5 +375,53 @@ public class FileEditHandler {
             pos += sent;
             remaining -= sent;
         }
+    }
+
+    private void logSaveUndo(String operation, String details) {
+        if (!SodiumEditor.DEBUG_LOGS) return;
+        Log.d(
+                TAG,
+                "[SodiumEditor] operation="
+                        + operation
+                        + " cursor="
+                        + editor.cursor.cursorLine
+                        + ":"
+                        + editor.cursor.cursorChar
+                        + " pendingEdits="
+                        + operators.getPendingEditsCount()
+                        + " undo="
+                        + operators.canUndo()
+                        + " thread="
+                        + Thread.currentThread().getName()
+                        + " "
+                        + details);
+    }
+
+    private String describeOp(EditOp op) {
+        if (op == null) return "op=<null>";
+        return "range="
+                + op.startLine
+                + ":"
+                + op.startChar
+                + ".."
+                + op.endLine
+                + ":"
+                + op.endChar
+                + " insertedEnd="
+                + op.insertedEndLine
+                + ":"
+                + op.insertedEndChar
+                + " entireFileDelete="
+                + op.entireFileDelete
+                + " removedText="
+                + (op.removedText == null ? "<file-backed>" : "chars=" + op.removedText.length())
+                + " insertedChars="
+                + (op.insertedText == null ? 0 : op.insertedText.length())
+                + " backup="
+                + safeFilePath(op.removedTextBackupFile);
+    }
+
+    private String safeFilePath(@Nullable File file) {
+        return file == null ? "<null>" : file.getAbsolutePath();
     }
 }

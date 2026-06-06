@@ -69,23 +69,18 @@ public class BracketGuideCheckpoint {
       }
 
       if (startOffset >= 0) {
-        try (java.io.FileInputStream fis = new java.io.FileInputStream(editor.fileIO.sourceFile)) {
-          fis.getChannel().position(startOffset);
-          try (java.io.InputStreamReader isr = new java.io.InputStreamReader(fis, editor.fileIO.fileCharset);
-               java.io.BufferedReader reader = new java.io.BufferedReader(isr, 65536)) {
-
-            for (int line = startLine; line <= endLine; line++) {
-              if (line % bracketGuideCheckpointStep == 0) {
-                ensureCheckpointCapacity(checkpointCount + 1);
-                checkpointLines[checkpointCount] = line;
-                bracketGuideCheckpointStates.add(BracketGuides.copyState(state));
-                checkpointCount++;
-              }
-              String text = reader.readLine();
-              if (text == null) break;
-              bracketGuides.updateBracketGuideStateForLine(text, line, state);
-              bracketGuideCheckpointMaxLine = line;
+        try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(editor.fileIO.sourceFile, "r")) {
+          for (int line = startLine; line <= endLine; line++) {
+            if (line % bracketGuideCheckpointStep == 0) {
+              ensureCheckpointCapacity(checkpointCount + 1);
+              checkpointLines[checkpointCount] = line;
+              bracketGuideCheckpointStates.add(BracketGuides.copyState(state));
+              checkpointCount++;
             }
+            String text = bracketGuides.readIndexedLinePrefix(line, raf);
+            if (text == null) break;
+            bracketGuides.updateBracketGuideStateForLine(text, line, state);
+            bracketGuideCheckpointMaxLine = line;
           }
         } catch (Exception e) {
           e.printStackTrace();

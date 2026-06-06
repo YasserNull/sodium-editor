@@ -39,9 +39,21 @@ public class GutterUtils {
 
     public float calculateGutterWidth() {
         if (!lineNumber.showLineNumbers) return 0f;
-        int total = editor.view.getLinesCount();
+        int total = estimateLineCountForGutter();
         String maxLineNum = String.valueOf(Math.max(1, total));
         float baseWidth = lineNumber.lineNumbersPaint.measureText(maxLineNum) + (LineNumber.GUTTER_TEXT_PADDING * 2);
         return baseWidth + lineNumber.gutterSeparatorWidth;
+    }
+
+    public int estimateLineCountForGutter() {
+        if (editor.fileIO.sourceFile != null && !editor.fileIO.isFileCleared) {
+            if (editor.fileIO.isIndexReady && editor.fileIO.lineOffsets.length > 0) {
+                return Math.max(1, editor.fileIO.lineOffsets.length + editor.editOperators.lineCountDelta);
+            }
+            if (!editor.fileIO.isEof) {
+                return 999999;
+            }
+        }
+        return Math.max(1, editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size());
     }
 }

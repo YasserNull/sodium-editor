@@ -2,6 +2,7 @@ package com.yn.sodiumeditor.io;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import java.io.File;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 
@@ -22,6 +23,8 @@ public class EditOp {
     public int cursorLineAfter;
     public int cursorCharAfter;
     public long timestamp;
+    public File removedTextBackupFile;
+    public boolean entireFileDelete;
 
     /**
      * Represents a cursor target position
@@ -63,6 +66,8 @@ public class EditOp {
         obj.put("cursorLineAfter", op.cursorLineAfter);
         obj.put("cursorCharAfter", op.cursorCharAfter);
         obj.put("timestamp", op.timestamp);
+        obj.put("removedTextBackupFile", op.removedTextBackupFile == null ? JSONObject.NULL : op.removedTextBackupFile.getAbsolutePath());
+        obj.put("entireFileDelete", op.entireFileDelete);
         return obj;
     }
 
@@ -81,6 +86,8 @@ public class EditOp {
         op.cursorLineAfter = obj.optInt("cursorLineAfter", 0);
         op.cursorCharAfter = obj.optInt("cursorCharAfter", 0);
         op.timestamp = obj.optLong("timestamp", 0L);
+        op.removedTextBackupFile = obj.isNull("removedTextBackupFile") ? null : new File(obj.optString("removedTextBackupFile", ""));
+        op.entireFileDelete = obj.optBoolean("entireFileDelete", false);
         return op;
     }
 

@@ -272,6 +272,90 @@ public class View {
         editor.invalidate();
     }
 
+    public void applyTextSizePxForZoomFrame(float sizePx) {
+        float oldSize = editor.textRender.paint.getTextSize();
+        if (Math.abs(sizePx - oldSize) < 0.1f) return;
+
+        editor.textRender.paint.setTextSize(sizePx);
+        editor.binaryRender.updateCachedCharWidth(editor.textRender.paint);
+
+        if (!editor.autoCompletion.isSuggestionTextSizeCustom) {
+            editor.autoCompletion.suggestionTextSizeScale = 1f;
+        }
+        editor.autoCompletion.suggestionPaint.setTextSize(sizePx * editor.autoCompletion.suggestionTextSizeScale);
+        editor.lineNumber.lineNumbersPaint.setTextSize(sizePx);
+        editor.wordWrap.indicator.wordWrapIndicatorPaint.setTextSize(
+                sizePx * editor.wordWrap.indicator.wordWrapIndicatorTextScale);
+        editor.wordWrap.indicator.wordWrapIndicatorPaint.setTypeface(editor.textRender.paint.getTypeface());
+        editor.wordWrap.indicator.wordWrapIndicatorWidth =
+                editor.wordWrap.indicator.wordWrapIndicatorPaint.measureText(
+                        com.yn.sodiumeditor.core.wordwrap.WordWrapIndicator.WORD_WRAP_INDICATOR_TEXT);
+        editor.textRender.lineHeight = editor.textRender.paint.getFontSpacing();
+        editor.whitespaceGuides.updateMetrics();
+        editor.cursorHandle.updateHandleMetricsForTextSize(sizePx);
+        editor.selectionHandles.updateHandleMetricsForTextSize(sizePx);
+        editor.lineNumber.invalidateLineNumberCache();
+        editor.textRender.clearCachesOnTypefaceChange();
+
+        for (com.yn.sodiumeditor.renderer.HighliteRender.HighlightRule rule : editor.highlite.highlightRules) {
+            rule.updateTextSize(sizePx);
+        }
+        if (editor.highlightRules.whitespaceStringRule != null)
+            editor.highlightRules.whitespaceStringRule.updateTextSize(sizePx);
+        if (editor.highlightRules.whitespaceCommentRule != null)
+            editor.highlightRules.whitespaceCommentRule.updateTextSize(sizePx);
+        if (editor.highlightRules.lineCommentHighlightRule != null)
+            editor.highlightRules.lineCommentHighlightRule.updateTextSize(sizePx);
+
+        float scale = sizePx / oldSize;
+        editor.windowRender.currentMaxWindowLineWidth *= scale;
+        editor.windowRender.globalMaxLineWidth *= scale;
+        editor.scroll.maxLineWidthForScroll *= scale;
+        editor.scroll.maxScrollXForScroll *= scale;
+        editor.scroll.maxTextStartXForScroll = 0f;
+        clearVisibleLineMetricCaches();
+        editor.invalidate();
+    }
+
+    public void finishZoomTextSizeUpdate() {
+        synchronized (editor.windowRender.lineWidthCache) {
+            editor.windowRender.lineWidthCache.clear();
+        }
+        synchronized (editor.windowRender.avgCharWidthCache) {
+            editor.windowRender.avgCharWidthCache.clear();
+        }
+        editor.textRender.clearCachesOnTypefaceChange();
+        editor.lineNumber.invalidateLineNumberCache();
+        editor.requestLayout();
+        editor.invalidate();
+    }
+
+    private void clearVisibleLineMetricCaches() {
+        if (editor.textRender.lineHeight <= 0f) return;
+        int firstVisibleIndex = Math.max(0, (int) (editor.scroll.scrollY / editor.textRender.lineHeight));
+        int lastVisibleIndex =
+                firstVisibleIndex + (int) Math.ceil(editor.getHeight() / editor.textRender.lineHeight) + 1;
+        int firstLine;
+        int lastLine;
+        if (editor.wordWrap.isWordWrapEnabled) {
+            firstLine = editor.wordWrap.getVisualPositionForIndex(firstVisibleIndex).line;
+            lastLine = editor.wordWrap.getVisualPositionForIndex(lastVisibleIndex).line;
+        } else {
+            firstLine = firstVisibleIndex;
+            lastLine = lastVisibleIndex;
+        }
+        synchronized (editor.windowRender.lineWidthCache) {
+            for (int line = Math.max(0, firstLine); line <= Math.max(firstLine, lastLine); line++) {
+                editor.windowRender.lineWidthCache.remove(line);
+            }
+        }
+        synchronized (editor.windowRender.avgCharWidthCache) {
+            for (int line = Math.max(0, firstLine); line <= Math.max(firstLine, lastLine); line++) {
+                editor.windowRender.avgCharWidthCache.remove(line);
+            }
+        }
+    }
+
     // ============================================================================
     // Performance Mode
     // ============================================================================

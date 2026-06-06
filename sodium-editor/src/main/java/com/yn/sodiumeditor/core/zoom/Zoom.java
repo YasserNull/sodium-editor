@@ -53,6 +53,7 @@ public class Zoom {
   public boolean mJustFinishedScale = false;
   public boolean isScaling = false;
   public float lastFocusX, lastFocusY;
+  private boolean lazyZoomTextSizeApplied = false;
 
 
 private final SodiumEditor editor;
@@ -71,6 +72,7 @@ private final SodiumEditor editor;
       public boolean onScaleBegin(ScaleGestureDetector detector) {
         mJustFinishedScale = false;
         isScaling = true;
+        lazyZoomTextSizeApplied = false;
         lastFocusX = detector.getFocusX();
         lastFocusY = detector.getFocusY();
 
@@ -134,7 +136,8 @@ private final SodiumEditor editor;
         newSize = quantizeZoomSizePx(newSize);
 
         if (Math.abs(newSize - currentSize) > 0.1f) {
-          editor.view.applyTextSizePx(newSize);
+          lazyZoomTextSizeApplied = true;
+          editor.view.applyTextSizePxForZoomFrame(newSize);
           float newLineHeight = editor.textRender.paint.getFontSpacing();
           float effectiveScaleY = (oldLineHeight > 0) ? newLineHeight / oldLineHeight : 1f;
 
@@ -198,6 +201,9 @@ private final SodiumEditor editor;
             editor.scroll.clampScrollY();
             editor.invalidate();
           }
+        } else if (lazyZoomTextSizeApplied) {
+          lazyZoomTextSizeApplied = false;
+          editor.view.finishZoomTextSizeUpdate();
         }
         if (editor.wordWrap.wrapPrefixBuilding) {
           editor.wordWrap.wrapPrefixRebuildPending = true;

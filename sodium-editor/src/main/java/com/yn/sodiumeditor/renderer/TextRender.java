@@ -44,6 +44,7 @@ public class TextRender {
   private int cachedBaseIndex = -1;
   private float cachedBaseIndexResult = 0f;
   private int lastFrameBaseLine = -1;
+  private int visualSpaceScale = 2;
 
 
   
@@ -447,12 +448,37 @@ public class TextRender {
   // ========================================================================
 
   public int getVisualSpaceScale() {
-    return 1;
+    return visualSpaceScale;
+  }
+
+  public void setVisualSpaceScale(int scale) {
+    int safeScale = Math.max(1, scale);
+    if (visualSpaceScale == safeScale) return;
+    visualSpaceScale = safeScale;
+    clearCachesOnTypefaceChange();
+    synchronized (editor.windowRender.lineWidthCache) {
+      editor.windowRender.lineWidthCache.clear();
+    }
+    synchronized (editor.windowRender.avgCharWidthCache) {
+      editor.windowRender.avgCharWidthCache.clear();
+    }
+    editor.windowRender.currentMaxWindowLineWidth = 0f;
+    editor.windowRender.globalMaxLineWidth = 0f;
+    editor.scroll.maxLineWidthForScroll = 0f;
+    editor.scroll.maxTextStartXForScroll = 0f;
+    editor.scroll.maxScrollXForScroll = 0f;
+    editor.windowRender.recalculateMaxLineWidth();
+    if (editor.wordWrap.isWordWrapEnabled) {
+      editor.wordWrap.invalidateWrapMetrics(true);
+    }
+    editor.lineNumber.invalidateLineNumberCache();
+    editor.requestLayout();
+    editor.invalidate();
   }
 
   public float getVisualSpaceWidth(Paint p) {
     if (cachedSpaceWidth < 0f) {
-      cachedSpaceWidth = p.measureText(" ");
+      cachedSpaceWidth = p.measureText(" ") * getVisualSpaceScale();
     }
     return cachedSpaceWidth;
   }
@@ -462,7 +488,7 @@ public class TextRender {
    */
   public float getCharAdvanceWidth(char c, float measuredWidth, Paint p) {
     if (c == ' ') {
-      return measuredWidth;
+      return measuredWidth * getVisualSpaceScale();
     }
     if (c == '\t') {
       return getVisualTabWidth(p);
@@ -483,8 +509,15 @@ public class TextRender {
     end = Math.max(start, Math.min(end, text.length()));
     if (start >= end) return 0f;
 
-    int tabIndex = text.indexOf('\t', start);
-    if (tabIndex < 0 || tabIndex >= end) {
+    boolean hasVisualWhitespace = false;
+    for (int i = start; i < end; i++) {
+      char c = text.charAt(i);
+      if (c == ' ' || c == '\t') {
+        hasVisualWhitespace = true;
+        break;
+      }
+    }
+    if (!hasVisualWhitespace) {
       return p.measureText(text, start, end);
     }
 

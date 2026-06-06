@@ -387,7 +387,8 @@ public void drawWhitespaceGuidesForRangeRtl(
       if (!isInSyntaxSpan && c == ' ') {
         int runStart = i;
         int runEnd = i + 1;
-        float runWidth = whitespaceWidthBuffer[i];
+        float runWidth =
+            editor.textRender.getCharAdvanceWidth(c, whitespaceWidthBuffer[i], segmentPaint);
         for (int j = i + 1; j < segLen; j++) {
           int runCharIndex = start + j;
           while (activeSyntax != null && runCharIndex >= activeSyntax.end) {
@@ -399,8 +400,9 @@ public void drawWhitespaceGuidesForRangeRtl(
               activeSyntax != null
                   && runCharIndex >= activeSyntax.start
                   && runCharIndex < activeSyntax.end;
-          if (inSyntax || line.charAt(runCharIndex) != ' ') break;
-          runWidth += whitespaceWidthBuffer[j];
+          char runChar = line.charAt(runCharIndex);
+          if (inSyntax || runChar != ' ') break;
+          runWidth += editor.textRender.getCharAdvanceWidth(runChar, whitespaceWidthBuffer[j], segmentPaint);
           runEnd = j + 1;
         }
 
@@ -412,7 +414,9 @@ public void drawWhitespaceGuidesForRangeRtl(
         }
         int pointCount = 0;
         for (int k = 0; k < spacesInRun; k++) {
-          float visualWidth = whitespaceWidthBuffer[runStart + k];
+          float visualWidth =
+              editor.textRender.getCharAdvanceWidth(
+                  ' ', whitespaceWidthBuffer[runStart + k], segmentPaint);
           if (spaceStep <= 1 || (k % spaceStep) == 0) {
             float dotX = runCursorX + visualWidth * 0.5f;
             if (editor.textRender.isRtl && rtlWidth > 0f) {
@@ -443,7 +447,7 @@ public void drawWhitespaceGuidesForRangeRtl(
         currentX += charWidth;
         continue;
       }
-      currentX += whitespaceWidthBuffer[i];
+      currentX += editor.textRender.getCharAdvanceWidth(c, whitespaceWidthBuffer[i], segmentPaint);
     }
 
     if (hasSyntaxSpans) {

@@ -24,7 +24,9 @@ public class onFocusChanged {
             editor.caret.mainHandler.removeCallbacks(editor.caret.blinkRunnable);
             editor.caret.isCursorVisible = true; // Make sure it's visible when not focused
             editor.ime.hasComposing = false;
-            editor.selection.hasSelection = false;
+            if (!editor.selection.isSelectAllActive && !editor.selection.isEntireFileSelected) {
+                editor.selection.hasSelection = false;
+            }
         }
     }
 }

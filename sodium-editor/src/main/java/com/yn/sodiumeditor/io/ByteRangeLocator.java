@@ -56,23 +56,30 @@ public class ByteRangeLocator {
     public long[] findTwoLineStartBytesByScanning(RandomAccessFile raf, int lineA, int lineB)
             throws Exception {
         if (lineA < 0) lineA = 0;
+        if (lineB < 0) lineB = 0;
         long[] result = new long[2];
         int currentLine = 0;
         raf.seek(0);
-        
-        long offset = 0;
+
+        long lineStart = 0;
         int b;
         while ((b = raf.read()) != -1) {
-            if (currentLine == lineA) result[0] = offset;
             if (currentLine == lineB) {
-                result[1] = offset;
+                if (currentLine == lineA) result[0] = lineStart;
+                result[1] = lineStart;
                 return result;
             }
-            if (b == '\n') currentLine++;
-            offset++;
+            if (currentLine == lineA) result[0] = lineStart;
+            if (b == '\n') {
+                currentLine++;
+                lineStart = raf.getFilePointer();
+            }
         }
-        if (currentLine <= lineA) result[0] = offset;
-        if (currentLine <= lineB) result[1] = offset;
+        long eof = raf.getFilePointer();
+        if (currentLine == lineA) result[0] = lineStart;
+        else if (currentLine < lineA) result[0] = eof;
+        if (currentLine == lineB) result[1] = lineStart;
+        else if (currentLine < lineB) result[1] = eof;
         return result;
     }
 

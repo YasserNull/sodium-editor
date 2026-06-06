@@ -36,6 +36,7 @@ public class EditOperators {
     public boolean isApplyingUndoRedo = false;
     public volatile long lastEditTimestamp = 0L;
     public int lineCountDelta = 0;
+    public boolean fileStateDirtyAfterUndoRestore = false;
     public final java.util.concurrent.atomic.AtomicInteger editVersion = new java.util.concurrent.atomic.AtomicInteger(0);
 
     public EditOperators(SodiumEditor editor) {
@@ -56,8 +57,12 @@ public class EditOperators {
     public boolean canUndo() { return history.canUndo(); }
     public boolean canRedo() { return history.canRedo(); }
     public int getUndoStackSize() { return history.getUndoSize(); }
-    public int getPendingEditsCount() { return history.getPendingSize(); }
-    public void clearUndoRedoHistory() { history.clear(); }
+    public int getPendingEditsCount() { return history.getPendingSize() + (fileStateDirtyAfterUndoRestore ? 1 : 0); }
+    public int getPendingFileEditOperationsCount() { return history.getPendingSize(); }
+    public void clearUndoRedoHistory() {
+        history.clear();
+        fileStateDirtyAfterUndoRestore = false;
+    }
     public long getLastEditTimestamp() { return lastEditTimestamp; }
     
     public void undo() { undo.execute(); }
@@ -69,6 +74,15 @@ public class EditOperators {
     public void insertStringAtCursor(String text) { actions.insertTextAtCursor(text); }
     public void insertTextAtCursor(String text) { actions.insertTextAtCursor(text); }
     public void applyPendingEditsToFileAsync(@Nullable Runnable onComplete) { fileHandler.applyPendingEditsToFileAsync(onComplete); }
+
+    public void markFileStateDirtyAfterUndoRestore() {
+        fileStateDirtyAfterUndoRestore = true;
+        lastEditTimestamp = System.currentTimeMillis();
+    }
+
+    public void clearFileStateDirtyAfterSave() {
+        fileStateDirtyAfterUndoRestore = false;
+    }
 
     public void recordEdit(EditOp op) { recorder.recordEdit(op); }
     public void recordEditNoUndo(EditOp op) { recorder.recordEditNoUndo(op); }

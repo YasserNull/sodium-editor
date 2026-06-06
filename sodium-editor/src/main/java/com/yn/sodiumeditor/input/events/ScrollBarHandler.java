@@ -57,6 +57,9 @@ public class ScrollBarHandler {
         if (maxScroll > 0f) {
             editor.scroll.scrollY = (targetTop / thumbRange) * maxScroll;
             editor.scroll.clampScrollY();
+            editor.removeCallbacks(editor.scroll.delayedWindowCheck);
+            editor.windowRender.maybeKickWindowLoad(editor.wordWrap.getGlobalLineForY(editor.scroll.scrollY));
+            editor.postDelayed(editor.scroll.delayedWindowCheck, 60);
             editor.invalidate();
         }
         editor.scroll.showScrollBar();
@@ -67,6 +70,15 @@ public class ScrollBarHandler {
         if (editor.scroll.bar.dragging) {
             editor.scroll.bar.dragging = false;
             editor.scroll.showScrollBar();
+            editor.removeCallbacks(editor.scroll.delayedWindowCheck);
+            editor.fileIO.checkAndLoadWindow();
+            if (editor.wordWrap.isWordWrapEnabled
+                    && editor.wordWrap.wrapPrefixRebuildPending
+                    && !editor.wordWrap.wrapPrefixBuilding) {
+                editor.wordWrap.wrapPrefixRebuildPending = false;
+                editor.wordWrap.scheduleWrapPrefixRebuildUpToWindow();
+            }
+            editor.invalidate();
         }
     }
 }

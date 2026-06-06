@@ -6,11 +6,9 @@ import android.util.Log;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.StreamedCharSlice;
-import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.Map;
@@ -39,7 +37,6 @@ public class FileIO {
     public File sourceFile = null;
     public boolean isEof = false;
     public boolean isFileCleared = false;
-    public BufferedReader readerForFile = null;
     
     public volatile boolean isWindowLoading = false;
     private volatile boolean initialWindowWarmupDone = false;
@@ -130,7 +127,7 @@ public class FileIO {
         final int token = ++editor.loadingCircle.initialFileOpenToken;
         final boolean needsBracketWarmup = shouldWarmBracketIndexForOpen();
         editor.loadingCircle.isInitialFileOpenLoading = true;
-        if (needsBracketWarmup && editor.loadingCircle.showLoadingOnFileOpen) {
+        if (editor.loadingCircle.showLoadingOnFileOpen) {
             editor.view.setDisable(true);
             editor.loadingCircle.showLoadingCircle(true);
         }
@@ -182,6 +179,9 @@ public class FileIO {
     public void loadWindowAround(int sL, Runnable cb, boolean sync) { 
         windowLoader.loadWindowAround(sL, cb, sync); 
     }
+    public void loadTailWindowForSelectAll(int lastLine, Runnable cb) {
+        windowLoader.loadTailWindowForSelectAll(lastLine, cb);
+    }
     public void buildFileIndex() { 
         indexer.buildFileIndex(); 
     }
@@ -198,23 +198,13 @@ public class FileIO {
     public void invalidatePendingIOForEdit() { 
         invalidatePendingIO(); editor.highlite.clearHighlightCaches(); 
     }
-
-    public BufferedReader reopenReaderAtStart() {
-        try {
-            if (readerForFile != null) { try { readerForFile.close(); } catch (Exception ignored) {} readerForFile = null; }
-            if (sourceFile != null) {
-                readerForFile = new BufferedReader(new InputStreamReader(new FileInputStream(sourceFile), fileCharset));
-                return readerForFile;
-            }
-        } catch (Exception e) { e.printStackTrace(); }
-        return null;
+    public void invalidatePendingIOVersionForEdit() {
+        ioTaskVersion.incrementAndGet();
+        editor.highlite.clearHighlightCaches();
     }
 
     public void cancelAndCloseReader() {
-        ioHandler.post(() -> {
-            try { if (readerForFile != null) { readerForFile.close(); readerForFile = null; }
-            } catch (Exception e) { e.printStackTrace(); }
-        });
+        // Kept for release() compatibility. File-backed readers are now short-lived RandomAccessFile instances.
     }
 
     public void countTotalLines(LineCountCallback callback) {
@@ -266,6 +256,38 @@ public class FileIO {
         }
         byte[] data = baos.toByteArray();
         return editor.binaryRender.isBinarySafeRenderingEnabled() ? editor.binaryRender.bytesToControlVisible(data, data.length, fileCharset) : new String(data, fileCharset);
+    }
+
+    public String readLinePrefixUtf8AtByte(RandomAccessFile raf, long offset, int maxBytes) throws Exception {
+        int limit = Math.max(0, maxBytes);
+        if (limit == 0) return "";
+        raf.seek(offset);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(Math.min(4096, limit));
+        byte[] buf = new byte[Math.min(8192, limit)];
+        int remaining = limit;
+        while (remaining > 0) {
+            int n = raf.read(buf, 0, Math.min(buf.length, remaining));
+            if (n <= 0) break;
+            int stop = -1;
+            for (int i = 0; i < n; i++) {
+                if (buf[i] == '\n') {
+                    stop = i;
+                    break;
+                }
+            }
+            if (stop >= 0) {
+                int count = stop;
+                if (count > 0 && buf[count - 1] == '\r') count--;
+                if (count > 0) baos.write(buf, 0, count);
+                break;
+            }
+            baos.write(buf, 0, n);
+            remaining -= n;
+        }
+        byte[] data = baos.toByteArray();
+        return editor.binaryRender.isBinarySafeRenderingEnabled()
+                ? editor.binaryRender.bytesToControlVisible(data, data.length, fileCharset)
+                : new String(data, fileCharset);
     }
 
     public String readLineSliceAtByte(RandomAccessFile raf, long lineStart, long lineByteLen, int startChar, int endChar) throws Exception {

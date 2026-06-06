@@ -25,16 +25,16 @@ public class ColorCodeHighlightGuardTest {
     assertTrue("BUG: color code pattern must detect 0xRRGGBB and 0xAARRGGBB colors.", pattern.contains("0x"));
     assertTrue(
         "BUG: 0xRRGGBB color codes must be made opaque before drawing.",
-        body.contains("if (hex.length() == 6) hex = \"FF\" + hex"));
+        src.contains("if (hex.length() == 6) hex = \"FF\" + hex"));
     assertTrue(
         "BUG: color code backgrounds must use a visible overlay alpha.",
-        body.contains("(color & 0x00FFFFFF) | (0xC0 << 24)"));
+        src.contains("(color & 0x00FFFFFF) | (0xC0 << 24)"));
     assertTrue(
         "BUG: color code drawing must cache start/end/color triples per line.",
-        body.contains("tmp.add(matcher.start())")
-            && body.contains("tmp.add(matcher.end())")
-            && body.contains("tmp.add(backgroundColor)")
-            && body.contains("colorCodeBgCache.put(globalLine, triples)"));
+        src.contains("tmp.add(matcher.start())")
+            && src.contains("tmp.add(matcher.end())")
+            && src.contains("tmp.add(backgroundColor)")
+            && src.contains("colorCodeBgCache.put(globalLine, triples)"));
     assertTrue(
         "BUG: color code drawing must measure exact text bounds and draw a rectangle over the literal.",
         body.contains("editor.textRender.measureText(line, start, globalLine)")
@@ -66,6 +66,24 @@ public class ColorCodeHighlightGuardTest {
     assertFalse(
         "BUG: disabled color highlighting must not continue into drawing work.",
         body.startsWith("Matcher matcher"));
+  }
+
+  @Test
+  public void colorCodeHighlight_shouldMaskSyntaxTextSpans() throws Exception {
+    String colorCode =
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/ColorCodeHighlight.java");
+    String highlite =
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/HighliteRender.java");
+
+    assertTrue(
+        "BUG: color-code scanner must expose cached literal ranges so syntax text coloring can skip them.",
+        colorCode.contains("getColorCodeSpansForLine(String line, int globalLine)"));
+    assertTrue(
+        "BUG: highlighted text drawing must mask color-code ranges before applying syntax spans.",
+        highlite.contains("maskColorCodeSpans(line, globalLine, spans)")
+            && highlite.contains("drawSyntaxSpansMaskedByColorCodes("));
   }
 
   private static String fieldInitializer(String src, String fieldPrefix) {

@@ -63,8 +63,9 @@ public class LineNumberRender {
 
     public void drawSingleLineNumber(Canvas canvas, int number, float x, float yOffset) {
         int start = lineNumber.utils.writeIntToChars(number, lineNumber.lineNumberChars);
+        int count = lineNumber.lineNumberChars.length - start;
         float y = Math.round(yOffset + editor.textRender.lineHeight - editor.textRender.paint.descent());
-        canvas.drawText(lineNumber.lineNumberChars, start, lineNumber.lineNumberChars.length - start, x, y, lineNumber.lineNumbersPaint);
+        canvas.drawText(lineNumber.lineNumberChars, start, count, x, y, lineNumber.lineNumbersPaint);
     }
 
     public float getLineNumXUnwrapped() {

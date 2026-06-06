@@ -36,6 +36,13 @@ public class BracketGuideAsyncBuilder {
    */
   public void buildCacheAsync(
       int startLine, int endLine, int visibleStart, int visibleEnd, int v, int cfg, long startTime, @Nullable java.util.Map<Integer, String> directLines) {
+    if (editor.selection.isSelectAllActive
+        || editor.selection.isEntireFileSelected
+        || editor.selection.state.isSelectAllActive
+        || editor.selection.state.isEntireFileSelected) {
+      mainCache.bracketGuideBuildInProgress = false;
+      return;
+    }
     BracketGuideState state = new BracketGuideState(editor.highlite.isBlockCommentsEnabled, 0);
     BracketGuideState stateBeforeStart = BracketGuides.copyState(state);
     BracketGuideState stateAtStart = null;
@@ -66,22 +73,13 @@ public class BracketGuideAsyncBuilder {
         currentLine = 0;
       }
 
-      // Read from checkpoint to startLine using buffered stream if possible
       if (currentLine < startLine && editor.fileIO.isIndexReady && editor.fileIO.sourceFile != null && editor.fileIO.sourceFile.exists() && (directLines == null || directLines.isEmpty())) {
-        long offset;
-        synchronized (editor.fileIO.lineOffsetsLock) {
-          offset = editor.fileIO.lineOffsets[currentLine];
-        }
-        try (java.io.FileInputStream fis = new java.io.FileInputStream(editor.fileIO.sourceFile)) {
-          fis.getChannel().position(offset);
-          try (java.io.InputStreamReader isr = new java.io.InputStreamReader(fis, editor.fileIO.fileCharset);
-               java.io.BufferedReader reader = new java.io.BufferedReader(isr, 65536)) {
-            while (currentLine < startLine) {
-              String text = reader.readLine();
-              if (text == null) break;
-              bracketGuides.updateBracketGuideStateForLine(text, currentLine, state);
-              currentLine++;
-            }
+        try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(editor.fileIO.sourceFile, "r")) {
+          while (currentLine < startLine) {
+            String text = bracketGuides.readIndexedLinePrefix(currentLine, raf);
+            if (text == null) break;
+            bracketGuides.updateBracketGuideStateForLine(text, currentLine, state);
+            currentLine++;
           }
         }
       } else {

@@ -146,6 +146,10 @@ public class Selection {
         actions.replaceSelectionWithText(t); syncFromState();
     }
 
+    public void deleteEntireFileSelectionFast() {
+        actions.deleteEntireFileSelectionFast(); syncFromState();
+    }
+
     public boolean applySmartDoubleTapSelection(int l, int c, String t) {
         boolean r = smart.applySmartDoubleTapSelection(l, c, t); syncFromState(); return r;
     }

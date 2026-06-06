@@ -2,8 +2,7 @@ package com.yn.sodiumeditor.core.wordwrap;
 
 import android.graphics.Paint;
 import com.yn.sodiumeditor.SodiumEditor;
-import java.io.BufferedReader;
-import java.util.ArrayList;
+import java.io.RandomAccessFile;
 
 /**
  * Manages word wrap metrics, including line counts and prefix sums.
@@ -49,22 +48,14 @@ public class WordWrapMetrics {
         int[] counts = new int[total];
         int[] prefix = new int[total + 1];
         int running = 0;
-        try (BufferedReader br = editor.fileIO.reopenReaderAtStart()) {
+        try (RandomAccessFile raf = new RandomAccessFile(editor.fileIO.sourceFile, "r")) {
+            long fileLen = raf.length();
             int lineIdx = 0;
             while (lineIdx < total) {
                 if (token != wordWrap.wrapMetricsToken.get()) { wordWrap.wrapMetricsBuilding = false; return; }
-                String fileLine = (br != null) ? br.readLine() : null;
-                String line = (fileLine == null) ? "" : fileLine;
-                String mod;
-                synchronized (editor.windowRender.modifiedLines) { mod = editor.windowRender.modifiedLines.get(lineIdx); }
-                if (mod != null) line = mod;
-                int c = wordWrap.calculator.computeWrapCountForLine(line, widthPx, wrapPaint, false);
+                int c = wordWrap.getWrapCountForFileLine(lineIdx, raf, fileLen, widthPx, wrapPaint);
                 counts[lineIdx] = c; running += c; prefix[lineIdx + 1] = running;
                 lineIdx++;
-                if (fileLine == null && mod == null) {
-                    while (lineIdx < total) { counts[lineIdx] = 1; running += 1; prefix[lineIdx + 1] = running; lineIdx++; }
-                    break;
-                }
             }
         } catch (Exception e) { wordWrap.wrapMetricsBuilding = false; return; }
         if (token == wordWrap.wrapMetricsToken.get()) {

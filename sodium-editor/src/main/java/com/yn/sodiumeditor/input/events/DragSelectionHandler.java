@@ -69,6 +69,7 @@ public class DragSelectionHandler {
 
             EditOp.CursorTarget target = editor.wordWrap.getCursorTargetForPosition(moveX, moveY, null);
             int line = target.line;
+            line = clampDragLineToRealContent(line);
             editor.fileIO.ensureLineInWindow(line, true);
             String ln = getLineTextForDrag(line);
             int clamped = Math.max(0, Math.min(target.ch, (ln == null) ? 0 : ln.length()));
@@ -141,11 +142,7 @@ public class DragSelectionHandler {
 
         EditOp.CursorTarget target = editor.wordWrap.getCursorTargetForPosition(touchX, touchY, null);
         int line = target.line;
-
-        if (editor.fileIO.isEof) {
-            int lastValidLine = editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size() - 1;
-            if (line > lastValidLine) line = lastValidLine;
-        }
+        line = clampDragLineToRealContent(line);
 
         editor.fileIO.ensureLineInWindow(line, true);
         String ln = getLineTextForDrag(line);
@@ -199,6 +196,16 @@ public class DragSelectionHandler {
         editor.fileIO.populateDirectLinesForRange(line, line, direct);
         String directText = editor.windowRender.getLineTextForRenderWithDirect(line, direct);
         return directText == null ? "" : directText;
+    }
+
+    private int clampDragLineToRealContent(int line) {
+        int totalLines = editor.view.getLinesCount();
+        int maxLine = Math.max(0, totalLines - 1);
+        if (editor.fileIO.isEof) {
+            int loadedLastLine = editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size() - 1;
+            if (loadedLastLine >= 0) maxLine = Math.min(maxLine, loadedLastLine);
+        }
+        return Math.max(0, Math.min(line, maxLine));
     }
 
     private void setCursorFromDrag(int line, int col, String knownLineText) {

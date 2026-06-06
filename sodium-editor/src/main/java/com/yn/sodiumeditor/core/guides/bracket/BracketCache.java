@@ -145,20 +145,21 @@ public class BracketCache {
 
             SparseArray<LineBracketInfo> newCache = new SparseArray<>();
             
-            // Read sequentially using BufferedReader for speed
-            if (editor.fileIO.sourceFile != null && editor.fileIO.sourceFile.exists()) {
-                try (java.io.FileInputStream fis = new java.io.FileInputStream(editor.fileIO.sourceFile);
-                     java.io.InputStreamReader isr = new java.io.InputStreamReader(fis, editor.fileIO.fileCharset);
-                     java.io.BufferedReader reader = new java.io.BufferedReader(isr, 65536)) {
+            if (editor.fileIO.isIndexReady && editor.fileIO.sourceFile != null && editor.fileIO.sourceFile.exists()) {
+                try (RandomAccessFile raf = new RandomAccessFile(editor.fileIO.sourceFile, "r")) {
                     
 	                    boolean inBlockComment = false;
 	                    int stringState = 0;
 	                    char stringQuoteChar = 0;
 	                    boolean stringTriple = false;
-	                    int lineNum = 0;
-	                    String line;
+	                    int totalLines;
+	                    synchronized (editor.fileIO.lineOffsetsLock) {
+	                        totalLines = editor.fileIO.lineOffsets.length;
+	                    }
 
-	                    while ((line = reader.readLine()) != null && myToken == scanToken) {
+	                    for (int lineNum = 0; lineNum < totalLines && myToken == scanToken; lineNum++) {
+	                        String line = editor.bracketGuides.readIndexedLinePrefix(lineNum, raf);
+	                        if (line == null) break;
 	                        LineBracketInfo info =
 	                            parseLineInternal(
 	                                lineNum,
@@ -173,7 +174,6 @@ public class BracketCache {
 	                        stringState = info.stringState;
 	                        stringQuoteChar = info.stringQuoteChar;
 	                        stringTriple = info.stringTriple;
-	                        lineNum++;
 	                    }
                 } catch (Exception e) {
                     e.printStackTrace();

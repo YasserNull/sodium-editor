@@ -10,7 +10,7 @@ import com.yn.sodiumeditor.SodiumEditor;
 public class OnKeyDown {
   private static final String TAG = "SodiumSelectionEdit";
   private static final int MAX_KEY_LOGS = 240;
-  public static boolean DEBUG_KEY_SELECTION_LOGS = true;
+  public static boolean DEBUG_KEY_SELECTION_LOGS = false;
 
   private final SodiumEditor editor;
   private int keyLogCount = 0;
@@ -106,7 +106,11 @@ public class OnKeyDown {
       case KeyEvent.KEYCODE_DEL:
         if (editor.selection.hasSelection) {
           logKeyEvent("selection.del", keyCode, event, "");
-          editor.selection.replaceSelectionWithText("");
+          if (editor.selection.isSelectAllActive || editor.selection.isEntireFileSelected) {
+            editor.selection.deleteEntireFileSelectionFast();
+          } else {
+            editor.selection.replaceSelectionWithText("");
+          }
         } else {
           editor.editOperators.deleteCharAtCursor();
         }
@@ -115,7 +119,11 @@ public class OnKeyDown {
       case KeyEvent.KEYCODE_FORWARD_DEL:
         if (editor.selection.hasSelection) {
           logKeyEvent("selection.forwardDel", keyCode, event, "");
-          editor.selection.replaceSelectionWithText("");
+          if (editor.selection.isSelectAllActive || editor.selection.isEntireFileSelected) {
+            editor.selection.deleteEntireFileSelectionFast();
+          } else {
+            editor.selection.replaceSelectionWithText("");
+          }
         } else {
           editor.editOperators.deleteForwardAtCursor();
         }

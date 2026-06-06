@@ -22,8 +22,8 @@ public class WindowRender {
     // Window/Line Management variables
     public final List<String> linesWindow = new ArrayList<>();
     public int windowStartLine = 0;
-    public int windowSize = 100;
-    public int prefetchLines = 100;
+    public int windowSize = 1000;
+    public int prefetchLines = 1000;
     public final java.util.LinkedHashMap<Integer, String> modifiedLines =
             new java.util.LinkedHashMap<Integer, String>(1000, 0.75f, true) {
                 @Override
@@ -32,7 +32,7 @@ public class WindowRender {
                 }
             };
     public final android.util.SparseArray<Float> lineWidthCache = new android.util.SparseArray<>(400);
-    public int lineWidthCacheSize = 100;
+    public int lineWidthCacheSize = 1000;
     public float currentMaxWindowLineWidth = 0f;
     public float globalMaxLineWidth = 0f;
     public final android.util.SparseArray<Float> avgCharWidthCache = new android.util.SparseArray<>(400);
@@ -436,6 +436,7 @@ public class WindowRender {
             if (editor.lineNumber.showLineNumbers
                     && oldLineCount > 0
                     && String.valueOf(oldLineCount).length() != String.valueOf(newLineCount).length()) {
+                editor.lineNumber.updateGutterWidth();
                 editor.requestLayout();
             }
             if (delta != 0) {
@@ -484,6 +485,7 @@ public class WindowRender {
             if (editor.lineNumber.showLineNumbers
                     && oldLineCount > 0
                     && String.valueOf(oldLineCount).length() != String.valueOf(expectedNewLineCount).length()) {
+                editor.lineNumber.updateGutterWidth();
                 editor.requestLayout();
             }
             if (delta != 0) {

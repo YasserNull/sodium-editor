@@ -67,7 +67,6 @@ public class ViewRender {
     if (editor.wordWrap.isWordWrapEnabled) {
       editor.textRender.drawlineNumbersCachedWrapped(canvas, firstVisibleIndex, lastVisibleIndex);
     }
-    editor.bracketErrorScanner.scanForErrors();
     drawContentInternal(canvas, shouldDrawBracketGuides);
     editor.scroll.bar.draw(canvas);
   }
@@ -77,7 +76,9 @@ public class ViewRender {
     
     int firstVisibleIndex = (int) (editor.scroll.scrollY / editor.textRender.lineHeight);
     if (firstVisibleIndex < 0) firstVisibleIndex = 0;
-    int lastVisibleIndex = firstVisibleIndex + (int) Math.ceil(editor.getHeight() / editor.textRender.lineHeight) + 5;
+    int visibleExtraLines = editor.zoom.isZoomGestureActive() ? 1 : 5;
+    int lastVisibleIndex =
+        firstVisibleIndex + (int) Math.ceil(editor.getHeight() / editor.textRender.lineHeight) + visibleExtraLines;
 
     int firstVisibleLine;
     int lastVisibleLine;

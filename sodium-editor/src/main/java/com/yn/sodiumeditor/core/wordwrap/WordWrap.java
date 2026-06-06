@@ -8,6 +8,7 @@ import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.io.EditOp;
 import com.yn.sodiumeditor.renderer.TextRender;
 import com.yn.sodiumeditor.utils.WordWrapUtils;
+import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -17,6 +18,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Main facade for Word Wrap functionality in SodiumEditor.
  */
 public class WordWrap {
+    private static final int MAX_FILE_WRAP_LINE_BYTES = 64 * 1024;
+
     private final SodiumEditor editor;
     public final Handler mainHandler;
 
@@ -168,14 +171,11 @@ public class WordWrap {
                     } else { mainHandler.post(() -> { if (token == wrapPrefixToken.get()) wrapPrefixBuilding = false; }); return; }
                 }
             } else {
-                try (java.io.BufferedReader br = editor.fileIO.reopenReaderAtStart()) {
+                try (RandomAccessFile raf = new RandomAccessFile(editor.fileIO.sourceFile, "r")) {
+                    long fileLen = raf.length();
                     for (int i = 0; i <= target; i++) {
                         if (token != wrapPrefixToken.get()) return;
-                        String fl = (br != null) ? br.readLine() : null; String line = (fl == null) ? "" : fl;
-                        String mod; synchronized (editor.windowRender.modifiedLines) { mod = editor.windowRender.modifiedLines.get(i); }
-                        if (mod != null) line = mod;
-	                        c[i] = getWrapCountForLineInternal(i, line, w, p);
-	                        if (fl == null && mod == null) { while (i <= target) { c[i] = getDefaultWrapCountForLine(i); i++; } break; }
+                        c[i] = getWrapCountForFileLine(i, raf, fileLen, w, p);
                     }
                 } catch (Exception e) { mainHandler.post(() -> { if (token == wrapPrefixToken.get()) wrapPrefixBuilding = false; }); return; }
             }
@@ -223,6 +223,35 @@ public class WordWrap {
 	    private int getWrapCountForLineInternal(int gl, @Nullable String line, int w, Paint paint) {
 	        return Math.max(1, calculator.computeWrapCountForLine(line, w, paint, paint == editor.textRender.paint));
 	    }
+
+    int getWrapCountForFileLine(int gl, RandomAccessFile raf, long fileLen, int w, Paint paint) throws Exception {
+        String mod;
+        synchronized (editor.windowRender.modifiedLines) {
+            mod = editor.windowRender.modifiedLines.get(gl);
+        }
+        if (mod != null) return getWrapCountForLineInternal(gl, mod, w, paint);
+        if (!editor.fileIO.isIndexReady) return getDefaultWrapCountForLine(gl);
+
+        long offset;
+        synchronized (editor.fileIO.lineOffsetsLock) {
+            if (gl < 0 || gl >= editor.fileIO.lineOffsets.length) return getDefaultWrapCountForLine(gl);
+            offset = editor.fileIO.lineOffsets[gl];
+        }
+        long byteLen = editor.fileIO.getLineByteLengthFromIndex(raf, gl, fileLen);
+        if (byteLen > MAX_FILE_WRAP_LINE_BYTES) {
+            return estimateWrapCountFromByteLength(byteLen, w, paint);
+        }
+        String line = editor.fileIO.readLinePrefixUtf8AtByte(raf, offset, (int) Math.min(byteLen, MAX_FILE_WRAP_LINE_BYTES));
+        return getWrapCountForLineInternal(gl, line, w, paint);
+    }
+
+    private int estimateWrapCountFromByteLength(long byteLen, int w, Paint paint) {
+        float avgCharWidth = Math.max(1f, paint.measureText("m"));
+        int charsPerVisualLine = Math.max(1, (int) (Math.max(1, w) / avgCharWidth));
+        long wraps = (Math.max(0L, byteLen) + charsPerVisualLine - 1L) / charsPerVisualLine;
+        return (int) Math.max(1L, Math.min((long) Integer.MAX_VALUE, wraps));
+    }
+
 	    public int[] getWrapStartsForLine(int gl, String line) {
 	        if (!isWordWrapEnabled) return new int[]{0};
         int w = Math.max(1, Math.round(getWrapWidth())); if (wrapWidthPx != w) { wrapWidthPx = w; wrapCache.clear(); }

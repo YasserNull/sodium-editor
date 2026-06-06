@@ -8,6 +8,7 @@ import java.util.List;
  * Uses SparseArray for efficient sparse storage without range tracking.
  */
 public class BracketGuideFallbackCache {
+  private static final int MAX_FALLBACK_CACHE_LINES = 5000;
   private final SparseArray<List<BracketGuideToken>> fallbackTokens = new SparseArray<>();
   private final SparseArray<BracketGuideState> fallbackStates = new SparseArray<>();
   private int fallbackCacheEditVersion = -1;
@@ -25,6 +26,10 @@ public class BracketGuideFallbackCache {
 
     // Only save if main cache is valid
     if (mainStartLine < 0 || mainEndLine < mainStartLine || mainTokens.size() == 0) {
+      return;
+    }
+    if (mainTokens.size() > MAX_FALLBACK_CACHE_LINES) {
+      invalidate();
       return;
     }
 

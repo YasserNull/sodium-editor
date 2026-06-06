@@ -12,14 +12,7 @@ public class onMeasure {
     public void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         float oldGutterWidth = editor.lineNumber.lineNumbersGutterWidth;
         if (editor.lineNumber.showLineNumbers) {
-            int maxLines = 0;
-            if (editor.fileIO.isIndexReady) {
-                maxLines = editor.fileIO.lineOffsets.length;
-            } else if (editor.fileIO.isEof) {
-                maxLines = editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size();
-            } else {
-                maxLines = 999999; // Wider fallback for width calculation until index is ready
-            }
+            int maxLines = editor.lineNumber.utils.estimateLineCountForGutter();
             String maxLineNum = String.valueOf(maxLines);
             float baseWidth = editor.lineNumber.lineNumbersPaint.measureText(maxLineNum) + (editor.lineNumber.GUTTER_TEXT_PADDING * 2);
             editor.lineNumber.lineNumbersGutterWidth = baseWidth + editor.lineNumber.gutterSeparatorWidth;

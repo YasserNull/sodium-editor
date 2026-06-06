@@ -41,12 +41,10 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -94,7 +92,7 @@ import com.yn.sodiumeditor.renderer.*;
 import com.yn.sodiumeditor.input.Ime;
 
 public class SodiumEditor extends View {
-  public static boolean DEBUG_LOGS = true;
+  public static boolean DEBUG_LOGS = false;
 
   public final FileIO fileIO;
   public final Scroll scroll;
@@ -144,7 +142,6 @@ public class SodiumEditor extends View {
   public final SelectionHandles selectionHandles;
   public final CurrentLineHighlight currentLineHighlight;
   public final ClickAfterEndToAddLine clickAfterEndToAddLine;
-  public final com.yn.sodiumeditor.core.features.BracketErrorScanner bracketErrorScanner;
   public final BracketCache bracketCache;
   public final EditOperators editOperators;
   public final ViewRender viewRender;
@@ -163,7 +160,6 @@ public class SodiumEditor extends View {
   lineNumber = new LineNumber(this);
   currentLineHighlight = new CurrentLineHighlight(this);
   clickAfterEndToAddLine = new ClickAfterEndToAddLine(this);
-  bracketErrorScanner = new com.yn.sodiumeditor.core.features.BracketErrorScanner(this);
   highlite = new Highlite(this);
   highlightRules = new HighlightRules(this, highlite);
   view = new com.yn.sodiumeditor.core.view.View(this);
@@ -211,13 +207,13 @@ public class SodiumEditor extends View {
   fileIO = new FileIO(this);
 
   textRender.paint.setTextSize(36);
-  textRender.paint.setTypeface(Typeface.MONOSPACE);
+  textRender.paint.setTypeface(Typeface.DEFAULT);
   textRender.paint.setColor(0xFF000000);
   textRender.paint.setAntiAlias(true);
   textRender.paint.setSubpixelText(true);
   textRender.paint.setHinting(Paint.HINTING_ON);
   textRender.paint.setUnderlineText(false); 
-  textRender.baseTypeface = (textRender.paint.getTypeface() != null) ? textRender.paint.getTypeface() : Typeface.MONOSPACE;
+  textRender.baseTypeface = (textRender.paint.getTypeface() != null) ? textRender.paint.getTypeface() : Typeface.DEFAULT;
   textRender.lineHeight = textRender.paint.getFontSpacing();
   whitespaceGuides.updateMetrics();
   lineNumber.lineNumbersPaint.setTextSize(36);
@@ -335,6 +331,14 @@ onSizeChanged.onSizeChanged(w, h, oldw, oldh);
 
   public boolean isKeyboardSuggestionsEnabled() {
   return ime.isKeyboardSuggestionsEnabled();
+  }
+
+  public void setVisualSpaceScale(int scale) {
+  textRender.setVisualSpaceScale(scale);
+  }
+
+  public int getVisualSpaceScale() {
+  return textRender.getVisualSpaceScale();
   }
 
   public void setSingleCommentsHighlite(String delimiter, int color, int style) {

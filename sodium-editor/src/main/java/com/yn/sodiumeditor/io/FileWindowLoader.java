@@ -5,7 +5,9 @@ import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.StreamedCharSlice;
 import java.io.RandomAccessFile;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -47,7 +49,12 @@ public class FileWindowLoader {
 
     public void loadWindowAround(int startLine, @Nullable Runnable onComplete, boolean recalcWidthSync) {
         if (hasPendingInMemoryEdits()) { if (onComplete != null) editor.post(onComplete); return; }
-        if (fileIO.isWindowLoading) return;
+        if (fileIO.isWindowLoading) {
+            if (onComplete != null) {
+                editor.postDelayed(() -> loadWindowAround(startLine, onComplete, recalcWidthSync), 16L);
+            }
+            return;
+        }
         editor.loadingCircle.maxWidthRecalcToken++;
         if (fileIO.isFileCleared || fileIO.sourceFile == null) { if (onComplete != null) editor.post(onComplete); return; }
         fileIO.isWindowLoading = true;
@@ -65,6 +72,157 @@ public class FileWindowLoader {
                 loadWindowInternal(actualStart, taskVersion, onComplete, recalcWidthSync);
             } catch (Exception e) { editor.post(() -> { fileIO.isWindowLoading = false; if (onComplete != null) onComplete.run(); }); }
         });
+    }
+
+    public void loadTailWindowForSelectAll(int lastLine, @Nullable Runnable onComplete) {
+        if (hasPendingInMemoryEdits()) { if (onComplete != null) editor.post(onComplete); return; }
+        if (fileIO.isWindowLoading) {
+            editor.postDelayed(() -> loadTailWindowForSelectAll(lastLine, onComplete), 16L);
+            return;
+        }
+        editor.loadingCircle.maxWidthRecalcToken++;
+        if (fileIO.isFileCleared || fileIO.sourceFile == null) { if (onComplete != null) editor.post(onComplete); return; }
+        fileIO.isWindowLoading = true;
+        final int taskVersion = fileIO.ioTaskVersion.incrementAndGet();
+        final int requestedLastLine = Math.max(0, lastLine);
+        fileIO.ioHandler.post(() -> {
+            try {
+                TailWindowResult result = loadTailWindowInternal(requestedLastLine);
+                editor.post(() -> applyTailWindowResult(taskVersion, result, onComplete));
+            } catch (Exception e) {
+                editor.post(() -> {
+                    fileIO.isWindowLoading = false;
+                    if (onComplete != null) onComplete.run();
+                });
+            }
+        });
+    }
+
+    private TailWindowResult loadTailWindowInternal(int lastLine) throws Exception {
+        ArrayList<String> newWin = new ArrayList<>();
+        SparseIntArray newLengths = new SparseIntArray();
+        SparseIntArray newSliceStarts = new SparseIntArray();
+        int limit = editor.windowRender.windowSize + (editor.windowRender.prefetchLines * 2);
+        ArrayList<Long> starts = new ArrayList<>();
+        try (RandomAccessFile raf = new RandomAccessFile(fileIO.sourceFile, "r")) {
+            long fileLen = raf.length();
+            if (fileLen == 0L) {
+                starts.add(0L);
+            } else {
+                boolean endsWithNewline;
+                raf.seek(fileLen - 1L);
+                endsWithNewline = raf.read() == '\n';
+                ArrayDeque<Long> startsDescending = new ArrayDeque<>();
+                if (endsWithNewline) startsDescending.add(fileLen);
+                byte[] buffer = new byte[8192];
+                long readEnd = fileLen;
+                while (readEnd > 0L && startsDescending.size() < limit) {
+                    int toRead = (int) Math.min(buffer.length, readEnd);
+                    long readStart = readEnd - toRead;
+                    raf.seek(readStart);
+                    raf.readFully(buffer, 0, toRead);
+                    for (int i = toRead - 1; i >= 0 && startsDescending.size() < limit; i--) {
+                        if (buffer[i] == '\n') {
+                            long lineStart = readStart + i + 1L;
+                            Long last = startsDescending.peekLast();
+                            if (last == null || last.longValue() != lineStart) startsDescending.add(lineStart);
+                        }
+                    }
+                    readEnd = readStart;
+                }
+                if (startsDescending.size() < limit) {
+                    Long last = startsDescending.peekLast();
+                    if (last == null || last.longValue() != 0L) startsDescending.add(0L);
+                }
+                starts.addAll(startsDescending);
+                Collections.reverse(starts);
+            }
+
+            int actualStart = Math.max(0, lastLine - starts.size() + 1);
+            for (int i = 0; i < starts.size(); i++) {
+                int globalLine = actualStart + i;
+                long start = starts.get(i);
+                long nextStart = (i + 1 < starts.size()) ? starts.get(i + 1) : fileLen;
+                long bLen = getLineByteLengthFromTailStart(raf, start, nextStart, fileLen);
+                int len = (int) Math.min(Integer.MAX_VALUE, bLen);
+                if (editor.windowRender.shouldStreamLineLength(len)) {
+                    int sS = 0;
+                    if (editor.windowRender.isSingleByteCharset()) {
+                        int sE = Math.max(1, Math.min(len, editor.textRender.getInitialStreamedSliceSize()));
+                        newWin.add(fileIO.readLineSliceAtByte(raf, start, bLen, sS, sE));
+                    } else {
+                        StreamedCharSlice slice =
+                                fileIO.readLineSliceByChars(
+                                        raf,
+                                        start,
+                                        sS,
+                                        Math.max(1, editor.textRender.getInitialStreamedSliceSize()),
+                                        true);
+                        newWin.add(slice.text);
+                        len = slice.length;
+                    }
+                    newLengths.put(globalLine, len);
+                    newSliceStarts.put(globalLine, sS);
+                } else {
+                    newWin.add(fileIO.readLineUtf8AtByte(raf, start));
+                }
+            }
+            if (newWin.isEmpty()) newWin.add("");
+            return new TailWindowResult(newWin, newLengths, newSliceStarts, actualStart);
+        }
+    }
+
+    private long getLineByteLengthFromTailStart(
+            RandomAccessFile raf, long start, long nextStart, long fileLen) throws Exception {
+        long end = Math.max(start, Math.min(nextStart, fileLen));
+        long len = Math.max(0L, end - start);
+        if (len > 0L && end <= fileLen) {
+            raf.seek(end - 1L);
+            if (raf.read() == '\n') {
+                len--;
+                if (len > 0L) {
+                    raf.seek(start + len - 1L);
+                    if (raf.read() == '\r') len--;
+                }
+            }
+        }
+        return Math.max(0L, len);
+    }
+
+    private void applyTailWindowResult(
+            int taskVersion, TailWindowResult result, @Nullable Runnable onComplete) {
+        fileIO.isWindowLoading = false;
+        if (taskVersion != fileIO.ioTaskVersion.get()) { checkAndLoadWindow(); return; }
+        if (hasPendingInMemoryEdits()) {
+            if (onComplete != null) onComplete.run();
+            return;
+        }
+        synchronized (editor.windowRender.linesWindow) {
+            editor.windowRender.linesWindow.clear();
+            editor.windowRender.linesWindow.addAll(result.lines);
+            editor.windowRender.windowStartLine = result.windowStartLine;
+            fileIO.isEof = true;
+            synchronized (editor.windowRender.modifiedLines) {
+                for (Map.Entry<Integer, String> entry : new java.util.ArrayList<>(editor.windowRender.modifiedLines.entrySet())) {
+                    int line = entry.getKey();
+                    if (line >= result.windowStartLine && line < result.windowStartLine + result.lines.size()) {
+                        editor.windowRender.linesWindow.set(line - result.windowStartLine, entry.getValue());
+                    }
+                }
+            }
+        }
+        applyStreamedInfo(result.streamedLengths, result.streamedSliceStarts);
+        editor.autoBracketPair.clearBalanceCache();
+        editor.lineNumber.invalidateLineNumberCache();
+        editor.highlite.clearHighlightCaches();
+        fileIO.recalculateMaxLineWidthAsync();
+        if (editor.wordWrap.isWordWrapEnabled && !editor.wordWrap.shouldSuppressWrapMetricsForFastSelectAll()) {
+            if (editor.getWidth() > 0) editor.wordWrap.buildWrapMetricsForWindowSnapshot();
+            editor.wordWrap.requestWrapPrefixRebuild();
+        }
+        editor.requestLayout();
+        editor.invalidate();
+        if (onComplete != null) onComplete.run();
     }
 
     private void loadWindowInternal(int actualStart, int taskVersion, @Nullable Runnable onComplete, boolean recalcWidthSync) throws Exception {
@@ -175,6 +333,24 @@ public class FileWindowLoader {
         }
         synchronized (editor.editOperators.history.pendingEdits) {
             return !editor.editOperators.history.pendingEdits.isEmpty();
+        }
+    }
+
+    private static class TailWindowResult {
+        final ArrayList<String> lines;
+        final SparseIntArray streamedLengths;
+        final SparseIntArray streamedSliceStarts;
+        final int windowStartLine;
+
+        TailWindowResult(
+                ArrayList<String> lines,
+                SparseIntArray streamedLengths,
+                SparseIntArray streamedSliceStarts,
+                int windowStartLine) {
+            this.lines = lines;
+            this.streamedLengths = streamedLengths;
+            this.streamedSliceStarts = streamedSliceStarts;
+            this.windowStartLine = windowStartLine;
         }
     }
 

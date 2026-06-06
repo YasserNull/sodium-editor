@@ -68,5 +68,6 @@ public class onDraw {
         editor.scroll.drawStretch(canvas);
         editor.scroll.drawEdge(canvas);
         editor.scroll.drawScrollBar(canvas);
+        editor.loadingCircle.drawLoadingCircle(canvas);
     }
 }

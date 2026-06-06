@@ -228,8 +228,7 @@ public class LineNumber {
 
     public void drawLineNumbersCachedUnwrapped(Canvas canvas, int fI, int lI, int fL, int lL) {
         if (!cache.shouldUseCache()) { render.drawLineNumbersDirectUnwrapped(canvas, fI, lI, fL, lL); return; }
-        int totalLines = Math.max(1, editor.view.getLinesCount());
-        int safeVisibleCount = Math.max(1, Math.min(Math.max(1, editor.view.getLinesCount()), totalLines));
+        int totalLines = Math.max(1, utils.estimateLineCountForGutter());
         int drawLastI = Math.min(lI, totalLines - 1);
         int drawLastL = Math.min(lL, totalLines - 1);
         int gw = Math.max(1, Math.round(lineNumbersGutterWidth));

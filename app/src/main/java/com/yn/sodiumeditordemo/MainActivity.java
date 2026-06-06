@@ -48,6 +48,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public class MainActivity extends AppCompatActivity {
+  private static final String SHELL_KEYWORDS_REGEX =
+      "\\b(?:if|then|else|elif|fi|for|while|until|do|done|case|esac|function|in|select|time|"
+          + "break|continue|return|exit|export|readonly|local|unset|shift|source|alias|unalias|"
+          + "eval|exec|trap|test|declare|typeset|let|read|printf|cd|pwd|set)\\b";
+  private static final String SHELL_LITERAL_REGEX = "\\b(?:true|false|null)\\b";
+  private static final String SHELL_NUMBER_REGEX =
+      "\\b(?:0[xX][0-9a-fA-F]+|[0-9]+(?:\\.[0-9]+)?)\\b";
 
   private SodiumEditor editor;
   private TextView fileNameText;
@@ -89,9 +96,12 @@ public class MainActivity extends AppCompatActivity {
     ArrayDeque<EditOp> pendingEdits;
     ArrayDeque<EditOp> pendingRedo;
     int lineCountDelta;
+    boolean fileStateDirtyAfterUndoRestore;
     long lastEditTimestamp;
     int cursorLine, cursorChar;
     float scrollX, scrollY;
+    float currentMaxWindowLineWidth, globalMaxLineWidth;
+    float maxLineWidthForScroll, maxTextStartXForScroll, maxScrollXForScroll;
     int selStartLine, selStartChar, selEndLine, selEndChar;
     boolean hasSelection, selecting;
     // Window content cache
@@ -539,11 +549,17 @@ public class MainActivity extends AppCompatActivity {
     tab.pendingEdits = new ArrayDeque<>(editor.editOperators.pendingEdits);
     tab.pendingRedo = new ArrayDeque<>(editor.editOperators.pendingRedo);
     tab.lineCountDelta = editor.editOperators.lineCountDelta;
+    tab.fileStateDirtyAfterUndoRestore = editor.editOperators.fileStateDirtyAfterUndoRestore;
     tab.lastEditTimestamp = editor.editOperators.lastEditTimestamp;
     tab.cursorLine = editor.cursor.getLine();
     tab.cursorChar = editor.cursor.getChar();
     tab.scrollX = editor.scroll.scrollX;
     tab.scrollY = editor.scroll.scrollY;
+    tab.currentMaxWindowLineWidth = editor.windowRender.currentMaxWindowLineWidth;
+    tab.globalMaxLineWidth = editor.windowRender.globalMaxLineWidth;
+    tab.maxLineWidthForScroll = editor.scroll.maxLineWidthForScroll;
+    tab.maxTextStartXForScroll = editor.scroll.maxTextStartXForScroll;
+    tab.maxScrollXForScroll = editor.scroll.maxScrollXForScroll;
     tab.selStartLine = editor.selection.selStartLine;
     tab.selStartChar = editor.selection.selStartChar;
     tab.selEndLine = editor.selection.selEndLine;
@@ -605,9 +621,8 @@ public class MainActivity extends AppCompatActivity {
       }
     }
 
-    editor.windowRender.currentMaxWindowLineWidth = 0f;
-    editor.windowRender.globalMaxLineWidth = 0f;
-    editor.scroll.maxLineWidthForScroll = 0f;
+    clearHorizontalLineWidthCaches();
+    restoreHorizontalScrollMetrics(tab);
     editor.windowRender.clearStreamedLineCaches();
     editor.highlite.clearHighlightCaches();
     editor.wordWrap.wrapMetricsReady = false;
@@ -658,9 +673,13 @@ public class MainActivity extends AppCompatActivity {
     editor.editOperators.pendingEdits.addAll(tab.pendingEdits);
     editor.editOperators.pendingRedo.addAll(tab.pendingRedo);
     editor.editOperators.lineCountDelta = tab.lineCountDelta;
+    editor.editOperators.fileStateDirtyAfterUndoRestore = tab.fileStateDirtyAfterUndoRestore;
     editor.editOperators.lastEditTimestamp = tab.lastEditTimestamp;
 
     editor.binaryRender.applyBinaryFileFeaturePolicy(editor.fileIO.metadata.isBinaryFile(tab.file));
+    restoreHorizontalScrollMetrics(tab);
+    editor.scroll.scrollX = tab.scrollX;
+    editor.scroll.clampScrollX();
     editor.loadingCircle.isInitialFileOpenLoading = false;
     editor.view.setDisable(false);
     editor.loadingCircle.showLoadingCircle(false);
@@ -671,6 +690,41 @@ public class MainActivity extends AppCompatActivity {
     }
     editor.requestLayout();
     editor.invalidate();
+  }
+
+  private void clearHorizontalLineWidthCaches() {
+    synchronized (editor.windowRender.lineWidthCache) {
+      editor.windowRender.lineWidthCache.clear();
+    }
+    synchronized (editor.windowRender.avgCharWidthCache) {
+      editor.windowRender.avgCharWidthCache.clear();
+    }
+  }
+
+  private void restoreHorizontalScrollMetrics(FileTab tab) {
+    editor.windowRender.currentMaxWindowLineWidth = tab.currentMaxWindowLineWidth;
+    editor.windowRender.globalMaxLineWidth = tab.globalMaxLineWidth;
+    editor.scroll.maxLineWidthForScroll = tab.maxLineWidthForScroll;
+    editor.scroll.maxTextStartXForScroll = tab.maxTextStartXForScroll;
+    editor.scroll.maxScrollXForScroll = tab.maxScrollXForScroll;
+
+    if (editor.wordWrap.isWordWrapEnabled) {
+      editor.scroll.scrollX = 0f;
+      return;
+    }
+
+    if (tab.scrollX > 0f) {
+      float minWidthForRestoredScroll =
+          tab.scrollX + Math.max(0f, editor.getWidth() - editor.layout.getTextStartX());
+      if (minWidthForRestoredScroll > editor.windowRender.globalMaxLineWidth) {
+        editor.windowRender.globalMaxLineWidth = minWidthForRestoredScroll;
+        editor.scroll.maxLineWidthForScroll = minWidthForRestoredScroll;
+      }
+    }
+
+    if (editor.windowRender.globalMaxLineWidth <= 0f && !editor.windowRender.linesWindow.isEmpty()) {
+      editor.windowRender.recalculateMaxLineWidth();
+    }
   }
 
   private void openSettings() {
@@ -718,9 +772,13 @@ public class MainActivity extends AppCompatActivity {
   private void applyCurrentFileHighlight() {
     if (editor == null) return;
     if (isCurrentShellScript()) {
-      editor.setSingleCommentsHighlite("#", 0xFFFF0000, FontStyle.STYLE_ITALIC);
+      editor.highlite.clearHighlightRules();
+      editor.setSingleCommentsHighlite("#", 0xFF7B35FF, FontStyle.STYLE_ITALIC);
       editor.setStringsHighlite("\"", true, 0xFF00FF00, FontStyle.STYLE_NORMAL);
       editor.setStringsHighlite("'", true, 0xFF00FF00, FontStyle.STYLE_NORMAL);
+      editor.highlite.addHighlightRule(SHELL_LITERAL_REGEX, FontStyle.STYLE_NORMAL, 0xFFFF0000);
+      editor.highlite.addHighlightRule(SHELL_KEYWORDS_REGEX, FontStyle.STYLE_NORMAL, 0xFFECFF01);
+      editor.highlite.addHighlightRule(SHELL_NUMBER_REGEX, FontStyle.STYLE_NORMAL, 0xFF00E3FF);
       if (SodiumEditor.DEBUG_LOGS) {
         Log.d(
             "SodiumHighlight",
@@ -732,9 +790,7 @@ public class MainActivity extends AppCompatActivity {
                 + (editor.highlite.lineCommentHighlightRule != null));
       }
     } else {
-      editor.highlite.setSingleLineCommentSyntax(
-          false, FontStyle.STYLE_NORMAL, 0xFF888888);
-      editor.clearStringsHighlite();
+      editor.highlite.clearHighlightRules();
     }
   }
 

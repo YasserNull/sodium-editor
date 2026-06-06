@@ -527,6 +527,10 @@ public class EditorActions {
             editor.selection.replaceSelectionWithText(text);
             return;
         }
+        if (text.length() == 1) {
+            insertCharAtCursor(text.charAt(0));
+            return;
+        }
 
         if (editor.fileIO.sourceFile != null && !editor.fileIO.isFileCleared && operators.recorder.isLargePasteText(text)) {
             editor.loadingCircle.beginLargeEditUiIfNeeded(true, editor.cursor.cursorLine, editor.cursor.cursorLine, true);
@@ -546,9 +550,76 @@ public class EditorActions {
             return;
         }
 
-        // Standard multi-char insert
-        for (char c : text.toCharArray()) insertCharAtCursor(c);
+        insertTextAtCursorBatch(text);
     }
+
+    private void insertTextAtCursorBatch(String text) {
+        editor.fileIO.invalidatePendingIOForEdit();
+        operators.editVersion.incrementAndGet();
+
+        if (editor.ime.hasComposing) {
+            editor.ime.onFinishComposingText();
+        }
+
+        final int beforeLine = editor.cursor.cursorLine;
+        final int beforeChar = editor.cursor.cursorChar;
+        editor.fileIO.ensureLineInWindow(beforeLine, true);
+        if (editor.fileIO.isWindowLoading && !isLineInLoadedWindow(beforeLine)) {
+            editor.post(() -> {
+                editor.cursor.cursorLine = beforeLine;
+                editor.cursor.cursorChar = beforeChar;
+                insertTextAtCursorBatch(text);
+            });
+            return;
+        }
+
+        int localIdx = beforeLine - editor.windowRender.windowStartLine;
+        if (localIdx < 0 || localIdx >= editor.windowRender.linesWindow.size()) {
+            localIdx = handleWindowEdgeCase(localIdx);
+        }
+
+        String base;
+        synchronized (editor.windowRender.linesWindow) {
+            base = editor.windowRender.getLineFromWindowLocal(localIdx);
+        }
+        if (base == null) base = "";
+        int safeChar = Math.max(0, Math.min(beforeChar, base.length()));
+        EditOp.CursorTarget target = operators.recorder.computeCursorAfterInsert(beforeLine, safeChar, text);
+
+        synchronized (editor.windowRender.lineWidthCache) {
+            editor.windowRender.lineWidthCache.clear();
+        }
+        synchronized (editor.windowRender.avgCharWidthCache) {
+            editor.windowRender.avgCharWidthCache.clear();
+        }
+        editor.windowRender.applyMultiLineReplaceInWindowNow(beforeLine, safeChar, beforeLine, safeChar, text, target);
+
+        int insertedNewlines = operators.recorder.countNewlines(text);
+        operators.lineCountDelta += insertedNewlines;
+        editor.highlite.invalidateHighlightCacheForLine(beforeLine);
+        editor.bracketGuides.invalidateBracketGuideCache(true);
+        editor.scroll.keepCursorVisibleHorizontally();
+        editor.cursor.invalidateCursorArea();
+        editor.invalidate();
+        editor.autoCompletion.updateSuggestion();
+
+        EditOp op = new EditOp();
+        op.startLine = beforeLine;
+        op.startChar = safeChar;
+        op.endLine = beforeLine;
+        op.endChar = safeChar;
+        op.removedText = "";
+        op.insertedText = text;
+        op.insertedEndLine = target.line;
+        op.insertedEndChar = target.ch;
+        op.cursorLineBefore = beforeLine;
+        op.cursorCharBefore = beforeChar;
+        op.cursorLineAfter = editor.cursor.cursorLine;
+        op.cursorCharAfter = editor.cursor.cursorChar;
+        op.timestamp = System.currentTimeMillis();
+        operators.recorder.recordEdit(op);
+    }
+
     public void insertTextAt(int line, int col, String text) {
     if (text == null) return;
     if (Looper.myLooper() != Looper.getMainLooper()) {

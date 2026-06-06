@@ -355,7 +355,11 @@ public class Ime {
             + " composingText="
             + safeText(getCurrentComposingText()));
     if (editor.selection.hasSelection) {
-      editor.selection.replaceSelectionWithText("");
+      if (editor.selection.isSelectAllActive || editor.selection.isEntireFileSelected) {
+        editor.selection.deleteEntireFileSelectionFast();
+      } else {
+        editor.selection.replaceSelectionWithText("");
+      }
       updateImeSelection();
       editor.autoCompletion.updateSuggestion();
       return true;

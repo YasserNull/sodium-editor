@@ -7,6 +7,7 @@ import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.draw.BracketGuideDraw;
 import com.yn.sodiumeditor.utils.BracketGuideScanner;
+import java.io.RandomAccessFile;
 import java.util.Collections;
 import java.util.List;
 
@@ -18,6 +19,7 @@ import java.util.List;
 public class BracketGuides {
 
   public static final int BRACKET_GUIDE_COLOR = 0xFF555555;
+  static final int MAX_BRACKET_GUIDE_SCAN_LINE_BYTES = 64 * 1024;
 
   private final SodiumEditor editor;
 
@@ -62,6 +64,13 @@ public class BracketGuides {
     draw = new BracketGuideDraw(editor, this);
     scanner = new BracketGuideScanner(editor, draw);
     asyncBuilder = new BracketGuideAsyncBuilder(editor, this, mainCache, fallbackCache, checkpoint);
+  }
+
+  public boolean shouldSuppressBracketGuidesForSelectAll() {
+    return editor.selection.isSelectAllActive
+        || editor.selection.isEntireFileSelected
+        || editor.selection.state.isSelectAllActive
+        || editor.selection.state.isEntireFileSelected;
   }
 
   /**
@@ -148,7 +157,8 @@ public class BracketGuides {
    */
   public void invalidateBracketGuideCache(boolean configChanged) {
     // Save current cache to fallback before invalidating
-    if (!configChanged && mainCache.bracketGuideCacheStartLine >= 0 && mainCache.bracketGuideCacheEndLine >= mainCache.bracketGuideCacheStartLine
+    boolean suppressFallback = shouldSuppressBracketGuidesForSelectAll();
+    if (!configChanged && !suppressFallback && mainCache.bracketGuideCacheStartLine >= 0 && mainCache.bracketGuideCacheEndLine >= mainCache.bracketGuideCacheStartLine
         && mainCache.bracketGuideTokensWindow.size() > 0) {
       fallbackCache.mergeWithMainCache(
           mainCache.bracketGuideTokensWindow,
@@ -235,26 +245,19 @@ public class BracketGuides {
 
     // Read lines and calculate state from startLine to targetLine (exclusive)
     if (startLine < targetLine && editor.fileIO.isIndexReady && editor.fileIO.sourceFile != null && editor.fileIO.sourceFile.exists()) {
-      try {
-        long offset;
-        synchronized (editor.fileIO.lineOffsetsLock) {
-          offset = (startLine < editor.fileIO.lineOffsets.length) ? editor.fileIO.lineOffsets[startLine] : 0;
-        }
-        try (java.io.FileInputStream fis = new java.io.FileInputStream(editor.fileIO.sourceFile)) {
-          fis.getChannel().position(offset);
-          try (java.io.InputStreamReader isr = new java.io.InputStreamReader(fis, editor.fileIO.fileCharset);
-               java.io.BufferedReader reader = new java.io.BufferedReader(isr, 65536)) {
-
-            int currentLine = startLine;
-            String text;
-            while ((text = reader.readLine()) != null && currentLine < targetLine) {
-              String mod = editor.windowRender.modifiedLines.get(currentLine);
-              if (mod != null) text = mod;
-
-              scanner.updateBracketGuideStateForLine(text, currentLine, state);
-              currentLine++;
-            }
+      try (RandomAccessFile raf = new RandomAccessFile(editor.fileIO.sourceFile, "r")) {
+        int currentLine = startLine;
+        while (currentLine < targetLine) {
+          String text = readIndexedLinePrefix(currentLine, raf);
+          if (text == null) break;
+          String mod;
+          synchronized (editor.windowRender.modifiedLines) {
+            mod = editor.windowRender.modifiedLines.get(currentLine);
           }
+          if (mod != null) text = mod;
+
+          scanner.updateBracketGuideStateForLine(text, currentLine, state);
+          currentLine++;
         }
       } catch (Exception e) {
         for (int line = startLine; line < targetLine; line++) {
@@ -270,6 +273,16 @@ public class BracketGuides {
     }
 
     return state;
+  }
+
+  String readIndexedLinePrefix(int line, RandomAccessFile raf) throws Exception {
+    if (!editor.fileIO.isIndexReady) return null;
+    long offset;
+    synchronized (editor.fileIO.lineOffsetsLock) {
+      if (line < 0 || line >= editor.fileIO.lineOffsets.length) return null;
+      offset = editor.fileIO.lineOffsets[line];
+    }
+    return editor.fileIO.readLinePrefixUtf8AtByte(raf, offset, MAX_BRACKET_GUIDE_SCAN_LINE_BYTES);
   }
 
   /**

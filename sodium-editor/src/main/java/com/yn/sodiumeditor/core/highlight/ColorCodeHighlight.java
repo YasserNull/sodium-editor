@@ -76,41 +76,7 @@ public class ColorCodeHighlight {
 
     if (line.indexOf('#') < 0 && line.indexOf('0') < 0) return;
 
-    int[] triples = colorCodeBgCache.get(globalLine);
-    if (triples == null) {
-      ArrayList<Integer> tmp = null;
-      Matcher matcher = COLOR_HEX_PATTERN.matcher(line);
-      while (matcher.find()) {
-        String colorString = matcher.group(0);
-        if (colorString == null || colorString.isEmpty()) continue;
-
-        int color;
-        try {
-          if (colorString.startsWith("0x") || colorString.startsWith("0X")) {
-            String hex = colorString.substring(2);
-            if (hex.length() == 6) hex = "FF" + hex;
-            color = (int) Long.parseLong(hex, 16);
-          } else {
-            color = Color.parseColor(colorString);
-          }
-        } catch (Exception e) {
-          continue;
-        }
-
-        int backgroundColor = (color & 0x00FFFFFF) | (0xC0 << 24);
-        if (tmp == null) tmp = new ArrayList<>();
-        tmp.add(matcher.start());
-        tmp.add(matcher.end());
-        tmp.add(backgroundColor);
-      }
-      if (tmp == null || tmp.isEmpty()) {
-        triples = new int[0];
-      } else {
-        triples = new int[tmp.size()];
-        for (int i = 0; i < tmp.size(); i++) triples[i] = tmp.get(i);
-      }
-      colorCodeBgCache.put(globalLine, triples);
-    }
+    int[] triples = getColorCodeSpansForLine(line, globalLine);
 
     if (triples.length == 0) return;
 
@@ -127,5 +93,47 @@ public class ColorCodeHighlight {
       colorOverlayPaint.setColor(backgroundColor);
       canvas.drawRect(left, top, right, bottom, colorOverlayPaint);
     }
+  }
+
+  public int[] getColorCodeSpansForLine(String line, int globalLine) {
+    if (!isColorHighlightingEnabled || line == null || line.isEmpty()) return new int[0];
+    if (line.indexOf('#') < 0 && line.indexOf('0') < 0) return new int[0];
+
+    int[] triples = colorCodeBgCache.get(globalLine);
+    if (triples != null) return triples;
+
+    ArrayList<Integer> tmp = null;
+    Matcher matcher = COLOR_HEX_PATTERN.matcher(line);
+    while (matcher.find()) {
+      String colorString = matcher.group(0);
+      if (colorString == null || colorString.isEmpty()) continue;
+
+      int color;
+      try {
+        if (colorString.startsWith("0x") || colorString.startsWith("0X")) {
+          String hex = colorString.substring(2);
+          if (hex.length() == 6) hex = "FF" + hex;
+          color = (int) Long.parseLong(hex, 16);
+        } else {
+          color = Color.parseColor(colorString);
+        }
+      } catch (Exception e) {
+        continue;
+      }
+
+      int backgroundColor = (color & 0x00FFFFFF) | (0xC0 << 24);
+      if (tmp == null) tmp = new ArrayList<>();
+      tmp.add(matcher.start());
+      tmp.add(matcher.end());
+      tmp.add(backgroundColor);
+    }
+    if (tmp == null || tmp.isEmpty()) {
+      triples = new int[0];
+    } else {
+      triples = new int[tmp.size()];
+      for (int i = 0; i < tmp.size(); i++) triples[i] = tmp.get(i);
+    }
+    colorCodeBgCache.put(globalLine, triples);
+    return triples;
   }
 }
