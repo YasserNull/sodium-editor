@@ -1,6 +1,5 @@
 package com.yn.sodiumeditor.io;
 import androidx.annotation.Nullable;
-import android.util.Log;
 import com.yn.sodiumeditor.SodiumEditor;
 import java.io.File;
 import java.io.FileInputStream;
@@ -48,7 +47,6 @@ public class FileEditHandler {
                 editor.fileIO.ioHandler.post(() -> {
                     final String savedFileContent = editor.fileIO.readSavedFileContentForLog();
                     editor.post(() -> {
-                        editor.fileIO.logSaveContentComparison(savedFileContent);
                         if (onComplete != null) onComplete.run();
                     });
                 });
@@ -57,13 +55,10 @@ public class FileEditHandler {
             }
             return;
         }
-        logSaveUndo("save.pending.start", "ops=" + ops.size() + " file=" + safeFilePath(editor.fileIO.sourceFile));
         editor.fileIO.ioHandler.post(() -> {
             boolean ok = true;
             for (EditOp op : ops) {
-                logSaveUndo("save.pending.op", describeOp(op));
                 if (!ensureRemovedTextBackupForUndo(op)) {
-                    logSaveUndo("save.backup.failed", describeOp(op));
                     ok = false;
                     break;
                 }
@@ -72,7 +67,6 @@ public class FileEditHandler {
                         : rewriteReplaceRangeBlocking(
                                 editor.fileIO.sourceFile, op.startLine, op.startChar, op.endLine, op.endChar, op.insertedText);
                 if (!rewritten) {
-                    logSaveUndo("save.rewrite.failed", describeOp(op));
                     ok = false;
                     break;
                 }
@@ -82,12 +76,10 @@ public class FileEditHandler {
             editor.post(() -> {
                 if (!success) {
                     operators.history.pendingEdits.addAll(ops);
-                    logSaveUndo("save.pending.restore", "ops=" + ops.size());
                 } else {
                     operators.clearFileStateDirtyAfterSave();
-                    logSaveUndo("save.pending.success", "ops=" + ops.size() + " fileLength=" + editor.fileIO.sourceFile.length());
                     synchronized (editor.windowRender.modifiedLines) {
-                        editor.windowRender.modifiedLines.clear();
+                        editor.windowRender.clearModifiedLines();
                     }
                     synchronized (editor.fileIO.directLineCache) {
                         editor.fileIO.directLineCache.clear();
@@ -100,7 +92,6 @@ public class FileEditHandler {
                     editor.lineNumber.invalidateLineNumberCache();
                     int reloadStart = Math.max(0, editor.cursor.cursorLine - editor.windowRender.prefetchLines);
                     editor.fileIO.loadWindowAround(reloadStart, () -> {
-                        editor.fileIO.logSaveContentComparison(savedFileContent);
                         editor.requestLayout();
                         editor.invalidate();
                         if (onComplete != null) onComplete.run();
@@ -144,12 +135,8 @@ public class FileEditHandler {
                 outCh.force(true);
             }
             op.removedTextBackupFile = backup;
-            logSaveUndo(
-                    "save.backup.created",
-                    describeOp(op) + " backup=" + safeFilePath(backup) + " bytes=" + backup.length());
             return true;
         } catch (Exception e) {
-            logSaveUndo("save.backup.exception", e.getClass().getSimpleName() + " " + describeOp(op));
             return false;
         }
     }
@@ -325,7 +312,7 @@ public class FileEditHandler {
                     }
                     
                     synchronized (editor.windowRender.modifiedLines) {
-                        editor.windowRender.modifiedLines.clear();
+                        editor.windowRender.clearModifiedLines();
                     }
                     synchronized (editor.windowRender.lineWidthCache) {
                         editor.windowRender.lineWidthCache.clear();
@@ -375,26 +362,6 @@ public class FileEditHandler {
             pos += sent;
             remaining -= sent;
         }
-    }
-
-    private void logSaveUndo(String operation, String details) {
-        if (!SodiumEditor.DEBUG_LOGS) return;
-        Log.d(
-                TAG,
-                "[SodiumEditor] operation="
-                        + operation
-                        + " cursor="
-                        + editor.cursor.cursorLine
-                        + ":"
-                        + editor.cursor.cursorChar
-                        + " pendingEdits="
-                        + operators.getPendingEditsCount()
-                        + " undo="
-                        + operators.canUndo()
-                        + " thread="
-                        + Thread.currentThread().getName()
-                        + " "
-                        + details);
     }
 
     private String describeOp(EditOp op) {

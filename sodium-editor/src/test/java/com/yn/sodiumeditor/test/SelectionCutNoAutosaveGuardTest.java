@@ -59,7 +59,7 @@ public class SelectionCutNoAutosaveGuardTest {
 
     assertTrue(
         "BUG: pending modifiedLines must prevent disk reload from bringing cut text back.",
-        body.contains("modifiedLines.isEmpty()"));
+        body.contains("editor.windowRender.hasAnyModifiedLines()"));
     assertTrue(
         "BUG: pending edit history must prevent disk reload before explicit save.",
         body.contains("!editor.editOperators.history.pendingEdits.isEmpty()"));

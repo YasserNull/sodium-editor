@@ -1,6 +1,5 @@
 package com.yn.sodiumeditor.input.events;
 
-import android.util.Log;
 import android.view.KeyEvent;
 import com.yn.sodiumeditor.SodiumEditor;
 
@@ -26,7 +25,6 @@ public class OnKeyDown {
    * @return true if the event was handled, false otherwise
    */
   public boolean onKeyDown(int keyCode, KeyEvent event) {
-    logKeyEvent("keyDown", keyCode, event, getPrintingText(event));
     if (editor.view.isDisabled) return true;
     
     if (editor.view.isReadOnly) {
@@ -76,7 +74,6 @@ public class OnKeyDown {
    */
   private boolean handleSelectionWithPrintingKey(KeyEvent event) {
     String text = getPrintingText(event);
-    logKeyEvent("selection.printingKey", event.getKeyCode(), event, text);
     if (text != null) {
       editor.selection.replaceSelectionWithText(text);
       editor.charAnimation.startCharAnimationFromText(text);
@@ -105,7 +102,6 @@ public class OnKeyDown {
 
       case KeyEvent.KEYCODE_DEL:
         if (editor.selection.hasSelection) {
-          logKeyEvent("selection.del", keyCode, event, "");
           if (editor.selection.isSelectAllActive || editor.selection.isEntireFileSelected) {
             editor.selection.deleteEntireFileSelectionFast();
           } else {
@@ -118,7 +114,6 @@ public class OnKeyDown {
 
       case KeyEvent.KEYCODE_FORWARD_DEL:
         if (editor.selection.hasSelection) {
-          logKeyEvent("selection.forwardDel", keyCode, event, "");
           if (editor.selection.isSelectAllActive || editor.selection.isEntireFileSelected) {
             editor.selection.deleteEntireFileSelectionFast();
           } else {
@@ -131,7 +126,6 @@ public class OnKeyDown {
 
       case KeyEvent.KEYCODE_ENTER:
         if (editor.selection.hasSelection) {
-          logKeyEvent("selection.enter", keyCode, event, "\\n");
           editor.selection.replaceSelectionWithText("\n");
         } else {
           editor.autoBracketNewline.insertNewlineAtCursor();
@@ -157,48 +151,4 @@ public class OnKeyDown {
     return (chars == null || chars.isEmpty()) ? null : chars;
   }
 
-  private void logKeyEvent(String operation, int keyCode, KeyEvent event, String text) {
-    if ((!DEBUG_KEY_SELECTION_LOGS && !SodiumEditor.DEBUG_LOGS) || keyLogCount >= MAX_KEY_LOGS) return;
-    keyLogCount++;
-    Log.d(
-        TAG,
-        "[SodiumEditor] operation="
-            + operation
-            + " count="
-            + keyLogCount
-            + " keyCode="
-            + keyCode
-            + " action="
-            + (event == null ? -1 : event.getAction())
-            + " unicode="
-            + (event == null ? 0 : event.getUnicodeChar())
-            + " text="
-            + safeTextForLog(text)
-            + " selection="
-            + editor.selection.selStartLine
-            + ":"
-            + editor.selection.selStartChar
-            + ".."
-            + editor.selection.selEndLine
-            + ":"
-            + editor.selection.selEndChar
-            + " hasSelection="
-            + editor.selection.hasSelection
-            + " stateHasSelection="
-            + editor.selection.state.hasSelection
-            + " cursor="
-            + editor.cursor.cursorLine
-            + ":"
-            + editor.cursor.cursorChar
-            + " thread="
-            + Thread.currentThread().getName());
-  }
-
-  private String safeTextForLog(String text) {
-    if (text == null) return "<null>";
-    String escaped = text.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
-    int max = 120;
-    if (escaped.length() > max) return escaped.substring(0, max) + "...(len=" + text.length() + ")";
-    return escaped + "(len=" + text.length() + ")";
-  }
 }

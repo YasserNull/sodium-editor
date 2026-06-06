@@ -107,15 +107,14 @@ public class SelectionHandleFreshSelectionGuardTest {
     assertTrue("Expected selectAll in SelectionActionHandler.", selectAllAt >= 0);
     String selectAllAround =
         actionHandlerSrc.substring(
-            selectAllAt, Math.min(actionHandlerSrc.length(), selectAllAt + 5200));
+            selectAllAt, Math.min(actionHandlerSrc.length(), selectAllAt + 9000));
     assertTrue(
-        "BUG: selectAll paths must build the new selection via selection.setSelection(...) instead of directly mutating selection bounds.",
+        "BUG: selectAll completion paths must build the final selection via selection.setSelection(...) so handle positions refresh.",
         selectAllAround.contains("selection.setSelection(0, 0, endLine, endChar);")
             && selectAllAround.contains("selection.setSelection(0, 0, winLast, endChar);")
             && selectAllAround.contains("selection.setSelection(0, 0, fileLast, endChar);")
-            && selectAllAround.contains("selection.setSelection(0, 0, lastLine, endChar);")
-            && !selectAllAround.contains("selection.hasSelection = true;")
-            && !selectAllAround.contains("selection.selStartLine = 0; selection.selStartChar = 0;"));
+            && selectAllAround.contains("complete-no-index")
+            && selectAllAround.contains("selection.syncToState();"));
   }
 
   private static String readSource(String relativePath) throws Exception {

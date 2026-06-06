@@ -3,7 +3,6 @@ package com.yn.sodiumeditor.renderer;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
-import android.util.Log;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.guides.bracket.BracketMatch;
 import com.yn.sodiumeditor.core.wordwrap.WordWrap;
@@ -49,18 +48,6 @@ public class ViewRender {
     
     editor.bracketGuides.beginRenderFrame(windowStart, windowEnd, visibleStart, visibleEnd);
     editor.bracketGuides.setFrameFastScroll(fastScroll);
-    logViewTrace(
-        "VIEW_DRAW_CONTENT",
-        "window="
-            + windowStart
-            + ".."
-            + windowEnd
-            + " visual="
-            + visibleStart
-            + ".."
-            + visibleEnd
-            + " fastScroll="
-            + fastScroll);
     
     boolean shouldDrawBracketGuides = editor.bracketGuides.isBracketGuidesEnabled && (editor.bracketGuides.showGuidesDuringFastScroll || !fastScroll);
     
@@ -105,22 +92,6 @@ public class ViewRender {
     drawBaseLine = firstVisibleLine;
     float baseY = firstVisibleIndex * editor.textRender.lineHeight;
     float translateY = -editor.scroll.scrollY + baseY;
-    logViewTrace(
-        "VIEW_DRAW_INTERNAL",
-        "firstVisibleIndex="
-            + firstVisibleIndex
-            + " lastVisibleIndex="
-            + lastVisibleIndex
-            + " lines="
-            + firstVisibleLine
-            + ".."
-            + lastVisibleLine
-            + " lineHeight="
-            + editor.textRender.lineHeight
-            + " translateY="
-            + translateY
-            + " wordWrap="
-            + editor.wordWrap.isWordWrapEnabled);
 
     if (editor.lineNumber.showLineNumbers) {
       canvas.drawRect(editor.lineNumber.getGutterStartX(), 0, editor.lineNumber.getGutterStartX() + editor.lineNumber.lineNumbersGutterWidth, editor.getHeight(), editor.lineNumber.gutterPaint);
@@ -294,22 +265,6 @@ public class ViewRender {
         if (i == editor.charAnimation.charAnimLine
             && editor.charAnimation.charAnimEndChar > editor.charAnimation.charAnimStartChar
             && editor.charAnimation.charAnimAlpha < 1f) {
-            logViewTraceAlways(
-                "VIEW_DRAW_ANIM_LINE",
-                "line="
-                    + i
-                    + " textLen="
-                    + (line == null ? -1 : line.length())
-                    + " y="
-                    + y
-                    + " animRange="
-                    + editor.charAnimation.charAnimStartChar
-                    + ".."
-                    + editor.charAnimation.charAnimEndChar
-                    + " alpha="
-                    + editor.charAnimation.charAnimAlpha
-                    + " directLines="
-                    + (directLines != null));
         }
         if (line != null) editor.colorCodeHighlight.drawColorCodeBackgrounds(canvas, line, i);
         editor.textRender.drawHighlightedLine(canvas, line, i, y);
@@ -319,14 +274,6 @@ public class ViewRender {
         if (i == editor.charAnimation.charAnimLine
             && editor.charAnimation.charAnimEndChar > editor.charAnimation.charAnimStartChar
             && editor.charAnimation.charAnimAlpha < 1f) {
-            logViewTraceAlways(
-                "VIEW_AFTER_HIGHLIGHT_LINE",
-                "line="
-                    + i
-                    + " textLen="
-                    + (line == null ? -1 : line.length())
-                    + " alpha="
-                    + editor.charAnimation.charAnimAlpha);
         }
         // Draw whitespace guides and indent guides after text
         if (drawDecorations) {
@@ -364,47 +311,6 @@ public class ViewRender {
 
   public SodiumEditor getEditor() { 
       return editor; 
-  }
-
-  private void logViewTrace(String phase, String details) {
-    if (!SodiumEditor.DEBUG_LOGS) return;
-    if (viewTraceLogCount >= MAX_VIEW_TRACE_LOGS) return;
-    if (editor.charAnimation.charAnimLine < 0
-        || editor.charAnimation.charAnimEndChar <= editor.charAnimation.charAnimStartChar
-        || editor.charAnimation.charAnimAlpha >= 1f) {
-      return;
-    }
-    viewTraceLogCount++;
-    Log.d(
-        TAG,
-        phase
-            + " animLine="
-            + editor.charAnimation.charAnimLine
-            + " animRange="
-            + editor.charAnimation.charAnimStartChar
-            + ".."
-            + editor.charAnimation.charAnimEndChar
-            + " alpha="
-            + editor.charAnimation.charAnimAlpha
-            + " "
-            + details);
-  }
-
-  private void logViewTraceAlways(String phase, String details) {
-    if (!SodiumEditor.DEBUG_LOGS) return;
-    Log.d(
-        TAG,
-        phase
-            + " animLine="
-            + editor.charAnimation.charAnimLine
-            + " animRange="
-            + editor.charAnimation.charAnimStartChar
-            + ".."
-            + editor.charAnimation.charAnimEndChar
-            + " alpha="
-            + editor.charAnimation.charAnimAlpha
-            + " "
-            + details);
   }
 
 }

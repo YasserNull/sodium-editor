@@ -2,7 +2,6 @@ package com.yn.sodiumeditor.input;
 
 import android.text.Editable;
 import android.text.InputType;
-import android.util.Log;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
@@ -67,14 +66,6 @@ public class Ime {
     outAttrs.imeOptions =
         EditorInfo.IME_ACTION_NONE
             | EditorInfo.IME_FLAG_NO_EXTRACT_UI;
-    logImeState(
-        "createInputConnection",
-        "keyboardSuggestionsEnabled="
-            + keyboardSuggestionsEnabled
-            + " inputType="
-            + outAttrs.inputType
-            + " imeOptions="
-            + outAttrs.imeOptions);
     
     ImeContext ctx = scanner.buildImeContext(imeExtractedBeforeChars, imeExtractedAfterChars);
     ExtractedText et = scanner.buildExtractedTextFromContext(ctx);
@@ -249,18 +240,6 @@ public class Ime {
       int startChar = composingStartActive ? composingStartChar : composingOffset;
       String replacement = getComposingCommitReplacement(str);
       captureOriginalComposingTextIfNeeded();
-      logImeState(
-          "commitTextWithComposing",
-          "commit="
-              + safeText(str)
-              + " composingText="
-              + safeText(getCurrentComposingText())
-              + " replacement="
-              + safeText(replacement)
-              + " start="
-              + startLine
-              + ":"
-              + startChar);
       if (replacement == null) {
         commitComposing(true);
         editor.editOperators.insertTextAtCursor(str);
@@ -299,14 +278,6 @@ public class Ime {
   }
 
   public boolean onSetComposingText(CharSequence text, int newCursorPosition) {
-    logImeState(
-        "setComposingText",
-        "text="
-            + safeText(text == null ? null : text.toString())
-            + " newCursorPosition="
-            + newCursorPosition
-            + " beforeComposing="
-            + safeText(getCurrentComposingText()));
     if (editor.selection.hasSelection) {
       editor.selection.replaceSelectionWithText(text.toString());
       editor.charAnimation.startCharAnimationFromText(text);
@@ -346,14 +317,6 @@ public class Ime {
   }
 
   private boolean deleteSurroundingCodePoints(int beforeLength, int afterLength) {
-    logImeState(
-        "deleteSurroundingCodePoints",
-        "beforeLength="
-            + beforeLength
-            + " afterLength="
-            + afterLength
-            + " composingText="
-            + safeText(getCurrentComposingText()));
     if (editor.selection.hasSelection) {
       if (editor.selection.isSelectAllActive || editor.selection.isEntireFileSelected) {
         editor.selection.deleteEntireFileSelectionFast();
@@ -493,7 +456,7 @@ public class Ime {
       }
       String newLine = base.substring(0, start) + textSeq + base.substring(end);
       editor.view.updateLocalLine(local, newLine);
-      editor.windowRender.modifiedLines.put(composingLine, newLine);
+      editor.windowRender.putModifiedLine(composingLine, newLine);
       editor.wordWrap.onLineContentChanged(composingLine, newLine);
       editor.windowRender.clearStreamedLineInfo(composingLine);
       editor.highlite.invalidateHighlightCacheForLine(composingLine);
@@ -710,7 +673,6 @@ public class Ime {
   public void setKeyboardSuggestionsEnabled(boolean enabled) {
     if (keyboardSuggestionsEnabled == enabled) return;
     keyboardSuggestionsEnabled = enabled;
-    logImeState("setKeyboardSuggestionsEnabled", "enabled=" + enabled);
     restartInput();
   }
   public boolean isKeyboardSuggestionsEnabled() {
@@ -742,49 +704,4 @@ public class Ime {
     if (imm != null) imm.showSoftInput(editor, 0);
   }
 
-  private void logImeState(String operation, String details) {
-    if (!SodiumEditor.DEBUG_LOGS) return;
-    String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
-    Log.d(
-        TAG,
-        "[SodiumEditor] operation="
-            + operation
-            + " cursor="
-            + editor.cursor.cursorLine
-            + ":"
-            + editor.cursor.cursorChar
-            + " selection="
-            + editor.selection.selStartLine
-            + ":"
-            + editor.selection.selStartChar
-            + ".."
-            + editor.selection.selEndLine
-            + ":"
-            + editor.selection.selEndChar
-            + " hasSelection="
-            + editor.selection.hasSelection
-            + " hasComposing="
-            + hasComposing
-            + " composing="
-            + composingLine
-            + ":"
-            + composingOffset
-            + "+"
-            + composingLength
-            + " line="
-            + safeText(line)
-            + " "
-            + details
-            + " thread="
-            + Thread.currentThread().getName());
-  }
-
-  private String safeText(@Nullable String text) {
-    if (text == null) return "<null>";
-    String escaped =
-        text.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
-    int max = 120;
-    if (escaped.length() > max) return escaped.substring(0, max) + "...(len=" + text.length() + ")";
-    return escaped + "(len=" + text.length() + ")";
-  }
 }

@@ -22,17 +22,22 @@ public class WindowRender {
     // Window/Line Management variables
     public final List<String> linesWindow = new ArrayList<>();
     public int windowStartLine = 0;
-    public int windowSize = 1000;
-    public int prefetchLines = 1000;
+    public int windowSize = 250;
+    public int prefetchLines = 250;
     public final java.util.LinkedHashMap<Integer, String> modifiedLines =
-            new java.util.LinkedHashMap<Integer, String>(1000, 0.75f, true) {
+            new java.util.LinkedHashMap<Integer, String>(1000, 0.75f, false) {
                 @Override
                 protected boolean removeEldestEntry(Map.Entry<Integer, String> eldest) {
-                    return size() > 1000;
+                    boolean remove = size() > 1000;
+                    if (remove && eldest != null && eldest.getKey() != null) {
+                        onModifiedLineRemovedLocked(eldest.getKey());
+                    }
+                    return remove;
                 }
             };
+    private int firstModifiedLine = Integer.MAX_VALUE;
     public final android.util.SparseArray<Float> lineWidthCache = new android.util.SparseArray<>(400);
-    public int lineWidthCacheSize = 1000;
+    public int lineWidthCacheSize = 250;
     public float currentMaxWindowLineWidth = 0f;
     public float globalMaxLineWidth = 0f;
     public final android.util.SparseArray<Float> avgCharWidthCache = new android.util.SparseArray<>(400);
@@ -66,7 +71,7 @@ public class WindowRender {
         if (line < 0) return "";
 
         // Modified lines first — always the most recent edits
-        String mod = modifiedLines.get(line);
+        String mod = getModifiedLine(line);
         if (mod != null) return mod;
 
         // Then the window
@@ -100,18 +105,71 @@ public class WindowRender {
     }
 
     public int getFirstModifiedLine() {
-        int first = Integer.MAX_VALUE;
         synchronized (modifiedLines) {
-            for (Integer line : new java.util.ArrayList<>(modifiedLines.keySet())) {
-                if (line != null && line < first) first = line;
+            if (firstModifiedLine != Integer.MAX_VALUE && !modifiedLines.containsKey(firstModifiedLine)) {
+                recomputeFirstModifiedLineLocked();
             }
+            return firstModifiedLine;
         }
-        return first;
     }
 
     public boolean hasModifiedLine(int line) {
         synchronized (modifiedLines) {
             return modifiedLines.containsKey(line);
+        }
+    }
+
+    public boolean hasAnyModifiedLines() {
+        synchronized (modifiedLines) {
+            return !modifiedLines.isEmpty();
+        }
+    }
+
+    public String getModifiedLine(int line) {
+        synchronized (modifiedLines) {
+            return modifiedLines.get(line);
+        }
+    }
+
+    public void putModifiedLine(int line, String text) {
+        synchronized (modifiedLines) {
+            modifiedLines.put(line, text);
+            if (line < firstModifiedLine) firstModifiedLine = line;
+        }
+    }
+
+    public void clearModifiedLines() {
+        synchronized (modifiedLines) {
+            modifiedLines.clear();
+            firstModifiedLine = Integer.MAX_VALUE;
+        }
+    }
+
+    public void removeModifiedLine(int line) {
+        synchronized (modifiedLines) {
+            if (modifiedLines.remove(line) != null) {
+                onModifiedLineRemovedLocked(line);
+            }
+        }
+    }
+
+    public void recomputeFirstModifiedLine() {
+        synchronized (modifiedLines) {
+            recomputeFirstModifiedLineLocked();
+        }
+    }
+
+    public void recomputeFirstModifiedLineLocked() {
+        int first = Integer.MAX_VALUE;
+        for (Integer line : modifiedLines.keySet()) {
+            if (line != null && line < first) first = line;
+        }
+        firstModifiedLine = first;
+    }
+
+    private void onModifiedLineRemovedLocked(int line) {
+        if (line == firstModifiedLine) {
+            recomputeFirstModifiedLineLocked();
         }
     }
 
@@ -122,7 +180,7 @@ public class WindowRender {
         if (line < 0) return "";
 
         // Modified lines first — always the most recent edits
-        String mod = modifiedLines.get(line);
+        String mod = getModifiedLine(line);
         if (mod != null) return mod;
 
         // Then the window
@@ -150,7 +208,7 @@ public class WindowRender {
             int end = Math.min(lastVisibleLine, winEnd);
             if (start > end) return;
             for (int line = start; line <= end; line++) {
-                if (modifiedLines.containsKey(line)) continue;
+                if (hasModifiedLine(line)) continue;
                 int len = getStreamedLineLength(line);
                 if (len <= 0) continue;
                 String slice = linesWindow.get(line - winStart);
@@ -221,7 +279,7 @@ public class WindowRender {
                                     for (Map.Entry<Integer, String> e : results.entrySet()) {
                                         int line = e.getKey();
                                         if (line < winStart || line > winEnd) continue;
-                                        if (modifiedLines.containsKey(line)) continue;
+                                        if (hasModifiedLine(line)) continue;
                                         int local = line - winStart;
                                         if (local < 0 || local >= linesWindow.size()) continue;
                                         linesWindow.set(local, (e.getValue() == null) ? "" : e.getValue());
@@ -426,7 +484,7 @@ public class WindowRender {
             }
 
             for (int i = 0; i < parts.length; i++) {
-                modifiedLines.put(sL + i, parts[i]);
+                putModifiedLine(sL + i, parts[i]);
             }
 
             editor.cursor.cursorLine = Math.max(0, target.line);
@@ -476,7 +534,7 @@ public class WindowRender {
             }
 
             editor.editOperators.shifter.shiftModifiedLines(sL + 1, sL - eL);
-            modifiedLines.put(sL, merged);
+            putModifiedLine(sL, merged);
 
             editor.cursor.cursorLine = sL;
             editor.cursor.cursorChar = left.length();

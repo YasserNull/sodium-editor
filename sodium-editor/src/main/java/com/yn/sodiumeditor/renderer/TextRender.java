@@ -115,8 +115,9 @@ public class TextRender {
         float w = (sampleLen > 0) ? paint.measureText(line, 0, sampleLen) : paint.measureText(" ");
         float avg = (sampleLen > 0) ? (w / sampleLen) : w;
         if (lineIndex >= 0) {
-            if (editor.view.isStableGlyphPositionsEnabled && editor.windowRender.avgCharWidthCache.get(lineIndex) != null) {
-                return editor.windowRender.avgCharWidthCache.get(lineIndex);
+            Float stableCached = editor.windowRender.avgCharWidthCache.get(lineIndex);
+            if (editor.view.isStableGlyphPositionsEnabled && stableCached != null) {
+                return stableCached;
             }
             if (editor.windowRender.avgCharWidthCache.size() > 400) editor.windowRender.avgCharWidthCache.clear();
             editor.windowRender.avgCharWidthCache.put(lineIndex, avg);

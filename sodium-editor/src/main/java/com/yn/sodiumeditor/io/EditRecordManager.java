@@ -113,7 +113,7 @@ public class EditRecordManager {
             removeMatchingUndo(lastPending);
             if (operators.history.pendingEdits.isEmpty() && operators.lineCountDelta == 0) {
                 synchronized (editor.windowRender.modifiedLines) {
-                    editor.windowRender.modifiedLines.remove(op.startLine);
+                    editor.windowRender.removeModifiedLine(op.startLine);
                 }
             }
         } else {

@@ -125,7 +125,7 @@ public class ImeScanner {
 
     private String getLineTextForImeScan(int line, @Nullable RandomAccessFile raf) {
         if (line < 0) return "";
-        String mod = editor.windowRender.modifiedLines.get(line);
+        String mod = editor.windowRender.getModifiedLine(line);
         if (mod != null) {
             return mod;
         }

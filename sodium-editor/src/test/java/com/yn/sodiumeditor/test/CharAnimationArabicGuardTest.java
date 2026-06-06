@@ -29,16 +29,16 @@ public class CharAnimationArabicGuardTest {
     }
 
     @Test
-    public void arabicScriptLine_shouldBypassFadeRenderPath() throws Exception {
+    public void arabicScriptLine_shouldUseArabicFadeRenderPath() throws Exception {
         String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/draw/TextLineDraw.java");
 
         assertTrue(
-                "BUG: Arabic-script lines should draw base text instead of animated fade segments.",
+                "BUG: Arabic-script lines should route through the Arabic-aware fade renderer.",
                 src.contains("TextArabicUtils.containsArabicScript(line, start, end)")
-                        && src.contains("drawTextSegmentWithVisualSpaces(canvas, line, start, end, x, y, segmentPaint, 1f)"));
-        assertFalse(
-                "BUG: Arabic-script lines must not be routed into the typed char fade renderer.",
-                src.contains("return drawArabicTextSegmentWithFade("));
+                        && src.contains("return drawArabicTextSegmentWithFade("));
+        assertTrue(
+                "BUG: Arabic-aware fade renderer must preserve glyph context.",
+                src.contains("drawTextRunWithContext("));
         assertFalse(
                 "BUG: Arabic typed char animation must be fade-only; do not move the glyph vertically.",
                 src.contains("paint.getTextSize() * 0.35f"));

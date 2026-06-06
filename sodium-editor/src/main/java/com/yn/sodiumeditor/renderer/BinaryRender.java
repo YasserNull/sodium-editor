@@ -24,7 +24,7 @@ public class BinaryRender {
     public final BinaryLineDrawer lineDrawer;
 
     // State
-    public boolean binarySafeRenderingEnabled = true;
+    public boolean binarySafeRenderingEnabled = false;
     public boolean binaryFileFeaturePolicyActive = false;
     private final SparseArray<int[]> binaryTokenSpans = new SparseArray<>();
 

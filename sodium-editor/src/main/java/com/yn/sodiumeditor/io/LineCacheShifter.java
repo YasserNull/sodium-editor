@@ -36,6 +36,7 @@ public class LineCacheShifter {
                 }
                 editor.windowRender.modifiedLines.clear();
                 editor.windowRender.modifiedLines.putAll(shifted);
+                editor.windowRender.recomputeFirstModifiedLineLocked();
             }
         }
         shiftTextRenderCaches(startLine, delta);

@@ -4,7 +4,6 @@ import android.animation.ValueAnimator;
 import android.graphics.Paint;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.util.Log;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.utils.TextArabicUtils;
@@ -87,27 +86,17 @@ public class CharAnimation {
    */
   public void startCharAnimationFromText(CharSequence committedText) {
     if (!isCharAnimationEnabled) {
-      log("skip start: disabled");
       return;
     }
     if (committedText == null) {
-      log("skip start: committedText=null");
       return;
     }
     if (TextArabicUtils.containsArabicScript(committedText, 0, committedText.length())) {
-      log("skip start: arabic-script text='" + summarize(committedText) + "'");
       return;
     }
 
     final int targetLine = editor.cursor.cursorLine;
     final int targetEndChar = editor.cursor.cursorChar;
-    log(
-        "request start text='"
-            + summarize(committedText)
-            + "' cursor="
-            + targetLine
-            + ":"
-            + targetEndChar);
 
     // Extract the last non-whitespace code point from the committed text
     int extractedCodePoint = -1;
@@ -125,7 +114,6 @@ public class CharAnimation {
       break;
     }
     if (extractedCodePoint == -1) {
-      log("skip start: no non-whitespace codepoint text='" + summarize(committedText) + "'");
       return;
     }
 
@@ -135,13 +123,6 @@ public class CharAnimation {
         && charAnimStartChar == targetStartChar
         && charAnimEndChar == Math.max(0, targetEndChar)
         && charAnimAlpha < 1f) {
-      log(
-          "skip start: duplicate active range line="
-              + targetLine
-              + " range="
-              + targetStartChar
-              + ".."
-              + targetEndChar);
       return;
     }
 
@@ -171,21 +152,6 @@ public class CharAnimation {
           charAnimEndChar = Math.max(0, targetEndChar);
           charAnimStartChar = targetStartChar;
           charAnimAlpha = 0f;
-          log(
-              "start char line="
-                  + charAnimLine
-                  + " range="
-                  + charAnimStartChar
-                  + ".."
-                  + charAnimEndChar
-                  + " duration="
-                  + animDuration
-                  + "ms"
-                  + " delta="
-                  + delta
-                  + "ms"
-                  + " token="
-                  + token);
           editor.invalidate();
 
           final long startUptime = SystemClock.uptimeMillis();
@@ -206,15 +172,6 @@ public class CharAnimation {
                   long now = SystemClock.uptimeMillis();
                   if (lastFrameLog[0] == 0L || now - lastFrameLog[0] >= 80L || t >= 1f) {
                     lastFrameLog[0] = now;
-                    log(
-                        "frame char line="
-                            + charAnimLine
-                            + " alpha="
-                            + charAnimAlpha
-                            + " t="
-                            + t
-                            + " token="
-                            + token);
                   }
                   editor.invalidate();
                   if (t < 1f) {
@@ -223,7 +180,6 @@ public class CharAnimation {
                   }
                   charAnimAlpha = 0f;
                   charAnimLine = -1;
-                  log("end char token=" + token);
                   editor.invalidate();
                 }
               };
@@ -247,15 +203,12 @@ public class CharAnimation {
   public void startDeleteAnimation(
       int targetLine, int atChar, @Nullable String removedText, @Nullable Paint paintToUse) {
     if (!isCharAnimationEnabled) {
-      log("skip delete: disabled");
       return;
     }
     if (removedText == null || removedText.isEmpty()) {
-      log("skip delete: removedText empty");
       return;
     }
     if (TextArabicUtils.containsArabicScript(removedText, 0, removedText.length())) {
-      log("skip delete: arabic-script text='" + summarize(removedText) + "'");
       return;
     }
 
@@ -290,17 +243,6 @@ public class CharAnimation {
           delAnimText = textForAnim;
           delAnimPaint = p;
           delAnimAlpha = 1f;
-          log(
-              "start delete line="
-                  + delAnimLine
-                  + " at="
-                  + delAnimAtChar
-                  + " text='"
-                  + summarize(textForAnim)
-                  + "' duration="
-                  + animDuration
-                  + "ms token="
-                  + token);
           editor.invalidate();
 
           final long startUptime = SystemClock.uptimeMillis();
@@ -327,7 +269,6 @@ public class CharAnimation {
                   delAnimAtChar = 0;
                   delAnimText = null;
                   delAnimPaint = null;
-                  log("end delete token=" + token);
                   editor.invalidate();
                 }
               };
@@ -444,10 +385,6 @@ public class CharAnimation {
    */
   public int getDelAnimLine() {
     return delAnimLine;
-  }
-
-  private static void log(String message) {
-    if (SodiumEditor.DEBUG_LOGS) Log.d(TAG, message);
   }
 
   private static String summarize(CharSequence text) {

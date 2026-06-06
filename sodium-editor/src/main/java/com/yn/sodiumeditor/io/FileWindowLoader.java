@@ -328,9 +328,7 @@ public class FileWindowLoader {
 
     private boolean hasPendingInMemoryEdits() {
         if (editor.editOperators.lineCountDelta != 0) return true;
-        synchronized (editor.windowRender.modifiedLines) {
-            if (!editor.windowRender.modifiedLines.isEmpty()) return true;
-        }
+        if (editor.windowRender.hasAnyModifiedLines()) return true;
         synchronized (editor.editOperators.history.pendingEdits) {
             return !editor.editOperators.history.pendingEdits.isEmpty();
         }

@@ -1,7 +1,6 @@
 package com.yn.sodiumeditor.core.selection;
 
 import android.content.Context;
-import android.util.Log;
 import android.view.inputmethod.InputMethodManager;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
@@ -17,7 +16,7 @@ public class SelectionActionHandler {
     private static final String TAG = "SodiumSelectionEdit";
     private static final int MAX_SELECTION_EDIT_LOGS = 400;
     private static final long SELECT_ALL_INDEX_WAIT_TIMEOUT_MS = 120_000L;
-    public static boolean DEBUG_SELECT_ALL_LOGS = true;
+    public static boolean DEBUG_SELECT_ALL_LOGS = false;
     public static boolean DEBUG_SELECTION_EDIT_LOGS = false;
 
     private final SodiumEditor editor;
@@ -32,12 +31,6 @@ public class SelectionActionHandler {
 
     public void selectAll() {
         final int requestToken = selectAllRequestToken.incrementAndGet();
-        logSelectAll(
-                "start",
-                requestToken,
-                -1,
-                -1,
-                "entry");
         editor.autoCompletion.clearActiveSuggestion();
         final boolean keyboardWasVisible = editor.view.keyboardHeight > 0;
         if (editor.wordWrap.isWordWrapEnabled) {
@@ -56,7 +49,6 @@ public class SelectionActionHandler {
         selection.syncToState();
 
         if (editor.fileIO.sourceFile == null || editor.fileIO.isFileCleared) {
-            logSelectAll("local-file-cleared", requestToken, -1, -1, "no-source");
             synchronized (editor.windowRender.linesWindow) {
                 if (editor.windowRender.linesWindow.isEmpty()) editor.windowRender.linesWindow.add("");
                 editor.windowRender.windowStartLine = 0; editor.fileIO.isEof = true;
@@ -73,7 +65,6 @@ public class SelectionActionHandler {
 
         if (editor.fileIO.isEof) {
             int winLast = Math.max(0, editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size() - 1);
-            logSelectAll("window-eof", requestToken, winLast, -1, "window-end");
             String lastText = editor.windowRender.getLineTextForRender(winLast);
             int endChar = lastText.length();
             selection.setSelection(0, 0, winLast, endChar);
@@ -86,20 +77,12 @@ public class SelectionActionHandler {
         Runnable goToEndUsingIndex = () -> {
             if (!editor.fileIO.isIndexReady || editor.fileIO.sourceFile == null) return;
             int fileLast; synchronized (editor.fileIO.lineOffsetsLock) { fileLast = Math.max(0, editor.fileIO.lineOffsets.length - 1); }
-            logSelectAll(
-                    "load-end-window",
-                    requestToken,
-                    fileLast,
-                    Math.max(0, fileLast - editor.windowRender.prefetchLines),
-                    "using-index");
             editor.fileIO.loadWindowAround(Math.max(0, fileLast - editor.windowRender.prefetchLines), () -> editor.post(() -> {
                 if (requestToken != selectAllRequestToken.get()) {
-                    logSelectAll("completion-stale", requestToken, fileLast, -1, "token-changed");
                     return;
                 }
                 String lastText = editor.windowRender.getLineTextForRender(fileLast);
                 int endChar = (lastText != null ? lastText.length() : 0);
-                logSelectAll("complete", requestToken, fileLast, endChar, "end-window-loaded");
                 selection.setSelection(0, 0, fileLast, endChar);
                 editor.cursor.cursorLine = fileLast; editor.cursor.cursorChar = selection.selEndChar;
                 editor.scroll.scrollToLineFastForSelectAll(fileLast, selection.selEndChar);
@@ -108,22 +91,17 @@ public class SelectionActionHandler {
         };
 
         Runnable goToEndWithoutIndex = () -> {
-            logSelectAll("count-lines-start", requestToken, -1, -1, "index-disabled");
             editor.fileIO.countTotalLines(total -> {
                 if (requestToken != selectAllRequestToken.get()) {
-                    logSelectAll("count-lines-stale", requestToken, -1, total, "token-changed");
                     return;
                 }
                 int fileLast = Math.max(0, total > 0 ? total - 1 : 0);
-                logSelectAll("count-lines-done", requestToken, fileLast, total, "index-disabled");
                 editor.fileIO.loadTailWindowForSelectAll(fileLast, () -> editor.post(() -> {
                     if (requestToken != selectAllRequestToken.get()) {
-                        logSelectAll("tail-completion-stale", requestToken, fileLast, -1, "token-changed");
                         return;
                     }
                     String lastText = editor.windowRender.getLineTextForRender(fileLast);
                     int endChar = (lastText != null ? lastText.length() : 0);
-                    logSelectAll("complete-no-index", requestToken, fileLast, endChar, "tail-window-loaded");
                     selection.setSelection(0, 0, fileLast, endChar);
                     editor.cursor.cursorLine = fileLast;
                     editor.cursor.cursorChar = selection.selEndChar;
@@ -134,7 +112,6 @@ public class SelectionActionHandler {
         };
 
         if (editor.fileIO.isIndexReady) {
-            logSelectAll("index-ready-immediate", requestToken, -1, -1, "skip-wait");
             goToEndUsingIndex.run();
             return;
         }
@@ -143,17 +120,14 @@ public class SelectionActionHandler {
             return;
         }
         if (!editor.fileIO.isIndexBuilding && !editor.fileIO.isIndexDisabled) {
-            logSelectAll("start-index-build", requestToken, -1, -1, "not-building");
             editor.fileIO.ioHandler.post(editor.fileIO::buildFileIndex);
         }
 
         final int ticket = requestToken;
         final long waitStartedAt = android.os.SystemClock.uptimeMillis();
-        logSelectAll("wait-index", requestToken, -1, -1, "poll-start");
         Runnable poll = new Runnable() {
             @Override public void run() {
                 if (ticket != selectAllRequestToken.get()) {
-                    logSelectAll("poll-stale", ticket, -1, -1, "token-changed");
                     return;
                 }
                 if (editor.fileIO.sourceFile == null) {
@@ -161,18 +135,6 @@ public class SelectionActionHandler {
                     return;
                 }
                 if (editor.fileIO.isIndexReady) {
-                    if (shouldLogSelectAll()) {
-                        int total;
-                        synchronized (editor.fileIO.lineOffsetsLock) {
-                            total = editor.fileIO.lineOffsets.length;
-                        }
-                        logSelectAll(
-                                "index-ready",
-                                ticket,
-                                Math.max(0, total - 1),
-                                (int) (android.os.SystemClock.uptimeMillis() - waitStartedAt),
-                                "wait-ms-as-target-start");
-                    }
                     goToEndUsingIndex.run();
                     return;
                 }
@@ -181,7 +143,6 @@ public class SelectionActionHandler {
                     return;
                 }
                 if (!editor.fileIO.isIndexBuilding) {
-                    logSelectAll("restart-index-build", ticket, -1, -1, "poll-not-building");
                     editor.fileIO.ioHandler.post(editor.fileIO::buildFileIndex);
                 }
                 if (android.os.SystemClock.uptimeMillis() - waitStartedAt > SELECT_ALL_INDEX_WAIT_TIMEOUT_MS) {
@@ -195,7 +156,6 @@ public class SelectionActionHandler {
     }
 
     private void abortPendingSelectAll(boolean keyboardWasVisible, String reason) {
-        logSelectAll("abort", selectAllRequestToken.get(), -1, -1, reason);
         selection.hasSelection = false;
         selection.isSelectAllActive = false;
         selection.isEntireFileSelected = false;
@@ -208,12 +168,6 @@ public class SelectionActionHandler {
     }
 
     private void finishSelectAll(boolean keyboardWasVisible) {
-        logSelectAll(
-                "finish",
-                selectAllRequestToken.get(),
-                selection.selEndLine,
-                selection.selEndChar,
-                "selection-applied");
         selection.syncToState();
         editor.view.setDisable(false); editor.loadingCircle.showLoadingCircle(false);
         editor.invalidate(); editor.requestFocus(); editor.popup.showPopupAtSelection();
@@ -224,58 +178,11 @@ public class SelectionActionHandler {
         });
     }
 
-    private boolean shouldLogSelectAll() {
-        return DEBUG_SELECT_ALL_LOGS || SodiumEditor.DEBUG_LOGS;
-    }
-
-    private void logSelectAll(String operation, int token, int targetLine, int targetStart, String reason) {
-        if (!shouldLogSelectAll()) return;
-        int lineOffsetCount = -1;
-        synchronized (editor.fileIO.lineOffsetsLock) {
-            if (editor.fileIO.lineOffsets != null) lineOffsetCount = editor.fileIO.lineOffsets.length;
-        }
-        Log.d(
-                "SodiumEditor",
-                "[SodiumEditor] operation=select-all." + operation
-                        + " token=" + token
-                        + " reason=" + reason
-                        + " cursor=" + editor.cursor.cursorLine + ":" + editor.cursor.cursorChar
-                        + " selection=" + selection.selStartLine + ":" + selection.selStartChar
-                        + "-" + selection.selEndLine + ":" + selection.selEndChar
-                        + " hasSelection=" + selection.hasSelection
-                        + " selectAllActive=" + selection.isSelectAllActive
-                        + " entireFileSelected=" + selection.isEntireFileSelected
-                        + " loading=" + editor.loadingCircle.showLoadingCircle
-                        + " disabled=" + editor.view.isDisabled
-                        + " source=" + (editor.fileIO.sourceFile != null ? editor.fileIO.sourceFile.getName() : "null")
-                        + " sourceLen=" + (editor.fileIO.sourceFile != null ? editor.fileIO.sourceFile.length() : -1L)
-                        + " indexReady=" + editor.fileIO.isIndexReady
-                        + " indexBuilding=" + editor.fileIO.isIndexBuilding
-                        + " indexDisabled=" + editor.fileIO.isIndexDisabled
-                        + " lineOffsets=" + lineOffsetCount
-                        + " eof=" + editor.fileIO.isEof
-                        + " window=" + editor.windowRender.windowStartLine
-                        + "+" + editor.windowRender.linesWindow.size()
-                        + " targetLine=" + targetLine
-                        + " targetStart=" + targetStart
-                        + " thread=" + Thread.currentThread().getName());
-    }
-
     public void replaceSelectionWithText(String insertText) {
         final int originalSelectionStartLine = selection.selStartLine;
         final int originalSelectionStartChar = selection.selStartChar;
         final int originalSelectionEndLine = selection.selEndLine;
         final int originalSelectionEndChar = selection.selEndChar;
-        logSelectionEdit(
-                "replace.start",
-                originalSelectionStartLine,
-                originalSelectionStartChar,
-                originalSelectionEndLine,
-                originalSelectionEndChar,
-                insertText,
-                null,
-                null,
-                "hasSelection=" + selection.hasSelection);
         if (editor.view.isReadOnly) return;
         editor.cursorHandle.hideForTyping();
         editor.caret.pauseBlinkForTyping();
@@ -284,16 +191,6 @@ public class SelectionActionHandler {
         editor.autoCompletion.clearActiveSuggestion();
         if (insertText == null) insertText = "";
         if (!selection.hasSelection) {
-            logSelectionEdit(
-                    "replace.noSelection",
-                    originalSelectionStartLine,
-                    originalSelectionStartChar,
-                    originalSelectionEndLine,
-                    originalSelectionEndChar,
-                    insertText,
-                    null,
-                    null,
-                    "cursor=" + editor.cursor.cursorLine + ":" + editor.cursor.cursorChar);
             if (!insertText.isEmpty()) editor.editOperators.insertTextAtCursor(insertText);
             editor.autoCompletion.updateSuggestion();
             return;
@@ -317,16 +214,6 @@ public class SelectionActionHandler {
 
         String removedText = null;
         if (Math.abs(eL - sL) <= 5000) { removedText = editor.fileIO.readRangeText(sL, sC, eL, eC); if (removedText != null && removedText.length() > EditOperators.UNDO_TEXT_LIMIT) removedText = null; }
-        logSelectionEdit(
-                "replace.before",
-                sL,
-                sC,
-                eL,
-                eC,
-                insertText,
-                removedText,
-                getLineSnapshot(sL),
-                "cursorBefore=" + beforeLine + ":" + beforeChar);
         int removedNl = editor.editOperators.countNewlines(removedText);
         if (removedText == null && eL >= sL) removedNl = Math.max(0, eL - sL);
         editor.loadingCircle.beginLargeEditUiIfNeeded(true, sL, eL, selectAllLike);
@@ -396,9 +283,7 @@ public class SelectionActionHandler {
             editor.windowRender.windowStartLine = 0;
             editor.fileIO.isEof = true;
         }
-        synchronized (editor.windowRender.modifiedLines) {
-            editor.windowRender.modifiedLines.clear();
-        }
+        editor.windowRender.clearModifiedLines();
         editor.cursor.cursorLine = 0;
         editor.cursor.cursorChar = 0;
         selection.selStartLine = 0;
@@ -499,9 +384,7 @@ public class SelectionActionHandler {
             editor.windowRender.windowStartLine = 0;
             editor.fileIO.isEof = true;
         }
-        synchronized (editor.windowRender.modifiedLines) {
-            editor.windowRender.modifiedLines.clear();
-        }
+        editor.windowRender.clearModifiedLines();
 
         EditOp.CursorTarget target = editor.editOperators.computeCursorAfterInsert(0, 0, insertText);
         if (!insertText.isEmpty()) {
@@ -514,9 +397,7 @@ public class SelectionActionHandler {
                     editor.windowRender.windowStartLine = 0;
                     for (String line : lines) editor.windowRender.linesWindow.add(line);
                 }
-                synchronized (editor.windowRender.modifiedLines) {
-                    for (int i = 0; i < lines.length; i++) editor.windowRender.modifiedLines.put(i, lines[i]);
-                }
+                for (int i = 0; i < lines.length; i++) editor.windowRender.putModifiedLine(i, lines[i]);
             }
         }
 
@@ -583,10 +464,9 @@ public class SelectionActionHandler {
     }
 
     private void handleSelectAllReplace(String insertText, int sL, int sC, int eL, int eC, String removedText, int beforeL, int beforeC, int remNl, int insNl) {
-        logSelectionEdit("replace.selectAll.before", sL, sC, eL, eC, insertText, removedText, getLineSnapshot(sL), "lineCount=" + editor.view.getLinesCount());
         synchronized (editor.windowRender.linesWindow) { editor.windowRender.linesWindow.clear(); editor.windowRender.linesWindow.add(""); editor.windowRender.windowStartLine = 0; editor.fileIO.isEof = true; }
         synchronized (editor.fileIO.directLineCache) { editor.fileIO.directLineCache.clear(); }
-        synchronized (editor.windowRender.modifiedLines) { editor.windowRender.modifiedLines.clear(); }
+        editor.windowRender.clearModifiedLines();
         synchronized (editor.windowRender.lineWidthCache) { editor.windowRender.lineWidthCache.clear(); }
         editor.windowRender.clearStreamedLineCaches(); editor.bracketGuides.invalidateBracketGuideCache(true);
         editor.windowRender.currentMaxWindowLineWidth = 0f; editor.windowRender.globalMaxLineWidth = 0f;
@@ -613,7 +493,6 @@ public class SelectionActionHandler {
         editor.windowRender.recalculateMaxLineWidth(); editor.requestLayout();
         finalizeAction(remNl, insNl, sL, sC, eL, eC, removedText, insertText, beforeL, beforeC);
         invalidateFeatureStateForReplace(0, insertedEndLine);
-        logSelectionEdit("replace.selectAll.after", sL, sC, eL, eC, insertText, removedText, getLineSnapshot(editor.cursor.cursorLine), "cursorAfter=" + editor.cursor.cursorLine + ":" + editor.cursor.cursorChar);
     }
 
     private boolean shouldUseBoundedSelectAllPreview(String insertText, int insertedNewlines) {
@@ -643,17 +522,14 @@ public class SelectionActionHandler {
                 editor.windowRender.linesWindow.addAll(tail);
             }
         }
-        synchronized (editor.windowRender.modifiedLines) {
-            int line = windowStart;
-            for (String previewLine : tail) {
-                editor.windowRender.modifiedLines.put(line++, previewLine);
-            }
+        int line = windowStart;
+        for (String previewLine : tail) {
+            editor.windowRender.putModifiedLine(line++, previewLine);
         }
     }
 
     private void handleSingleLineReplace(String insertText, int sL, int sC, int eL, int eC, String removedText, int beforeL, int beforeC, int remNl, int insNl) {
         String beforeLineText = getLineSnapshot(sL);
-        logSelectionEdit("replace.singleLine.before", sL, sC, eL, eC, insertText, removedText, beforeLineText, "local=" + (sL - editor.windowRender.windowStartLine));
         editor.fileIO.ensureLineInWindow(sL, true);
         if (editor.fileIO.isWindowLoading && (sL < editor.windowRender.windowStartLine || sL >= editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size())) {
             editor.post(() -> replaceSelectionWithText(insertText)); return;
@@ -665,17 +541,15 @@ public class SelectionActionHandler {
                 int a = Math.max(0, Math.min(sC, line.length())), b = Math.max(0, Math.min(eC, line.length()));
                 if (b < a) { int t = a; a = b; b = t; }
                 String merged = line.substring(0, a) + insertText + line.substring(b);
-                editor.view.updateLocalLine(local, merged); editor.windowRender.modifiedLines.put(sL, merged);
+                editor.view.updateLocalLine(local, merged); editor.windowRender.putModifiedLine(sL, merged);
                 editor.cursor.cursorLine = sL; editor.cursor.cursorChar = a + insertText.length();
                 editor.view.computeWidthForLine(sL, merged); editor.windowRender.recalculateMaxLineWidth();
-                logSelectionEdit("replace.singleLine.merged", sL, a, sL, b, insertText, removedText, merged, "beforeLine=" + safeTextForLog(beforeLineText));
             }
         }
         if (!insertText.isEmpty()) editor.charAnimation.startCharAnimationFromText(insertText);
         selection.clearSelectionStateAfterDelete(); editor.invalidate(); editor.scroll.keepCursorVisibleHorizontally(); editor.loadingCircle.endLargeEditUi(false);
         invalidateFeatureStateForReplace(sL, eL);
         finalizeAction(remNl, insNl, sL, sC, eL, eC, removedText, insertText, beforeL, beforeC);
-        logSelectionEdit("replace.singleLine.after", sL, sC, eL, eC, insertText, removedText, getLineSnapshot(sL), "cursorAfter=" + editor.cursor.cursorLine + ":" + editor.cursor.cursorChar + " hasSelection=" + selection.hasSelection + " stateHasSelection=" + selection.state.hasSelection);
     }
 
     private void invalidateFeatureStateForReplace(int startLine, int endLine) {
@@ -686,20 +560,6 @@ public class SelectionActionHandler {
     private void finalizeAction(int remNl, int insNl, int sL, int sC, int eL, int eC, String rem, String ins, int bL, int bC) {
         editor.autoCompletion.updateSuggestion(); editor.editOperators.lineCountDelta += (insNl - remNl);
         selection.recordReplaceSelectionEdit(sL, sC, eL, eC, rem, ins, bL, bC);
-        logSelectionEdit(
-                "replace.finalize",
-                sL,
-                sC,
-                eL,
-                eC,
-                ins,
-                rem,
-                getLineSnapshot(sL),
-                "lineDelta=" + editor.editOperators.lineCountDelta
-                        + " pendingEdits="
-                        + editor.editOperators.getPendingEditsCount()
-                        + " undo="
-                        + editor.editOperators.canUndo());
     }
 
     private String getLineSnapshot(int line) {
@@ -708,73 +568,4 @@ public class SelectionActionHandler {
         return text == null ? "" : text;
     }
 
-    private void logSelectionEdit(
-            String operation,
-            int sL,
-            int sC,
-            int eL,
-            int eC,
-            @Nullable String inserted,
-            @Nullable String removed,
-            @Nullable String lineSnapshot,
-            String extra) {
-        if (!shouldLogSelectionEdit() || selectionEditLogCount >= MAX_SELECTION_EDIT_LOGS) return;
-        selectionEditLogCount++;
-        Log.d(
-                TAG,
-                "[SodiumEditor] operation="
-                        + operation
-                        + " count="
-                        + selectionEditLogCount
-                        + " selection="
-                        + sL
-                        + ":"
-                        + sC
-                        + ".."
-                        + eL
-                        + ":"
-                        + eC
-                        + " facadeSelection="
-                        + selection.selStartLine
-                        + ":"
-                        + selection.selStartChar
-                        + ".."
-                        + selection.selEndLine
-                        + ":"
-                        + selection.selEndChar
-                        + " hasSelection="
-                        + selection.hasSelection
-                        + " stateHasSelection="
-                        + selection.state.hasSelection
-                        + " cursor="
-                        + editor.cursor.cursorLine
-                        + ":"
-                        + editor.cursor.cursorChar
-                        + " scroll="
-                        + editor.scroll.scrollX
-                        + ","
-                        + editor.scroll.scrollY
-                        + " insert="
-                        + safeTextForLog(inserted)
-                        + " removed="
-                        + safeTextForLog(removed)
-                        + " line="
-                        + safeTextForLog(lineSnapshot)
-                        + " "
-                        + (extra == null ? "" : extra)
-                        + " thread="
-                        + Thread.currentThread().getName());
-    }
-
-    private boolean shouldLogSelectionEdit() {
-        return DEBUG_SELECTION_EDIT_LOGS || SodiumEditor.DEBUG_LOGS;
-    }
-
-    private String safeTextForLog(@Nullable String text) {
-        if (text == null) return "<null>";
-        String escaped = text.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
-        int max = 180;
-        if (escaped.length() > max) return escaped.substring(0, max) + "...(len=" + text.length() + ")";
-        return escaped + "(len=" + text.length() + ")";
-    }
 }

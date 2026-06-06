@@ -226,9 +226,7 @@ public class WordWrap {
 
     int getWrapCountForFileLine(int gl, RandomAccessFile raf, long fileLen, int w, Paint paint) throws Exception {
         String mod;
-        synchronized (editor.windowRender.modifiedLines) {
-            mod = editor.windowRender.modifiedLines.get(gl);
-        }
+        mod = editor.windowRender.getModifiedLine(gl);
         if (mod != null) return getWrapCountForLineInternal(gl, mod, w, paint);
         if (!editor.fileIO.isIndexReady) return getDefaultWrapCountForLine(gl);
 
@@ -262,7 +260,7 @@ public class WordWrap {
 
     public boolean isWrapCacheableForLine(int gl) {
         if (gl >= editor.windowRender.windowStartLine && gl < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) return true;
-        synchronized (editor.windowRender.modifiedLines) { return editor.windowRender.modifiedLines.containsKey(gl); }
+        return editor.windowRender.hasModifiedLine(gl);
     }
 
     public int getWrapSegmentIndexForChar(int[] s, int ci) { if (s == null || s.length == 0) return 0; int idx = 0; for (int i = 0; i < s.length; i++) { if (s[i] <= ci) idx = i; else break; } return idx; }

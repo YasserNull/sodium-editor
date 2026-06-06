@@ -203,9 +203,7 @@ public class BracketCache {
 
     private boolean hasPendingInMemoryEdits() {
         if (editor.editOperators.lineCountDelta != 0) return true;
-        synchronized (editor.windowRender.modifiedLines) {
-            return !editor.windowRender.modifiedLines.isEmpty();
-        }
+        return editor.windowRender.hasAnyModifiedLines();
     }
 
     public void ensureScannedAsync() {

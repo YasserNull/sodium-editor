@@ -21,7 +21,7 @@ public class WhitespaceGuides {
   private final SodiumEditor editor;
 
   // Whitespace guides state
-  public boolean isWhitespaceGuidesEnabled = true;
+  public boolean isWhitespaceGuidesEnabled = false;
   public final Paint whitespaceGuidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public final Paint whitespaceGuideDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public float whitespaceGuideSpaceWidth = 0f;

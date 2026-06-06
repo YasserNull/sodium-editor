@@ -64,9 +64,7 @@ public class SelectionTextBuilder {
       StringBuilder sb = new StringBuilder();
       for (int L = sL; L <= eL; L++) {
         String ln;
-        synchronized (editor.windowRender.modifiedLines) {
-          ln = editor.windowRender.modifiedLines.get(L);
-        }
+        ln = editor.windowRender.getModifiedLine(L);
         if (ln == null) {
           long lineOffset = getLineOffset(raf, L);
           ln = lineOffset >= 0

@@ -2,7 +2,6 @@ package com.yn.sodiumeditor.input;
 
 import android.text.Editable;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.CorrectionInfo;
@@ -19,7 +18,7 @@ public class SodiumInputConnection extends BaseInputConnection {
     private static final String FOLD_TYPING_PERF = "FoldTypingPerf";
     private static final String TAG = "SodiumSelectionEdit";
     private static final int MAX_IME_LOGS = 240;
-    public static boolean DEBUG_IME_SELECTION_LOGS = true;
+    public static boolean DEBUG_IME_SELECTION_LOGS = false;
     private final SodiumEditor editor;
     private final Ime ime;
     private int imeLogCount = 0;
@@ -138,7 +137,6 @@ public class SodiumInputConnection extends BaseInputConnection {
 
     @Override
     public boolean commitText(CharSequence text, int newCursorPosition) {
-        logImeEvent("inputConnection.commitText", text, newCursorPosition, 0, 0);
         if (editor.view.isDisabled || editor.view.isReadOnly) return true;
         if (editor.zoom.isZoomGestureActive()) return true;
         if (text == null) return super.commitText(text, newCursorPosition);
@@ -152,7 +150,6 @@ public class SodiumInputConnection extends BaseInputConnection {
 
     @Override
     public boolean setComposingText(CharSequence text, int newCursorPosition) {
-        logImeEvent("inputConnection.setComposingText", text, newCursorPosition, 0, 0);
         if (editor.view.isDisabled || editor.view.isReadOnly) return true;
         if (editor.zoom.isZoomGestureActive()) return true;
         if (text == null) return true;
@@ -161,7 +158,6 @@ public class SodiumInputConnection extends BaseInputConnection {
 
     @Override
     public boolean deleteSurroundingText(int beforeLength, int afterLength) {
-        logImeEvent("inputConnection.deleteSurroundingText", null, 0, beforeLength, afterLength);
         if (editor.view.isDisabled || editor.view.isReadOnly) return true;
         if (editor.zoom.isZoomGestureActive()) return true;
         return ime.onDeleteSurroundingText(beforeLength, afterLength);
@@ -169,56 +165,9 @@ public class SodiumInputConnection extends BaseInputConnection {
 
     @Override
     public boolean deleteSurroundingTextInCodePoints(int beforeLength, int afterLength) {
-        logImeEvent("inputConnection.deleteSurroundingTextInCodePoints", null, 0, beforeLength, afterLength);
         if (editor.view.isDisabled || editor.view.isReadOnly) return true;
         if (editor.zoom.isZoomGestureActive()) return true;
         return ime.onDeleteSurroundingTextInCodePoints(beforeLength, afterLength);
     }
 
-    private void logImeEvent(String operation, CharSequence text, int newCursorPosition, int beforeLength, int afterLength) {
-        if ((!DEBUG_IME_SELECTION_LOGS && !SodiumEditor.DEBUG_LOGS) || imeLogCount >= MAX_IME_LOGS) return;
-        imeLogCount++;
-        Log.d(
-                TAG,
-                "[SodiumEditor] operation="
-                        + operation
-                        + " count="
-                        + imeLogCount
-                        + " text="
-                        + safeTextForLog(text == null ? null : text.toString())
-                        + " newCursorPosition="
-                        + newCursorPosition
-                        + " beforeLength="
-                        + beforeLength
-                        + " afterLength="
-                        + afterLength
-                        + " selection="
-                        + editor.selection.selStartLine
-                        + ":"
-                        + editor.selection.selStartChar
-                        + ".."
-                        + editor.selection.selEndLine
-                        + ":"
-                        + editor.selection.selEndChar
-                        + " hasSelection="
-                        + editor.selection.hasSelection
-                        + " stateHasSelection="
-                        + editor.selection.state.hasSelection
-                        + " cursor="
-                        + editor.cursor.cursorLine
-                        + ":"
-                        + editor.cursor.cursorChar
-                        + " composing="
-                        + editor.ime.hasComposing
-                        + " thread="
-                        + Thread.currentThread().getName());
-    }
-
-    private String safeTextForLog(String text) {
-        if (text == null) return "<null>";
-        String escaped = text.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
-        int max = 120;
-        if (escaped.length() > max) return escaped.substring(0, max) + "...(len=" + text.length() + ")";
-        return escaped + "(len=" + text.length() + ")";
-    }
 }

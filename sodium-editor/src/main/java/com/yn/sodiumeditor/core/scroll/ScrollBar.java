@@ -6,7 +6,6 @@ import android.animation.ValueAnimator;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
-import android.util.Log;
 import com.yn.sodiumeditor.SodiumEditor;
 
 /**
@@ -56,7 +55,6 @@ public class ScrollBar {
                         || editor.onTouch.pointerDown
                         || scroll.scrollerIsScrolling
                         || scroll.flingStopAnimator != null;
-        if (SodiumEditor.DEBUG_LOGS) Log.d("SodiumScrollBar", "draw alpha=" + alpha + " interacting=" + interacting + " fadeAnimatorRunning=" + (fadeAnimator != null && fadeAnimator.isRunning()) + " maxScroll=" + scroll.getMaxScrollYForClamp());
         if (fadeEnabled && alpha <= 0f) {
             if (interacting && fadeAnimator == null) show();
             if (!interacting) return;
@@ -105,7 +103,6 @@ public class ScrollBar {
     public void show() {
         if (!enabled) return;
         if (!fadeEnabled) { alpha = 1f; editor.invalidate(); return; }
-        if (SodiumEditor.DEBUG_LOGS) Log.d("SodiumScrollBar", "show called alpha=" + alpha + " animatorRunning=" + (fadeAnimator != null && fadeAnimator.isRunning()));
         if (alpha >= 1f || (fadeAnimator != null && fadeAnimator.isRunning())) {
             editor.caret.mainHandler.removeCallbacks(hideRunnable);
             editor.caret.mainHandler.postDelayed(hideRunnable, fadeDelayMs);

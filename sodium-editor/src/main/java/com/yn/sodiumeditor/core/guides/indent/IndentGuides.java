@@ -192,7 +192,7 @@ public class IndentGuides {
   }
 
   private String getLineTextForScan(int line, java.io.RandomAccessFile raf) {
-    String mod = editor.windowRender.modifiedLines.get(line);
+    String mod = editor.windowRender.getModifiedLine(line);
     if (mod != null) return mod;
     int winStart = editor.windowRender.windowStartLine;
     int winEnd = winStart + editor.windowRender.linesWindow.size();

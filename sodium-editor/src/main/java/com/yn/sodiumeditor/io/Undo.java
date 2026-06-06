@@ -1,5 +1,4 @@
 package com.yn.sodiumeditor.io;
-import android.util.Log;
 import com.yn.sodiumeditor.SodiumEditor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -17,7 +16,6 @@ public class Undo {
     public void execute() {
         EditOp op = operators.history.popUndo();
         if (op == null) return;
-        logUndo("undo.start", describeOp(op));
         operators.history.pushRedo(op);
         boolean undonePendingFileEdit = !operators.history.pendingEdits.isEmpty()
                 && operators.history.pendingEdits.peekLast() == op;
@@ -69,7 +67,6 @@ public class Undo {
         if (op.removedTextBackupFile == null || !op.removedTextBackupFile.exists()) return false;
         if (editor.fileIO.sourceFile == null) return false;
         if (op.startLine != 0 || op.startChar != 0) return false;
-        logUndo("undo.restore.backup.start", describeOp(op));
         editor.fileIO.ioHandler.post(() -> {
             boolean ok = true;
             try (FileInputStream fis = new FileInputStream(op.removedTextBackupFile);
@@ -86,7 +83,6 @@ public class Undo {
             final boolean success = ok;
             editor.post(() -> {
                 if (!success) {
-                    logUndo("undo.restore.backup.failed", describeOp(op));
                     return;
                 }
                 operators.markFileStateDirtyAfterUndoRestore();
@@ -103,15 +99,6 @@ public class Undo {
                 }
                 int reloadStart = Math.max(0, editor.cursor.cursorLine - editor.windowRender.prefetchLines);
                 editor.fileIO.loadWindowAround(reloadStart, () -> {
-                    logUndo(
-                            "undo.restore.backup.loaded",
-                            describeOp(op)
-                                    + " fileLength="
-                                    + editor.fileIO.sourceFile.length()
-                                    + " window="
-                                    + editor.windowRender.windowStartLine
-                                    + "+"
-                                    + editor.windowRender.linesWindow.size());
                     editor.wordWrap.onLineCountChanged();
                     editor.lineNumber.invalidateLineNumberCache();
                     editor.lineNumber.updateGutterWidth();
@@ -127,7 +114,6 @@ public class Undo {
 
     private boolean restoreDeletedFileBackedSelection(EditOp op) {
         if (editor.fileIO.sourceFile == null || !editor.fileIO.sourceFile.exists()) return false;
-        logUndo("undo.restore.source.start", describeOp(op));
         if (op.entireFileDelete) {
             operators.lineCountDelta = 0;
         } else {
@@ -145,15 +131,6 @@ public class Undo {
         }
         int reloadStart = Math.max(0, editor.cursor.cursorLine - editor.windowRender.prefetchLines);
         editor.fileIO.loadWindowAround(reloadStart, () -> {
-            logUndo(
-                    "undo.restore.source.loaded",
-                    describeOp(op)
-                            + " fileLength="
-                            + editor.fileIO.sourceFile.length()
-                            + " window="
-                            + editor.windowRender.windowStartLine
-                            + "+"
-                            + editor.windowRender.linesWindow.size());
             editor.wordWrap.onLineCountChanged();
             editor.lineNumber.invalidateLineNumberCache();
             editor.lineNumber.updateGutterWidth();
@@ -166,9 +143,7 @@ public class Undo {
     }
 
     private void clearRenderAndFileCaches() {
-        synchronized (editor.windowRender.modifiedLines) {
-            editor.windowRender.modifiedLines.clear();
-        }
+        editor.windowRender.clearModifiedLines();
         synchronized (editor.fileIO.directLineCache) {
             editor.fileIO.directLineCache.clear();
         }
@@ -176,28 +151,6 @@ public class Undo {
             editor.windowRender.lineWidthCache.clear();
         }
         editor.windowRender.clearStreamedLineCaches();
-    }
-
-    private void logUndo(String operation, String details) {
-        if (!SodiumEditor.DEBUG_LOGS) return;
-        Log.d(
-                TAG,
-                "[SodiumEditor] operation="
-                        + operation
-                        + " cursor="
-                        + editor.cursor.cursorLine
-                        + ":"
-                        + editor.cursor.cursorChar
-                        + " pendingEdits="
-                        + operators.getPendingEditsCount()
-                        + " undo="
-                        + operators.canUndo()
-                        + " redo="
-                        + operators.canRedo()
-                        + " thread="
-                        + Thread.currentThread().getName()
-                        + " "
-                        + details);
     }
 
     private String describeOp(EditOp op) {

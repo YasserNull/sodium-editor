@@ -1,7 +1,6 @@
 package com.yn.sodiumeditor.input.events;
 
 import android.graphics.RectF;
-import android.util.Log;
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.scroll.Popup;
@@ -11,7 +10,7 @@ import com.yn.sodiumeditor.core.scroll.Popup;
  */
 public class PopupInteractionHandler {
     private static final String TAG = "SodiumEditor";
-    public static boolean DEBUG_POPUP_SELECT_ALL_LOGS = true;
+    public static boolean DEBUG_POPUP_SELECT_ALL_LOGS = false;
     private final SodiumEditor editor;
 
     public PopupInteractionHandler(SodiumEditor editor) {
@@ -75,7 +74,6 @@ public class PopupInteractionHandler {
                 } else if (actionForTap == Popup.POPUP_ACTION_DELETE) {
                     editor.selection.deleteSelection();
                 } else if (actionForTap == Popup.POPUP_ACTION_SELECT_ALL) {
-                    logPopupSelectAll("tap");
                     editor.selection.selectAll();
                     // Special case: select all often needs popup to stay visible but refresh
                     editor.popup.showPopupAtSelection();
@@ -102,25 +100,5 @@ public class PopupInteractionHandler {
     public void handleActionCancel() {
         editor.popup.popupPressedAction = 0;
         editor.popup.cancelPopupRipple();
-    }
-
-    private void logPopupSelectAll(String event) {
-        if (!DEBUG_POPUP_SELECT_ALL_LOGS && !SodiumEditor.DEBUG_LOGS) return;
-        Log.d(
-                TAG,
-                "[SodiumEditor] operation=popup.select-all"
-                        + " event=" + event
-                        + " hasSelection=" + editor.selection.hasSelection
-                        + " selectAllActive=" + editor.selection.isSelectAllActive
-                        + " entireFileSelected=" + editor.selection.isEntireFileSelected
-                        + " disabled=" + editor.view.isDisabled
-                        + " popupVisible=" + editor.popup.showPopup
-                        + " window=" + editor.windowRender.windowStartLine
-                        + "+" + editor.windowRender.linesWindow.size()
-                        + " indexReady=" + editor.fileIO.isIndexReady
-                        + " indexBuilding=" + editor.fileIO.isIndexBuilding
-                        + " indexDisabled=" + editor.fileIO.isIndexDisabled
-                        + " loading=" + editor.loadingCircle.showLoadingCircle
-                        + " thread=" + Thread.currentThread().getName());
     }
 }

@@ -35,7 +35,10 @@ public class LineNumberVisibleClampGuardTest {
                 "BUG: LineNumber cached unwrapped draw range should clamp to getLinesCount().",
                 around.contains("editor.view.getLinesCount()")
                         && around.contains("Math.min(lI, totalLines - 1)")
-                        && around.contains("Math.min(lL, totalLines - 1)"));
+                        && around.contains("Math.min(lL, totalLines - 1)")
+                        || around.contains("editor.view.getLinesCount()")
+                        && around.contains("int drawLastI = Math.min(lI, totalLines - 1)")
+                        && around.contains("int drawLastL = Math.min(lL, totalLines - 1)"));
     }
 
     private static String readSource(String relativePath) throws Exception {

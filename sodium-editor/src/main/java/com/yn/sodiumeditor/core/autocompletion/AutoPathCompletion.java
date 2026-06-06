@@ -1,7 +1,6 @@
 package com.yn.sodiumeditor.core.autocompletion; 
 import com.yn.sodiumeditor.SodiumEditor;
 import androidx.annotation.Nullable;
-import android.util.Log;
 import com.yn.sodiumeditor.renderer.TextRender;
 import java.io.File;
 import java.util.ArrayList;
@@ -90,16 +89,10 @@ public class AutoPathCompletion {
                     dir == null ? null : getAndroidPublicDirectoryFallbackNames(dir);
             if (androidPublicFallbackNames != null && !androidPublicFallbackNames.isEmpty()) {
                 String suggestion = buildSuggestionFromNames(fragment, prefix, androidPublicFallbackNames);
-                logPathCompletion("fallback android-root invalid-dir fragment='" + fragment
-                        + "' prefix='" + prefix + "' suggestion='" + suggestion + "'");
                 lastPathQuery = fragment;
                 lastPathSuggestion = suggestion;
                 return suggestion;
             }
-            logPathCompletion("miss invalid-dir fragment='" + fragment + "' dir="
-                    + (dir == null ? "null" : dir.getAbsolutePath())
-                    + " exists=" + (dir != null && dir.exists())
-                    + " isDirectory=" + (dir != null && dir.isDirectory()));
             lastPathQuery = fragment;
             lastPathSuggestion = null;
             return null;
@@ -109,17 +102,11 @@ public class AutoPathCompletion {
         List<String> androidPublicFallbackNames = getAndroidPublicDirectoryFallbackNames(dir);
         if (entries == null || entries.length == 0) {
             if (androidPublicFallbackNames == null || androidPublicFallbackNames.isEmpty()) {
-                logPathCompletion("miss empty-dir fragment='" + fragment + "' dir="
-                        + dir.getAbsolutePath()
-                        + " canRead=" + dir.canRead()
-                        + " entriesNull=" + (entries == null));
                 lastPathQuery = fragment;
                 lastPathSuggestion = null;
                 return null;
             }
             String suggestion = buildSuggestionFromNames(fragment, prefix, androidPublicFallbackNames);
-            logPathCompletion("fallback android-root fragment='" + fragment + "' prefix='" + prefix
-                    + "' suggestion='" + suggestion + "'");
             lastPathQuery = fragment;
             lastPathSuggestion = suggestion;
             return suggestion;
@@ -147,10 +134,6 @@ public class AutoPathCompletion {
                 suggestion = buildSuggestionFromNames(fragment, prefix, androidPublicFallbackNames);
             }
         }
-
-        logPathCompletion("result fragment='" + fragment + "' dir=" + dir.getAbsolutePath()
-                + " prefix='" + prefix + "' entries=" + entries.length
-                + " suggestion='" + suggestion + "'");
         lastPathQuery = fragment;
         lastPathSuggestion = suggestion;
         return suggestion;
@@ -301,10 +284,6 @@ public class AutoPathCompletion {
      */
     public boolean isPathChar(char c) {
         return Character.isLetterOrDigit(c) || c == '/' || c == '.' || c == '_' || c == '-' || c == '~';
-    }
-
-    private void logPathCompletion(String message) {
-        if (SodiumEditor.DEBUG_LOGS) Log.d(TAG, message);
     }
 
     /**

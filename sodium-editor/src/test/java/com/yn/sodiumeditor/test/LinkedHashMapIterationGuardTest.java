@@ -42,13 +42,16 @@ public class LinkedHashMapIterationGuardTest {
   }
 
   @Test
-  public void windowRender_shouldIterateModifiedLineKeysSnapshot() throws Exception {
+  public void windowRender_shouldCacheFirstModifiedLineWithoutPerFrameSnapshot() throws Exception {
     String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/WindowRender.java");
     String body = methodBody(src, "getFirstModifiedLine()");
 
     assertTrue(
-        "BUG: modifiedLines is access-order LinkedHashMap; rendering must iterate a key snapshot to avoid CME.",
-        body.contains("new java.util.ArrayList<>(modifiedLines.keySet())"));
+        "BUG: getFirstModifiedLine() must use the cached first modified line instead of allocating a key snapshot in the render path.",
+        src.contains("new java.util.LinkedHashMap<Integer, String>(1000, 0.75f, false)")
+            && src.contains("private int firstModifiedLine")
+            && body.contains("return firstModifiedLine")
+            && !body.contains("new java.util.ArrayList<>(modifiedLines.keySet())"));
   }
 
   private static String methodBody(String src, String signature) {

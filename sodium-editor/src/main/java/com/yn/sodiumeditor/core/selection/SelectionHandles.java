@@ -4,7 +4,6 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
-import android.util.Log;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.animation.SelectionHandlesAnimation;
 
@@ -18,7 +17,7 @@ import com.yn.sodiumeditor.renderer.animation.SelectionHandlesAnimation;
 public class SelectionHandles {
     private static final String TAG = "SodiumSelectionHandles";
     private static final int MAX_HANDLE_POSITION_LOGS = 240;
-    public static boolean DEBUG_SELECTION_HANDLE_LOGS = true;
+    public static boolean DEBUG_SELECTION_HANDLE_LOGS = false;
 
     public final Paint handlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -106,9 +105,7 @@ public class SelectionHandles {
    * Update selection handles positions
    */
   public void updateHandlesPosition() {
-    logUpdateEntry("updateHandlesPosition");
     if (!selection.hasSelection) {
-      logUpdateEntry("updateHandlesPosition.noSelection");
       return;
     }
     float oldLeft = leftHandleRect.left;
@@ -187,43 +184,18 @@ public class SelectionHandles {
         rightHandleLeft + handleWidth,
         rightHandleTop + handleHeight
     );
-    logHandlePositionUpdate(
-        startLine,
-        startChar,
-        endLine,
-        endChar,
-        startX,
-        leftTargetY,
-        endX,
-        rightTargetY,
-        leftPos,
-        rightPos,
-        scrollChanged,
-        bypassLeftAnimation,
-        bypassRightAnimation,
-        oldLeft,
-        oldTop,
-        oldRight,
-        oldBottom,
-        oldRLeft,
-        oldRTop,
-        oldRRight,
-        oldRBottom);
   }
 
   /**
    * Draw selection handles
    */
   public void drawHandles(Canvas canvas) {
-    logDrawEntry();
     if (!selection.hasSelection) {
-      logUpdateEntry("drawHandles.noSelection");
       return;
     }
 
     updateHandlesPosition();
     if (animation.isAnimating()) {
-        logAnimationInvalidate();
         editor.invalidate();
     }
 
@@ -403,219 +375,4 @@ public void setSelectionHandleColor(int color) {
     return rightHandleRect;
   }
 
-  private void logHandlePositionUpdate(
-      int startLine,
-      int startChar,
-      int endLine,
-      int endChar,
-      float leftTargetX,
-      float leftTargetY,
-      float rightTargetX,
-      float rightTargetY,
-      float[] leftPos,
-      float[] rightPos,
-      boolean scrollChanged,
-      boolean bypassLeftAnimation,
-      boolean bypassRightAnimation,
-      float oldLeft,
-      float oldTop,
-      float oldRight,
-      float oldBottom,
-      float oldRLeft,
-      float oldRTop,
-      float oldRRight,
-      float oldRBottom) {
-    if (!shouldLogSelectionHandles() || handlePositionLogCount >= MAX_HANDLE_POSITION_LOGS) return;
-    handlePositionLogCount++;
-    Log.d(
-        TAG,
-        "[SodiumEditor] operation=selectionHandles.update"
-            + " count="
-            + handlePositionLogCount
-            + " selection="
-            + startLine
-            + ":"
-            + startChar
-            + ".."
-            + endLine
-            + ":"
-            + endChar
-            + " cursor="
-            + editor.cursor.cursorLine
-            + ":"
-            + editor.cursor.cursorChar
-            + " scroll="
-            + editor.scroll.scrollX
-            + ","
-            + editor.scroll.scrollY
-            + " lastScroll="
-            + lastHandleScrollX
-            + ","
-            + lastHandleScrollY
-            + " scrollChanged="
-            + scrollChanged
-            + " bypassLeft="
-            + bypassLeftAnimation
-            + " bypassRight="
-            + bypassRightAnimation
-            + " draggingHandle="
-            + draggingHandle
-            + " animating="
-            + animation.isAnimating()
-            + " targetLeft="
-            + leftTargetX
-            + ","
-            + leftTargetY
-            + " targetRight="
-            + rightTargetX
-            + ","
-            + rightTargetY
-            + " drawLeft="
-            + leftPos[0]
-            + ","
-            + leftPos[1]
-            + " drawRight="
-            + rightPos[0]
-            + ","
-            + rightPos[1]
-            + " oldLeftRect="
-            + oldLeft
-            + ","
-            + oldTop
-            + ","
-            + oldRight
-            + ","
-            + oldBottom
-            + " newLeftRect="
-            + leftHandleRect.left
-            + ","
-            + leftHandleRect.top
-            + ","
-            + leftHandleRect.right
-            + ","
-            + leftHandleRect.bottom
-            + " oldRightRect="
-            + oldRLeft
-            + ","
-            + oldRTop
-            + ","
-            + oldRRight
-            + ","
-            + oldRBottom
-            + " newRightRect="
-            + rightHandleRect.left
-            + ","
-            + rightHandleRect.top
-            + ","
-            + rightHandleRect.right
-            + ","
-            + rightHandleRect.bottom
-            + " lineHeight="
-            + editor.textRender.lineHeight
-            + " stretch="
-            + editor.scroll.stretch.stretchX
-            + ","
-            + editor.scroll.stretch.stretchY
-            + " thread="
-            + Thread.currentThread().getName());
-  }
-
-  private void logAnimationInvalidate() {
-    if (!shouldLogSelectionHandles() || animationInvalidateLogCount >= MAX_HANDLE_POSITION_LOGS) return;
-    animationInvalidateLogCount++;
-    Log.d(
-        TAG,
-        "[SodiumEditor] operation=selectionHandles.animationInvalidate"
-            + " count="
-            + animationInvalidateLogCount
-            + " scroll="
-            + editor.scroll.scrollX
-            + ","
-            + editor.scroll.scrollY
-            + " draggingHandle="
-            + draggingHandle
-            + " leftRect="
-            + leftHandleRect.left
-            + ","
-            + leftHandleRect.top
-            + ","
-            + leftHandleRect.right
-            + ","
-            + leftHandleRect.bottom
-            + " rightRect="
-            + rightHandleRect.left
-            + ","
-            + rightHandleRect.top
-            + ","
-            + rightHandleRect.right
-            + ","
-            + rightHandleRect.bottom
-            + " thread="
-            + Thread.currentThread().getName());
-  }
-
-  private void logDrawEntry() {
-    if (!shouldLogSelectionHandles() || drawEntryLogCount >= MAX_HANDLE_POSITION_LOGS) return;
-    drawEntryLogCount++;
-    Log.d(
-        TAG,
-        "[SodiumEditor] operation=selectionHandles.drawEntry"
-            + " count="
-            + drawEntryLogCount
-            + " hasSelection="
-            + selection.hasSelection
-            + " stateHasSelection="
-            + selection.state.hasSelection
-            + " scroll="
-            + editor.scroll.scrollX
-            + ","
-            + editor.scroll.scrollY
-            + " draggingHandle="
-            + draggingHandle
-            + " animating="
-            + animation.isAnimating()
-            + " thread="
-            + Thread.currentThread().getName());
-  }
-
-  private void logUpdateEntry(String operation) {
-    if (!shouldLogSelectionHandles() || updateEntryLogCount >= MAX_HANDLE_POSITION_LOGS) return;
-    updateEntryLogCount++;
-    Log.d(
-        TAG,
-        "[SodiumEditor] operation=selectionHandles."
-            + operation
-            + " count="
-            + updateEntryLogCount
-            + " hasSelection="
-            + selection.hasSelection
-            + " stateHasSelection="
-            + selection.state.hasSelection
-            + " selection="
-            + selection.selStartLine
-            + ":"
-            + selection.selStartChar
-            + ".."
-            + selection.selEndLine
-            + ":"
-            + selection.selEndChar
-            + " scroll="
-            + editor.scroll.scrollX
-            + ","
-            + editor.scroll.scrollY
-            + " lastScroll="
-            + lastHandleScrollX
-            + ","
-            + lastHandleScrollY
-            + " draggingHandle="
-            + draggingHandle
-            + " animating="
-            + animation.isAnimating()
-            + " thread="
-            + Thread.currentThread().getName());
-  }
-
-  private boolean shouldLogSelectionHandles() {
-    return DEBUG_SELECTION_HANDLE_LOGS || SodiumEditor.DEBUG_LOGS;
-  }
 }

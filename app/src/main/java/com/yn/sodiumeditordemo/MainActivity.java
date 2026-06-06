@@ -607,6 +607,7 @@ public class MainActivity extends AppCompatActivity {
     synchronized (editor.windowRender.modifiedLines) {
       editor.windowRender.modifiedLines.clear();
       editor.windowRender.modifiedLines.putAll(tab.modifiedLines);
+      editor.windowRender.recomputeFirstModifiedLineLocked();
     }
     synchronized (editor.windowRender.streamedLinesLock) {
       editor.windowRender.streamedLineLengths.clear();

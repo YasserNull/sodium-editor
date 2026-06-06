@@ -643,10 +643,7 @@ public class View {
         }
         int windowCount = editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size();
         if (editor.fileIO.isIndexReady && editor.fileIO.lineOffsets.length > 0) {
-            boolean hasEdits;
-            synchronized (editor.windowRender.modifiedLines) {
-                hasEdits = !editor.windowRender.modifiedLines.isEmpty();
-            }
+            boolean hasEdits = editor.windowRender.hasAnyModifiedLines();
             if (!hasEdits && editor.editOperators.lineCountDelta == 0) {
                 return editor.fileIO.lineOffsets.length;
             }
@@ -660,7 +657,7 @@ public class View {
     }
 
     public int getLogicalLineLength(int globalLine, String line) {
-        String mod = editor.windowRender.modifiedLines.get(globalLine);
+        String mod = editor.windowRender.getModifiedLine(globalLine);
         if (mod != null) return mod.length();
         int len = (line == null) ? 0 : line.length();
         int longLen = editor.windowRender.getStreamedLineLength(globalLine);

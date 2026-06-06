@@ -4,7 +4,6 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.Typeface;
-import android.util.Log;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import java.util.ArrayList;
@@ -17,6 +16,8 @@ import java.util.regex.Pattern;
  */
 public class HighliteRender {
     private static final String CHAR_ANIM_TAG = "SodiumCharAnim";
+    private static final ThreadLocal<ArrayList<HighlightSpan>> TL_MASKED_COLOR_SPANS =
+            ThreadLocal.withInitial(ArrayList::new);
 
     private final SodiumEditor editor;
     private int charAnimRenderLogCount = 0;
@@ -171,25 +172,9 @@ public class HighliteRender {
     public void drawHighlightedLine(Canvas canvas, String line, int globalLine, float y) {
         boolean tracingCharAnimLine = isTracingCharAnimLine(globalLine);
         if (tracingCharAnimLine) {
-            logCharAnimRenderAlways(
-                    "enter drawHighlightedLine line="
-                            + globalLine
-                            + " textLen="
-                            + (line == null ? -1 : line.length())
-                            + " animRange="
-                            + editor.charAnimation.charAnimStartChar
-                            + ".."
-                            + editor.charAnimation.charAnimEndChar
-                            + " alpha="
-                            + editor.charAnimation.charAnimAlpha
-                            + " binary="
-                            + editor.binaryRender.isBinarySafeRenderingEnabled()
-                            + " rules="
-                            + editor.highlite.highlightRules.size());
         }
         // Fast path only for lines that actually contain binary replacement tokens.
         if (editor.binaryRender.shouldUseBinaryRenderingForLine(globalLine)) {
-            if (tracingCharAnimLine) logCharAnimRender("RENDER_BINARY char fade supported");
             editor.textRender.getVisibleCharRangeForLine(line, globalLine, editor.textRender.visibleCharRangeTmp);
             int visibleStart = editor.textRender.visibleCharRangeTmp[0];
             int visibleEnd   = editor.textRender.visibleCharRangeTmp[1];
@@ -230,7 +215,6 @@ public class HighliteRender {
             return;
         }
         if (line.isEmpty()) {
-            if (tracingCharAnimLine) logCharAnimRender("render branch=empty-line return");
             drawDeleteAnimationGhost(canvas, line, globalLine, y);
             return;
         }
@@ -241,22 +225,10 @@ public class HighliteRender {
         int visibleEnd = editor.textRender.visibleCharRangeTmp[1];
         int len = editor.view.getLogicalLineLength(globalLine, line);
         if (tracingCharAnimLine) {
-            logCharAnimRender(
-                    "visible line="
-                            + globalLine
-                            + " visible="
-                            + visibleStart
-                            + ".."
-                            + visibleEnd
-                            + " logicalLen="
-                            + len
-                            + " maxSyntax="
-                            + maxSyntaxLineLength);
         }
 
         // Handle lines exceeding max syntax length
         if (len > maxSyntaxLineLength) {
-            if (tracingCharAnimLine) logCharAnimRender("RENDER_BYPASS max-syntax draws base text without char fade");
             if (visibleEnd > visibleStart) {
                 int sliceStart = editor.windowRender.getStreamedLineSliceStart(globalLine);
                 int sliceEnd = sliceStart + line.length();
@@ -273,7 +245,6 @@ public class HighliteRender {
 
         // Handle partial visibility
         if (visibleStart > 0 || visibleEnd < len) {
-            if (tracingCharAnimLine) logCharAnimRender("RENDER_PARTIAL visible range draw with fade support");
             drawHighlightedLineRange(canvas, line, globalLine, visibleStart, visibleEnd, y);
             return;
         }
@@ -288,13 +259,6 @@ public class HighliteRender {
                         && !editor.charAnimation.delAnimText.isEmpty()
                         && editor.charAnimation.delAnimAlpha > 0f;
         if (tracingCharAnimLine) {
-            logCharAnimRender(
-                    "fade state hasCharFade="
-                            + hasCharFade
-                            + " hasDeleteGhost="
-                            + hasDeleteGhost
-                            + " alpha="
-                            + editor.charAnimation.charAnimAlpha);
         }
         if (editor.highlite.rules.isEmpty()
                 && !editor.urlUnderline.isUrlUnderliningActive()
@@ -302,7 +266,6 @@ public class HighliteRender {
                 && !editor.errorUnderline.errorUnderlineEnabled
                 && !hasCharFade
                 && !hasDeleteGhost) {
-            if (tracingCharAnimLine) logCharAnimRender("RENDER_BASE plain-fast no active fade");
             canvas.drawText(line, 0, line.length(), 0f, y, editor.textRender.paint);
             return;
         }
@@ -336,15 +299,6 @@ public class HighliteRender {
             }
         }
         if (tracingCharAnimLine) {
-            logCharAnimRender(
-                    "fade computed start="
-                            + fadeStart
-                            + " end="
-                            + fadeEnd
-                            + " alpha="
-                            + fadeAlpha
-                            + " lineLen="
-                            + line.length());
         }
 
         float lineTop = editor.textRender.getDrawLineTop(globalLine);
@@ -352,7 +306,6 @@ public class HighliteRender {
 
         // Draw with or without syntax highlighting
         if (editor.highlite.rules.isEmpty()) {
-            if (tracingCharAnimLine) logCharAnimRender("render branch=no-highlight draw fadeStart=" + fadeStart + " fadeEnd=" + fadeEnd);
             editor.textRender.drawTextSegmentWithFadeAndUnderlines(
                     canvas, line, 0, line.length(), 0f, y, editor.textRender.paint,
                     fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
@@ -383,7 +336,6 @@ public class HighliteRender {
         }
 
         if (spans.isEmpty()) {
-            if (tracingCharAnimLine) logCharAnimRender("render branch=empty-spans draw fadeStart=" + fadeStart + " fadeEnd=" + fadeEnd);
             editor.textRender.drawTextSegmentWithFadeAndUnderlines(
                     canvas, line, 0, line.length(), 0f, y, editor.textRender.paint,
                     fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
@@ -406,7 +358,6 @@ public class HighliteRender {
         }
 
         // Draw with syntax highlighting
-        if (tracingCharAnimLine) logCharAnimRender("render branch=highlight spans=" + spans.size() + " fadeStart=" + fadeStart + " fadeEnd=" + fadeEnd);
         drawSyntaxSpansMaskedByColorCodes(
                 canvas, line, globalLine, 0, line.length(), 0f, y, spans,
                 fadeStart, fadeEnd, fadeAlpha, combinedUnderlines, lineTop, lineBottom);
@@ -452,18 +403,6 @@ public class HighliteRender {
         editor.charAnimation.charAnimTmpPaint.setAlpha(
                 (int) (baseAlpha * Math.max(0f, Math.min(1f, editor.charAnimation.delAnimAlpha))));
         canvas.drawText(editor.charAnimation.delAnimText, x, y, editor.charAnimation.charAnimTmpPaint);
-    }
-
-    private void logCharAnimRender(String message) {
-        if (!SodiumEditor.DEBUG_LOGS) return;
-        if (charAnimRenderLogCount >= 120) return;
-        charAnimRenderLogCount++;
-        Log.d(CHAR_ANIM_TAG, message);
-    }
-
-    private void logCharAnimRenderAlways(String message) {
-        if (!SodiumEditor.DEBUG_LOGS) return;
-        Log.d(CHAR_ANIM_TAG, message);
     }
 
     private void drawUrlAndPathUnderlinesForBinaryLine(Canvas canvas, String line, int globalLine, float y) {
@@ -677,7 +616,8 @@ public class HighliteRender {
         int[] colorSpans = editor.colorCodeHighlight.getColorCodeSpansForLine(line, globalLine);
         if (colorSpans.length == 0) return spans;
 
-        ArrayList<HighlightSpan> masked = new ArrayList<>();
+        ArrayList<HighlightSpan> masked = TL_MASKED_COLOR_SPANS.get();
+        masked.clear();
         boolean changedAny = false;
         for (HighlightSpan span : spans) {
             int current = span.start;

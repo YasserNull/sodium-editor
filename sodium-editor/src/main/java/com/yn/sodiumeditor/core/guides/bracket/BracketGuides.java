@@ -24,7 +24,7 @@ public class BracketGuides {
   private final SodiumEditor editor;
 
   // Bracket guides state
-  public boolean isBracketGuidesEnabled = true;
+  public boolean isBracketGuidesEnabled = false;
   public final Paint bracketGuidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public float bracketGuideStrokeWidth = 4f;
   public float baseBracketGuideStrokeWidth = bracketGuideStrokeWidth;
@@ -251,9 +251,7 @@ public class BracketGuides {
           String text = readIndexedLinePrefix(currentLine, raf);
           if (text == null) break;
           String mod;
-          synchronized (editor.windowRender.modifiedLines) {
-            mod = editor.windowRender.modifiedLines.get(currentLine);
-          }
+          mod = editor.windowRender.getModifiedLine(currentLine);
           if (mod != null) text = mod;
 
           scanner.updateBracketGuideStateForLine(text, currentLine, state);

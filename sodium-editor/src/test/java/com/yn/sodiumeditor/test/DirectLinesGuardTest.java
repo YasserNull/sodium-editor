@@ -38,9 +38,9 @@ public class DirectLinesGuardTest {
                 readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/WindowRender.java");
         String lineBody = methodBody(windowRender, "getLineTextForRenderWithDirect");
         boolean renderGuard =
-                lineBody.contains("String mod = modifiedLines.get(line)")
+                lineBody.contains("String mod = getModifiedLine(line)")
                         && lineBody.contains("boolean canUseFileLine = canUseFileBackedLineForRender(line)")
-                        && lineBody.indexOf("String mod = modifiedLines.get(line)")
+                        && lineBody.indexOf("String mod = getModifiedLine(line)")
                                 < lineBody.indexOf("boolean canUseFileLine = canUseFileBackedLineForRender(line)");
         assertTrue(
                 "BUG: direct-line reads must skip modified lines and only use disk-backed content when the line is safe.",

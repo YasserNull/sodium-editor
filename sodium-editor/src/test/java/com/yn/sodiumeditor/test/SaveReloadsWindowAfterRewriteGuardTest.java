@@ -19,7 +19,7 @@ public class SaveReloadsWindowAfterRewriteGuardTest {
     int successBranch = body.indexOf("if (!success)");
     assertTrue("Expected save success branch in FileEditHandler.", successBranch >= 0);
 
-    int clearModified = body.indexOf("editor.windowRender.modifiedLines.clear()", successBranch);
+    int clearModified = body.indexOf("editor.windowRender.clearModifiedLines()", successBranch);
     assertTrue("Expected save to clear modifiedLines after a successful rewrite.", clearModified >= 0);
 
     int reloadWindow = body.indexOf("editor.fileIO.loadWindowAround(", clearModified);

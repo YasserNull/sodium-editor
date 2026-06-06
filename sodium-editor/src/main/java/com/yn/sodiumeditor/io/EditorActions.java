@@ -64,7 +64,7 @@ public class EditorActions {
                         editor.highliteRender.getPaintForChar(beforeLine, safeCursorChar, base);
                 String modified = base.substring(0, safeCursorChar) + base.substring(deleteEnd);
                 editor.view.updateLocalLine(localIdx, modified);
-                editor.windowRender.modifiedLines.put(editor.cursor.cursorLine, modified);
+                editor.windowRender.putModifiedLine(editor.cursor.cursorLine, modified);
                 editor.highlite.invalidateHighlightCacheForLine(editor.cursor.cursorLine);
                 editor.view.computeWidthForLine(editor.cursor.cursorLine, modified);
                 editor.view.invalidateLineGlobal(editor.cursor.cursorLine);
@@ -91,7 +91,7 @@ public class EditorActions {
                     String next = editor.windowRender.getLineFromWindowLocal(currentNextLocal);
                     String merged = base + (next == null ? "" : next);
                     editor.view.updateLocalLine(currentLocalIdx, merged);
-                    editor.windowRender.modifiedLines.put(editor.cursor.cursorLine, merged);
+                    editor.windowRender.putModifiedLine(editor.cursor.cursorLine, merged);
                     editor.windowRender.clearStreamedLineInfo(editor.cursor.cursorLine);
                     editor.highlite.invalidateHighlightCacheForLine(editor.cursor.cursorLine);
                     editor.windowRender.linesWindow.remove(currentNextLocal);
@@ -193,8 +193,8 @@ public class EditorActions {
 
                 operators.shifter.shiftModifiedLines(editor.cursor.cursorLine + 1, 1);
                 
-                editor.windowRender.modifiedLines.put(editor.cursor.cursorLine, before);
-                editor.windowRender.modifiedLines.put(editor.cursor.cursorLine + 1, after);
+                editor.windowRender.putModifiedLine(editor.cursor.cursorLine, before);
+                editor.windowRender.putModifiedLine(editor.cursor.cursorLine + 1, after);
                 operators.lineCountDelta += 1;
                 editMs = android.os.SystemClock.uptimeMillis() - editStartMs;
 
@@ -222,7 +222,7 @@ public class EditorActions {
                 }
                 String modified = base.substring(0, pos) + c + base.substring(pos);
                 editor.view.updateLocalLine(localIdx, modified);
-                editor.windowRender.modifiedLines.put(editor.cursor.cursorLine, modified);
+                editor.windowRender.putModifiedLine(editor.cursor.cursorLine, modified);
                 
                 synchronized (editor.windowRender.avgCharWidthCache) { editor.windowRender.avgCharWidthCache.remove(editor.cursor.cursorLine); }
                 synchronized (editor.windowRender.lineWidthCache) { editor.windowRender.lineWidthCache.remove(editor.cursor.cursorLine); }
@@ -271,8 +271,8 @@ public class EditorActions {
             String before = base.substring(0, pos);
             String after = base.substring(pos);
             operators.shifter.shiftModifiedLines(beforeLine + 1, 1);
-            editor.windowRender.modifiedLines.put(beforeLine, before);
-            editor.windowRender.modifiedLines.put(beforeLine + 1, after);
+            editor.windowRender.putModifiedLine(beforeLine, before);
+            editor.windowRender.putModifiedLine(beforeLine + 1, after);
             operators.lineCountDelta += 1;
             editor.view.computeWidthForLine(beforeLine, before);
             editor.view.computeWidthForLine(beforeLine + 1, after);
@@ -284,7 +284,7 @@ public class EditorActions {
         } else {
             int pos = Math.max(0, Math.min(beforeChar, base.length()));
             String modified = base.substring(0, pos) + c + base.substring(pos);
-            editor.windowRender.modifiedLines.put(beforeLine, modified);
+            editor.windowRender.putModifiedLine(beforeLine, modified);
             synchronized (editor.windowRender.avgCharWidthCache) {
                 editor.windowRender.avgCharWidthCache.remove(beforeLine);
             }
@@ -382,7 +382,7 @@ public class EditorActions {
                 
                 String modified = base.substring(0, safeStart) + base.substring(safeCursorChar);
                 editor.view.updateLocalLine(localIdx, modified);
-                editor.windowRender.modifiedLines.put(editor.cursor.cursorLine, modified);
+                editor.windowRender.putModifiedLine(editor.cursor.cursorLine, modified);
                 if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
                     editor.binaryRender.adjustBinaryTokenSpansForEdit(
                             editor.cursor.cursorLine, safeStart, safeStart - safeCursorChar, 0);
@@ -415,7 +415,7 @@ public class EditorActions {
                 if (prev == null) prev = "";
                 String merged = prev + base;
 
-                editor.windowRender.modifiedLines.put(prevGlobal, merged);
+                editor.windowRender.putModifiedLine(prevGlobal, merged);
                 editor.windowRender.clearStreamedLineInfo(prevGlobal);
                 
                 synchronized (editor.windowRender.lineWidthCache) {
@@ -488,7 +488,7 @@ public class EditorActions {
     private String getDirectEditableLineText(int line) {
         if (line < 0) return null;
         synchronized (editor.windowRender.modifiedLines) {
-            String modified = editor.windowRender.modifiedLines.get(line);
+            String modified = editor.windowRender.getModifiedLine(line);
             if (modified != null) return modified;
         }
         String windowText = editor.windowRender.getLineTextForRender(line);

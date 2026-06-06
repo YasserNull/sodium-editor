@@ -2,7 +2,6 @@ package com.yn.sodiumeditor.io;
 
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.util.Log;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.StreamedCharSlice;
@@ -165,7 +164,7 @@ public class FileIO {
         editor.wordWrap.wrapPrefixValidUpToLine = -1;
 
         synchronized (editor.windowRender.linesWindow) { editor.windowRender.linesWindow.clear(); editor.windowRender.linesWindow.add(""); }
-        synchronized (editor.windowRender.modifiedLines) { editor.windowRender.modifiedLines.clear(); }
+        editor.windowRender.clearModifiedLines();
         editor.windowRender.clearStreamedLineCaches();
         editor.scroll.scrollY = 0; editor.scroll.scrollX = 0;
         editor.windowRender.recalculateMaxLineWidth(); editor.requestLayout(); editor.invalidate();
@@ -310,7 +309,7 @@ public class FileIO {
     private void resetStateForNewFile() {
         editor.windowRender.windowStartLine = 0;
         synchronized (editor.windowRender.linesWindow) { editor.windowRender.linesWindow.clear(); }
-        synchronized (editor.windowRender.modifiedLines) { editor.windowRender.modifiedLines.clear(); }
+        editor.windowRender.clearModifiedLines();
         synchronized (editor.windowRender.lineWidthCache) { editor.windowRender.lineWidthCache.clear(); }
         synchronized (editor.windowRender.avgCharWidthCache) { editor.windowRender.avgCharWidthCache.clear(); }
         synchronized (directLineCache) { directLineCache.clear(); }
@@ -398,25 +397,6 @@ public class FileIO {
             if (i < total - 1) sb.append('\n');
         }
         return sb.toString();
-    }
-
-    public void logSaveContentComparison(@Nullable String savedFileContent) {
-        if (!SodiumEditor.DEBUG_LOGS) return;
-        String renderedText = getRenderedTextForSaveLog();
-        Log.d(LOG_TAG,
-                "[SodiumEditor]\n"
-                        + "operation=save-content-compare\n"
-                        + "file=" + ((sourceFile == null) ? "<none>" : sourceFile.getAbsolutePath()) + "\n"
-                        + "fileLength=" + ((sourceFile == null || !sourceFile.exists()) ? -1 : sourceFile.length()) + "\n"
-                        + "cursor=" + editor.cursor.getLine() + ":" + editor.cursor.getChar() + "\n"
-                        + "selection=" + editor.selection.selStartLine + ":" + editor.selection.selStartChar
-                        + "-" + editor.selection.selEndLine + ":" + editor.selection.selEndChar
-                        + " hasSelection=" + editor.selection.hasSelection + "\n"
-                        + "window=" + editor.windowRender.windowStartLine + "+"
-                        + editor.windowRender.linesWindow.size() + "\n"
-                        + "modifiedLines=" + editor.windowRender.modifiedLines.size() + "\n"
-                        + "savedFileContent=\n" + printableForSaveLog(savedFileContent) + "\n"
-                        + "renderedText=\n" + printableForSaveLog(renderedText));
     }
 
     public String readSavedFileContentForLog() {
