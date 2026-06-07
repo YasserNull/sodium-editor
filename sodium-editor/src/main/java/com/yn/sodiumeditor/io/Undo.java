@@ -1,4 +1,5 @@
 package com.yn.sodiumeditor.io;
+import android.util.Log;
 import com.yn.sodiumeditor.SodiumEditor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -99,6 +100,9 @@ public class Undo {
                 }
                 int reloadStart = Math.max(0, editor.cursor.cursorLine - editor.windowRender.prefetchLines);
                 editor.fileIO.loadWindowAround(reloadStart, () -> {
+                    if (SodiumEditor.DEBUG_LOGS) {
+                        Log.d(TAG, "[SodiumEditor] operation=undo.restore.backup.loaded");
+                    }
                     editor.wordWrap.onLineCountChanged();
                     editor.lineNumber.invalidateLineNumberCache();
                     editor.lineNumber.updateGutterWidth();
@@ -131,6 +135,9 @@ public class Undo {
         }
         int reloadStart = Math.max(0, editor.cursor.cursorLine - editor.windowRender.prefetchLines);
         editor.fileIO.loadWindowAround(reloadStart, () -> {
+            if (SodiumEditor.DEBUG_LOGS) {
+                Log.d(TAG, "[SodiumEditor] operation=undo.restore.source.loaded");
+            }
             editor.wordWrap.onLineCountChanged();
             editor.lineNumber.invalidateLineNumberCache();
             editor.lineNumber.updateGutterWidth();

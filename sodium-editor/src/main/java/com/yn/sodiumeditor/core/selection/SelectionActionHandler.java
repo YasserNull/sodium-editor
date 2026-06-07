@@ -1,6 +1,7 @@
 package com.yn.sodiumeditor.core.selection;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.inputmethod.InputMethodManager;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
@@ -106,6 +107,9 @@ public class SelectionActionHandler {
                     editor.cursor.cursorLine = fileLast;
                     editor.cursor.cursorChar = selection.selEndChar;
                     editor.scroll.scrollToLineFastForSelectAll(fileLast, selection.selEndChar);
+                    if (DEBUG_SELECT_ALL_LOGS) {
+                        Log.d(TAG, "[SodiumEditor] operation=select-all complete-no-index");
+                    }
                     finishSelectAll(keyboardWasVisible);
                 }));
             });

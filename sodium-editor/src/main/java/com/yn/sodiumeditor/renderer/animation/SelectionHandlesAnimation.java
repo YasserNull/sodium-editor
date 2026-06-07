@@ -149,7 +149,13 @@ public class SelectionHandlesAnimation {
         animRightX = Float.NaN;
         animRightY = Float.NaN;
         leftStartX = Float.NaN;
+        leftStartY = Float.NaN;
+        leftTargetX = Float.NaN;
+        leftTargetY = Float.NaN;
         rightStartX = Float.NaN;
+        rightStartY = Float.NaN;
+        rightTargetX = Float.NaN;
+        rightTargetY = Float.NaN;
         leftAnimDuration = ANIM_DURATION;
         rightAnimDuration = ANIM_DURATION;
     }

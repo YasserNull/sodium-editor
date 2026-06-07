@@ -4,6 +4,7 @@ import android.animation.ValueAnimator;
 import android.graphics.Paint;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.util.Log;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.utils.TextArabicUtils;
@@ -92,6 +93,9 @@ public class CharAnimation {
       return;
     }
     if (TextArabicUtils.containsArabicScript(committedText, 0, committedText.length())) {
+      if (SodiumEditor.DEBUG_LOGS) {
+        Log.d(TAG, "[SodiumEditor] operation=char-animation skip start: arabic-script");
+      }
       return;
     }
 
@@ -123,6 +127,9 @@ public class CharAnimation {
         && charAnimStartChar == targetStartChar
         && charAnimEndChar == Math.max(0, targetEndChar)
         && charAnimAlpha < 1f) {
+      if (SodiumEditor.DEBUG_LOGS) {
+        Log.d(TAG, "[SodiumEditor] operation=char-animation skip start: duplicate active range");
+      }
       return;
     }
 
@@ -209,6 +216,9 @@ public class CharAnimation {
       return;
     }
     if (TextArabicUtils.containsArabicScript(removedText, 0, removedText.length())) {
+      if (SodiumEditor.DEBUG_LOGS) {
+        Log.d(TAG, "[SodiumEditor] operation=char-animation skip delete: arabic-script");
+      }
       return;
     }
 
