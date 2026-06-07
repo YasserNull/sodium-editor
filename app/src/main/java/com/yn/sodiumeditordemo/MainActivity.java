@@ -151,6 +151,8 @@ public class MainActivity extends AppCompatActivity {
     editor.scroll.setScrollMode(currentScrollMode);
     editor.setKeyboardSuggestionsEnabled(
         PreferenceManager.getDefaultSharedPreferences(this).getBoolean("keyboard_suggestions", true));
+    editor.view.setPerformanceModeEnabled(
+        PreferenceManager.getDefaultSharedPreferences(this).getBoolean("performance_mode", false));
 
     manageStorageLauncher =
         registerForActivityResult(
@@ -750,6 +752,7 @@ public class MainActivity extends AppCompatActivity {
       onScrollModeChanged(scrollMode);
     }
     editor.setKeyboardSuggestionsEnabled(prefs.getBoolean("keyboard_suggestions", true));
+    editor.view.setPerformanceModeEnabled(prefs.getBoolean("performance_mode", false));
   }
 
   private void applyEditorColors(String themeValue) {

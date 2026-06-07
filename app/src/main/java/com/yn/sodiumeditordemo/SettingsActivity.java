@@ -20,6 +20,7 @@ public class SettingsActivity extends AppCompatActivity {
   private TextView themeSummary;
   private TextView scrollModeSummary;
   private TextView keyboardSuggestionsSummary;
+  private TextView performanceModeSummary;
 
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -66,6 +67,12 @@ public class SettingsActivity extends AppCompatActivity {
             "Keyboard Suggestions",
             R.drawable.ic_keyboard,
             v -> toggleKeyboardSuggestions());
+    performanceModeSummary =
+        addSettingsRow(
+            settingsList,
+            "Performance Mode",
+            R.drawable.ic_performance,
+            v -> togglePerformanceMode());
     updateSummaries();
   }
 
@@ -157,11 +164,19 @@ public class SettingsActivity extends AppCompatActivity {
             prefs.getString("scroll_mode", "2")));
     keyboardSuggestionsSummary.setText(
         prefs.getBoolean("keyboard_suggestions", true) ? "On" : "Off");
+    performanceModeSummary.setText(
+        prefs.getBoolean("performance_mode", false) ? "On" : "Off");
   }
 
   private void toggleKeyboardSuggestions() {
     boolean enabled = !prefs.getBoolean("keyboard_suggestions", true);
     prefs.edit().putBoolean("keyboard_suggestions", enabled).apply();
+    updateSummaries();
+  }
+
+  private void togglePerformanceMode() {
+    boolean enabled = !prefs.getBoolean("performance_mode", false);
+    prefs.edit().putBoolean("performance_mode", enabled).apply();
     updateSummaries();
   }
 
