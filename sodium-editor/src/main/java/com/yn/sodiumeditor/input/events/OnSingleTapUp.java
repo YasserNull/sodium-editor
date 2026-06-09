@@ -1,5 +1,6 @@
 package com.yn.sodiumeditor.input.events;
 
+import android.util.Log;
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.io.EditOperators;
@@ -11,6 +12,7 @@ import java.util.HashMap;
  */
 public class OnSingleTapUp {
 
+  private static final String TAG = "SodiumEditor";
   private final SodiumEditor editor;
 
   public OnSingleTapUp(SodiumEditor editor) {
@@ -34,6 +36,7 @@ public class OnSingleTapUp {
     boolean afterEnd = editor.clickAfterEndToAddLine.isClickAfterEnd(visibleIndex, totalVisible);
     if (afterEnd) {
       placeCursorAtLastVisibleLineEnd(totalVisible);
+      logTapCursor(e, editor.cursor.cursorLine, editor.cursor.cursorChar, editor.cursor.cursorLine, editor.cursor.cursorChar, true);
       if (editor.clickAfterEndToAddLine.isClickAfterEndToAddLineEnabled
           && visibleIndex == totalVisible) {
         editor.editOperators.insertTextAtCursor("\n");
@@ -47,9 +50,50 @@ public class OnSingleTapUp {
     editor.fileIO.ensureLineInWindow(line, true);
     String ln = editor.windowRender.getLineTextForRender(line);
     editor.cursor.setCursorPosition(line, Math.max(0, Math.min(target.ch, (ln == null) ? 0 : ln.length())));
+    logTapCursor(e, target.line, target.ch, editor.cursor.cursorLine, editor.cursor.cursorChar, false);
 
     finishTapCursorPlacement(false);
     return true;
+  }
+
+  private void logTapCursor(
+      MotionEvent e,
+      int targetLine,
+      int targetChar,
+      int finalLine,
+      int finalChar,
+      boolean afterEnd) {
+    if (!SodiumEditor.DEBUG_LOGS) return;
+    String lineText = editor.windowRender.getLineTextForRender(finalLine);
+    int lineLen = lineText == null ? -1 : lineText.length();
+    float textX = editor.scroll.viewToTextX(e.getX());
+    Log.d(
+        TAG,
+        "[SodiumEditor] operation=tap.cursor"
+            + " viewX="
+            + e.getX()
+            + " viewY="
+            + e.getY()
+            + " textX="
+            + textX
+            + " scrollX="
+            + editor.scroll.scrollX
+            + " scrollY="
+            + editor.scroll.scrollY
+            + " target="
+            + targetLine
+            + ":"
+            + targetChar
+            + " finalCursor="
+            + finalLine
+            + ":"
+            + finalChar
+            + " lineLength="
+            + lineLen
+            + " afterEnd="
+            + afterEnd
+            + " wordWrap="
+            + editor.wordWrap.isWordWrapEnabled);
   }
 
   private void finishTapCursorPlacement(boolean snapCursorAnimation) {

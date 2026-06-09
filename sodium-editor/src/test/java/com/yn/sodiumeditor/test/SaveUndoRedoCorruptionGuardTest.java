@@ -42,6 +42,25 @@ public class SaveUndoRedoCorruptionGuardTest {
   }
 
   @Test
+  public void redoEntireFileDeleteClearsRenderWindowImmediately() throws Exception {
+    String redo = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/Redo.java");
+    String body = methodBody(redo, "public void execute(");
+    String helper = methodBody(redo, "private void applyEntireFileDeleteForRedo(");
+
+    assertTrue(
+        "BUG: redo of select-all delete must use a dedicated fast path, not a stale selection replace.",
+        body.contains("op.entireFileDelete") && body.contains("applyEntireFileDeleteForRedo(op)"));
+    assertTrue(helper.contains("editor.windowRender.linesWindow.clear()"));
+    assertTrue(helper.contains("editor.windowRender.linesWindow.add(\"\")"));
+    assertTrue(helper.contains("editor.windowRender.windowStartLine = 0"));
+    assertTrue(helper.contains("editor.fileIO.isEof = true"));
+    assertTrue(helper.contains("editor.windowRender.clearModifiedLines()"));
+    assertTrue(helper.contains("editor.fileIO.lineOffsets = new long[0]"));
+    assertTrue(helper.contains("editor.fileIO.isIndexReady = false"));
+    assertTrue(helper.contains("editor.invalidate()"));
+  }
+
+  @Test
   public void saveSuccessDoesNotClearNewEditsMadeDuringSave() throws Exception {
     String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileEditHandler.java");
     String body = methodBody(src, "public void applyPendingEditsToFileAsync(");

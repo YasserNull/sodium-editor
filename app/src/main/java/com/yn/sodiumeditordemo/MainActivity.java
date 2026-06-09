@@ -151,6 +151,7 @@ public class MainActivity extends AppCompatActivity {
     editor.scroll.setScrollMode(currentScrollMode);
     editor.setKeyboardSuggestionsEnabled(
         PreferenceManager.getDefaultSharedPreferences(this).getBoolean("keyboard_suggestions", true));
+    applyGuideSettingsFromPreferences(PreferenceManager.getDefaultSharedPreferences(this));
     editor.view.setPerformanceModeEnabled(
         PreferenceManager.getDefaultSharedPreferences(this).getBoolean("performance_mode", false));
 
@@ -752,7 +753,14 @@ public class MainActivity extends AppCompatActivity {
       onScrollModeChanged(scrollMode);
     }
     editor.setKeyboardSuggestionsEnabled(prefs.getBoolean("keyboard_suggestions", true));
+    applyGuideSettingsFromPreferences(prefs);
     editor.view.setPerformanceModeEnabled(prefs.getBoolean("performance_mode", false));
+  }
+
+  private void applyGuideSettingsFromPreferences(SharedPreferences prefs) {
+    editor.bracketGuides.setBracketGuidesEnabled(prefs.getBoolean("bracket_guides", true));
+    editor.bracketMatchManager.setBracketMatchingEnabled(prefs.getBoolean("bracket_match", true));
+    editor.whitespaceGuides.setWhitespaceGuidesEnabled(prefs.getBoolean("whitespace_guides", true));
   }
 
   private void applyEditorColors(String themeValue) {

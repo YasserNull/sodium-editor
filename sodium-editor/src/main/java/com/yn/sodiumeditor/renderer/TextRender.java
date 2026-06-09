@@ -593,20 +593,12 @@ public class TextRender {
       x = w - x;
     }
     if (x <= 0f) return 0;
-    if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
+    if (editor.binaryRender.shouldUseBinaryRenderingForLine(globalLine)) {
       int[] spans = editor.binaryRender.getBinaryTokenSpans(globalLine);
       float padX =
           editor.binaryRender.binaryCaretNotationEnabled ? 0f : editor.binaryRender.binaryTokenPaddingX;
-      float charWidth = paint.measureText("M");
 
-      if (spans != null && spans.length > 0) {
-        return editor.binaryRender.getCharIndexForXBinary(text, 0, text.length(), x, paint, spans, padX);
-      } else {
-        float effectiveAvgWidth = charWidth + (padX * 2f * 0.2f);
-        if (effectiveAvgWidth <= 0f) return 0;
-        int idx = (int) Math.round(x / effectiveAvgWidth);
-        return Math.max(0, Math.min(idx, text.length()));
-      }
+      return editor.binaryRender.getCharIndexForXBinary(text, 0, text.length(), x, paint, spans, padX);
     }
 
     int len = editor.view.getLogicalLineLength(globalLine, text);

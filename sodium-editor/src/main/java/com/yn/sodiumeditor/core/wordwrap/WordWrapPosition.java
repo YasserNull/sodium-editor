@@ -80,12 +80,12 @@ public class WordWrapPosition {
         if (!wordWrap.isWordWrapEnabled) {
             int charIdx = editor.textRender.getCharIndexForX(line, x, pos.line);
             int clamped = Math.max(0, Math.min(charIdx, editor.view.getLogicalLineLength(pos.line, line)));
-            return new EditOp.CursorTarget(pos.line, editor.binaryRender.isBinarySafeRenderingEnabled() ? editor.binaryRender.snapBinaryCursor(line, clamped, pos.line) : clamped);
+            return new EditOp.CursorTarget(pos.line, editor.binaryRender.shouldUseBinaryRenderingForLine(pos.line) ? editor.binaryRender.snapBinaryCursor(line, clamped, pos.line) : clamped);
         }
         int[] starts = wordWrap.getWrapStartsForLine(pos.line, line);
         int seg = Math.min(Math.max(0, pos.segment), Math.max(0, starts.length - 1));
         int charIdx = wordWrap.getCharIndexForXInRange(line, pos.line, wordWrap.getWrapSegmentStart(starts, seg), wordWrap.getWrapSegmentEnd(starts, seg, line.length()), x);
         int clamped = Math.max(0, Math.min(charIdx, (line == null ? 0 : line.length())));
-        return new EditOp.CursorTarget(pos.line, editor.binaryRender.isBinarySafeRenderingEnabled() ? editor.binaryRender.snapBinaryCursor(line, clamped, pos.line) : clamped);
+        return new EditOp.CursorTarget(pos.line, editor.binaryRender.shouldUseBinaryRenderingForLine(pos.line) ? editor.binaryRender.snapBinaryCursor(line, clamped, pos.line) : clamped);
     }
 }

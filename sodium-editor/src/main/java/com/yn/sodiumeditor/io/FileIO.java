@@ -217,7 +217,15 @@ public class FileIO {
     public String readRangeText(int sL, int sC, int eL, int eC) { 
         return metadata.readRangeText(sourceFile, sL, sC, eL, eC); 
     }
-    public void ensureLineInWindow(int gL, boolean block) { windowLoader.loadWindowAround(Math.max(0, gL - editor.windowRender.prefetchLines), null, false); }
+    public void ensureLineInWindow(int gL, boolean block) {
+        int line = Math.max(0, gL);
+        synchronized (editor.windowRender.linesWindow) {
+            int windowStartLine = editor.windowRender.windowStartLine;
+            int windowEndLine = windowStartLine + editor.windowRender.linesWindow.size();
+            if (line >= windowStartLine && line < windowEndLine) return;
+        }
+        windowLoader.loadWindowAround(Math.max(0, line - editor.windowRender.prefetchLines), null, false);
+    }
     public void invalidatePendingIO() { 
         ioTaskVersion.incrementAndGet(); ioHandler.removeCallbacksAndMessages(null); 
     }

@@ -21,6 +21,9 @@ public class SettingsActivity extends AppCompatActivity {
   private TextView scrollModeSummary;
   private TextView keyboardSuggestionsSummary;
   private TextView performanceModeSummary;
+  private TextView bracketGuidesSummary;
+  private TextView bracketMatchSummary;
+  private TextView whitespaceGuidesSummary;
 
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -67,6 +70,24 @@ public class SettingsActivity extends AppCompatActivity {
             "Keyboard Suggestions",
             R.drawable.ic_keyboard,
             v -> toggleKeyboardSuggestions());
+    bracketGuidesSummary =
+        addSettingsRow(
+            settingsList,
+            "Bracket Guides",
+            R.drawable.ic_bracket_guides,
+            v -> toggleBooleanSetting("bracket_guides", true));
+    bracketMatchSummary =
+        addSettingsRow(
+            settingsList,
+            "Bracket Match",
+            R.drawable.ic_bracket_match,
+            v -> toggleBooleanSetting("bracket_match", true));
+    whitespaceGuidesSummary =
+        addSettingsRow(
+            settingsList,
+            "Whitespace Guides",
+            R.drawable.ic_whitespace_guides,
+            v -> toggleBooleanSetting("whitespace_guides", true));
     performanceModeSummary =
         addSettingsRow(
             settingsList,
@@ -164,6 +185,10 @@ public class SettingsActivity extends AppCompatActivity {
             prefs.getString("scroll_mode", "2")));
     keyboardSuggestionsSummary.setText(
         prefs.getBoolean("keyboard_suggestions", true) ? "On" : "Off");
+    bracketGuidesSummary.setText(prefs.getBoolean("bracket_guides", true) ? "On" : "Off");
+    bracketMatchSummary.setText(prefs.getBoolean("bracket_match", true) ? "On" : "Off");
+    whitespaceGuidesSummary.setText(
+        prefs.getBoolean("whitespace_guides", true) ? "On" : "Off");
     performanceModeSummary.setText(
         prefs.getBoolean("performance_mode", false) ? "On" : "Off");
   }
@@ -177,6 +202,12 @@ public class SettingsActivity extends AppCompatActivity {
   private void togglePerformanceMode() {
     boolean enabled = !prefs.getBoolean("performance_mode", false);
     prefs.edit().putBoolean("performance_mode", enabled).apply();
+    updateSummaries();
+  }
+
+  private void toggleBooleanSetting(String key, boolean defaultValue) {
+    boolean enabled = !prefs.getBoolean(key, defaultValue);
+    prefs.edit().putBoolean(key, enabled).apply();
     updateSummaries();
   }
 
