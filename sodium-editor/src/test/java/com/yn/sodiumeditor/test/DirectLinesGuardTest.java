@@ -1,5 +1,6 @@
 package com.yn.sodiumeditor.test;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
@@ -24,7 +25,7 @@ public class DirectLinesGuardTest {
         String src = new String(Files.readAllBytes(viewRender), StandardCharsets.UTF_8);
 
         boolean callsPopulate = src.contains("populateDirectLinesForRange");
-        assertTrue("Expected ViewRender to call populateDirectLinesForRange()", callsPopulate);
+        assertFalse("BUG: ViewRender draw path must not perform disk-backed direct reads.", callsPopulate);
 
         String fileCache = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileCache.java");
         String cacheBody = methodBody(fileCache, "populateDirectLinesForRange");

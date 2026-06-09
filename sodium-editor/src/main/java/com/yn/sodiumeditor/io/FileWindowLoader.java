@@ -4,6 +4,7 @@ import android.util.SparseIntArray;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.StreamedCharSlice;
+import com.yn.sodiumeditor.core.binary.BinaryDocument;
 import java.io.RandomAccessFile;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -114,7 +115,7 @@ public class FileWindowLoader {
                 endsWithNewline = raf.read() == '\n';
                 ArrayDeque<Long> startsDescending = new ArrayDeque<>();
                 if (endsWithNewline) startsDescending.add(fileLen);
-                byte[] buffer = new byte[8192];
+                byte[] buffer = new byte[FileIO.FILE_IO_BUFFER_SIZE];
                 long readEnd = fileLen;
                 while (readEnd > 0L && startsDescending.size() < limit) {
                     int toRead = (int) Math.min(buffer.length, readEnd);
@@ -226,6 +227,10 @@ public class FileWindowLoader {
     }
 
     private void loadWindowInternal(int actualStart, int taskVersion, @Nullable Runnable onComplete, boolean recalcWidthSync) throws Exception {
+        if (editor.binaryRender.binaryFileFeaturePolicyActive && editor.binaryRender.binaryDocument != null) {
+            loadBinaryWindowInternal(actualStart, taskVersion, onComplete, recalcWidthSync);
+            return;
+        }
         List<String> newWin = new ArrayList<>();
         SparseIntArray newLengths = new SparseIntArray();
         SparseIntArray newSliceStarts = new SparseIntArray();
@@ -279,7 +284,13 @@ public class FileWindowLoader {
                         newLengths.put(lineIdx, len); newSliceStarts.put(lineIdx, sS);
                     } else {
                         raf.seek(start); byte[] buf = new byte[len]; if (len > 0) raf.readFully(buf);
-                        newWin.add(len > 0 ? (editor.binaryRender.isBinarySafeRenderingEnabled() ? editor.binaryRender.bytesToControlVisibleAndCacheSpans(buf, buf.length, lineIdx, fileIO.fileCharset) : new String(buf, fileIO.fileCharset)) : "");
+                        newWin.add(len > 0
+                                ? (editor.binaryRender.isBinarySafeRenderingEnabled()
+                                        ? (editor.binaryRender.binaryFileFeaturePolicyActive
+                                                ? editor.binaryRender.rawBytesToControlVisibleAndCacheSpans(buf, buf.length, lineIdx)
+                                                : editor.binaryRender.bytesToControlVisibleAndCacheSpans(buf, buf.length, lineIdx, fileIO.fileCharset))
+                                        : new String(buf, fileIO.fileCharset))
+                                : "");
                     }
                     raf.seek(after); if (scan.reachedEof) { reachedEof = true; break; }
                     lineIdx++;
@@ -320,6 +331,60 @@ public class FileWindowLoader {
                     editor.wordWrap.requestWrapPrefixRebuild();
                 }
             }
+            editor.requestLayout();
+            editor.invalidate();
+            if (onComplete != null) onComplete.run();
+        });
+    }
+
+    private void loadBinaryWindowInternal(int actualStart, int taskVersion, @Nullable Runnable onComplete, boolean recalcWidthSync) throws Exception {
+        BinaryDocument document = editor.binaryRender.binaryDocument;
+        ArrayList<String> newWin = new ArrayList<>();
+        SparseIntArray newLengths = new SparseIntArray();
+        SparseIntArray newSliceStarts = new SparseIntArray();
+        int rowCount = document.getRowCount();
+        int row = Math.max(0, Math.min(actualStart, Math.max(0, rowCount - 1)));
+        int windowStart = row;
+        int limit = editor.windowRender.windowSize + (editor.windowRender.prefetchLines * 2);
+
+        try (RandomAccessFile raf = new RandomAccessFile(document.getFile(), "r")) {
+            byte[] rowBuffer = new byte[BinaryDocument.BYTES_PER_ROW];
+            while (newWin.size() < limit && row < rowCount) {
+                long offset = document.getOffsetForRow(row);
+                int len = (int) Math.min(BinaryDocument.BYTES_PER_ROW, Math.max(0L, document.getFileLength() - offset));
+                if (len <= 0) break;
+                raf.seek(offset);
+                raf.readFully(rowBuffer, 0, len);
+                String line = new String(rowBuffer, 0, len, fileIO.fileCharset);
+                newWin.add(line);
+                newLengths.put(row, line.length());
+                newSliceStarts.put(row, 0);
+                row++;
+            }
+        }
+
+        if (newWin.isEmpty()) newWin.add("");
+        final boolean finalEof = windowStart + newWin.size() >= rowCount;
+        final int fStart = windowStart;
+
+        editor.post(() -> {
+            fileIO.isWindowLoading = false;
+            if (taskVersion != fileIO.ioTaskVersion.get()) { checkAndLoadWindow(); return; }
+            if (hasPendingInMemoryEdits()) {
+                if (onComplete != null) onComplete.run();
+                return;
+            }
+            synchronized (editor.windowRender.linesWindow) {
+                editor.windowRender.linesWindow.clear();
+                editor.windowRender.linesWindow.addAll(newWin);
+                editor.windowRender.windowStartLine = fStart;
+                fileIO.isEof = finalEof;
+            }
+            applyStreamedInfo(newLengths, newSliceStarts);
+            editor.lineNumber.invalidateLineNumberCache();
+            editor.highlite.clearHighlightCaches();
+            if (recalcWidthSync) editor.windowRender.recalculateMaxLineWidth();
+            else fileIO.recalculateMaxLineWidthAsync();
             editor.requestLayout();
             editor.invalidate();
             if (onComplete != null) onComplete.run();

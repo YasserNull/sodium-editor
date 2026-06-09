@@ -38,14 +38,6 @@ public class ViewRender {
     
     int visibleStart = firstVisibleIndex;
     int visibleEnd = lastVisibleIndex;
-    if (false) {
-      int visibleCount = Math.max(1, editor.view.getLinesCount());
-      if (visibleCount > 0) {
-        visibleStart = Math.max(0, Math.min(visibleStart, visibleCount - 1));
-        visibleEnd = Math.max(visibleStart, Math.min(visibleEnd, visibleCount - 1));
-      }
-    }
-    
     editor.bracketGuides.beginRenderFrame(windowStart, windowEnd, visibleStart, visibleEnd);
     editor.bracketGuides.setFrameFastScroll(fastScroll);
     
@@ -73,14 +65,6 @@ public class ViewRender {
     if (editor.wordWrap.isWordWrapEnabled) {
       firstVisibleLine = editor.wordWrap.getVisualPositionForIndex(firstVisibleIndex).line;
       lastVisibleLine = editor.wordWrap.getVisualPositionForIndex(lastVisibleIndex).line;
-    } else if (false) {
-      int totalLines = Math.max(1, editor.view.getLinesCount());
-      int visibleCount = Math.min(Math.max(1, editor.view.getLinesCount()), totalLines);
-      if (visibleCount <= 0) visibleCount = 1;
-      firstVisibleIndex = Math.max(0, Math.min(firstVisibleIndex, visibleCount - 1));
-      lastVisibleIndex = Math.max(firstVisibleIndex, Math.min(lastVisibleIndex, visibleCount - 1));
-      firstVisibleLine = Math.max(0, Math.min(firstVisibleIndex, totalLines - 1));
-      lastVisibleLine = Math.max(firstVisibleLine, Math.min(lastVisibleIndex, totalLines - 1));
     } else {
       int totalLines = Math.max(1, editor.view.getLinesCount());
       firstVisibleIndex = Math.max(0, Math.min(firstVisibleIndex, totalLines - 1));
@@ -163,16 +147,13 @@ public class ViewRender {
         selPaint.setAlpha((int) (baseAlpha * alphaProgress));
     }
 
-    HashMap<Integer, String> directLines = null;
+    HashMap<Integer, String> directLines = editor.windowRender.directLinesTmp;
+    directLines.clear();
     if (editor.fileIO.sourceFile != null) {
       int winStart = editor.windowRender.windowStartLine;
       int winEnd = winStart + editor.windowRender.linesWindow.size() - 1;
       if (firstVisibleLine < winStart || lastVisibleLine > winEnd) {
-        editor.windowRender.directLinesTmp.clear();
-        directLines = editor.windowRender.directLinesTmp;
-        int directStart = Math.max(0, firstVisibleLine);
-        int directEnd = Math.max(directStart, lastVisibleLine);
-        editor.fileIO.populateDirectLinesForRange(directStart, directEnd, directLines);
+        editor.fileIO.checkAndLoadWindow();
       }
     }
 
@@ -180,6 +161,8 @@ public class ViewRender {
     if (editor.bracketMatchManager.isBracketMatchingEnabled) {
       bracketMatchResult = editor.bracketMatchManager.findAndCacheBracketMatch(firstVisibleLine, lastVisibleLine, directLines);
     }
+
+    editor.windowRender.maybeUpdateStreamedSlicesForVisibleRange(firstVisibleLine, lastVisibleLine);
 
     if (editor.selection.state.animation.shouldDrawSelectionHighlight() && selPaint != null) {
         boolean drawingFadeOut = editor.selection.state.animation.isDrawingFadeOutSelection();
@@ -266,6 +249,10 @@ public class ViewRender {
             && editor.charAnimation.charAnimEndChar > editor.charAnimation.charAnimStartChar
             && editor.charAnimation.charAnimAlpha < 1f) {
         }
+        if (drawDecorations) {
+            editor.textRender.drawWhitespaceGuidesForLine(canvas, line, i, y);
+            editor.indentGuides.drawIndentGuidesForLine(canvas, line, i);
+        }
         if (line != null) editor.colorCodeHighlight.drawColorCodeBackgrounds(canvas, line, i);
         editor.textRender.drawHighlightedLine(canvas, line, i, y);
         if (editor.autoCompletion != null && line != null) {
@@ -274,11 +261,6 @@ public class ViewRender {
         if (i == editor.charAnimation.charAnimLine
             && editor.charAnimation.charAnimEndChar > editor.charAnimation.charAnimStartChar
             && editor.charAnimation.charAnimAlpha < 1f) {
-        }
-        // Draw whitespace guides and indent guides after text
-        if (drawDecorations) {
-            editor.textRender.drawWhitespaceGuidesForLine(canvas, line, i, y);
-            editor.indentGuides.drawIndentGuidesForLine(canvas, line, i);
         }
         // Draw bracket match highlight
         if (drawDecorations && bracketMatchResult != null) {

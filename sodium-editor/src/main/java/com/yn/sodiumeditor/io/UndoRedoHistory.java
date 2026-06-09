@@ -13,6 +13,10 @@ public class UndoRedoHistory {
     public final ArrayDeque<EditOp> pendingRedo = new ArrayDeque<>();
 
     public void clear() {
+        for (EditOp op : undoStack) dispose(op);
+        for (EditOp op : redoStack) dispose(op);
+        for (EditOp op : pendingEdits) dispose(op);
+        for (EditOp op : pendingRedo) dispose(op);
         undoStack.clear();
         redoStack.clear();
         pendingEdits.clear();
@@ -38,7 +42,7 @@ public class UndoRedoHistory {
     public void pushUndo(EditOp op) {
         undoStack.addLast(op);
         while (undoStack.size() > UNDO_STACK_LIMIT) {
-            undoStack.removeFirst();
+            dispose(undoStack.removeFirst());
         }
     }
 
@@ -52,5 +56,13 @@ public class UndoRedoHistory {
 
     public EditOp popRedo() {
         return redoStack.isEmpty() ? null : redoStack.removeLast();
+    }
+
+    private void dispose(EditOp op) {
+        if (op == null) return;
+        if (op.removedTextBackupFile != null) {
+            op.removedTextBackupFile.delete();
+            op.removedTextBackupFile = null;
+        }
     }
 }

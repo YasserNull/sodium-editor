@@ -24,17 +24,9 @@ public class LineNumberRender {
 
     public void drawLineNumbersDirectUnwrapped(Canvas canvas, int firstIdx, int lastIdx, int firstLine, int lastLine) {
         float lineNumX = getLineNumXUnwrapped();
-        if (false) {
-            for (int v = firstIdx; v <= lastIdx; v++) {
-                int i = v;
-                if (i == editor.cursor.cursorLine) continue;
-                drawSingleLineNumber(canvas, i + 1, lineNumX, v * editor.textRender.lineHeight - editor.scroll.scrollY);
-            }
-        } else {
-            for (int i = firstLine; i <= lastLine; i++) {
-                if (i == editor.cursor.cursorLine) continue;
-                drawSingleLineNumber(canvas, i + 1, lineNumX, i * editor.textRender.lineHeight - editor.scroll.scrollY);
-            }
+        for (int i = firstLine; i <= lastLine; i++) {
+            if (i == editor.cursor.cursorLine) continue;
+            drawSingleLineNumber(canvas, i + 1, lineNumX, i * editor.textRender.lineHeight - editor.scroll.scrollY);
         }
         lineNumber.drawCurrentLineNumberUnwrapped(canvas, firstIdx, lastIdx);
     }

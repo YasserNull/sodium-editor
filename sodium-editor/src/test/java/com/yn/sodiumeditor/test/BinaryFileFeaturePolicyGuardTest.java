@@ -51,7 +51,7 @@ public class BinaryFileFeaturePolicyGuardTest {
     String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/BinaryRender.java");
     String body = methodBody(src, "applyBinaryFileFeaturePolicy(boolean active)");
 
-    assertTrue(body.contains("setBinarySafeRenderingEnabled(true)"));
+    assertTrue(body.contains("setBinarySafeRenderingEnabled(false, false)"));
     assertTrue(body.contains("editor.highlite.isSyntaxHighlightingEnabled = false"));
     assertTrue(body.contains("editor.colorCodeHighlight.setColorCodeHighlightingEnabled(false)"));
     assertTrue(body.contains("editor.urlUnderline.setUrlUnderliningEnabled(false)"));

@@ -25,16 +25,7 @@ public class WindowRender {
     public int windowSize = 250;
     public int prefetchLines = 250;
     public final java.util.LinkedHashMap<Integer, String> modifiedLines =
-            new java.util.LinkedHashMap<Integer, String>(1000, 0.75f, false) {
-                @Override
-                protected boolean removeEldestEntry(Map.Entry<Integer, String> eldest) {
-                    boolean remove = size() > 1000;
-                    if (remove && eldest != null && eldest.getKey() != null) {
-                        onModifiedLineRemovedLocked(eldest.getKey());
-                    }
-                    return remove;
-                }
-            };
+            new java.util.LinkedHashMap<Integer, String>(1000, 0.75f, false);
     private int firstModifiedLine = Integer.MAX_VALUE;
     public final android.util.SparseArray<Float> lineWidthCache = new android.util.SparseArray<>(400);
     public int lineWidthCacheSize = 250;
@@ -593,6 +584,10 @@ public class WindowRender {
     }
 
     public void setRenderWindow(int windowSize, int prefetchLines) {
+        setRenderWindow(windowSize, prefetchLines, true);
+    }
+
+    public void setRenderWindow(int windowSize, int prefetchLines, boolean reload) {
         int safeWindow = Math.max(10, windowSize);
         int safePrefetch = Math.max(0, prefetchLines);
         int minWindow = computeMinWindowSizeForPrefetch(safePrefetch);
@@ -604,7 +599,7 @@ public class WindowRender {
         editor.bracketGuides.invalidateBracketGuideCache();
         if (editor.wordWrap.isWordWrapEnabled) editor.wordWrap.invalidateWrapMetrics(true);
         editor.wordWrap.requestWrapPrefixRebuild();
-        reloadWindowAroundVisible(false);
+        if (reload) reloadWindowAroundVisible(false);
     }
 
     public int computeMinWindowSize() {

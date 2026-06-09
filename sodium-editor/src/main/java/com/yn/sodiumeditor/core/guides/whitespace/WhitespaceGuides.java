@@ -17,11 +17,12 @@ public class WhitespaceGuides {
   public static final String WHITESPACE_GUIDE_SPACE = "·";
   public static final String WHITESPACE_GUIDE_TAB = "→";
   public static final int WHITESPACE_GUIDE_COLOR = 0xFF555555;
+  public static final int MAX_WHITESPACE_GUIDE_LINE_LENGTH = 4096;
 
   private final SodiumEditor editor;
 
   // Whitespace guides state
-  public boolean isWhitespaceGuidesEnabled = false;
+  public boolean isWhitespaceGuidesEnabled = true;
   public final Paint whitespaceGuidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public final Paint whitespaceGuideDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public float whitespaceGuideSpaceWidth = 0f;
@@ -48,20 +49,8 @@ public class WhitespaceGuides {
   }
 
 public void setWhitespaceGuidesEnabled(boolean enabled) {
+    if (isWhitespaceGuidesEnabled == enabled) return;
     isWhitespaceGuidesEnabled = enabled;
-    editor.bracketGuides.invalidateBracketGuideCache();
-    editor.highlite.invalidateHighlightEnsureRange();
-    synchronized (editor.windowRender.lineWidthCache) {
-      editor.windowRender.lineWidthCache.clear();
-    }
-    editor.windowRender.currentMaxWindowLineWidth = 0f;
-    editor.windowRender.globalMaxLineWidth = 0f;
-    editor.scroll.maxLineWidthForScroll = 0f;
-    editor.scroll.maxTextStartXForScroll = 0f;
-    editor.scroll.maxScrollXForScroll = 0f;
-    editor.windowRender.recalculateMaxLineWidth();
-    if (editor.wordWrap.isWordWrapEnabled) editor.wordWrap.invalidateWrapMetrics(true);
-    editor.wordWrap.requestWrapPrefixRebuild();
     editor.invalidate();
   }
 
@@ -69,19 +58,6 @@ public void setWhitespaceGuidesEnabled(boolean enabled) {
   int safeStep = Math.max(1, spacesPerDot);
     if (whitespaceGuideSpaceStep == safeStep) return;
     whitespaceGuideSpaceStep = safeStep;
-    
-    editor.bracketGuides.invalidateBracketGuideCache();
-    editor.highlite.invalidateHighlightEnsureRange();
-    synchronized (editor.windowRender.lineWidthCache) {
-      editor.windowRender.lineWidthCache.clear();
-    }
-    editor.windowRender.currentMaxWindowLineWidth = 0f;
-    editor.windowRender.globalMaxLineWidth = 0f;
-    editor.scroll.maxLineWidthForScroll = 0f;
-    editor.scroll.maxTextStartXForScroll = 0f;
-    editor.scroll.maxScrollXForScroll = 0f;
-    editor.windowRender.recalculateMaxLineWidth();
-    if (editor.wordWrap.isWordWrapEnabled) editor.wordWrap.invalidateWrapMetrics(true);
     editor.invalidate();
   }
 
@@ -123,13 +99,33 @@ public void setWhitespaceGuidesEnabled(boolean enabled) {
   public int getWhitespaceGuideStep() {
     return Math.max(1, whitespaceGuideSpaceStep);
   }
+
+  private boolean shouldSkipWhitespaceGuideDraw(String line) {
+    return !isWhitespaceGuidesEnabled
+        || editor.isHeavyDrawSuppressed()
+        || line == null
+        || line.isEmpty()
+        || line.length() > MAX_WHITESPACE_GUIDE_LINE_LENGTH;
+  }
+
+  private boolean hasWhitespaceInRange(String line, int start, int end) {
+    if (line == null) return false;
+    int safeStart = Math.max(0, Math.min(start, line.length()));
+    int safeEnd = Math.max(safeStart, Math.min(end, line.length()));
+    for (int i = safeStart; i < safeEnd; i++) {
+      char c = line.charAt(i);
+      if (c == ' ' || c == '\t') return true;
+    }
+    return false;
+  }
+
 public void drawWhitespaceGuidesForRangeRtl(
       Canvas canvas, String line, int globalLine, int start, int end, float y) {
     if (line == null || line.isEmpty() || start >= end) return;
     start = Math.max(0, Math.min(start, line.length()));
     end = Math.max(start, Math.min(end, line.length()));
     if (start >= end) return;
-    if (line.indexOf(' ', start) < 0 && line.indexOf('\t', start) < 0) return;
+    if (!hasWhitespaceInRange(line, start, end)) return;
 
     List<com.yn.sodiumeditor.renderer.HighliteRender.HighlightSpan> syntaxSpans = getWhitespaceGuideSyntaxSpans(line, globalLine);
     boolean hasSyntaxSpans = !syntaxSpans.isEmpty();
@@ -229,8 +225,8 @@ public void drawWhitespaceGuidesForRangeRtl(
    * Draws whitespace guides for a line.
    */
   public void drawWhitespaceGuidesForLine(Canvas canvas, String line, int globalLine, float y) {
-    if (!isWhitespaceGuidesEnabled || editor.isHeavyDrawSuppressed() || line.isEmpty()) return;
-    if (line.indexOf(' ') < 0 && line.indexOf('\t') < 0) return;
+    if (shouldSkipWhitespaceGuideDraw(line)) return;
+    if (!hasWhitespaceInRange(line, 0, line.length())) return;
 
     if (editor.textRender.isRtl) {
       drawWhitespaceGuidesForRangeRtl(canvas, line, globalLine, 0, line.length(), y);
@@ -282,7 +278,7 @@ public void drawWhitespaceGuidesForRangeRtl(
    */
   public void drawWhitespaceGuidesForSegment(
       Canvas canvas, String line, int globalLine, int start, int end, float y) {
-    if (!isWhitespaceGuidesEnabled || editor.isHeavyDrawSuppressed() || line == null || line.isEmpty())
+    if (shouldSkipWhitespaceGuideDraw(line))
       return;
     if (editor.textRender.isRtl) {
       drawWhitespaceGuidesForRangeRtl(canvas, line, globalLine, start, end, y);
@@ -291,7 +287,7 @@ public void drawWhitespaceGuidesForRangeRtl(
     start = Math.max(0, Math.min(start, line.length()));
     end = Math.max(start, Math.min(end, line.length()));
     if (start >= end) return;
-    if (line.indexOf(' ', start) < 0 && line.indexOf('\t', start) < 0) return;
+    if (!hasWhitespaceInRange(line, start, end)) return;
 
     List<com.yn.sodiumeditor.renderer.HighliteRender.HighlightSpan> syntaxSpans = getWhitespaceGuideSyntaxSpans(line, globalLine);
     boolean hasSyntaxSpans = !syntaxSpans.isEmpty();

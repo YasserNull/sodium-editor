@@ -24,7 +24,7 @@ public class BracketGuides {
   private final SodiumEditor editor;
 
   // Bracket guides state
-  public boolean isBracketGuidesEnabled = false;
+  public boolean isBracketGuidesEnabled = true;
   public final Paint bracketGuidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public float bracketGuideStrokeWidth = 4f;
   public float baseBracketGuideStrokeWidth = bracketGuideStrokeWidth;
@@ -79,9 +79,15 @@ public class BracketGuides {
   public void setBracketGuidesEnabled(boolean enabled) {
     if (this.isBracketGuidesEnabled == enabled) return;
     this.isBracketGuidesEnabled = enabled;
-    if (enabled) editor.bracketCache.ensureScannedAsync();
+    if (enabled && shouldAllowFullBracketScan()) editor.bracketCache.ensureScannedAsync();
     invalidateBracketGuideCache();
     editor.invalidate();
+  }
+
+  public boolean shouldAllowFullBracketScan() {
+    return editor.fileIO.sourceFile != null
+        && editor.fileIO.sourceFile.exists()
+        && editor.fileIO.sourceFile.length() <= com.yn.sodiumeditor.io.FileIO.MAX_BRACKET_FULL_SCAN_BYTES;
   }
 
   /**
@@ -458,8 +464,11 @@ public class BracketGuides {
   public void beginRenderFrame(int windowStart, int windowEnd, int visibleStart, int visibleEnd) {
     draw.beginRenderFrame(windowStart, windowEnd, visibleStart, visibleEnd);
 
-    // Ensure cache is built for visible range (async)
-    ensureBracketGuideCacheForWindow(windowStart, windowEnd, visibleStart, visibleEnd, null);
+    if (draw.isFrameFastScroll() && skipGuidesDuringFastScroll) return;
+    int pad = draw.isFrameFastScroll() ? 10 : 50;
+    int start = Math.max(windowStart, visibleStart - pad);
+    int end = Math.min(windowEnd, visibleEnd + pad);
+    ensureBracketGuideCacheForWindow(start, end, visibleStart, visibleEnd, null);
   }
 
   /**

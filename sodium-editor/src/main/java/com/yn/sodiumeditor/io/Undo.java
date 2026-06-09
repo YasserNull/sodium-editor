@@ -60,6 +60,8 @@ public class Undo {
         inverse.cursorCharBefore = op.cursorCharAfter;
         inverse.cursorLineAfter = op.cursorLineBefore;
         inverse.cursorCharAfter = op.cursorCharBefore;
+        inverse.pendingUndoOfSavedOp = true;
+        inverse.originalOp = op;
         inverse.timestamp = System.currentTimeMillis();
         return inverse;
     }

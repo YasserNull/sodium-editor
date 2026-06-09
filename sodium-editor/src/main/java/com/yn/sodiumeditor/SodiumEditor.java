@@ -372,7 +372,11 @@ onSizeChanged.onSizeChanged(w, h, oldw, oldh);
   return super.onTouchEvent(event);
   }
 public boolean isHeavyDrawSuppressed() {
-  return false;
+  boolean fastScroll = scroll.scrollerIsScrolling || scroll.flingStopAnimator != null;
+  boolean zooming = zoom.isZoomGestureActive() || zoom.isScaling;
+  boolean hugeFile = view.getLinesCount() > view.heavyFeaturesThreshold;
+  boolean loading = fileIO.isWindowLoading;
+  return zooming || loading || (fastScroll && hugeFile);
   }
 
 

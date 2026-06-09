@@ -45,6 +45,9 @@ public class BracketGuideFallbackCache {
     }
 
     fallbackCacheEditVersion = mainEditVersion;
+    if (fallbackTokens.size() > MAX_FALLBACK_CACHE_LINES) {
+      invalidate();
+    }
   }
 
   /**

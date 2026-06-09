@@ -94,6 +94,61 @@ public class BinaryTokenConverter {
         return charsToControlVisible(new String(buf, 0, len, safeCharset));
     }
 
+    public String rawBytesToControlVisible(byte[] buf, int len) {
+        if (buf == null || len <= 0) return "";
+        int safeLen = Math.min(len, buf.length);
+        int outLen = 0;
+        for (int i = 0; i < safeLen; i++) {
+            outLen += BYTE_TOKEN_LEN[buf[i] & 0xFF];
+        }
+
+        StringBuilder sb = TL_SB.get();
+        sb.setLength(0);
+        sb.ensureCapacity(outLen);
+        for (int i = 0; i < safeLen; i++) {
+            sb.append(BYTE_TOKEN[buf[i] & 0xFF]);
+        }
+        return sb.toString();
+    }
+
+    public String rawBytesToHexAsciiLine(long offset, byte[] buf, int len) {
+        if (buf == null || len <= 0) return offsetPrefix(offset);
+        int safeLen = Math.min(len, buf.length);
+        StringBuilder sb = TL_SB.get();
+        sb.setLength(0);
+        sb.ensureCapacity(78);
+        sb.append(offsetPrefix(offset)).append("  ");
+        for (int i = 0; i < 16; i++) {
+            if (i < safeLen) {
+                sb.append(HEX2[buf[i] & 0xFF]);
+            } else {
+                sb.append("  ");
+            }
+            if (i == 7) sb.append("  ");
+            else sb.append(' ');
+        }
+        sb.append(" |");
+        for (int i = 0; i < safeLen; i++) {
+            int b = buf[i] & 0xFF;
+            sb.append((b >= 0x20 && b <= 0x7E) ? (char) b : '.');
+        }
+        for (int i = safeLen; i < 16; i++) sb.append(' ');
+        sb.append('|');
+        return sb.toString();
+    }
+
+    private String offsetPrefix(long offset) {
+        String hex = Long.toHexString(Math.max(0L, offset)).toUpperCase();
+        int width = hex.length() > 8 ? 16 : 8;
+        StringBuilder sb = TL_SB.get();
+        int originalLength = sb.length();
+        for (int i = hex.length(); i < width; i++) sb.append('0');
+        sb.append(hex);
+        String out = sb.substring(originalLength);
+        sb.setLength(originalLength);
+        return out;
+    }
+
     public String charsToControlVisible(String text) {
         if (text == null || text.isEmpty()) return "";
 
@@ -132,6 +187,56 @@ public class BinaryTokenConverter {
         Charset safeCharset = charset != null ? charset : StandardCharsets.UTF_8;
         return charsToControlVisibleAndCacheSpans(
             new String(buf, 0, len, safeCharset), lineIndex, binaryTokenSpans);
+    }
+
+    public String rawBytesToControlVisibleAndCacheSpans(
+            byte[] buf,
+            int len,
+            int lineIndex,
+            android.util.SparseArray<int[]> binaryTokenSpans) {
+        if (buf == null || len <= 0) {
+            binaryTokenSpans.remove(lineIndex);
+            return "";
+        }
+        int safeLen = Math.min(len, buf.length);
+        int outLen = 0;
+        for (int i = 0; i < safeLen; i++) {
+            outLen += BYTE_TOKEN_LEN[buf[i] & 0xFF];
+        }
+
+        StringBuilder sb = TL_SB.get();
+        sb.setLength(0);
+        sb.ensureCapacity(outLen);
+
+        SpanList spanList = TL_SPAN_LIST.get();
+        spanList.reset();
+
+        int pos = 0;
+        for (int i = 0; i < safeLen; i++) {
+            int b = buf[i] & 0xFF;
+            String tok = BYTE_TOKEN[b];
+            int tokLen = tok.length();
+            if (tokLen > 1) {
+                spanList.add(pos);
+                spanList.add(pos + tokLen);
+            }
+            sb.append(tok);
+            pos += tokLen;
+        }
+
+        if (spanList.size == 0) {
+            binaryTokenSpans.remove(lineIndex);
+        } else {
+            int[] existing = binaryTokenSpans.get(lineIndex);
+            if (existing == null || existing.length != spanList.size) {
+                int[] packed = new int[spanList.size];
+                System.arraycopy(spanList.data, 0, packed, 0, spanList.size);
+                binaryTokenSpans.put(lineIndex, packed);
+            } else {
+                System.arraycopy(spanList.data, 0, existing, 0, spanList.size);
+            }
+        }
+        return sb.toString();
     }
 
     public String charsToControlVisibleAndCacheSpans(

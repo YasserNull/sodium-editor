@@ -23,6 +23,7 @@ public class BracketGuideDraw {
   private int visibleStartLine = -1;
   private int visibleEndLine = -1;
   private boolean frameFastScroll = false;
+  public boolean preciseGuideHitTest = false;
 
   public BracketGuideDraw(SodiumEditor editor, BracketGuides bracketGuides) {
     this.editor = editor;
@@ -51,6 +52,10 @@ public class BracketGuideDraw {
    */
   public void setFrameFastScroll(boolean fastScroll) {
     this.frameFastScroll = fastScroll;
+  }
+
+  public boolean isFrameFastScroll() {
+    return frameFastScroll;
   }
 
   /**
@@ -136,7 +141,7 @@ public class BracketGuideDraw {
       }
       editor.indentGuides.guideSeenXBuffer[editor.indentGuides.guideSeenXCount++] = x;
 
-      if (!editor.layout.isWhitespaceAtX(line, globalLine, x)) continue;
+      if (!shouldDrawGuideAtColumn(line, globalLine, token.column, x)) continue;
       canvas.drawLine(x, top, x, bottom, bracketGuides.bracketGuidePaint);
     }
   }
@@ -187,7 +192,7 @@ public class BracketGuideDraw {
       }
       editor.indentGuides.guideSeenXBuffer[editor.indentGuides.guideSeenXCount++] = x;
 
-      if (!editor.layout.isWhitespaceAtX(line, globalLine, x)) continue;
+      if (!shouldDrawGuideAtColumn(line, globalLine, token.column, x)) continue;
       canvas.drawLine(x, top, x, bottom, bracketGuides.bracketGuidePaint);
     }
   }
@@ -197,5 +202,16 @@ public class BracketGuideDraw {
    */
   public float getGuideX(String line, int column, int globalLine) {
     return editor.layout.getGuideXForColumn(line, column, globalLine);
+  }
+
+  private boolean shouldDrawGuideAtColumn(String line, int globalLine, int column, float x) {
+    if (preciseGuideHitTest) return editor.layout.isWhitespaceAtX(line, globalLine, x);
+    return isWhitespaceAtColumn(line, column);
+  }
+
+  private boolean isWhitespaceAtColumn(String line, int column) {
+    if (line == null || line.isEmpty()) return true;
+    if (column < 0 || column >= line.length()) return true;
+    return Character.isWhitespace(line.charAt(column));
   }
 }

@@ -47,6 +47,9 @@ public class GutterUtils {
 
     public int estimateLineCountForGutter() {
         if (editor.fileIO.sourceFile != null && !editor.fileIO.isFileCleared) {
+            if (editor.binaryRender.binaryFileFeaturePolicyActive && editor.binaryRender.binaryDocument != null) {
+                return editor.binaryRender.binaryDocument.getRowCount();
+            }
             if (editor.fileIO.isIndexReady && editor.fileIO.lineOffsets.length > 0) {
                 return Math.max(1, editor.fileIO.lineOffsets.length + editor.editOperators.lineCountDelta);
             }

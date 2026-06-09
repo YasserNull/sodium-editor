@@ -532,24 +532,6 @@ public class EditorActions {
             return;
         }
 
-        if (editor.fileIO.sourceFile != null && !editor.fileIO.isFileCleared && operators.recorder.isLargePasteText(text)) {
-            editor.loadingCircle.beginLargeEditUiIfNeeded(true, editor.cursor.cursorLine, editor.cursor.cursorLine, true);
-            EditOp.CursorTarget target = operators.recorder.computeCursorAfterInsert(editor.cursor.cursorLine, editor.cursor.cursorChar, text);
-            operators.fileHandler.rewriteReplaceRangeAsync(operators.editVersion.incrementAndGet(), editor.fileIO.sourceFile, editor.cursor.cursorLine, editor.cursor.cursorChar, editor.cursor.cursorLine, editor.cursor.cursorChar, text, target, true);
-            operators.lineCountDelta += operators.recorder.countNewlines(text);
-            
-            EditOp op = new EditOp();
-            op.startLine = editor.cursor.cursorLine; op.startChar = editor.cursor.cursorChar;
-            op.endLine = op.startLine; op.endChar = op.startChar;
-            op.removedText = ""; op.insertedText = text;
-            op.insertedEndLine = target.line; op.insertedEndChar = target.ch;
-            op.cursorLineBefore = op.startLine; op.cursorCharBefore = op.startChar;
-            op.cursorLineAfter = target.line; op.cursorCharAfter = target.ch;
-            op.timestamp = System.currentTimeMillis();
-            operators.recorder.recordEdit(op);
-            return;
-        }
-
         insertTextAtCursorBatch(text);
     }
 

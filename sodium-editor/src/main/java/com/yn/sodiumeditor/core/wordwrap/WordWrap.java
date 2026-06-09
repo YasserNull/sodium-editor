@@ -271,7 +271,7 @@ public class WordWrap {
         if (!isWordWrapEnabled) return Math.max(1, editor.view.getLinesCount());
 	        if (!isWrapMetricsUsableForWindow(Math.max(1, Math.round(getWrapWidth())))) {
 	            int total = editor.view.getLinesCount(); if (total <= 0) total = editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size();
-	            return Math.max(1, false ? Math.max(1, editor.view.getLinesCount()) : total);
+	            return Math.max(1, total);
 	        }
         return Math.max(1, totalWrapVisualLines);
     }

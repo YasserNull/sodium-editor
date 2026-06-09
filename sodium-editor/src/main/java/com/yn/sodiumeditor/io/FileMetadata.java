@@ -8,6 +8,8 @@ import java.io.RandomAccessFile;
  * Handles file metadata, binary detection, and low-level range reading.
  */
 public class FileMetadata {
+    private static final long MAX_BINARY_LINE_SCAN_BYTES = 4096L;
+
     private final SodiumEditor editor;
     private final FileIO fileIO;
 
@@ -74,9 +76,19 @@ public class FileMetadata {
     public LineScanResult scanLineLength(RandomAccessFile raf) throws java.io.IOException {
         long start = raf.getFilePointer();
         long len = 0;
-        byte[] buf = new byte[1024];
+        boolean binaryCapActive = editor.binaryRender.binaryFileFeaturePolicyActive;
+        byte[] buf = new byte[FileIO.FILE_IO_BUFFER_SIZE];
         while (true) {
-            int n = raf.read(buf);
+            int readLimit = buf.length;
+            if (binaryCapActive) {
+                long remaining = MAX_BINARY_LINE_SCAN_BYTES - len;
+                if (remaining <= 0) {
+                    raf.seek(start + len);
+                    return new LineScanResult(len, false);
+                }
+                readLimit = (int) Math.min(readLimit, remaining);
+            }
+            int n = raf.read(buf, 0, readLimit);
             if (n <= 0) return new LineScanResult(len, true);
             for (int i = 0; i < n; i++) {
                 if (buf[i] == '\n') {
@@ -88,6 +100,10 @@ public class FileMetadata {
                 }
             }
             len += n;
+            if (binaryCapActive && len >= MAX_BINARY_LINE_SCAN_BYTES) {
+                raf.seek(start + len);
+                return new LineScanResult(len, false);
+            }
         }
     }
 

@@ -3,6 +3,7 @@ package com.yn.sodiumeditor.renderer;
 import android.util.SparseArray;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.StreamedCharSlice;
+import com.yn.sodiumeditor.core.binary.BinaryDocument;
 import com.yn.sodiumeditor.core.binary.BinaryTokenConverter;
 import com.yn.sodiumeditor.io.BinaryFileReader;
 import com.yn.sodiumeditor.renderer.draw.BinaryLineDrawer;
@@ -24,8 +25,9 @@ public class BinaryRender {
     public final BinaryLineDrawer lineDrawer;
 
     // State
-    public boolean binarySafeRenderingEnabled = false;
+    public boolean binarySafeRenderingEnabled = true;
     public boolean binaryFileFeaturePolicyActive = false;
+    public BinaryDocument binaryDocument;
     private final SparseArray<int[]> binaryTokenSpans = new SparseArray<>();
 
     // Exposed configuration fields for external access
@@ -59,7 +61,12 @@ public class BinaryRender {
 
     // ── Public API ─────────────────────────────────────────────────────────────
     public void setBinarySafeRenderingEnabled(boolean enabled) {
+        setBinarySafeRenderingEnabled(enabled, true);
+    }
+
+    public void setBinarySafeRenderingEnabled(boolean enabled, boolean reload) {
         binarySafeRenderingEnabled = enabled;
+        clearBinaryTokenSpans();
         synchronized (editor.windowRender.lineWidthCache) {
             editor.windowRender.lineWidthCache.clear();
         }
@@ -73,18 +80,28 @@ public class BinaryRender {
         if (editor.wordWrap.isWordWrapEnabled)
             editor.wordWrap.invalidateWrapMetrics(true);
         editor.wordWrap.requestWrapPrefixRebuild();
-        editor.windowRender.reloadWindowAroundVisible(false);
+        if (reload) editor.windowRender.reloadWindowAroundVisible(false);
         editor.invalidate();
     }
 
     public boolean isBinarySafeRenderingEnabled() { return binarySafeRenderingEnabled; }
+
+    public void openBinaryDocument(java.io.File file) {
+        binaryDocument = new BinaryDocument(file);
+        clearBinaryTokenSpans();
+    }
+
+    public void clearBinaryDocument() {
+        binaryDocument = null;
+        clearBinaryTokenSpans();
+    }
 
     public void applyBinaryFileFeaturePolicy(boolean active) {
         if (binaryFileFeaturePolicyActive == active) return;
         if (active) {
             saveFeatureStateForBinaryFile();
             binaryFileFeaturePolicyActive = true;
-            setBinarySafeRenderingEnabled(true);
+            setBinarySafeRenderingEnabled(false, false);
             editor.highlite.isSyntaxHighlightingEnabled = false;
             editor.highlite.clearHighlightCaches();
             editor.colorCodeHighlight.setColorCodeHighlightingEnabled(false);
@@ -107,6 +124,7 @@ public class BinaryRender {
         }
 
         binaryFileFeaturePolicyActive = false;
+        clearBinaryDocument();
         restoreFeatureStateAfterBinaryFile();
         editor.invalidate();
     }
@@ -224,6 +242,10 @@ public class BinaryRender {
         binaryTokenSpans.remove(lineIndex);
     }
 
+    public void clearBinaryTokenSpans() {
+        binaryTokenSpans.clear();
+    }
+
     public void shiftBinaryTokenSpans(int startLine, int delta) {
         if (delta == 0 || binaryTokenSpans.size() == 0) return;
         SparseArray<int[]> shifted = new SparseArray<>(binaryTokenSpans.size());
@@ -310,6 +332,14 @@ public class BinaryRender {
         return tokenConverter.bytesToControlVisible(buf, len, charset);
     }
 
+    public String rawBytesToControlVisible(byte[] buf, int len) {
+        return tokenConverter.rawBytesToControlVisible(buf, len);
+    }
+
+    public String rawBytesToHexAsciiLine(long offset, byte[] buf, int len) {
+        return tokenConverter.rawBytesToHexAsciiLine(offset, buf, len);
+    }
+
     public String bytesToControlVisibleAndCacheSpans(byte[] buf, int len, int lineIndex) {
         return tokenConverter.bytesToControlVisibleAndCacheSpans(buf, len, lineIndex, binaryTokenSpans);
     }
@@ -317,6 +347,10 @@ public class BinaryRender {
     public String bytesToControlVisibleAndCacheSpans(
         byte[] buf, int len, int lineIndex, java.nio.charset.Charset charset) {
         return tokenConverter.bytesToControlVisibleAndCacheSpans(buf, len, lineIndex, binaryTokenSpans, charset);
+    }
+
+    public String rawBytesToControlVisibleAndCacheSpans(byte[] buf, int len, int lineIndex) {
+        return tokenConverter.rawBytesToControlVisibleAndCacheSpans(buf, len, lineIndex, binaryTokenSpans);
     }
 
     // ── File Reading ───────────────────────────────────────────────────────────

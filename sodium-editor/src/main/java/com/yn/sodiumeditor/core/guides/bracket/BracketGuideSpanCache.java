@@ -23,9 +23,6 @@ public class BracketGuideSpanCache {
   private int[] bracketGuideSpanStartLines;
   private int[] bracketGuideSpanEndLines;
   private char[] bracketGuideSpanBrackets;
-  // Precomputed draw segments: flat float array of [x1,y1,x2,y2, ...]
-  private float[] bracketGuideSpanSegments;
-  private int bracketGuideSpanSegmentCount = 0; // number of floats used in segments
   public boolean bracketGuideSpanBuildInProgress = false;
   public int bracketGuideSpanPendingStart = -1;
   public int bracketGuideSpanPendingEnd = -1;
@@ -71,8 +68,6 @@ public class BracketGuideSpanCache {
     bracketGuideSpanCacheEditVersion = -1;
     bracketGuideSpanCacheConfigHash = 0;
     bracketGuideSpanCount = 0;
-    bracketGuideSpanSegmentCount = 0;
-    bracketGuideSpanSegments = null;
     bracketGuideSpanBuildInProgress = false;
     bracketGuideSpanPendingStart = -1;
     bracketGuideSpanPendingEnd = -1;
@@ -97,9 +92,19 @@ public class BracketGuideSpanCache {
   public void drawBracketGuidesForVisibleRange(Canvas canvas, int visibleStart, int visibleEnd) {
     if (!bracketGuides.isBracketGuidesEnabled || editor.isHeavyDrawSuppressed()) return;
     if (bracketGuideSpanCacheStartLine < 0 || bracketGuideSpanCacheEndLine < bracketGuideSpanCacheStartLine) return;
-    if (bracketGuideSpanSegmentCount <= 0 || bracketGuideSpanSegments == null) return;
+    if (bracketGuideSpanCount <= 0) return;
 
-    canvas.drawLines(bracketGuideSpanSegments, 0, bracketGuideSpanSegmentCount, bracketGuides.bracketGuidePaint);
+    for (int i = 0; i < bracketGuideSpanCount; i++) {
+      int spanStart = bracketGuideSpanStartLines[i];
+      int spanEnd = bracketGuideSpanEndLines[i];
+      int start = Math.max(spanStart, visibleStart);
+      int end = Math.min(spanEnd, visibleEnd);
+      if (start > end) continue;
+      float x = getGuideXApproxFromColumn(bracketGuideSpanColumns[i]);
+      float top = editor.textRender.getDrawLineTop(start);
+      float bottom = editor.textRender.getDrawLineTop(end) + editor.textRender.lineHeight;
+      canvas.drawLine(x, top, x, bottom, bracketGuides.bracketGuidePaint);
+    }
   }
 
   /**
@@ -156,49 +161,6 @@ public class BracketGuideSpanCache {
     } catch (Exception ignored) {
     }
 
-    // Precompute draw segments during build (not per frame)
-    int estimatedSegments = collector.count * 8; // estimate 2 segments per span
-    float[] segments = new float[Math.max(64, estimatedSegments * 4)];
-    int segCount = 0;
-
-    for (int i = 0; i < collector.count; i++) {
-      int column = collector.columns[i];
-      int spanStart = collector.startLines[i];
-      int spanEnd = collector.endLines[i];
-      char bracket = collector.brackets[i];
-
-      float x = getGuideXApproxFromColumn(column);
-      int segLineStart = spanStart;
-
-      for (int line = spanStart; line <= spanEnd; line++) {
-        String ln = bracketGuides.getLineTextForGuideScan(line, directLines, null);
-        if (ln != null && !editor.layout.isWhitespaceAtX(ln, line, x)) {
-          if (segLineStart <= line - 1) {
-            if (segCount + 4 > segments.length) {
-              segments = java.util.Arrays.copyOf(segments, segments.length * 2);
-            }
-            segments[segCount++] = x;
-            segments[segCount++] = editor.textRender.getDrawLineTop(segLineStart);
-            segments[segCount++] = x;
-            segments[segCount++] = editor.textRender.getDrawLineTop(line - 1) + editor.textRender.lineHeight;
-          }
-          segLineStart = line + 1;
-        }
-      }
-      // Final segment
-      if (segLineStart <= spanEnd) {
-        if (segCount + 4 > segments.length) {
-          segments = java.util.Arrays.copyOf(segments, segments.length * 2);
-        }
-        segments[segCount++] = x;
-        segments[segCount++] = editor.textRender.getDrawLineTop(segLineStart);
-        segments[segCount++] = x;
-        segments[segCount++] = editor.textRender.getDrawLineTop(spanEnd) + editor.textRender.lineHeight;
-      }
-    }
-
-    final int finalSegCount = segCount;
-    final float[] finalSegments = java.util.Arrays.copyOf(segments, segCount);
     final int finalCount = collector.count;
     final int[] finalColumns = java.util.Arrays.copyOf(collector.columns, finalCount);
     final int[] finalStartLines = java.util.Arrays.copyOf(collector.startLines, finalCount);
@@ -211,8 +173,6 @@ public class BracketGuideSpanCache {
       for (int i = 0; i < finalCount; i++) {
         addSpan(finalColumns[i], finalStartLines[i], finalEndLines[i], finalBrackets[i]);
       }
-      bracketGuideSpanSegments = finalSegments;
-      bracketGuideSpanSegmentCount = finalSegCount;
       bracketGuideSpanCacheStartLine = startLine;
       bracketGuideSpanCacheEndLine = endLine;
       bracketGuideSpanCacheEditVersion = v;

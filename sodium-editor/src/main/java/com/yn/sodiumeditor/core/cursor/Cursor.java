@@ -432,7 +432,7 @@ public float baseCursorWidthPx = cursorWidth;
       editor.invalidate();
       return;
     }
-    int idx = false ? cursorLine : cursorLine;
+    int idx = cursorLine;
     float top = (idx * editor.textRender.lineHeight) - editor.scroll.scrollY;
     Rect dirty = new Rect(
             0,

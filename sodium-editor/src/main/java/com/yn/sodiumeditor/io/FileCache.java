@@ -1,6 +1,7 @@
 package com.yn.sodiumeditor.io;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.StreamedCharSlice;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.RandomAccessFile;
 import java.util.LinkedHashMap;
@@ -84,19 +85,29 @@ public class FileCache {
         try (RandomAccessFile raf = new RandomAccessFile(fileIO.sourceFile, "r")) {
             raf.seek(0);
             int currentLine = 0;
-            StringBuilder sb = new StringBuilder(256);
-            byte[] buffer = new byte[4096];
+            ByteArrayOutputStream lineBytes = new ByteArrayOutputStream(256);
+            byte[] buffer = new byte[FileIO.FILE_IO_BUFFER_SIZE];
             int n;
             while ((n = raf.read(buffer)) != -1) {
                 for (int i = 0; i < n; i++) {
                     if (buffer[i] == '\n') {
-                        if (currentLine == targetLine) return sb.toString();
-                        currentLine++; sb.setLength(0);
-                    } else if (buffer[i] != '\r') sb.append((char) buffer[i]);
+                        if (currentLine == targetLine) {
+                            int size = lineBytes.size();
+                            byte[] data = lineBytes.toByteArray();
+                            if (size > 0 && data[size - 1] == '\r') size--;
+                            return new String(data, 0, size, fileIO.fileCharset);
+                        }
+                        currentLine++;
+                        lineBytes.reset();
+                    } else {
+                        lineBytes.write(buffer[i]);
+                    }
                 }
                 if (currentLine > targetLine) break;
             }
-            return (currentLine == targetLine) ? sb.toString() : null;
+            return (currentLine == targetLine)
+                    ? new String(lineBytes.toByteArray(), fileIO.fileCharset)
+                    : null;
         } catch (Exception e) { return null; }
     }
 }

@@ -13,12 +13,12 @@ public class Redo {
     public void execute() {
         EditOp op = operators.history.popRedo();
         if (op == null) return;
-        boolean restoredUndoDirty = operators.fileStateDirtyAfterUndoRestore;
         operators.history.pushUndo(op);
-        if (!operators.history.pendingRedo.isEmpty()) {
+        EditOp lastPending = operators.history.pendingEdits.peekLast();
+        if (lastPending != null && lastPending.pendingUndoOfSavedOp && lastPending.originalOp == op) {
+            operators.history.pendingEdits.removeLast();
+        } else if (!operators.history.pendingRedo.isEmpty()) {
             operators.history.pendingRedo.removeLast();
-            operators.history.pendingEdits.addLast(op);
-        } else if (restoredUndoDirty) {
             operators.history.pendingEdits.addLast(op);
         } else if (!operators.history.pendingEdits.isEmpty()) {
             operators.history.pendingEdits.removeLast();
@@ -26,7 +26,7 @@ public class Redo {
         } else {
             operators.history.pendingEdits.addLast(op);
         }
-        if (restoredUndoDirty) operators.clearFileStateDirtyAfterSave();
+        operators.clearFileStateDirtyAfterSave();
         operators.isApplyingUndoRedo = true;
         operators.applyEditForUndoRedo(
                 op.startLine,

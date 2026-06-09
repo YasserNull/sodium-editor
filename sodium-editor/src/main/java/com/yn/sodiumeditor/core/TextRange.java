@@ -24,8 +24,7 @@ public class TextRange {
    */
   public void getVisibleCharRangeForLine(String line, int globalLine, int[] out, boolean isRtl, boolean isStableGlyphPositionsEnabled) {
     if (line == null || out == null || out.length < 2) return;
-    out[0] = 0;
-    out[1] = line.length();
+    computeStreamedSliceBounds(line, globalLine, line.length(), out, isRtl);
   }
 
   /**
@@ -33,8 +32,7 @@ public class TextRange {
    */
   public void getVisibleCharRangeForLineFast(String line, int globalLine, int lineLength, int[] out, boolean isRtl, boolean isStableGlyphPositionsEnabled) {
     if (out == null || out.length < 2) return;
-    out[0] = 0;
-    out[1] = lineLength;
+    computeStreamedSliceBounds(line, globalLine, lineLength, out, isRtl);
   }
 
   /**
@@ -42,14 +40,43 @@ public class TextRange {
    */
   public void computeStreamedSliceBounds(String lineText, int globalLine, int lineLength, int[] out, boolean isRtl) {
     if (out == null || out.length < 2) return;
-    out[0] = 0;
-    out[1] = lineLength;
+    int safeLength = Math.max(0, lineLength);
+    if (safeLength == 0) {
+      out[0] = 0;
+      out[1] = 0;
+      return;
+    }
+
+    float avg =
+        Math.max(
+            1f,
+            editor.textRender.getAverageCharWidthForLine(lineText, globalLine));
+    int padding = 256;
+    float scrollX = Math.max(0f, editor.scroll.getEffectiveScrollX());
+    int viewportWidth = Math.max(1, editor.getWidth());
+
+    int start = (int) (scrollX / avg) - padding;
+    int end = (int) ((scrollX + viewportWidth) / avg) + padding;
+
+    if (isRtl) {
+      start = Math.max(0, start);
+      end = Math.max(start, end);
+    }
+
+    start = Math.max(0, Math.min(start, safeLength));
+    end = Math.max(start, Math.min(end, safeLength));
+
+    out[0] = start;
+    out[1] = end;
   }
 
   /**
    * Gets the initial streamed slice size.
    */
   public int getInitialStreamedSliceSize() {
-    return 0;
+    float avg = Math.max(1f, editor.textRender.paint.measureText("m"));
+    int width = Math.max(1, editor.getWidth());
+    int visibleCols = (int) Math.ceil(width / avg);
+    return Math.max(2048, visibleCols + 512);
   }
 }

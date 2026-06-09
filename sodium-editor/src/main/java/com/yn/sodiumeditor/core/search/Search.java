@@ -27,6 +27,7 @@ public class Search {
   public Pattern searchPattern = null;
   public String searchCacheKey = null;
   public int searchCacheEditVersion = -1;
+  public int searchSelectAllMaxMatches = 100_000;
   public final HashMap<Integer, int[]> searchMatchCache = new HashMap<>();
   public final Paint searchHighlightPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -586,9 +587,7 @@ public class Search {
     SearchMatch last = first;
     SearchMatch current = first;
     int count = 1;
-    int maxMatches = 1000; // Limit to avoid performance issues
-
-    while (count < maxMatches) {
+    while (count < searchSelectAllMaxMatches) {
       SearchMatch next = findNextSearchMatchFrom(current.line, current.end);
       if (next == null || (next.line == first.line && next.start == first.start)) break;
       last = next;

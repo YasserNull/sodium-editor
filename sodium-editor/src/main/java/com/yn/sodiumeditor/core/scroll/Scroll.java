@@ -202,10 +202,7 @@ public class Scroll {
             scrollX = scroller.getCurrX(); scrollY = scroller.getCurrY();
             scrollerIsScrolling = true;
             float mX = getMaxScrollXForClamp(), mY = getMaxScrollYForClamp(), v = scroller.getCurrVelocity();
-            if (edge.edgeEffectEnabled) {
-                if (scrollY <= 0 && oldY > 0) edge.absorbTop(v); else if (scrollY >= mY && oldY < mY) edge.absorbBottom(v);
-                if (scrollX <= 0 && oldX > 0) edge.absorbLeft(v); else if (scrollX >= mX && oldX < mX) edge.absorbRight(v);
-            }
+            edge.releaseAll();
             if (stretch.stretchOverscrollEnabled) {
                 if (scrollY <= 0 && oldY > 0) stretch.absorbStretchY(v, false); else if (scrollY >= mY && oldY < mY) stretch.absorbStretchY(v, true);
                 if (scrollX <= 0 && oldX > 0) stretch.absorbStretchX(v, false); else if (scrollX >= mX && oldX < mX) stretch.absorbStretchX(v, true);

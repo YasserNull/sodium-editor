@@ -330,14 +330,6 @@ public class TextRender {
      */
     public float getDrawLineTop(int globalLine) {
         int drawIndex = globalLine;
-        if (false) {
-            drawIndex = globalLine;
-            if (lastFrameBaseLine != editor.viewRender.drawBaseLine) {
-                cachedBaseIndex = editor.viewRender.drawBaseLine;
-                lastFrameBaseLine = editor.viewRender.drawBaseLine;
-            }
-            return (drawIndex - cachedBaseIndex) * lineHeight;
-        }
         return (drawIndex - editor.viewRender.drawBaseLine) * lineHeight;
     }
 

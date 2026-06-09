@@ -641,6 +641,9 @@ public class View {
         if (editor.fileIO.isFileCleared) {
             return Math.max(1, editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size());
         }
+        if (editor.binaryRender.binaryFileFeaturePolicyActive && editor.binaryRender.binaryDocument != null) {
+            return editor.binaryRender.binaryDocument.getRowCount();
+        }
         int windowCount = editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size();
         if (editor.fileIO.isIndexReady && editor.fileIO.lineOffsets.length > 0) {
             boolean hasEdits = editor.windowRender.hasAnyModifiedLines();

@@ -25,6 +25,8 @@ public class EditOp {
     public long timestamp;
     public File removedTextBackupFile;
     public boolean entireFileDelete;
+    public boolean pendingUndoOfSavedOp;
+    public EditOp originalOp;
 
     /**
      * Represents a cursor target position
@@ -68,6 +70,7 @@ public class EditOp {
         obj.put("timestamp", op.timestamp);
         obj.put("removedTextBackupFile", op.removedTextBackupFile == null ? JSONObject.NULL : op.removedTextBackupFile.getAbsolutePath());
         obj.put("entireFileDelete", op.entireFileDelete);
+        obj.put("pendingUndoOfSavedOp", op.pendingUndoOfSavedOp);
         return obj;
     }
 
@@ -88,6 +91,7 @@ public class EditOp {
         op.timestamp = obj.optLong("timestamp", 0L);
         op.removedTextBackupFile = obj.isNull("removedTextBackupFile") ? null : new File(obj.optString("removedTextBackupFile", ""));
         op.entireFileDelete = obj.optBoolean("entireFileDelete", false);
+        op.pendingUndoOfSavedOp = obj.optBoolean("pendingUndoOfSavedOp", false);
         return op;
     }
 

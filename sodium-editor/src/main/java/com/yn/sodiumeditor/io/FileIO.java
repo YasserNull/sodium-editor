@@ -19,6 +19,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class FileIO {
     private static final String LOG_TAG = "SodiumEditor";
     private static final int SAVE_LOG_MAX_CHARS = 64 * 1024;
+    public static final long MAX_BRACKET_FULL_SCAN_BYTES = 16L * 1024L * 1024L;
+    public static final int FILE_IO_BUFFER_SIZE = 64 * 1024;
     private final SodiumEditor editor;
 
     // Sub-components
@@ -58,8 +60,7 @@ public class FileIO {
         new java.util.LinkedHashMap<Integer, String>(250, 0.75f, true) {
           @Override
           protected boolean removeEldestEntry(java.util.Map.Entry<Integer, String> eldest) {
-            int maxCacheSize = false ? 500 : 250;
-            if (size() <= maxCacheSize) return false;
+            if (size() <= directLineCacheMaxSize) return false;
             int firstIdx = (int) (editor.scroll.scrollY / editor.textRender.lineHeight);
             int lastIdx = firstIdx + (int) Math.ceil(editor.getHeight() / editor.textRender.lineHeight) + 5;
             for (int v = firstIdx; v <= lastIdx; v++) {
@@ -68,6 +69,7 @@ public class FileIO {
             return true;
           }
         };
+    public int directLineCacheMaxSize = 250;
 
     // Track when we need to clear modifiedLines after a file rewrite + window reload
     public volatile boolean clearModifiedLinesAfterRewrite = false;
@@ -113,6 +115,9 @@ public class FileIO {
         editor.autoCompletion.clearActiveSuggestion();
         isIndexReady = false;
         isIndexBuilding = false;
+        isIndexDisabled = false;
+        indexDisabledPath = null;
+        indexDisabledFileLength = -1L;
         
         // Manual reset of wrap metrics
         editor.wordWrap.wrapMetricsReady = false;
@@ -133,12 +138,25 @@ public class FileIO {
         
         resetStateForNewFile();
         initialWindowWarmupDone = false;
+        if (binaryFile) {
+            initialBracketWarmupDone = true;
+            isIndexReady = false;
+            isIndexBuilding = false;
+            isIndexDisabled = true;
+            indexDisabledPath = file.getAbsolutePath();
+            indexDisabledFileLength = file.length();
+            editor.binaryRender.openBinaryDocument(file);
+            editor.windowRender.setRenderWindow(80, 40, false);
+            editor.binaryRender.setBinaryTokenBoxEnabled(false);
+            loadWindowAround(0, () -> markInitialWindowWarmupDone(token), false);
+            editor.requestLayout(); editor.invalidate();
+            return;
+        }
         initialBracketWarmupDone = !needsBracketWarmup;
         loadWindowAround(0, () -> markInitialWindowWarmupDone(token), false);
         
         ioHandler.post(() -> {
             indexer.buildFileIndex();
-            checkHeavyFeatures();
             if (needsBracketWarmup) {
                 editor.bracketCache.scanFileAsync(() -> markInitialBracketWarmupDone(token));
             } else {
@@ -187,6 +205,15 @@ public class FileIO {
     public void populateDirectLinesForRange(int s, int e, Map<Integer, String> out) { 
         cache.populateDirectLinesForRange(s, e, out); 
     }
+    public void setDirectLineCacheMaxSize(int size) {
+        directLineCacheMaxSize = Math.max(32, size);
+        synchronized (directLineCache) {
+            while (directLineCache.size() > directLineCacheMaxSize) {
+                Integer first = directLineCache.keySet().iterator().next();
+                directLineCache.remove(first);
+            }
+        }
+    }
     public String readRangeText(int sL, int sC, int eL, int eC) { 
         return metadata.readRangeText(sourceFile, sL, sC, eL, eC); 
     }
@@ -207,6 +234,10 @@ public class FileIO {
     }
 
     public void countTotalLines(LineCountCallback callback) {
+        if (editor.binaryRender.binaryFileFeaturePolicyActive && editor.binaryRender.binaryDocument != null) {
+            editor.post(() -> callback.onResult(editor.binaryRender.binaryDocument.getRowCount()));
+            return;
+        }
         final int taskVersion = ioTaskVersion.get();
         ioHandler.post(() -> {
             if (taskVersion != ioTaskVersion.get()) { editor.post(() -> callback.onResult(-1)); return; }
@@ -217,7 +248,7 @@ public class FileIO {
             int count = 0;
             if (sourceFile != null && sourceFile.exists()) {
                 try (FileInputStream is = new FileInputStream(sourceFile)) {
-                    byte[] buffer = new byte[8192]; int len; boolean empty = true;
+                    byte[] buffer = new byte[FILE_IO_BUFFER_SIZE]; int len; boolean empty = true;
                     while ((len = is.read(buffer)) != -1) {
                         empty = false;
                         for (int i = 0; i < len; i++) if (buffer[i] == '\n') count++;
@@ -239,7 +270,7 @@ public class FileIO {
     public String readLineUtf8AtByte(RandomAccessFile raf, long offset) throws Exception {
         raf.seek(offset);
         ByteArrayOutputStream baos = new ByteArrayOutputStream(128);
-        byte[] buf = new byte[1024];
+        byte[] buf = new byte[FILE_IO_BUFFER_SIZE];
         while (true) {
             int n = raf.read(buf);
             if (n <= 0) break;
@@ -262,7 +293,7 @@ public class FileIO {
         if (limit == 0) return "";
         raf.seek(offset);
         ByteArrayOutputStream baos = new ByteArrayOutputStream(Math.min(4096, limit));
-        byte[] buf = new byte[Math.min(8192, limit)];
+        byte[] buf = new byte[Math.min(FILE_IO_BUFFER_SIZE, limit)];
         int remaining = limit;
         while (remaining > 0) {
             int n = raf.read(buf, 0, Math.min(buf.length, remaining));
@@ -320,20 +351,27 @@ public class FileIO {
         editor.scroll.maxLineWidthForScroll = 0f;
         
         editor.windowRender.clearStreamedLineCaches();
+        editor.binaryRender.clearBinaryTokenSpans();
+        if (!editor.binaryRender.binaryFileFeaturePolicyActive) editor.binaryRender.clearBinaryDocument();
         editor.cursor.setCursorPosition(0, 0);
         editor.scroll.scrollY = 0; editor.scroll.scrollX = 0;
     }
 
-    private void checkHeavyFeatures() {
+    public void checkHeavyFeaturesAfterIndexReady() {
         int total; synchronized (lineOffsetsLock) { total = lineOffsets.length; }
         if (total > editor.view.heavyFeaturesThreshold) {
-            editor.indentGuides.setIndentGuidesEnabled(false);
+            editor.post(() -> {
+                editor.indentGuides.setIndentGuidesEnabled(false);
+                editor.bracketGuides.setBracketGuidesEnabled(false);
+                editor.whitespaceGuides.setWhitespaceGuidesEnabled(false);
+            });
         }
     }
 
     private boolean shouldWarmBracketIndexForOpen() {
-        return false
-                || editor.bracketGuides.isBracketGuidesEnabled
+        if (sourceFile == null || !sourceFile.exists()) return false;
+        if (sourceFile.length() > MAX_BRACKET_FULL_SCAN_BYTES) return false;
+        return editor.bracketGuides.isBracketGuidesEnabled
                 || editor.bracketMatchManager.isBracketMatchingEnabled;
     }
 
@@ -403,7 +441,7 @@ public class FileIO {
         if (!SodiumEditor.DEBUG_LOGS || sourceFile == null || !sourceFile.exists()) return "";
         try (FileInputStream is = new FileInputStream(sourceFile);
              ByteArrayOutputStream out = new ByteArrayOutputStream(Math.min(SAVE_LOG_MAX_CHARS, (int) Math.min(Integer.MAX_VALUE, sourceFile.length())))) {
-            byte[] buffer = new byte[8192];
+            byte[] buffer = new byte[FILE_IO_BUFFER_SIZE];
             int remaining = SAVE_LOG_MAX_CHARS;
             int read;
             while (remaining > 0 && (read = is.read(buffer, 0, Math.min(buffer.length, remaining))) != -1) {
