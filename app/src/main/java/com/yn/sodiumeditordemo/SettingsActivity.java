@@ -1,11 +1,9 @@
 package com.yn.sodiumeditordemo;
 
 import android.content.SharedPreferences;
-import android.graphics.PorterDuff;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.Nullable;
@@ -44,7 +42,6 @@ public class SettingsActivity extends AppCompatActivity {
         addSettingsRow(
             settingsList,
             "Theme",
-            R.drawable.ic_theme,
             v ->
                 showListSetting(
                     "Theme",
@@ -56,7 +53,6 @@ public class SettingsActivity extends AppCompatActivity {
         addSettingsRow(
             settingsList,
             "Scroll Mode",
-            R.drawable.ic_scroll,
             v ->
                 showListSetting(
                     "Scroll Mode",
@@ -68,31 +64,26 @@ public class SettingsActivity extends AppCompatActivity {
         addSettingsRow(
             settingsList,
             "Keyboard Suggestions",
-            R.drawable.ic_keyboard,
             v -> toggleKeyboardSuggestions());
     bracketGuidesSummary =
         addSettingsRow(
             settingsList,
             "Bracket Guides",
-            R.drawable.ic_bracket_guides,
             v -> toggleBooleanSetting("bracket_guides", true));
     bracketMatchSummary =
         addSettingsRow(
             settingsList,
             "Bracket Match",
-            R.drawable.ic_bracket_match,
             v -> toggleBooleanSetting("bracket_match", true));
     whitespaceGuidesSummary =
         addSettingsRow(
             settingsList,
             "Whitespace Guides",
-            R.drawable.ic_whitespace_guides,
             v -> toggleBooleanSetting("whitespace_guides", true));
     performanceModeSummary =
         addSettingsRow(
             settingsList,
             "Performance Mode",
-            R.drawable.ic_performance,
             v -> togglePerformanceMode());
     updateSummaries();
   }
@@ -112,7 +103,7 @@ public class SettingsActivity extends AppCompatActivity {
   }
 
   private TextView addSettingsRow(
-      LinearLayout parent, String title, int iconResId, View.OnClickListener listener) {
+      LinearLayout parent, String title, View.OnClickListener listener) {
     LinearLayout row = new LinearLayout(this);
     row.setOrientation(LinearLayout.HORIZONTAL);
     row.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -120,13 +111,6 @@ public class SettingsActivity extends AppCompatActivity {
     row.setMinimumHeight(dp(64));
     row.setBackgroundResource(resolveSelectableItemBackground());
     row.setOnClickListener(listener);
-
-    ImageView icon = new ImageView(this);
-    icon.setImageResource(iconResId);
-    icon.setColorFilter(getToolbarContentColor(), PorterDuff.Mode.SRC_IN);
-    LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(dp(24), dp(24));
-    iconParams.setMarginEnd(dp(24));
-    row.addView(icon, iconParams);
 
     LinearLayout textContainer = new LinearLayout(this);
     textContainer.setOrientation(LinearLayout.VERTICAL);
