@@ -242,10 +242,7 @@ public class Caret {
     float right = left + caretWidth;
 
     if (editor.textRender.isRtl) {
-      left =
-          (editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth)
-              - cx
-              + editor.scroll.scrollX;
+      left = (editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth) - cx + editor.scroll.scrollX;
       right = left - caretWidth;
     } else {
       left += editor.layout.getTextStartX();

@@ -201,7 +201,9 @@ public class BracketGuideScanner {
     return tokensToDraw;
   }
 
-  /** Scans a line for spans (used by span cache). */
+  /**
+   * Scans a line for spans (used by span cache).
+   */
   public void scanLineForSpans(
       String line, int globalLine, BracketSpanScanState state, SpanCollector collector) {
     if (line == null) line = "";
@@ -341,7 +343,9 @@ public class BracketGuideScanner {
     return (firstNonSpace >= 0) ? firstNonSpace : bracketIndex;
   }
 
-  /** Gets guide tokens from stack. */
+  /**
+   * Gets guide tokens from stack.
+   */
   public static List<BracketGuideToken> getGuideTokensFromStack(
       java.util.ArrayDeque<BracketGuideToken> stack) {
     List<BracketGuideToken> tokens = new ArrayList<>();

@@ -6,6 +6,7 @@ import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.StreamedCharSlice;
 import com.yn.sodiumeditor.core.binary.BinaryDocument;
 import java.io.RandomAccessFile;
+import java.nio.charset.Charset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -378,8 +379,7 @@ public class FileWindowLoader {
                         ? (editor.binaryRender.binaryFileFeaturePolicyActive
                             ? editor.binaryRender.rawBytesToControlVisibleAndCacheSpans(
                                 buf, buf.length, lineIdx)
-                            : editor.binaryRender.bytesToControlVisibleAndCacheSpans(
-                                buf, buf.length, lineIdx, fileIO.fileCharset))
+                            : bytesToControlVisibleAndCacheSpans(buf, buf.length, lineIdx, fileIO.fileCharset))
                         : new String(buf, fileIO.fileCharset))
                     : "");
           }
@@ -443,6 +443,11 @@ public class FileWindowLoader {
           editor.invalidate();
           if (onComplete != null) onComplete.run();
         });
+  }
+
+  private String bytesToControlVisibleAndCacheSpans(
+      byte[] buf, int len, int lineIdx, Charset charset) {
+    return editor.binaryRender.bytesToControlVisibleAndCacheSpans(buf, len, lineIdx, charset);
   }
 
   private void loadBinaryWindowInternal(

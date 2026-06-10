@@ -298,18 +298,18 @@ public class BinaryLineDrawer {
   }
 
   public void drawBinaryLineSlice(
-      Canvas canvas,
-      String line,
-      int globalLine,
-      int relStart,
-      int relEnd,
-      int sliceStart,
-      float y,
-      Paint defaultPaint,
-      android.util.SparseArray<int[]> binaryTokenSpans,
-      int fadeStart,
-      int fadeEnd,
-      float fadeAlpha) {
+            Canvas canvas,
+            String line,
+            int globalLine,
+            int relStart,
+            int relEnd,
+            int sliceStart,
+            float y,
+            Paint defaultPaint,
+            android.util.SparseArray<int[]> binaryTokenSpans,
+            int fadeStart,
+            int fadeEnd,
+            float fadeAlpha) {
     if (line == null || relStart >= relEnd) return;
 
     int len = line.length();

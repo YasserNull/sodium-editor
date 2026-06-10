@@ -101,8 +101,7 @@ public class TextLineDraw {
     if (fadeSegStart < fadeSegEnd) {
       editor.charAnimation.charAnimTmpPaint.set(segmentPaint);
       int baseAlpha = segmentPaint.getAlpha();
-      editor.charAnimation.charAnimTmpPaint.setAlpha(
-          (int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))));
+      editor.charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, fadeAlpha))));
       canvas.drawText(
           line,
           fadeSegStart,
@@ -300,8 +299,7 @@ public class TextLineDraw {
     if (alphaMultiplier < 1f) {
       editor.charAnimation.charAnimTmpPaint.set(segmentPaint);
       int baseAlpha = segmentPaint.getAlpha();
-      editor.charAnimation.charAnimTmpPaint.setAlpha(
-          (int) (baseAlpha * Math.max(0f, Math.min(1f, alphaMultiplier))));
+      editor.charAnimation.charAnimTmpPaint.setAlpha((int) (baseAlpha * Math.max(0f, Math.min(1f, alphaMultiplier))));
       drawPaint = editor.charAnimation.charAnimTmpPaint;
       drawY = y + getCharAnimOffsetY(alphaMultiplier, segmentPaint);
     }
@@ -341,8 +339,8 @@ public class TextLineDraw {
   }
 
   private float getCharAnimOffsetY(float alpha, Paint paint) {
-    return 0f;
-  }
+        return 0f;
+    }
 
   private float drawArabicTextSegmentWithFade(
       Canvas canvas,

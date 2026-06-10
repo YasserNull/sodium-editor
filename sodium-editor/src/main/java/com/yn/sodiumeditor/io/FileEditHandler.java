@@ -102,6 +102,7 @@ public class FileEditHandler {
                   if (noNewEdits) {
                     synchronized (editor.windowRender.modifiedLines) {
                       editor.windowRender.clearModifiedLines();
+                      // Clear only when no edits raced this save.
                     }
                     synchronized (editor.fileIO.directLineCache) {
                       editor.fileIO.directLineCache.clear();
@@ -355,9 +356,8 @@ public class FileEditHandler {
             }
             final File finalSourceFile = finalSource;
 
-            editor.post(
-                () -> {
-                  if (opToken != operators.editVersion.get()) return;
+            editor.post(() -> {
+                    if (opToken != operators.editVersion.get()) return;
                   editor.fileIO.invalidatePendingIO();
 
                   editor.fileIO.sourceFile = finalSourceFile;

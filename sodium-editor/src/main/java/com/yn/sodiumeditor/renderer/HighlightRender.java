@@ -472,8 +472,7 @@ public class HighlightRender {
     canvas.drawText(editor.charAnimation.delAnimText, x, y, editor.charAnimation.charAnimTmpPaint);
   }
 
-  private void drawUrlAndPathUnderlinesForBinaryLine(
-      Canvas canvas, String line, int globalLine, float y) {
+  private void drawUrlAndPathUnderlinesForBinaryLine(Canvas canvas, String line, int globalLine, float y) {
     ArrayList<TextRender.UnderlineSpan> combinedUnderlines = TextRender.TL_UNDERLINES.get();
     combinedUnderlines.clear();
     if (editor.urlUnderline.isUrlUnderliningActive()) {

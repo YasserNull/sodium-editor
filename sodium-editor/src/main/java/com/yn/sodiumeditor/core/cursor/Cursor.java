@@ -424,13 +424,13 @@ public class Cursor {
             editor.getWidth(),
             (int) Math.ceil(top + editor.textRender.lineHeight));
     dirty.union(
-        (int) Math.floor(oldHandleRect.left),
+            (int) Math.floor(oldHandleRect.left),
         (int) Math.floor(oldHandleRect.top),
         (int) Math.ceil(oldHandleRect.right),
         (int) Math.ceil(oldHandleRect.bottom));
     RectF newHandleRect = editor.cursorHandle.cursorHandleRect;
     dirty.union(
-        (int) Math.floor(newHandleRect.left),
+            (int) Math.floor(newHandleRect.left),
         (int) Math.floor(newHandleRect.top),
         (int) Math.ceil(newHandleRect.right),
         (int) Math.ceil(newHandleRect.bottom));

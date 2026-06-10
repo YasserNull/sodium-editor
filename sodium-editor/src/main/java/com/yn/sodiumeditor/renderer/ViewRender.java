@@ -170,14 +170,7 @@ public class ViewRender {
     }
   }
 
-  private void drawTextContent(
-      Canvas canvas,
-      int firstVisibleIndex,
-      int lastVisibleIndex,
-      int firstVisibleLine,
-      int lastVisibleLine,
-      boolean drawDecorations,
-      boolean drawBracketGuides) {
+  private void drawTextContent(Canvas canvas, int firstVisibleIndex, int lastVisibleIndex, int firstVisibleLine, int lastVisibleLine, boolean drawDecorations, boolean drawBracketGuides) {
     Paint selPaint = null;
     if (editor.selection.state.animation.shouldDrawSelectionHighlight()) {
       selPaint = editor.selection.selectionPaint;
@@ -234,8 +227,7 @@ public class ViewRender {
 
       float textStartX = editor.layout.getTextStartX() - editor.lineNumber.lineNumbersGutterWidth;
       float viewportLeft = editor.scroll.getEffectiveScrollX();
-      float viewportRight =
-          viewportLeft + editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth;
+      float viewportRight = viewportLeft + editor.getWidth() - editor.lineNumber.lineNumbersGutterWidth;
 
       for (int i = firstVisibleLine; i <= lastVisibleLine; i++) {
         if (i >= selStartLine && i <= selEndLine) {
@@ -253,13 +245,9 @@ public class ViewRender {
                 textStartX
                     + editor.textRender.measureTextWithVisualSpaces(
                         line, 0, startChar, editor.textRender.paint);
-            float endX =
-                textStartX
-                    + editor.textRender.measureTextWithVisualSpaces(
-                        line, 0, endChar, editor.textRender.paint);
+            float endX = textStartX + editor.textRender.measureTextWithVisualSpaces(line, 0, endChar, editor.textRender.paint);
             float visibleSelectionStartX = Math.max(textStartX, viewportLeft);
-            float left =
-                isSingleLine
+            float left = isSingleLine
                     ? startX
                     : isFirstLine && !isSingleLine ? startX : visibleSelectionStartX;
             float top = lineTop;

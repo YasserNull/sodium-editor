@@ -240,7 +240,7 @@ public class BinaryTokenConverter {
   }
 
   public String charsToControlVisibleAndCacheSpans(
-      String text, int lineIndex, android.util.SparseArray<int[]> binaryTokenSpans) {
+            String text, int lineIndex, android.util.SparseArray<int[]> binaryTokenSpans) {
     if (text == null || text.isEmpty()) {
       binaryTokenSpans.remove(lineIndex);
       return "";

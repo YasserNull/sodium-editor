@@ -293,8 +293,7 @@ public class AutoCompletion {
   }
 
   // Draw auto suggestion
-  public void drawAutoSuggestion(
-      Canvas canvas, String lineContent, int globalLine, float textBaselineY) {
+  public void drawAutoSuggestion(Canvas canvas, String lineContent, int globalLine, float textBaselineY) {
 
     boolean allowSuggestion =
         activeSuggestionIsPath
@@ -330,14 +329,7 @@ public class AutoCompletion {
     activeSuggestionRect.set(left_view, top_view, right_view, bottom_view);
   }
 
-  public void drawAutoSuggestionWrapped(
-      Canvas canvas,
-      String lineContent,
-      int globalLine,
-      int segStart,
-      int segEnd,
-      int visualIndex,
-      float textBaselineY) {
+  public void drawAutoSuggestionWrapped(Canvas canvas, String lineContent, int globalLine, int segStart, int segEnd, int visualIndex, float textBaselineY) {
 
     boolean allowSuggestion =
         activeSuggestionIsPath
@@ -350,9 +342,7 @@ public class AutoCompletion {
     int cursorPositionInLine = activeSuggestionCharStart + activeSuggestionWordFragment.length();
     if (cursorPositionInLine < segStart || cursorPositionInLine > segEnd) return;
 
-    float suggestionStartX_canvas =
-        editor.textRender.measureTextWithVisualSpaces(
-            lineContent, segStart, cursorPositionInLine, editor.textRender.paint);
+    float suggestionStartX_canvas = editor.textRender.measureTextWithVisualSpaces(lineContent, segStart, cursorPositionInLine, editor.textRender.paint);
     canvas.drawText(activeSuggestion, suggestionStartX_canvas, textBaselineY, suggestionPaint);
 
     float suggestionTextWidth = suggestionPaint.measureText(activeSuggestion);

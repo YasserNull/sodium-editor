@@ -15,7 +15,7 @@ public class CursorHandle {
   public float cursorHandleWidth = 40f;
   public float cursorHandleHeight = 40f; // Square for perfect circle
   public int cursorHandleColor = 0xFF2196F3; // Blue
-  public float cursorHandleRadius = 6f;
+  public float cursorHandleRadius = 16f;
   public float baseCursorHandleWidthPx = cursorHandleWidth;
   public float baseCursorHandleHeightPx = cursorHandleHeight;
   public float baseCursorHandleRadiusPx = cursorHandleRadius;

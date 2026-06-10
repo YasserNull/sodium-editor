@@ -60,8 +60,7 @@ public class AutoBracketPair {
 
     String closing = getClosingPair(typedChar);
     if (closing != null) {
-      if (shouldSuppressAutoPair(
-          ln, editor.cursor.cursorLine, pos, typedStart, typedChar, closing)) {
+      if (shouldSuppressAutoPair(ln, editor.cursor.cursorLine, pos, typedStart, typedChar, closing)) {
         return;
       }
 

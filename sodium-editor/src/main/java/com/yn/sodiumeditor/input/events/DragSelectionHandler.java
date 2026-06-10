@@ -159,11 +159,8 @@ public class DragSelectionHandler {
     editor.selectionHandles.lastDragAtLineEnd = (ln != null && clamped == ln.length());
 
     if (editor.selectionHandles.draggingHandle == 1) {
-      if (editor.editOperators.comparePos(
-              line, clamped, editor.selection.selEndLine, editor.selection.selEndChar)
-          >= 0) {
-        int[] beforeEnd =
-            getPreviousSelectionPosition(editor.selection.selEndLine, editor.selection.selEndChar);
+      if (editor.editOperators.comparePos(line, clamped, editor.selection.selEndLine, editor.selection.selEndChar) >= 0) {
+        int[] beforeEnd = getPreviousSelectionPosition(editor.selection.selEndLine, editor.selection.selEndChar);
         line = beforeEnd[0];
         clamped = beforeEnd[1];
       }
@@ -175,11 +172,8 @@ public class DragSelectionHandler {
         editor.selection.selStartChar = clamped;
       }
     } else if (editor.selectionHandles.draggingHandle == 2) {
-      if (editor.editOperators.comparePos(
-              line, clamped, editor.selection.selStartLine, editor.selection.selStartChar)
-          <= 0) {
-        int[] afterStart =
-            getNextSelectionPosition(editor.selection.selStartLine, editor.selection.selStartChar);
+      if (editor.editOperators.comparePos(line, clamped, editor.selection.selStartLine, editor.selection.selStartChar) <= 0) {
+        int[] afterStart = getNextSelectionPosition(editor.selection.selStartLine, editor.selection.selStartChar);
         line = afterStart[0];
         clamped = afterStart[1];
       }
