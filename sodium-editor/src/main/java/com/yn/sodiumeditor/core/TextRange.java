@@ -3,8 +3,8 @@ package com.yn.sodiumeditor.core;
 import com.yn.sodiumeditor.SodiumEditor;
 
 /**
- * Handles text range calculations for rendering (visible char ranges, streamed slicing).
- * Not related to selection ranges.
+ * Handles text range calculations for rendering (visible char ranges, streamed slicing). Not
+ * related to selection ranges.
  */
 public class TextRange {
 
@@ -16,29 +16,38 @@ public class TextRange {
 
   /**
    * Calculates the visible character range for a line.
+   *
    * @param line The line text
    * @param globalLine The global line number
    * @param out Output array [startChar, endChar]
    * @param isRtl Whether the text is RTL
    * @param isStableGlyphPositionsEnabled Whether stable glyph positions are enabled
    */
-  public void getVisibleCharRangeForLine(String line, int globalLine, int[] out, boolean isRtl, boolean isStableGlyphPositionsEnabled) {
+  public void getVisibleCharRangeForLine(
+      String line,
+      int globalLine,
+      int[] out,
+      boolean isRtl,
+      boolean isStableGlyphPositionsEnabled) {
     if (line == null || out == null || out.length < 2) return;
     computeStreamedSliceBounds(line, globalLine, line.length(), out, isRtl);
   }
 
-  /**
-   * Fast version of getVisibleCharRangeForLine with pre-known line length.
-   */
-  public void getVisibleCharRangeForLineFast(String line, int globalLine, int lineLength, int[] out, boolean isRtl, boolean isStableGlyphPositionsEnabled) {
+  /** Fast version of getVisibleCharRangeForLine with pre-known line length. */
+  public void getVisibleCharRangeForLineFast(
+      String line,
+      int globalLine,
+      int lineLength,
+      int[] out,
+      boolean isRtl,
+      boolean isStableGlyphPositionsEnabled) {
     if (out == null || out.length < 2) return;
     computeStreamedSliceBounds(line, globalLine, lineLength, out, isRtl);
   }
 
-  /**
-   * Computes streamed slice bounds for partial line rendering.
-   */
-  public void computeStreamedSliceBounds(String lineText, int globalLine, int lineLength, int[] out, boolean isRtl) {
+  /** Computes streamed slice bounds for partial line rendering. */
+  public void computeStreamedSliceBounds(
+      String lineText, int globalLine, int lineLength, int[] out, boolean isRtl) {
     if (out == null || out.length < 2) return;
     int safeLength = Math.max(0, lineLength);
     if (safeLength == 0) {
@@ -47,10 +56,7 @@ public class TextRange {
       return;
     }
 
-    float avg =
-        Math.max(
-            1f,
-            editor.textRender.getAverageCharWidthForLine(lineText, globalLine));
+    float avg = Math.max(1f, editor.textRender.getAverageCharWidthForLine(lineText, globalLine));
     int padding = 256;
     float scrollX = Math.max(0f, editor.scroll.getEffectiveScrollX());
     int viewportWidth = Math.max(1, editor.getWidth());
@@ -70,9 +76,7 @@ public class TextRange {
     out[1] = end;
   }
 
-  /**
-   * Gets the initial streamed slice size.
-   */
+  /** Gets the initial streamed slice size. */
   public int getInitialStreamedSliceSize() {
     float avg = Math.max(1f, editor.textRender.paint.measureText("m"));
     int width = Math.max(1, editor.getWidth());

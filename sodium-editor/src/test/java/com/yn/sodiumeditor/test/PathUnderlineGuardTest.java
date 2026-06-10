@@ -14,7 +14,8 @@ public class PathUnderlineGuardTest {
   @Test
   public void pathUnderline_shouldOnlyDrawValidatedExistingPaths() throws Exception {
     String src =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/PathUnderline.java");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/PathUnderline.java");
     String body = methodBody(src, "getPathUnderlineSpansForLine(String line, int globalLine)");
 
     assertTrue(
@@ -24,7 +25,8 @@ public class PathUnderlineGuardTest {
         "BUG: path underline must only add a drawn span for paths validated as existing.",
         body.contains("exists != null && exists"));
     assertTrue(
-        "BUG: path underline spans must be marked as path spans so drawing can style them correctly.",
+        "BUG: path underline spans must be marked as path spans so drawing can style them"
+            + " correctly.",
         body.contains("new TextRender.UnderlineSpan(s, e, true)"));
     assertTrue(
         "BUG: path underline must queue background validation for paths missing from the cache.",
@@ -34,11 +36,13 @@ public class PathUnderlineGuardTest {
   @Test
   public void pathUnderline_shouldTrimTrailingPunctuationBeforeValidation() throws Exception {
     String src =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/PathUnderline.java");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/PathUnderline.java");
     String body = methodBody(src, "getPathUnderlineSpansForLine(String line, int globalLine)");
 
     assertTrue(
-        "BUG: path underline must trim punctuation before using the path for validation and drawing.",
+        "BUG: path underline must trim punctuation before using the path for validation and"
+            + " drawing.",
         body.indexOf("while (e > s)") < body.indexOf("String path = line.substring(s, e)"));
     assertTrue(body.contains("c == '.'"));
     assertTrue(body.contains("c == ','"));

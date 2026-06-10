@@ -14,11 +14,15 @@ public class FlingEdgeEffectGuardTest {
 
   @Test
   public void computeScroll_doesNotAbsorbEdgeDuringFling() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/scroll/Scroll.java");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/scroll/Scroll.java");
     String body = methodBody(src, "public void computeScroll(");
 
-    assertFalse("BUG: fling computeScroll must not trigger edge absorb glow.", body.contains("edge.absorb"));
-    assertTrue("BUG: drag edge effects should remain available through ScrollHandler.", 
+    assertFalse(
+        "BUG: fling computeScroll must not trigger edge absorb glow.",
+        body.contains("edge.absorb"));
+    assertTrue(
+        "BUG: drag edge effects should remain available through ScrollHandler.",
         readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/scroll/ScrollHandler.java")
             .contains("scroll.edge.pullRight"));
   }

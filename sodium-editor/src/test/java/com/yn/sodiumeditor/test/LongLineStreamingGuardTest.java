@@ -31,17 +31,20 @@ public class LongLineStreamingGuardTest {
         "BUG: initial streamed slice size should be viewport-based and non-zero.",
         initialBody.contains("visibleCols") && initialBody.contains("2048"));
     assertFalse(
-        "BUG: initial streamed slice size must not be zero.",
-        initialBody.contains("return 0;"));
+        "BUG: initial streamed slice size must not be zero.", initialBody.contains("return 0;"));
   }
 
   @Test
   public void viewRender_updatesStreamedSlicesBeforeDrawingVisibleLines() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/ViewRender.java");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/ViewRender.java");
     String body = methodBody(src, "private void drawTextContent(");
-    int update = body.indexOf("maybeUpdateStreamedSlicesForVisibleRange(firstVisibleLine, lastVisibleLine)");
+    int update =
+        body.indexOf("maybeUpdateStreamedSlicesForVisibleRange(firstVisibleLine, lastVisibleLine)");
     int loop = body.indexOf("for (int i = firstVisibleLine; i <= lastVisibleLine; i++)");
-    assertTrue("BUG: ViewRender should request visible streamed slices before drawing lines.", update >= 0);
+    assertTrue(
+        "BUG: ViewRender should request visible streamed slices before drawing lines.",
+        update >= 0);
     assertTrue("BUG: streamed slice update should happen before the draw loop.", update < loop);
   }
 
@@ -53,7 +56,9 @@ public class LongLineStreamingGuardTest {
     assertTrue(body.contains("isZoomGestureActive()"));
     assertTrue(body.contains("heavyFeaturesThreshold"));
     assertTrue(body.contains("isWindowLoading"));
-    assertFalse("BUG: heavy draw suppression must not be permanently disabled.", body.contains("return false;"));
+    assertFalse(
+        "BUG: heavy draw suppression must not be permanently disabled.",
+        body.contains("return false;"));
   }
 
   private static String readSource(String rel) throws Exception {

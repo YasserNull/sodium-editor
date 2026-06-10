@@ -12,9 +12,11 @@ import org.junit.Test;
 public class BinaryRenderHighlightIntegrationGuardTest {
 
   @Test
-  public void highliteRender_shouldDrawUrlAndPathUnderlinesInBinaryFastPath() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/HighliteRender.java");
-    String body = methodBody(src, "drawHighlightedLine(Canvas canvas, String line, int globalLine, float y)");
+  public void highlightRender_shouldDrawUrlAndPathUnderlinesInBinaryFastPath() throws Exception {
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/HighlightRender.java");
+    String body =
+        methodBody(src, "drawHighlightedLine(Canvas canvas, String line, int globalLine, float y)");
 
     assertTrue(
         "BUG: binary fast path must not bypass URL/path underlines.",
@@ -26,13 +28,16 @@ public class BinaryRenderHighlightIntegrationGuardTest {
   }
 
   @Test
-  public void binaryFastPath_shouldOnlyBypassHighlightingForLinesWithBinarySpans() throws Exception {
+  public void binaryFastPath_shouldOnlyBypassHighlightingForLinesWithBinarySpans()
+      throws Exception {
     String render =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/HighliteRender.java");
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/HighlightRender.java");
     String binary =
         readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/BinaryRender.java");
     String view = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/view/View.java");
-    String drawBody = methodBody(render, "drawHighlightedLine(Canvas canvas, String line, int globalLine, float y)");
+    String drawBody =
+        methodBody(
+            render, "drawHighlightedLine(Canvas canvas, String line, int globalLine, float y)");
     String viewBody = methodBody(view, "getCharIndexForX(String text, float x, int globalLine)");
 
     assertTrue(
@@ -41,20 +46,24 @@ public class BinaryRenderHighlightIntegrationGuardTest {
     assertTrue(
         "BUG: binary renderer needs a per-line gate based on cached token spans.",
         binary.contains("public boolean shouldUseBinaryRenderingForLine(int lineIndex)")
-            && binary.contains("return binarySafeRenderingEnabled && hasBinaryTokenSpans(lineIndex);"));
+            && binary.contains(
+                "return binarySafeRenderingEnabled && hasBinaryTokenSpans(lineIndex);"));
     assertTrue(
-        "BUG: normal text cursor hit-testing must not use binary M-width fallback when there are no binary spans.",
+        "BUG: normal text cursor hit-testing must not use binary M-width fallback when there are no"
+            + " binary spans.",
         viewBody.contains("editor.binaryRender.shouldUseBinaryRenderingForLine(globalLine)")
             && !viewBody.contains("effectiveAvgWidth"));
   }
 
   @Test
   public void binaryUnderlineHelper_shouldCollectBothUrlAndPathSpans() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/HighliteRender.java");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/HighlightRender.java");
     String body =
         methodBody(
             src,
-            "drawUrlAndPathUnderlinesForBinaryLine(Canvas canvas, String line, int globalLine, float y)");
+            "drawUrlAndPathUnderlinesForBinaryLine(Canvas canvas, String line, int globalLine,"
+                + " float y)");
 
     assertTrue(
         "BUG: binary underline helper must collect URL underline spans.",
@@ -69,29 +78,49 @@ public class BinaryRenderHighlightIntegrationGuardTest {
 
   @Test
   public void textRender_shouldMeasureRealTextWhenBinaryModeHasNoTokenSpans() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/TextRender.java");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/TextRender.java");
     String body = methodBody(src, "measureText(String line, int length, int globalLine)");
 
     assertTrue(
-        "BUG: binary mode with no token spans must measure real text, not assume M-width characters.",
+        "BUG: binary mode with no token spans must measure real text, not assume M-width"
+            + " characters.",
         body.contains("return measureTextWithVisualSpaces(line, 0, safeLen, paint)"));
     assertTrue(
-        "BUG: M-width fallback causes color-code backgrounds to shift for Arabic and proportional text.",
+        "BUG: M-width fallback causes color-code backgrounds to shift for Arabic and proportional"
+            + " text.",
         !body.contains("effectiveAvgWidth"));
   }
 
   @Test
   public void binaryLineDrawer_shouldAdvanceNormalTextWithPaintMeasurement() throws Exception {
     String src =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/draw/BinaryLineDrawer.java");
-    String xBody = methodBody(src, "getXForCharBinary(String line, int charIndex, Paint paint, int[] spans, float padX)");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/draw/BinaryLineDrawer.java");
+    String xBody =
+        methodBody(
+            src,
+            "getXForCharBinary(String line, int charIndex, Paint paint, int[] spans, float padX)");
     String drawBody =
         methodBody(
             src,
-            "drawBinaryLineSlice(\n            Canvas canvas,\n            String line,\n            int globalLine,\n            int relStart,\n            int relEnd,\n            int sliceStart,\n            float y,\n            Paint defaultPaint,\n            android.util.SparseArray<int[]> binaryTokenSpans,\n            int fadeStart,\n            int fadeEnd,\n            float fadeAlpha)");
+            "drawBinaryLineSlice(\n"
+                + "            Canvas canvas,\n"
+                + "            String line,\n"
+                + "            int globalLine,\n"
+                + "            int relStart,\n"
+                + "            int relEnd,\n"
+                + "            int sliceStart,\n"
+                + "            float y,\n"
+                + "            Paint defaultPaint,\n"
+                + "            android.util.SparseArray<int[]> binaryTokenSpans,\n"
+                + "            int fadeStart,\n"
+                + "            int fadeEnd,\n"
+                + "            float fadeAlpha)");
 
     assertTrue(
-        "BUG: binary X calculation must measure normal text with Paint for Unicode/proportional glyphs.",
+        "BUG: binary X calculation must measure normal text with Paint for Unicode/proportional"
+            + " glyphs.",
         xBody.contains("paint.measureText(line, pos, idx)")
             && xBody.contains("paint.measureText(line, pos, s)"));
     assertTrue(

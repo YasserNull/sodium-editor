@@ -14,7 +14,8 @@ public class CursorHitTestGuardTest {
 
   @Test
   public void textHitTest_shouldOnlyUseBinaryMappingWhenLineHasBinarySpans() throws Exception {
-    String textRender = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/TextRender.java");
+    String textRender =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/TextRender.java");
     String body = methodBody(textRender, "public int getCharIndexForX(");
 
     assertTrue(body.contains("shouldUseBinaryRenderingForLine(globalLine)"));

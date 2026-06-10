@@ -1,23 +1,18 @@
-package com.yn.sodiumeditor.core.scroll; 
-import com.yn.sodiumeditor.SodiumEditor;
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
+package com.yn.sodiumeditor.core.scroll;
+
 import android.animation.ValueAnimator;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
-import android.text.TextUtils;
-import android.text.TextPaint;
-import android.view.animation.DecelerateInterpolator;
-import android.view.inputmethod.InputMethodManager;
 import androidx.annotation.Nullable;
+import com.yn.sodiumeditor.SodiumEditor;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Manages the popup menu functionality for SodiumEditor.
- * Handles drawing, positioning, and user interaction with the popup menu.
+ * Manages the popup menu functionality for SodiumEditor. Handles drawing, positioning, and user
+ * interaction with the popup menu.
  */
 public class Popup {
 
@@ -118,8 +113,8 @@ public class Popup {
   }
 
   /**
-   * Initialize popup configuration based on display metrics.
-   * Should be called when the editor is ready or configuration changes.
+   * Initialize popup configuration based on display metrics. Should be called when the editor is
+   * ready or configuration changes.
    */
   public void applyPopupConfig() {
     float density = editor.getResources().getDisplayMetrics().density;
@@ -136,6 +131,7 @@ public class Popup {
 
   /**
    * Set popup background color.
+   *
    * @param color The color to use for the popup background
    */
   public void setPopupBackgroundColor(int color) {
@@ -146,6 +142,7 @@ public class Popup {
 
   /**
    * Set popup text color.
+   *
    * @param color The color to use for popup button text
    */
   public void setPopupTextColor(int color) {
@@ -156,6 +153,7 @@ public class Popup {
 
   /**
    * Set popup text size in scaled pixels.
+   *
    * @param sp The text size in scaled pixels
    */
   public void setPopupTextSize(float sp) {
@@ -166,6 +164,7 @@ public class Popup {
 
   /**
    * Set popup text size in pixels.
+   *
    * @param sizePx The text size in pixels
    */
   public void setPopupTextSizePx(float sizePx) {
@@ -177,6 +176,7 @@ public class Popup {
 
   /**
    * Set whether popup text follows the editor typeface.
+   *
    * @param follow true if popup text should use the same typeface as the editor
    */
   public void setPopupTextFollowsEditorTypeface(boolean follow) {
@@ -189,6 +189,7 @@ public class Popup {
 
   /**
    * Set a custom typeface for popup text.
+   *
    * @param typeface The typeface to use, or null for default
    */
   public void setPopupTextTypeface(@Nullable android.graphics.Typeface typeface) {
@@ -199,6 +200,7 @@ public class Popup {
 
   /**
    * Set custom labels for all popup buttons.
+   *
    * @param copy Label for copy button
    * @param cut Label for cut button
    * @param paste Label for paste button
@@ -215,33 +217,25 @@ public class Popup {
     if (showPopup) editor.invalidate();
   }
 
-  /**
-   * Show the popup at the current selection.
-   */
+  /** Show the popup at the current selection. */
   public void showPopupAtSelection() {
     if (!editor.selection.hasSelection) return;
     isMinimalPopup = false;
     showPopupAnimated();
   }
 
-  /**
-   * Show a minimal popup at the cursor position.
-   */
+  /** Show a minimal popup at the cursor position. */
   public void showMinimalPopupAtCursor() {
     isMinimalPopup = true;
     showPopupAnimated();
   }
 
-  /**
-   * Hide the popup menu.
-   */
+  /** Hide the popup menu. */
   public void hidePopup() {
     hidePopupAnimated();
   }
 
-  /**
-   * Show the popup with fade-in animation.
-   */
+  /** Show the popup with fade-in animation. */
   private void showPopupAnimated() {
     if (showPopup && !isFadingOut && popupAlpha >= 0.95f && fadeTargetAlpha >= 0.95f) {
       return;
@@ -254,9 +248,7 @@ public class Popup {
     animation.startFade(1f);
   }
 
-  /**
-   * Hide the popup with fade-out animation.
-   */
+  /** Hide the popup with fade-out animation. */
   private void hidePopupAnimated() {
     if (!showPopup || isFadingOut) return;
     isFadingOut = true;
@@ -273,6 +265,7 @@ public class Popup {
 
   /**
    * Draw the popup menu on the canvas.
+   *
    * @param canvas The canvas to draw on
    */
   public void drawPopup(Canvas canvas) {
@@ -281,6 +274,7 @@ public class Popup {
 
   /**
    * Check if copy/cut should be hidden for large selections.
+   *
    * @return true if copy/cut buttons should be hidden
    */
   public boolean shouldHideCopyCutForSelection() {
@@ -298,6 +292,7 @@ public class Popup {
 
   /**
    * Get the RectF for a specific popup action button.
+   *
    * @param action The action constant
    * @return The RectF for the button
    */
@@ -318,6 +313,7 @@ public class Popup {
 
   /**
    * Get the label for a specific popup action button.
+   *
    * @param action The action constant
    * @return The label string
    */
@@ -338,6 +334,7 @@ public class Popup {
 
   /**
    * Get the action at a specific coordinate.
+   *
    * @param x X coordinate
    * @param y Y coordinate
    * @return The action constant, or 0 if no action
@@ -353,6 +350,7 @@ public class Popup {
 
   /**
    * Start ripple animation for a button press.
+   *
    * @param action The action being pressed
    * @param x X coordinate of the press
    * @param y Y coordinate of the press
@@ -363,6 +361,7 @@ public class Popup {
 
   /**
    * Start ripple hold animation for a long press.
+   *
    * @param action The action being pressed
    * @param x X coordinate of the press
    * @param y Y coordinate of the press
@@ -371,15 +370,14 @@ public class Popup {
     animation.startRippleHold(action, x, y);
   }
 
-  /**
-   * Cancel any active ripple animation.
-   */
+  /** Cancel any active ripple animation. */
   public void cancelPopupRipple() {
     animation.cancelRipple();
   }
 
   /**
    * Convert scaled pixels to pixels.
+   *
    * @param sp The value in scaled pixels
    * @return The value in pixels
    */

@@ -2,7 +2,6 @@ package com.yn.sodiumeditordemo;
 
 import android.content.ClipData;
 import android.content.ClipboardManager;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
@@ -22,16 +21,16 @@ import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
-import androidx.appcompat.app.AlertDialog;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
 import com.termux.view.TerminalView;
 import com.termux.view.TerminalViewClient;
-import java.util.ArrayList;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 public class TerminalActivity extends AppCompatActivity
@@ -58,9 +57,7 @@ public class TerminalActivity extends AppCompatActivity
     root.setOrientation(LinearLayout.VERTICAL);
     root.setBackgroundColor(TERMINAL_BACKGROUND_COLOR);
     root.addView(
-        buildToolbar(),
-        new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, dp(44)));
+        buildToolbar(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44)));
 
     terminalView = new TerminalView(this, null);
     terminalView.setTerminalViewClient(this);
@@ -112,14 +109,14 @@ public class TerminalActivity extends AppCompatActivity
 
     View spacer = new View(this);
     toolbar.addView(
-        spacer,
-        new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+        spacer, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
 
     ImageButton kill = buildToolbarIconButton(R.drawable.ic_terminal_kill, "Kill session");
     kill.setOnClickListener(v -> showKillSessionDialog());
     toolbar.addView(kill);
 
-    ImageButton sessions = buildToolbarIconButton(R.drawable.ic_terminal_sessions, "Switch session");
+    ImageButton sessions =
+        buildToolbarIconButton(R.drawable.ic_terminal_sessions, "Switch session");
     sessions.setOnClickListener(v -> showSessionPickerDialog());
     toolbar.addView(sessions);
 
@@ -249,12 +246,13 @@ public class TerminalActivity extends AppCompatActivity
   private void showKillSessionDialog() {
     if (terminalSession == null || !terminalSession.isRunning()) return;
     TextView message = buildDarkDialogText("هل تريد قتل الجلسة الحالية؟");
-    AlertDialog dialog = new AlertDialog.Builder(this)
-        .setCustomTitle(buildDarkDialogTitle("Kill session"))
-        .setView(message)
-        .setPositiveButton("نعم", (dialogInterface, which) -> killCurrentSession())
-        .setNegativeButton("لا", null)
-        .create();
+    AlertDialog dialog =
+        new AlertDialog.Builder(this)
+            .setCustomTitle(buildDarkDialogTitle("Kill session"))
+            .setView(message)
+            .setPositiveButton("نعم", (dialogInterface, which) -> killCurrentSession())
+            .setNegativeButton("لا", null)
+            .create();
     dialog.setOnShowListener(shownDialog -> styleDarkDialog(dialog));
     dialog.show();
   }
@@ -308,10 +306,11 @@ public class TerminalActivity extends AppCompatActivity
         new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-    AlertDialog dialog = new AlertDialog.Builder(this)
-        .setCustomTitle(buildDarkDialogTitle("Sessions"))
-        .setView(content)
-        .create();
+    AlertDialog dialog =
+        new AlertDialog.Builder(this)
+            .setCustomTitle(buildDarkDialogTitle("Sessions"))
+            .setView(content)
+            .create();
     group.setOnCheckedChangeListener(
         (radioGroup, checkedId) -> {
           int index = checkedId - 1;

@@ -1,9 +1,11 @@
-package com.yn.sodiumeditor.core.features; 
+package com.yn.sodiumeditor.core.features;
+
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.guides.indent.IndentGuides;
+
 /**
- * Manages automatic bracket newline and indentation for the SodiumEditor.
- * Automatically adds newlines and indentation when typing brackets.
+ * Manages automatic bracket newline and indentation for the SodiumEditor. Automatically adds
+ * newlines and indentation when typing brackets.
  */
 public class AutoBracketNewline {
 
@@ -18,33 +20,25 @@ public class AutoBracketNewline {
     this.editor = editor;
   }
 
-  /**
-   * Enables or disables auto-bracket-newline.
-   */
+  /** Enables or disables auto-bracket-newline. */
   public void setAutoBracketNewlineEnabled(boolean enabled) {
     this.isAutoBracketNewlineEnabled = enabled;
   }
 
-  /**
-   * Enables or disables auto-bracket-newline indentation.
-   */
+  /** Enables or disables auto-bracket-newline indentation. */
   public void setAutoBracketNewlineIndentEnabled(boolean enabled) {
     this.isAutoBracketNewlineIndentEnabled = enabled;
   }
 
-  /**
-   * Enables or disables auto-indent after closing bracket.
-   */
+  /** Enables or disables auto-indent after closing bracket. */
   public void setAutoIndentAfterClosingBracketEnabled(boolean enabled) {
     this.isAutoIndentAfterClosingBracketEnabled = enabled;
   }
 
-  /**
-   * Inserts a newline at cursor with automatic bracket handling.
-   */
+  /** Inserts a newline at cursor with automatic bracket handling. */
   public void insertNewlineAtCursor() {
     if (editor.view.isReadOnly) return;
-    
+
     if (editor.selection.hasSelection) {
       editor.selection.replaceSelectionWithText("\n");
       return;
@@ -75,9 +69,7 @@ public class AutoBracketNewline {
     editor.editOperators.insertCharAtCursor('\n');
   }
 
-  /**
-   * Inserts newline with bracket pair handling.
-   */
+  /** Inserts newline with bracket pair handling. */
   private void insertNewlineWithBracketPair(BracketPairType pairType) {
     String baseIndent = "";
     String innerIndent = "";
@@ -101,16 +93,15 @@ public class AutoBracketNewline {
     editor.autoCompletion.updateSuggestion();
   }
 
-  /**
-   * Inserts newline after closing bracket with proper indentation.
-   */
+  /** Inserts newline after closing bracket with proper indentation. */
   private boolean insertNewlineAfterClosingBracket() {
     String ln = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
     if (ln == null) ln = "";
     int safeChar = Math.max(0, Math.min(editor.cursor.cursorChar, ln.length()));
     String before = ln.substring(0, safeChar);
-    int prevNonWs = com.yn.sodiumeditor.utils.TextUtils.findPrevNonWhitespaceIndex(before, before.length() - 1);
-    
+    int prevNonWs =
+        com.yn.sodiumeditor.utils.TextUtils.findPrevNonWhitespaceIndex(before, before.length() - 1);
+
     if (prevNonWs >= 0) {
       char c = before.charAt(prevNonWs);
       if (c == '{' || c == '}') {
@@ -131,16 +122,15 @@ public class AutoBracketNewline {
           targetWidth = Math.max(0, baseWidth - unit);
         }
 
-        editor.editOperators.insertTextAtCursor("\n" + com.yn.sodiumeditor.core.view.View.buildIndentFromWidth(targetWidth));
+        editor.editOperators.insertTextAtCursor(
+            "\n" + com.yn.sodiumeditor.core.view.View.buildIndentFromWidth(targetWidth));
         return true;
       }
     }
     return false;
   }
 
-  /**
-   * Inserts newline with indentation block handling.
-   */
+  /** Inserts newline with indentation block handling. */
   private void insertNewlineWithIndentationBlock() {
     String ln = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
     if (ln == null) ln = "";
@@ -152,21 +142,18 @@ public class AutoBracketNewline {
     editor.editOperators.insertTextAtCursor("\n" + baseIndent + extraIndent);
   }
 
-  /**
-   * Inserts newline with base indentation.
-   */
+  /** Inserts newline with base indentation. */
   private void insertNewlineWithBaseIndent() {
     String baseIndent = editor.view.getLineLeadingWhitespace(editor.cursor.cursorLine);
     editor.editOperators.insertTextAtCursor("\n" + baseIndent);
   }
 
-  /**
-   * Gets the bracket pair type at cursor position.
-   */
+  /** Gets the bracket pair type at cursor position. */
   public BracketPairType getCursorBracketPairType() {
     String ln = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
     if (ln == null) return BracketPairType.NONE;
-    if (editor.cursor.cursorChar <= 0 || editor.cursor.cursorChar >= ln.length()) return BracketPairType.NONE;
+    if (editor.cursor.cursorChar <= 0 || editor.cursor.cursorChar >= ln.length())
+      return BracketPairType.NONE;
 
     char left = ln.charAt(editor.cursor.cursorChar - 1);
     char right = ln.charAt(editor.cursor.cursorChar);
@@ -176,9 +163,7 @@ public class AutoBracketNewline {
     return BracketPairType.NONE;
   }
 
-  /**
-   * Bracket pair types.
-   */
+  /** Bracket pair types. */
   public enum BracketPairType {
     NONE,
     CURLY,

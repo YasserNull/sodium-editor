@@ -1,18 +1,16 @@
-package com.yn.sodiumeditor.core.cursor; 
-import com.yn.sodiumeditor.SodiumEditor;
+package com.yn.sodiumeditor.core.cursor;
+
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import com.yn.sodiumeditor.SodiumEditor;
 
 /**
- * CursorHandle handles the cursor handle (draggable handle when cursor is visible without selection).
- * This includes:
- * - Cursor handle rendering
- * - Cursor handle hit detection
+ * CursorHandle handles the cursor handle (draggable handle when cursor is visible without
+ * selection). This includes: - Cursor handle rendering - Cursor handle hit detection
  */
 public class CursorHandle {
 
-  
   // Cursor handle appearance
   public float cursorHandleWidth = 40f;
   public float cursorHandleHeight = 40f; // Square for perfect circle
@@ -22,11 +20,12 @@ public class CursorHandle {
   public float baseCursorHandleHeightPx = cursorHandleHeight;
   public float baseCursorHandleRadiusPx = cursorHandleRadius;
   public float baseCursorHandleTextSizePx = 0f;
+  public boolean cursorHandleEnabled = true;
   public boolean hideWhileTypingEnabled = true;
-  
+
   // Cursor handle rect
   public RectF cursorHandleRect = new RectF();
-  
+
   private final SodiumEditor editor;
   private final Cursor cursor;
   private final Caret caret;
@@ -38,9 +37,7 @@ public class CursorHandle {
     this.caret = caret;
   }
 
-  /**
-   * Update cursor handle position
-   */
+  /** Update cursor handle position */
   public void updateCursorHandlePosition() {
     float docX, docY;
     // Only follow cursorAnimation while cursor animation is actually enabled.
@@ -60,28 +57,22 @@ public class CursorHandle {
       docX = caret.getCaretDocumentX();
       docY = caret.getCaretDocumentY();
     }
-    
+
     // Convert Document coordinates to Screen coordinates
     float x = editor.layout.getTextStartX() + docX - editor.scroll.scrollX;
     float y = docY - editor.scroll.scrollY;
-    
+
     float lineHeight = editor.textRender.lineHeight;
-    
+
     // Position handle below the cursor line, centered on x
     float handleLeft = x - cursorHandleWidth / 2;
     float handleTop = y + lineHeight;
 
     cursorHandleRect.set(
-        handleLeft,
-        handleTop,
-        handleLeft + cursorHandleWidth,
-        handleTop + cursorHandleHeight
-    );
+        handleLeft, handleTop, handleLeft + cursorHandleWidth, handleTop + cursorHandleHeight);
   }
 
-  /**
-   * Draw cursor handle
-   */
+  /** Draw cursor handle */
   public void drawCursorHandle(Canvas canvas) {
     if (!shouldShow()) {
       return;
@@ -93,38 +84,45 @@ public class CursorHandle {
     paint.setColor(cursorHandleColor);
     paint.setStyle(Paint.Style.FILL);
 
-    // Draw handle as circle
-    float centerX = cursorHandleRect.centerX();
-    float centerY = cursorHandleRect.centerY();
-    float radius = Math.min(cursorHandleRect.width(), cursorHandleRect.height()) / 2f;
-    canvas.drawCircle(centerX, centerY, radius, paint);
+    canvas.drawRoundRect(cursorHandleRect, cursorHandleRadius, cursorHandleRadius, paint);
   }
 
-  /**
-   * Check if point hits cursor handle
-   */
+  /** Check if point hits cursor handle */
   public boolean hitTest(float x, float y) {
     if (!shouldShow()) return false;
     updateCursorHandlePosition();
     // Expand hit area for easier grabbing
     float expand = 20f;
-    RectF hitRect = new RectF(
-        cursorHandleRect.left - expand,
-        cursorHandleRect.top - expand,
-        cursorHandleRect.right + expand,
-        cursorHandleRect.bottom + expand
-    );
+    RectF hitRect =
+        new RectF(
+            cursorHandleRect.left - expand,
+            cursorHandleRect.top - expand,
+            cursorHandleRect.right + expand,
+            cursorHandleRect.bottom + expand);
     return hitRect.contains(x, y);
   }
 
-  /**
-   * Check if cursor handle should be shown
-   */
+  /** Check if cursor handle should be shown */
   public boolean shouldShow() {
-    return editor.isFocused() && !editor.selection.hasSelection && !hiddenByTyping;
+    return cursorHandleEnabled
+        && editor.isFocused()
+        && !editor.selection.hasSelection
+        && !hiddenByTyping;
   }
 
   // Getters and Setters
+
+  public void setCursorHandleEnabled(boolean enabled) {
+    if (cursorHandleEnabled == enabled) return;
+    cursorHandleEnabled = enabled;
+    if (!enabled) hiddenByTyping = false;
+    editor.invalidate();
+  }
+
+  public boolean isCursorHandleEnabled() {
+    return cursorHandleEnabled;
+  }
+
 
   public void setHideWhileTypingEnabled(boolean enabled) {
     if (hideWhileTypingEnabled == enabled) return;
@@ -138,7 +136,7 @@ public class CursorHandle {
   }
 
   public void hideForTyping() {
-    if (!hideWhileTypingEnabled || hiddenByTyping) return;
+    if (!cursorHandleEnabled || !hideWhileTypingEnabled || hiddenByTyping) return;
     hiddenByTyping = true;
     editor.invalidate();
   }
@@ -162,29 +160,65 @@ public class CursorHandle {
     editor.invalidate();
   }
 
+  public void setCursorHandleWidth(float width) {
+    if (width <= 0f) return;
+    if (baseCursorHandleWidthPx == width
+        && baseCursorHandleTextSizePx == editor.textRender.paint.getTextSize()) return;
+    baseCursorHandleWidthPx = width;
+    baseCursorHandleTextSizePx = editor.textRender.paint.getTextSize();
+    updateHandleMetricsForTextSize(baseCursorHandleTextSizePx);
+    editor.invalidate();
+  }
+
+  public float getCursorHandleWidth() {
+    return cursorHandleWidth;
+  }
+
+  public void setCursorHandleHeight(float height) {
+    if (height <= 0f) return;
+    if (baseCursorHandleHeightPx == height
+        && baseCursorHandleTextSizePx == editor.textRender.paint.getTextSize()) return;
+    baseCursorHandleHeightPx = height;
+    baseCursorHandleTextSizePx = editor.textRender.paint.getTextSize();
+    updateHandleMetricsForTextSize(baseCursorHandleTextSizePx);
+    editor.invalidate();
+  }
+
+  public float getCursorHandleHeight() {
+    return cursorHandleHeight;
+  }
+
   public void setCursorHandleColor(int color) {
+    if (cursorHandleColor == color) return;
     cursorHandleColor = color;
     editor.invalidate();
   }
 
+  public int getCursorHandleColor() {
+    return cursorHandleColor;
+  }
+
   public void setCursorHandleRadius(float radius) {
     if (radius < 0f) return;
+    if (baseCursorHandleRadiusPx == radius
+        && baseCursorHandleTextSizePx == editor.textRender.paint.getTextSize()) return;
     baseCursorHandleRadiusPx = radius;
     baseCursorHandleTextSizePx = editor.textRender.paint.getTextSize();
     updateHandleMetricsForTextSize(baseCursorHandleTextSizePx);
     editor.invalidate();
   }
 
+  public float getCursorHandleRadius() {
+    return cursorHandleRadius;
+  }
+
   public void updateHandleMetricsForTextSize(float sizePx) {
     cursorHandleWidth =
-        editor.view.scaleByTextSize(
-            baseCursorHandleWidthPx, baseCursorHandleTextSizePx, sizePx);
+        editor.view.scaleByTextSize(baseCursorHandleWidthPx, baseCursorHandleTextSizePx, sizePx);
     cursorHandleHeight =
-        editor.view.scaleByTextSize(
-            baseCursorHandleHeightPx, baseCursorHandleTextSizePx, sizePx);
+        editor.view.scaleByTextSize(baseCursorHandleHeightPx, baseCursorHandleTextSizePx, sizePx);
     cursorHandleRadius =
-        editor.view.scaleByTextSize(
-            baseCursorHandleRadiusPx, baseCursorHandleTextSizePx, sizePx);
+        editor.view.scaleByTextSize(baseCursorHandleRadiusPx, baseCursorHandleTextSizePx, sizePx);
   }
 
   public RectF getHandleRect() {

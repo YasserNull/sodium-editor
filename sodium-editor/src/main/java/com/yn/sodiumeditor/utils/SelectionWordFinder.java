@@ -5,9 +5,7 @@ import com.yn.sodiumeditor.core.selection.SelectionTextRange;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Handles word finding logic for selection (double-tap, smart word selection).
- */
+/** Handles word finding logic for selection (double-tap, smart word selection). */
 public class SelectionWordFinder {
 
   private final SodiumEditor editor;
@@ -91,7 +89,8 @@ public class SelectionWordFinder {
 
     while (curEnd < len && isSmartSeparator(line.charAt(curEnd))) {
       int rightWordStart = curEnd + 1;
-      while (rightWordStart < len && Character.isWhitespace(line.charAt(rightWordStart))) rightWordStart++;
+      while (rightWordStart < len && Character.isWhitespace(line.charAt(rightWordStart)))
+        rightWordStart++;
       int rightWordEnd = rightWordStart;
       while (rightWordEnd < len && isSmartWordChar(line.charAt(rightWordEnd))) rightWordEnd++;
       if (rightWordEnd <= rightWordStart) break;
@@ -112,8 +111,13 @@ public class SelectionWordFinder {
     return out;
   }
 
-  public int findSelectionCandidateIndex(int line, List<SelectionTextRange> candidates,
-      int selStartLine, int selStartChar, int selEndLine, int selEndChar) {
+  public int findSelectionCandidateIndex(
+      int line,
+      List<SelectionTextRange> candidates,
+      int selStartLine,
+      int selStartChar,
+      int selEndLine,
+      int selEndChar) {
     if (candidates == null || candidates.isEmpty()) return -1;
     int sL = selStartLine;
     int sC = selStartChar;

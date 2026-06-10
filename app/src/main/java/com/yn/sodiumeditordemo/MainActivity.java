@@ -6,35 +6,33 @@ import android.content.ContentUris;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
+import android.graphics.Color;
+import android.graphics.PorterDuff;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.os.Process;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.provider.Settings;
 import android.util.Log;
+import android.util.SparseIntArray;
 import android.view.MenuItem;
 import android.view.View;
-import android.graphics.Color;
-import android.graphics.PorterDuff;
-import android.graphics.drawable.GradientDrawable;
-import android.os.Handler;
-import android.widget.Button;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.preference.PreferenceManager;
-import android.util.SparseIntArray;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.view.FontStyle;
 import com.yn.sodiumeditor.io.EditOp;
@@ -43,7 +41,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.charset.Charset;
 import java.util.ArrayDeque;
-import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -77,14 +74,15 @@ public class MainActivity extends AppCompatActivity {
   private int currentTabIndex = -1;
   private final Handler dirtyHandler = new Handler();
   private boolean isSwitchingTab = false;
-  private final Runnable dirtyChecker = new Runnable() {
-    @Override
-    public void run() {
-      updateDirtyIndicator();
-      updateToolbarButtons();
-      dirtyHandler.postDelayed(this, 150);
-    }
-  };
+  private final Runnable dirtyChecker =
+      new Runnable() {
+        @Override
+        public void run() {
+          updateDirtyIndicator();
+          updateToolbarButtons();
+          dirtyHandler.postDelayed(this, 150);
+        }
+      };
 
   private static class FileTab {
     File file;
@@ -113,6 +111,7 @@ public class MainActivity extends AppCompatActivity {
     boolean isEof, isFileCleared, isIndexReady;
     Charset fileCharset;
     long[] lineOffsets;
+
     FileTab(File file, String name, String path) {
       this.file = file;
       this.name = name;
@@ -122,8 +121,7 @@ public class MainActivity extends AppCompatActivity {
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
-    String theme =
-        PreferenceManager.getDefaultSharedPreferences(this).getString("theme", "light");
+    String theme = PreferenceManager.getDefaultSharedPreferences(this).getString("theme", "light");
     this.currentTheme = theme;
     applyTheme(theme);
     super.onCreate(savedInstanceState);
@@ -147,10 +145,12 @@ public class MainActivity extends AppCompatActivity {
     setTabBarColor(theme);
 
     currentScrollMode =
-        Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(this).getString("scroll_mode", "2"));
+        Integer.parseInt(
+            PreferenceManager.getDefaultSharedPreferences(this).getString("scroll_mode", "2"));
     editor.scroll.setScrollMode(currentScrollMode);
     editor.setKeyboardSuggestionsEnabled(
-        PreferenceManager.getDefaultSharedPreferences(this).getBoolean("keyboard_suggestions", true));
+        PreferenceManager.getDefaultSharedPreferences(this)
+            .getBoolean("keyboard_suggestions", true));
     applyGuideSettingsFromPreferences(PreferenceManager.getDefaultSharedPreferences(this));
     editor.view.setPerformanceModeEnabled(
         PreferenceManager.getDefaultSharedPreferences(this).getBoolean("performance_mode", false));
@@ -280,7 +280,8 @@ public class MainActivity extends AppCompatActivity {
                 fos.write("".getBytes());
                 fos.close();
                 File finalTmp = tmpFile;
-                runOnUiThread(() -> addTab(finalTmp, finalTmp.getName(), finalTmp.getAbsolutePath()));
+                runOnUiThread(
+                    () -> addTab(finalTmp, finalTmp.getName(), finalTmp.getAbsolutePath()));
               } catch (Exception ignored) {
               }
             })
@@ -316,8 +317,7 @@ public class MainActivity extends AppCompatActivity {
                   startActivity(
                       new Intent(this, TerminalActivity.class)
                           .putExtra(
-                              TerminalActivity.EXTRA_RUN_COMMAND,
-                              buildShellRunCommand(tab.file)));
+                              TerminalActivity.EXTRA_RUN_COMMAND, buildShellRunCommand(tab.file)));
                 }));
   }
 
@@ -358,10 +358,11 @@ public class MainActivity extends AppCompatActivity {
     if (index < 0 || index >= openTabs.size() || isSwitchingTab) return;
     isSwitchingTab = true;
     final int targetIndex = index;
-    flushAndSaveCurrentTabState(() -> {
-      doSwitchToTab(targetIndex);
-      isSwitchingTab = false;
-    });
+    flushAndSaveCurrentTabState(
+        () -> {
+          doSwitchToTab(targetIndex);
+          isSwitchingTab = false;
+        });
   }
 
   private void doSwitchToTab(int index) {
@@ -385,20 +386,21 @@ public class MainActivity extends AppCompatActivity {
     boolean removingCurrent = index == currentTabIndex;
     if (removingCurrent) {
       isSwitchingTab = true;
-      flushAndSaveCurrentTabState(() -> {
-        openTabs.remove(index);
-        tabContainer.removeViewAt(index);
-        if (openTabs.isEmpty()) {
-          currentTabIndex = -1;
-          editor.fileIO.clearContent();
-          updateDirtyIndicator();
-          createTempFileTab();
-        } else {
-          int newIndex = Math.min(index, openTabs.size() - 1);
-          doSwitchToTab(newIndex);
-        }
-        isSwitchingTab = false;
-      });
+      flushAndSaveCurrentTabState(
+          () -> {
+            openTabs.remove(index);
+            tabContainer.removeViewAt(index);
+            if (openTabs.isEmpty()) {
+              currentTabIndex = -1;
+              editor.fileIO.clearContent();
+              updateDirtyIndicator();
+              createTempFileTab();
+            } else {
+              int newIndex = Math.min(index, openTabs.size() - 1);
+              doSwitchToTab(newIndex);
+            }
+            isSwitchingTab = false;
+          });
     } else {
       openTabs.remove(index);
       tabContainer.removeViewAt(index);
@@ -505,8 +507,10 @@ public class MainActivity extends AppCompatActivity {
 
   private void updateDirtyIndicator() {
     boolean dirty = isDirty();
-    FileTab tab = currentTabIndex >= 0 && currentTabIndex < openTabs.size()
-        ? openTabs.get(currentTabIndex) : null;
+    FileTab tab =
+        currentTabIndex >= 0 && currentTabIndex < openTabs.size()
+            ? openTabs.get(currentTabIndex)
+            : null;
     String title = tab != null ? tab.name : "Sodium Editor";
     String path = tab != null ? tab.path : "";
     if (dirty && tab != null) {
@@ -534,12 +538,13 @@ public class MainActivity extends AppCompatActivity {
     }
     FileTab tab = openTabs.get(currentTabIndex);
     if (editor.editOperators.getPendingEditsCount() > 0) {
-      editor.editOperators.applyPendingEditsToFileAsync(() ->
-          runOnUiThread(() -> {
-            captureStateToTab(tab);
-            onDone.run();
-          })
-      );
+      editor.editOperators.applyPendingEditsToFileAsync(
+          () ->
+              runOnUiThread(
+                  () -> {
+                    captureStateToTab(tab);
+                    onDone.run();
+                  }));
     } else {
       captureStateToTab(tab);
       onDone.run();
@@ -621,21 +626,24 @@ public class MainActivity extends AppCompatActivity {
       }
       for (int i = 0; i < tab.streamedLineSliceStarts.size(); i++) {
         int key = tab.streamedLineSliceStarts.keyAt(i);
-        editor.windowRender.streamedLineSliceStarts.put(key, tab.streamedLineSliceStarts.valueAt(i));
+        editor.windowRender.streamedLineSliceStarts.put(
+            key, tab.streamedLineSliceStarts.valueAt(i));
       }
     }
 
     clearHorizontalLineWidthCaches();
     restoreHorizontalScrollMetrics(tab);
     editor.windowRender.clearStreamedLineCaches();
-    editor.highlite.clearHighlightCaches();
+    editor.highlight.clearHighlightCaches();
     editor.wordWrap.wrapMetricsReady = false;
     editor.wordWrap.wrapLineCounts = null;
     editor.wordWrap.wrapLinePrefix = null;
     editor.wordWrap.totalWrapVisualLines = 0;
     editor.wordWrap.wrapPrefixValidUpToLine = -1;
     editor.lineNumber.invalidateLineNumberCache();
-    synchronized (editor.fileIO.directLineCache) { editor.fileIO.directLineCache.clear(); }
+    synchronized (editor.fileIO.directLineCache) {
+      editor.fileIO.directLineCache.clear();
+    }
     editor.bracketCache.clear();
     editor.autoCompletion.clearActiveSuggestion();
 
@@ -726,7 +734,8 @@ public class MainActivity extends AppCompatActivity {
       }
     }
 
-    if (editor.windowRender.globalMaxLineWidth <= 0f && !editor.windowRender.linesWindow.isEmpty()) {
+    if (editor.windowRender.globalMaxLineWidth <= 0f
+        && !editor.windowRender.linesWindow.isEmpty()) {
       editor.windowRender.recalculateMaxLineWidth();
     }
   }
@@ -759,7 +768,7 @@ public class MainActivity extends AppCompatActivity {
 
   private void applyGuideSettingsFromPreferences(SharedPreferences prefs) {
     editor.bracketGuides.setBracketGuidesEnabled(prefs.getBoolean("bracket_guides", true));
-    editor.bracketMatchManager.setBracketMatchingEnabled(prefs.getBoolean("bracket_match", true));
+    editor.symbolsMatch.setSymbolsMatchingEnabled(prefs.getBoolean("bracket_match", true));
     editor.whitespaceGuides.setWhitespaceGuidesEnabled(prefs.getBoolean("whitespace_guides", true));
   }
 
@@ -784,25 +793,25 @@ public class MainActivity extends AppCompatActivity {
   private void applyCurrentFileHighlight() {
     if (editor == null) return;
     if (isCurrentShellScript()) {
-      editor.highlite.clearHighlightRules();
-      editor.setSingleCommentsHighlite("#", 0xFF7B35FF, FontStyle.STYLE_ITALIC);
-      editor.setStringsHighlite("\"", true, 0xFF00FF00, FontStyle.STYLE_NORMAL);
-      editor.setStringsHighlite("'", true, 0xFF00FF00, FontStyle.STYLE_NORMAL);
-      editor.highlite.addHighlightRule(SHELL_LITERAL_REGEX, FontStyle.STYLE_NORMAL, 0xFFFF0000);
-      editor.highlite.addHighlightRule(SHELL_KEYWORDS_REGEX, FontStyle.STYLE_NORMAL, 0xFFECFF01);
-      editor.highlite.addHighlightRule(SHELL_NUMBER_REGEX, FontStyle.STYLE_NORMAL, 0xFF00E3FF);
+      editor.highlight.clearHighlightRules();
+      editor.setSingleCommentsHighlight("#", 0xFF7B35FF, FontStyle.STYLE_ITALIC);
+      editor.setStringsHighlight("\"", true, 0xFF00FF00, FontStyle.STYLE_NORMAL);
+      editor.setStringsHighlight("'", true, 0xFF00FF00, FontStyle.STYLE_NORMAL);
+      editor.highlight.addHighlightRule(SHELL_LITERAL_REGEX, FontStyle.STYLE_NORMAL, 0xFFFF0000);
+      editor.highlight.addHighlightRule(SHELL_KEYWORDS_REGEX, FontStyle.STYLE_NORMAL, 0xFFECFF01);
+      editor.highlight.addHighlightRule(SHELL_NUMBER_REGEX, FontStyle.STYLE_NORMAL, 0xFF00E3FF);
       if (SodiumEditor.DEBUG_LOGS) {
         Log.d(
             "SodiumHighlight",
             "[SodiumEditor] operation=applyShellHighlight file="
                 + openTabs.get(currentTabIndex).name
                 + " delimiters="
-                + editor.highlite.lineCommentDelimiters
+                + editor.highlight.lineCommentDelimiters
                 + " hasRule="
-                + (editor.highlite.lineCommentHighlightRule != null));
+                + (editor.highlight.lineCommentHighlightRule != null));
       }
     } else {
-      editor.highlite.clearHighlightRules();
+      editor.highlight.clearHighlightRules();
     }
   }
 
@@ -1022,18 +1031,23 @@ public class MainActivity extends AppCompatActivity {
     AlertDialog dialog = builder.create();
 
     final String[] defaultTags = {
-    "CursorTarget","ImeScanner","Ime","SodiumInputConnection","ImeContext","DragSelectionHandler",
-"GestureHandler",
-"OnDoubleTap",
-"OnDown",
-"OnFling",
-"OnKeyDown",
-"OnLongPress",
-"OnScroll",
-"OnSingleTapUp",
-"OnTouch",
-"PopupInteractionHandler",
-"ScrollBarHandler"
+      "CursorTarget",
+      "ImeScanner",
+      "Ime",
+      "SodiumInputConnection",
+      "ImeContext",
+      "DragSelectionHandler",
+      "GestureHandler",
+      "OnDoubleTap",
+      "OnDown",
+      "OnFling",
+      "OnKeyDown",
+      "OnLongPress",
+      "OnScroll",
+      "OnSingleTapUp",
+      "OnTouch",
+      "PopupInteractionHandler",
+      "ScrollBarHandler"
     };
     final String[] currentTags = defaultTags.clone();
 
@@ -1191,7 +1205,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     if ("content".equals(uri.getScheme())) {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT && DocumentsContract.isDocumentUri(this, uri)) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT
+          && DocumentsContract.isDocumentUri(this, uri)) {
         try {
           String docId = DocumentsContract.getDocumentId(uri);
           if (isExternalStorageDocument(uri)) {
@@ -1251,11 +1266,12 @@ public class MainActivity extends AppCompatActivity {
 
     try {
       long id = Long.parseLong(docId);
-      Uri[] contentUris = new Uri[] {
-          Uri.parse("content://downloads/public_downloads"),
-          Uri.parse("content://downloads/my_downloads"),
-          Uri.parse("content://downloads/all_downloads")
-      };
+      Uri[] contentUris =
+          new Uri[] {
+            Uri.parse("content://downloads/public_downloads"),
+            Uri.parse("content://downloads/my_downloads"),
+            Uri.parse("content://downloads/all_downloads")
+          };
       for (Uri contentUri : contentUris) {
         path = getDataColumn(ContentUris.withAppendedId(contentUri, id), null, null);
         if (path != null) return path;

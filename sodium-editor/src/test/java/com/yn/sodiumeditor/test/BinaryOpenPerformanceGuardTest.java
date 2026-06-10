@@ -36,8 +36,11 @@ public class BinaryOpenPerformanceGuardTest {
 
   @Test
   public void binaryPolicy_shouldAvoidDuplicateWindowReloadDuringFileOpen() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/BinaryRender.java");
-    String setter = methodBody(src, "public void setBinarySafeRenderingEnabled(boolean enabled, boolean reload)");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/BinaryRender.java");
+    String setter =
+        methodBody(
+            src, "public void setBinarySafeRenderingEnabled(boolean enabled, boolean reload)");
     String policy = methodBody(src, "applyBinaryFileFeaturePolicy(boolean active)");
 
     assertTrue(
@@ -51,7 +54,8 @@ public class BinaryOpenPerformanceGuardTest {
   @Test
   public void resetForNewFile_shouldClearBinarySpans() throws Exception {
     String fileIO = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileIO.java");
-    String binaryRender = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/BinaryRender.java");
+    String binaryRender =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/BinaryRender.java");
     String reset = methodBody(fileIO, "private void resetStateForNewFile()");
 
     assertTrue(binaryRender.contains("public void clearBinaryTokenSpans()"));
@@ -68,18 +72,24 @@ public class BinaryOpenPerformanceGuardTest {
     assertTrue(src.contains("MAX_BINARY_LINE_SCAN_BYTES"));
     assertTrue(
         "BUG: binary fallback line scanning must stop quickly when no newline exists.",
-        body.contains("binaryFileFeaturePolicyActive") && body.contains("MAX_BINARY_LINE_SCAN_BYTES"));
+        body.contains("binaryFileFeaturePolicyActive")
+            && body.contains("MAX_BINARY_LINE_SCAN_BYTES"));
   }
 
   @Test
   public void binaryWindowLoader_shouldUseFixedRowsNotLineScanning() throws Exception {
-    String loader = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileWindowLoader.java");
+    String loader =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileWindowLoader.java");
     String binaryBody = methodBody(loader, "private void loadBinaryWindowInternal(");
     String normalBody = methodBody(loader, "private void loadWindowInternal(");
-    String document = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/binary/BinaryDocument.java");
+    String document =
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/binary/BinaryDocument.java");
 
     assertTrue(document.contains("public static final int BYTES_PER_ROW = 256"));
-    assertTrue(normalBody.contains("loadBinaryWindowInternal(actualStart, taskVersion, onComplete, recalcWidthSync)"));
+    assertTrue(
+        normalBody.contains(
+            "loadBinaryWindowInternal(actualStart, taskVersion, onComplete, recalcWidthSync)"));
     assertTrue(binaryBody.contains("document.getOffsetForRow(row)"));
     assertTrue(binaryBody.contains("BinaryDocument.BYTES_PER_ROW"));
     assertTrue(
@@ -96,25 +106,33 @@ public class BinaryOpenPerformanceGuardTest {
   @Test
   public void binaryScrollAndLineCount_shouldUseBinaryRowCount() throws Exception {
     String view = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/view/View.java");
-    String scroll = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/scroll/ScrollBounds.java");
-    String gutter = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/utils/GutterUtils.java");
+    String scroll =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/scroll/ScrollBounds.java");
+    String gutter =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/utils/GutterUtils.java");
     String fileIO = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileIO.java");
 
-    assertTrue(methodBody(view, "public int getLinesCount()").contains("binaryDocument.getRowCount()"));
+    assertTrue(
+        methodBody(view, "public int getLinesCount()").contains("binaryDocument.getRowCount()"));
     assertTrue(
         "BUG: binary files have a known end even without text index offsets.",
-        methodBody(scroll, "public float getMaxScrollYForClamp()").contains("binaryDocument != null"));
+        methodBody(scroll, "public float getMaxScrollYForClamp()")
+            .contains("binaryDocument != null"));
     assertTrue(
         "BUG: gutter width should use binary row count instead of fake unknown count.",
-        methodBody(gutter, "public int estimateLineCountForGutter()").contains("binaryDocument.getRowCount()"));
+        methodBody(gutter, "public int estimateLineCountForGutter()")
+            .contains("binaryDocument.getRowCount()"));
     assertTrue(
         "BUG: go-to/select-all line counting must not scan binary files.",
-        methodBody(fileIO, "public void countTotalLines(").contains("binaryDocument.getRowCount()"));
+        methodBody(fileIO, "public void countTotalLines(")
+            .contains("binaryDocument.getRowCount()"));
   }
 
   @Test
   public void byteTokenConverter_shouldPreserveTextPathButExposeRawBytePath() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/binary/BinaryTokenConverter.java");
+    String src =
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/binary/BinaryTokenConverter.java");
 
     assertTrue(
         "BUG: text-safe conversion must stay available for UTF-8 text opened in binary-safe mode.",
@@ -124,16 +142,19 @@ public class BinaryOpenPerformanceGuardTest {
         src.contains("rawBytesToControlVisible("));
     assertFalse(
         "BUG: raw binary byte path must not decode bytes through String first.",
-        methodBody(src, "rawBytesToControlVisible(byte[] buf, int len)").contains("new String(buf"));
+        methodBody(src, "rawBytesToControlVisible(byte[] buf, int len)")
+            .contains("new String(buf"));
   }
 
   @Test
   public void binaryOpen_shouldDisableBinaryRendering() throws Exception {
-    String binaryRender = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/BinaryRender.java");
+    String binaryRender =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/BinaryRender.java");
     String policy = methodBody(binaryRender, "applyBinaryFileFeaturePolicy(boolean active)");
 
     assertTrue(
-        "BUG: opening binary files should use the fast binary document model without binary token rendering.",
+        "BUG: opening binary files should use the fast binary document model without binary token"
+            + " rendering.",
         policy.contains("setBinarySafeRenderingEnabled(false, false)"));
   }
 

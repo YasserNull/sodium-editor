@@ -13,33 +13,45 @@ public class AutoBracketPairSmartClosingGuardTest {
   @Test
   public void autoPair_shouldUseExistingClosingBracketInsteadOfDuplicatingIt() throws Exception {
     String src =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/features/AutoBracketPair.java");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/features/AutoBracketPair.java");
     String handleBody = methodBody(src, "handleAutoPairing");
     String helperBody = methodBody(src, "private boolean shouldSuppressAutoPair");
 
     assertTrue(
         "BUG: typed opening bracket before an existing closer should not insert another closer.",
-        handleBody.contains("shouldSuppressAutoPair(ln, editor.cursor.cursorLine, pos, typedStart, typedChar, closing)")
-            && handleBody.indexOf("shouldSuppressAutoPair(ln, editor.cursor.cursorLine, pos, typedStart, typedChar, closing)")
+        handleBody.contains(
+                "shouldSuppressAutoPair(ln, editor.cursor.cursorLine, pos, typedStart, typedChar,"
+                    + " closing)")
+            && handleBody.indexOf(
+                    "shouldSuppressAutoPair(ln, editor.cursor.cursorLine, pos, typedStart,"
+                        + " typedChar, closing)")
                 < handleBody.indexOf("editor.editOperators.insertTextAtCursor(closing)"));
     assertTrue(
         "BUG: unmatched existing closers like ) ] } must suppress duplicate auto-pairing.",
         helperBody.contains("hasUnmatchedClosingForOpening(windowBalance, opening)"));
     assertTrue(
         "BUG: multi-character closers like */ must be reused when they are directly after cursor.",
-        helperBody.contains("windowBalance.unmatchedBlockClose > 0 || windowBalance.unmatchedBlockOpen == 0"));
+        helperBody.contains(
+            "windowBalance.unmatchedBlockClose > 0 || windowBalance.unmatchedBlockOpen == 0"));
   }
 
   @Test
   public void autoPair_shouldTreatUnmatchedQuoteBeforeCursorAsClosingQuote() throws Exception {
     String src =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/features/AutoBracketPair.java");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/features/AutoBracketPair.java");
     String handleBody = methodBody(src, "handleAutoPairing");
 
     assertTrue(
-        "BUG: typing a quote that balances another quote on the same line should not create an empty pair.",
-        handleBody.contains("shouldSuppressAutoPair(ln, editor.cursor.cursorLine, pos, typedStart, typedChar, closing)")
-            && handleBody.indexOf("shouldSuppressAutoPair(ln, editor.cursor.cursorLine, pos, typedStart, typedChar, closing)")
+        "BUG: typing a quote that balances another quote on the same line should not create an"
+            + " empty pair.",
+        handleBody.contains(
+                "shouldSuppressAutoPair(ln, editor.cursor.cursorLine, pos, typedStart, typedChar,"
+                    + " closing)")
+            && handleBody.indexOf(
+                    "shouldSuppressAutoPair(ln, editor.cursor.cursorLine, pos, typedStart,"
+                        + " typedChar, closing)")
                 < handleBody.indexOf("editor.editOperators.insertTextAtCursor(closing)"));
     assertTrue(
         "BUG: quote detection must work for double, single, and backtick quotes.",
@@ -50,14 +62,17 @@ public class AutoBracketPairSmartClosingGuardTest {
   }
 
   @Test
-  public void autoPair_shouldUseEditVersionedBalanceCacheForQuotesBracketsAndBlockComments() throws Exception {
+  public void autoPair_shouldUseEditVersionedBalanceCacheForQuotesBracketsAndBlockComments()
+      throws Exception {
     String src =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/features/AutoBracketPair.java");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/features/AutoBracketPair.java");
     String cacheBody = methodBody(src, "private BalanceInfo getBalanceInfo");
     String scanBody = methodBody(src, "void scanLine");
 
     assertTrue(
-        "BUG: balance cache must be invalidated by typing, paste, undo, redo, and file changes through editVersion/text identity.",
+        "BUG: balance cache must be invalidated by typing, paste, undo, redo, and file changes"
+            + " through editVersion/text identity.",
         cacheBody.contains("editor.editOperators.editVersion.get()")
             && cacheBody.contains("cached.editVersion == version")
             && cacheBody.contains("cached.textHash == textHash")
@@ -73,9 +88,11 @@ public class AutoBracketPairSmartClosingGuardTest {
   }
 
   @Test
-  public void autoPair_shouldUseVisibleWindowBalanceSoClosersOnNextLineAreReused() throws Exception {
+  public void autoPair_shouldUseVisibleWindowBalanceSoClosersOnNextLineAreReused()
+      throws Exception {
     String src =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/features/AutoBracketPair.java");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/features/AutoBracketPair.java");
     String helperBody = methodBody(src, "private boolean shouldSuppressAutoPair");
 
     assertTrue(

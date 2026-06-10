@@ -19,7 +19,8 @@ public class SelectionCutNoAutosaveGuardTest {
     String body = methodBody(src, "replaceSelectionWithText(String insertText)");
 
     assertTrue(
-        "BUG: cut/delete selection must not save to sourceFile automatically; saving belongs to explicit save.",
+        "BUG: cut/delete selection must not save to sourceFile automatically; saving belongs to"
+            + " explicit save.",
         !body.contains("rewriteReplaceRangeAsync("));
     assertTrue(
         "BUG: multi-line selection replacement should update the in-memory window when available.",
@@ -35,7 +36,7 @@ public class SelectionCutNoAutosaveGuardTest {
 
     assertTrue(
         "BUG: cutting lines must invalidate bracket/highlight dependent caches.",
-        body.contains("editor.highlite.invalidateHighlightEnsureRange()")
+        body.contains("editor.highlight.invalidateHighlightEnsureRange()")
             && body.contains("editor.bracketGuides.invalidateBracketGuideCache(true)"));
   }
 
@@ -47,14 +48,16 @@ public class SelectionCutNoAutosaveGuardTest {
     String body = methodBody(src, "replaceSelectionWithText(String insertText)");
 
     assertTrue(
-        "BUG: selection replacement must clear through Selection so facade hasSelection stays synced with state.",
+        "BUG: selection replacement must clear through Selection so facade hasSelection stays"
+            + " synced with state.",
         body.contains("selection.clearSelectionStateAfterDelete()")
             && !body.contains("selection.state.clearSelectionStateAfterDelete()"));
   }
 
   @Test
   public void windowReload_shouldNotOverwritePendingInMemoryEdits() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileWindowLoader.java");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileWindowLoader.java");
     String body = methodBody(src, "private boolean hasPendingInMemoryEdits()");
 
     assertTrue(

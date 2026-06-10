@@ -25,7 +25,8 @@ public class OptimizeMdTunableLimitsGuardTest {
 
   @Test
   public void searchSelectAll_hasTunableMatchLimit() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/search/Search.java");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/search/Search.java");
     String body = methodBody(src, "public boolean selectAllSearchMatches(");
     assertTrue(
         "BUG: select-all search should use a configurable match limit.",
@@ -40,9 +41,11 @@ public class OptimizeMdTunableLimitsGuardTest {
     String fileIO = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileIO.java");
     String countBody = methodBody(fileIO, "public void countTotalLines(");
     String lineBody = methodBody(fileIO, "public String readLineUtf8AtByte(");
-    String metadata = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileMetadata.java");
+    String metadata =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileMetadata.java");
     String scanBody = methodBody(metadata, "public LineScanResult scanLineLength(");
-    String loader = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileWindowLoader.java");
+    String loader =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileWindowLoader.java");
     String tailBody = methodBody(loader, "private TailWindowResult loadTailWindowInternal(");
 
     assertTrue(countBody.contains("FILE_IO_BUFFER_SIZE"));

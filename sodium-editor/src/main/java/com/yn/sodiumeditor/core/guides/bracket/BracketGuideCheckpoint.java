@@ -2,18 +2,16 @@ package com.yn.sodiumeditor.core.guides.bracket;
 
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
-import java.util.List;
 
-/**
- * Manages bracket guide checkpoints for faster state calculation.
- */
+/** Manages bracket guide checkpoints for faster state calculation. */
 public class BracketGuideCheckpoint {
   private final SodiumEditor editor;
   private final BracketGuides bracketGuides;
 
   private int[] checkpointLines = new int[64];
   private int checkpointCount = 0;
-  public final java.util.ArrayList<BracketGuideState> bracketGuideCheckpointStates = new java.util.ArrayList<>();
+  public final java.util.ArrayList<BracketGuideState> bracketGuideCheckpointStates =
+      new java.util.ArrayList<>();
   public int bracketGuideCheckpointEditVersion = -1;
   public int bracketGuideCheckpointConfigHash = 0;
   public int bracketGuideCheckpointMaxLine = -1;
@@ -31,9 +29,7 @@ public class BracketGuideCheckpoint {
     checkpointLines = java.util.Arrays.copyOf(checkpointLines, newCap);
   }
 
-  /**
-   * Ensures checkpoints are built up to the specified line.
-   */
+  /** Ensures checkpoints are built up to the specified line. */
   public void ensureCheckpointsUpTo(
       int endLine, @Nullable java.util.Map<Integer, String> directLines) {
     int v = editor.editOperators.editVersion.get();
@@ -52,13 +48,17 @@ public class BracketGuideCheckpoint {
     BracketGuideState state;
     int startLine = bracketGuideCheckpointMaxLine + 1;
     if (bracketGuideCheckpointStates.isEmpty()) {
-      state = new BracketGuideState(editor.highlite.isBlockCommentsEnabled, 0);
+      state = new BracketGuideState(editor.highlight.isBlockCommentsEnabled, 0);
       startLine = 0;
     } else {
-      state = BracketGuides.copyState(bracketGuideCheckpointStates.get(bracketGuideCheckpointStates.size() - 1));
+      state =
+          BracketGuides.copyState(
+              bracketGuideCheckpointStates.get(bracketGuideCheckpointStates.size() - 1));
     }
 
-    if (editor.fileIO.isIndexReady && editor.fileIO.sourceFile != null && editor.fileIO.sourceFile.exists()) {
+    if (editor.fileIO.isIndexReady
+        && editor.fileIO.sourceFile != null
+        && editor.fileIO.sourceFile.exists()) {
       long startOffset;
       synchronized (editor.fileIO.lineOffsetsLock) {
         if (startLine >= 0 && startLine < editor.fileIO.lineOffsets.length) {
@@ -69,7 +69,8 @@ public class BracketGuideCheckpoint {
       }
 
       if (startOffset >= 0) {
-        try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(editor.fileIO.sourceFile, "r")) {
+        try (java.io.RandomAccessFile raf =
+            new java.io.RandomAccessFile(editor.fileIO.sourceFile, "r")) {
           for (int line = startLine; line <= endLine; line++) {
             if (line % bracketGuideCheckpointStep == 0) {
               ensureCheckpointCapacity(checkpointCount + 1);
@@ -105,8 +106,8 @@ public class BracketGuideCheckpoint {
   }
 
   /**
-   * Gets checkpoint index for a line.
-   * Returns the index of the checkpoint with the largest line number <= the requested line.
+   * Gets checkpoint index for a line. Returns the index of the checkpoint with the largest line
+   * number <= the requested line.
    */
   public int getCheckpointIndexForLine(int line) {
     if (checkpointCount == 0) return -1;
@@ -134,9 +135,7 @@ public class BracketGuideCheckpoint {
     return best;
   }
 
-  /**
-   * Gets checkpoint state by index.
-   */
+  /** Gets checkpoint state by index. */
   public BracketGuideState getCheckpointState(int index) {
     if (index >= 0 && index < bracketGuideCheckpointStates.size()) {
       return bracketGuideCheckpointStates.get(index);
@@ -144,9 +143,7 @@ public class BracketGuideCheckpoint {
     return null;
   }
 
-  /**
-   * Gets checkpoint line by index.
-   */
+  /** Gets checkpoint line by index. */
   public int getCheckpointLine(int index) {
     if (index >= 0 && index < checkpointCount) {
       return checkpointLines[index];
@@ -154,9 +151,7 @@ public class BracketGuideCheckpoint {
     return -1;
   }
 
-  /**
-   * Clears all checkpoints.
-   */
+  /** Clears all checkpoints. */
   public void clear() {
     checkpointCount = 0;
     bracketGuideCheckpointStates.clear();
@@ -167,23 +162,24 @@ public class BracketGuideCheckpoint {
 
   public void shiftCheckpoints(int startLine, int delta) {
     if (delta == 0 || checkpointCount == 0) return;
-    
+
     // Simplest: invalidate checkpoints after startLine
     int firstAffected = -1;
     for (int i = 0; i < checkpointCount; i++) {
-        if (checkpointLines[i] >= startLine) {
-            firstAffected = i;
-            break;
-        }
+      if (checkpointLines[i] >= startLine) {
+        firstAffected = i;
+        break;
+      }
     }
-    
+
     if (firstAffected >= 0) {
-        // Remove all checkpoints from this point onwards as states are now invalid due to shift/edit
-        for (int i = checkpointCount - 1; i >= firstAffected; i--) {
-            bracketGuideCheckpointStates.remove(i);
-        }
-        checkpointCount = firstAffected;
-        bracketGuideCheckpointMaxLine = (checkpointCount > 0) ? checkpointLines[checkpointCount - 1] : -1;
+      // Remove all checkpoints from this point onwards as states are now invalid due to shift/edit
+      for (int i = checkpointCount - 1; i >= firstAffected; i--) {
+        bracketGuideCheckpointStates.remove(i);
+      }
+      checkpointCount = firstAffected;
+      bracketGuideCheckpointMaxLine =
+          (checkpointCount > 0) ? checkpointLines[checkpointCount - 1] : -1;
     }
   }
 }

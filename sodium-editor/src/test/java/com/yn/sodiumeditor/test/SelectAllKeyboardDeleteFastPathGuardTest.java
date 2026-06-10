@@ -13,7 +13,8 @@ public class SelectAllKeyboardDeleteFastPathGuardTest {
 
   @Test
   public void keyDownDelete_shouldUseSelectAllFastDeletePath() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/input/events/OnKeyDown.java");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/input/events/OnKeyDown.java");
     String body = methodBody(src, "private boolean handleNormalKey(int keyCode, KeyEvent event)");
 
     int delCase = body.indexOf("case KeyEvent.KEYCODE_DEL:");
@@ -22,14 +23,17 @@ public class SelectAllKeyboardDeleteFastPathGuardTest {
 
     assertTrue("Expected KEYCODE_DEL branch.", delCase >= 0);
     assertTrue(
-        "BUG: select-all keyboard delete must clear the render window before the generic replace path.",
+        "BUG: select-all keyboard delete must clear the render window before the generic replace"
+            + " path.",
         fast >= 0 && fast < replace);
   }
 
   @Test
   public void imeDeleteSurroundingText_shouldUseSelectAllFastDeletePath() throws Exception {
     String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/input/Ime.java");
-    String body = methodBody(src, "private boolean deleteSurroundingCodePoints(int beforeLength, int afterLength)");
+    String body =
+        methodBody(
+            src, "private boolean deleteSurroundingCodePoints(int beforeLength, int afterLength)");
 
     int selection = body.indexOf("if (editor.selection.hasSelection)");
     int fast = body.indexOf("deleteEntireFileSelectionFast()", selection);
@@ -42,7 +46,8 @@ public class SelectAllKeyboardDeleteFastPathGuardTest {
   }
 
   @Test
-  public void fastDelete_shouldNotReadRemovedTextOrStartLoadingBeforeClearingWindow() throws Exception {
+  public void fastDelete_shouldNotReadRemovedTextOrStartLoadingBeforeClearingWindow()
+      throws Exception {
     String src =
         readSource(
             "sodium-editor/src/main/java/com/yn/sodiumeditor/core/selection/SelectionActionHandler.java");
@@ -74,8 +79,11 @@ public class SelectAllKeyboardDeleteFastPathGuardTest {
     assertTrue(
         "BUG: typing over file-backed select-all must clear the render window immediately.",
         fastCall >= 0 && fastCall < loading);
-    assertTrue("Expected fast replace to clear linesWindow.", fast.contains("editor.windowRender.linesWindow.clear()"));
-    assertTrue("Expected fast replace to invalidate immediately.", fast.contains("editor.invalidate()"));
+    assertTrue(
+        "Expected fast replace to clear linesWindow.",
+        fast.contains("editor.windowRender.linesWindow.clear()"));
+    assertTrue(
+        "Expected fast replace to invalidate immediately.", fast.contains("editor.invalidate()"));
     assertTrue(
         "BUG: fast select-all typing must not use large-edit UI or read selected file text.",
         !fast.contains("beginLargeEditUiIfNeeded") && !fast.contains("readRangeText("));
@@ -106,7 +114,8 @@ public class SelectAllKeyboardDeleteFastPathGuardTest {
         "BUG: fast delete must request redraw before deferred cleanup can stall the UI.",
         clearWindow < invalidate && invalidate < deferred);
     assertTrue(
-        "BUG: stale IO invalidation and streamed cache clearing must be deferred until after immediate redraw request.",
+        "BUG: stale IO invalidation and streamed cache clearing must be deferred until after"
+            + " immediate redraw request.",
         deferred < invalidateStaleIo && deferred < clearStreamed);
     assertTrue(
         "BUG: deferred fast delete cleanup must not remove queued Save IO.",
@@ -127,21 +136,25 @@ public class SelectAllKeyboardDeleteFastPathGuardTest {
             && fastDelete.contains("editor.editOperators.pendingEdits.addLast(op)")
             && !fastDelete.contains("recordReplaceSelectionEdit("));
     assertTrue(
-        "BUG: undo for fast select-all delete must restore from the unchanged source file without a full removedText snapshot.",
+        "BUG: undo for fast select-all delete must restore from the unchanged source file without a"
+            + " full removedText snapshot.",
         undo.contains("restoreDeletedFileBackedSelection(op)"));
   }
 
   @Test
   public void saveAfterFastDelete_shouldPreserveBackupForLaterUndo() throws Exception {
     String editOp = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/EditOp.java");
-    String save = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileEditHandler.java");
+    String save =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileEditHandler.java");
     String undo = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/Undo.java");
 
     assertTrue(
-        "BUG: fast delete undo after save needs a file-backed removed-text backup, not a RAM snapshot.",
+        "BUG: fast delete undo after save needs a file-backed removed-text backup, not a RAM"
+            + " snapshot.",
         editOp.contains("removedTextBackupFile"));
     assertTrue(
-        "BUG: fast delete must mark the op as an entire-file delete even if selection end was stale.",
+        "BUG: fast delete must mark the op as an entire-file delete even if selection end was"
+            + " stale.",
         editOp.contains("entireFileDelete"));
     assertTrue(
         "BUG: save must copy the removed range before rewriting the source file.",
@@ -149,11 +162,12 @@ public class SelectAllKeyboardDeleteFastPathGuardTest {
             && save.contains("op.entireFileDelete")
             && save.contains("sourceFile.length()"));
     assertTrue(
-        "BUG: saving an entire-file delete/replace op must replace the whole source file, not a stale window range.",
-        save.contains("rewriteEntireFileReplaceBlocking")
-            && save.contains("op.entireFileDelete"));
+        "BUG: saving an entire-file delete/replace op must replace the whole source file, not a"
+            + " stale window range.",
+        save.contains("rewriteEntireFileReplaceBlocking") && save.contains("op.entireFileDelete"));
     assertTrue(
-        "BUG: undo after save must restore from the backup file because sourceFile was already rewritten.",
+        "BUG: undo after save must restore from the backup file because sourceFile was already"
+            + " rewritten.",
         undo.contains("restoreDeletedSelectionFromBackup(op)"));
   }
 

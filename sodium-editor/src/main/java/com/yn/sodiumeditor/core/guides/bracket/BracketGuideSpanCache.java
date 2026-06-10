@@ -2,13 +2,10 @@ package com.yn.sodiumeditor.core.guides.bracket;
 
 import android.graphics.Canvas;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.utils.BracketGuideScanner;
-import com.yn.sodiumeditor.utils.BracketGuideScanner.SpanCollector;
 import com.yn.sodiumeditor.utils.BracketGuideScanner.BracketSpanScanState;
+import com.yn.sodiumeditor.utils.BracketGuideScanner.SpanCollector;
 
-/**
- * Manages span-based bracket guide cache for performance-optimized rendering.
- */
+/** Manages span-based bracket guide cache for performance-optimized rendering. */
 public class BracketGuideSpanCache {
   private final SodiumEditor editor;
   private final BracketGuides bracketGuides;
@@ -38,10 +35,22 @@ public class BracketGuideSpanCache {
     if (desired <= bracketGuideSpanCapacity) return;
     int newCap = Math.max(64, desired * 2);
     bracketGuideSpanCapacity = newCap;
-    bracketGuideSpanColumns = (bracketGuideSpanColumns == null) ? new int[newCap] : java.util.Arrays.copyOf(bracketGuideSpanColumns, newCap);
-    bracketGuideSpanStartLines = (bracketGuideSpanStartLines == null) ? new int[newCap] : java.util.Arrays.copyOf(bracketGuideSpanStartLines, newCap);
-    bracketGuideSpanEndLines = (bracketGuideSpanEndLines == null) ? new int[newCap] : java.util.Arrays.copyOf(bracketGuideSpanEndLines, newCap);
-    bracketGuideSpanBrackets = (bracketGuideSpanBrackets == null) ? new char[newCap] : java.util.Arrays.copyOf(bracketGuideSpanBrackets, newCap);
+    bracketGuideSpanColumns =
+        (bracketGuideSpanColumns == null)
+            ? new int[newCap]
+            : java.util.Arrays.copyOf(bracketGuideSpanColumns, newCap);
+    bracketGuideSpanStartLines =
+        (bracketGuideSpanStartLines == null)
+            ? new int[newCap]
+            : java.util.Arrays.copyOf(bracketGuideSpanStartLines, newCap);
+    bracketGuideSpanEndLines =
+        (bracketGuideSpanEndLines == null)
+            ? new int[newCap]
+            : java.util.Arrays.copyOf(bracketGuideSpanEndLines, newCap);
+    bracketGuideSpanBrackets =
+        (bracketGuideSpanBrackets == null)
+            ? new char[newCap]
+            : java.util.Arrays.copyOf(bracketGuideSpanBrackets, newCap);
   }
 
   private void addSpan(int column, int startLine, int endLine, char bracket) {
@@ -59,9 +68,7 @@ public class BracketGuideSpanCache {
     return spaceWidth * Math.max(0, column);
   }
 
-  /**
-   * Invalidates the span cache.
-   */
+  /** Invalidates the span cache. */
   public void invalidate() {
     bracketGuideSpanCacheStartLine = -1;
     bracketGuideSpanCacheEndLine = -1;
@@ -75,9 +82,7 @@ public class BracketGuideSpanCache {
     bracketGuideSpanPendingConfigHash = 0;
   }
 
-  /**
-   * Checks if span cache is valid.
-   */
+  /** Checks if span cache is valid. */
   public boolean isCacheValid(int startLine, int endLine, int editVersion, int configHash) {
     return startLine == bracketGuideSpanCacheStartLine
         && endLine == bracketGuideSpanCacheEndLine
@@ -86,12 +91,13 @@ public class BracketGuideSpanCache {
   }
 
   /**
-   * Draws bracket guides for visible range using precomputed span segments.
-   * Zero text lookups per frame — all segments are precomputed during build.
+   * Draws bracket guides for visible range using precomputed span segments. Zero text lookups per
+   * frame — all segments are precomputed during build.
    */
   public void drawBracketGuidesForVisibleRange(Canvas canvas, int visibleStart, int visibleEnd) {
     if (!bracketGuides.isBracketGuidesEnabled || editor.isHeavyDrawSuppressed()) return;
-    if (bracketGuideSpanCacheStartLine < 0 || bracketGuideSpanCacheEndLine < bracketGuideSpanCacheStartLine) return;
+    if (bracketGuideSpanCacheStartLine < 0
+        || bracketGuideSpanCacheEndLine < bracketGuideSpanCacheStartLine) return;
     if (bracketGuideSpanCount <= 0) return;
 
     for (int i = 0; i < bracketGuideSpanCount; i++) {
@@ -107,11 +113,14 @@ public class BracketGuideSpanCache {
     }
   }
 
-  /**
-   * Builds the span cache asynchronously with precomputed draw segments.
-   */
+  /** Builds the span cache asynchronously with precomputed draw segments. */
   public void buildSpanCacheAsync(
-      int startLine, int endLine, int v, int cfg, long startTime, java.util.Map<Integer, String> directLines) {
+      int startLine,
+      int endLine,
+      int v,
+      int cfg,
+      long startTime,
+      java.util.Map<Integer, String> directLines) {
     BracketSpanScanState state = new BracketSpanScanState();
     SpanCollector collector = new SpanCollector(256);
 
@@ -129,7 +138,8 @@ public class BracketGuideSpanCache {
       }
 
       for (int line = startLine; line <= endLine; line++) {
-        if (editor.editOperators.editVersion.get() != v || bracketGuides.getBracketGuideCacheConfigHash() != cfg) {
+        if (editor.editOperators.editVersion.get() != v
+            || bracketGuides.getBracketGuideCacheConfigHash() != cfg) {
           bracketGuideSpanBuildInProgress = false;
           return;
         }
@@ -167,39 +177,36 @@ public class BracketGuideSpanCache {
     final int[] finalEndLines = java.util.Arrays.copyOf(collector.endLines, finalCount);
     final char[] finalBrackets = java.util.Arrays.copyOf(collector.brackets, finalCount);
 
-    editor.post(() -> {
-      bracketGuideSpanCount = 0;
-      ensureSpanCapacity(finalCount);
-      for (int i = 0; i < finalCount; i++) {
-        addSpan(finalColumns[i], finalStartLines[i], finalEndLines[i], finalBrackets[i]);
-      }
-      bracketGuideSpanCacheStartLine = startLine;
-      bracketGuideSpanCacheEndLine = endLine;
-      bracketGuideSpanCacheEditVersion = v;
-      bracketGuideSpanCacheConfigHash = cfg;
-      bracketGuideSpanBuildInProgress = false;
-      editor.invalidate();
-    });
+    editor.post(
+        () -> {
+          bracketGuideSpanCount = 0;
+          ensureSpanCapacity(finalCount);
+          for (int i = 0; i < finalCount; i++) {
+            addSpan(finalColumns[i], finalStartLines[i], finalEndLines[i], finalBrackets[i]);
+          }
+          bracketGuideSpanCacheStartLine = startLine;
+          bracketGuideSpanCacheEndLine = endLine;
+          bracketGuideSpanCacheEditVersion = v;
+          bracketGuideSpanCacheConfigHash = cfg;
+          bracketGuideSpanBuildInProgress = false;
+          editor.invalidate();
+        });
   }
 
-  /**
-   * Gets span cache start line.
-   */
+  /** Gets span cache start line. */
   public int getStartLine() {
     return bracketGuideSpanCacheStartLine;
   }
 
-  /**
-   * Gets span cache end line.
-   */
+  /** Gets span cache end line. */
   public int getEndLine() {
     return bracketGuideSpanCacheEndLine;
   }
 
-  /**
-   * Checks if span cache can be used for drawing.
-   */
+  /** Checks if span cache can be used for drawing. */
   public boolean canDraw() {
-    return bracketGuideSpanCacheStartLine >= 0 && bracketGuideSpanCacheEndLine >= bracketGuideSpanCacheStartLine && bracketGuideSpanCount > 0;
+    return bracketGuideSpanCacheStartLine >= 0
+        && bracketGuideSpanCacheEndLine >= bracketGuideSpanCacheStartLine
+        && bracketGuideSpanCount > 0;
   }
 }

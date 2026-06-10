@@ -12,23 +12,29 @@ public class StringHighlightVisibilityRegressionTest {
 
   @Test
   public void rendererCache_shouldNotPaintStringsWithBlackWhitespaceFallback() throws Exception {
-    String highlite =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/Highlite.java");
+    String highlight =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/Highlight.java");
     String cache =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/HighlightCacheManager.java");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/HighlightCacheManager.java");
 
     assertTrue(
-        "BUG: quote text disappears when normal string spans use the black whitespace fallback paint.",
-        highlite.contains("HighliteRender.HighlightRule sRule = rules.stringHighlightRule;"));
+        "BUG: quote text disappears when normal string spans use the black whitespace fallback"
+            + " paint.",
+        highlight.contains("HighlightRender.HighlightRule sRule = rules.stringHighlightRule;"));
     assertTrue(
-        "BUG: block comments without a configured paint should still parse state but not draw black spans.",
-        highlite.contains("HighliteRender.HighlightRule bRule = rules.blockCommentHighlightRule;"));
+        "BUG: block comments without a configured paint should still parse state but not draw black"
+            + " spans.",
+        highlight.contains("HighlightRender.HighlightRule bRule = rules.blockCommentHighlightRule;"));
     assertTrue(
         "BUG: visible-range cache must follow the same no-fallback rule as direct line parsing.",
-        cache.contains("HighliteRender.HighlightRule sRule = highlite.rules.stringHighlightRule;")
-            && cache.contains("HighliteRender.HighlightRule bRule = highlite.rules.blockCommentHighlightRule;"));
-    assertTrue(!highlite.contains("? rules.stringHighlightRule : rules.whitespaceStringRule"));
-    assertTrue(!cache.contains("? highlite.rules.stringHighlightRule : highlite.rules.whitespaceStringRule"));
+        cache.contains("HighlightRender.HighlightRule sRule = highlight.rules.stringHighlightRule;")
+            && cache.contains(
+                "HighlightRender.HighlightRule bRule = highlight.rules.blockCommentHighlightRule;"));
+    assertTrue(!highlight.contains("? rules.stringHighlightRule : rules.whitespaceStringRule"));
+    assertTrue(
+        !cache.contains(
+            "? highlight.rules.stringHighlightRule : highlight.rules.whitespaceStringRule"));
   }
 
   private static String readSource(String rel) throws Exception {

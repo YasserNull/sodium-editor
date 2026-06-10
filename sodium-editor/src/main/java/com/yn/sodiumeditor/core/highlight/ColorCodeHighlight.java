@@ -1,16 +1,17 @@
-package com.yn.sodiumeditor.core.highlight; 
-import com.yn.sodiumeditor.SodiumEditor;
+package com.yn.sodiumeditor.core.highlight;
+
 import android.graphics.Canvas;
-import android.graphics.Paint;
 import android.graphics.Color;
+import android.graphics.Paint;
+import com.yn.sodiumeditor.SodiumEditor;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Manages color code highlighting for the SodiumEditor.
- * Highlights hex color literals like #RRGGBB, #AARRGGBB, 0xRRGGBB, etc.
+ * Manages color code highlighting for the SodiumEditor. Highlights hex color literals like #RRGGBB,
+ * #AARRGGBB, 0xRRGGBB, etc.
  */
 public class ColorCodeHighlight {
 
@@ -42,9 +43,7 @@ public class ColorCodeHighlight {
     colorOverlayPaint.setStyle(Paint.Style.FILL);
   }
 
-  /**
-   * Enables or disables color code highlighting.
-   */
+  /** Enables or disables color code highlighting. */
   public void setColorCodeHighlightingEnabled(boolean enabled) {
     if (this.isColorHighlightingEnabled == enabled) return;
     this.isColorHighlightingEnabled = enabled;
@@ -52,23 +51,17 @@ public class ColorCodeHighlight {
     editor.invalidate();
   }
 
-  /**
-   * Clears color code cache for a specific line.
-   */
+  /** Clears color code cache for a specific line. */
   public void clearColorCodeCacheForLine(int line) {
     colorCodeBgCache.remove(line);
   }
 
-  /**
-   * Clears all color code caches.
-   */
+  /** Clears all color code caches. */
   public void clearColorCodeCaches() {
     colorCodeBgCache.clear();
   }
 
-  /**
-   * Draws color code backgrounds for a line.
-   */
+  /** Draws color code backgrounds for a line. */
   public void drawColorCodeBackgrounds(Canvas canvas, String line, int globalLine) {
     if (!isColorHighlightingEnabled || line.isEmpty()) {
       return;

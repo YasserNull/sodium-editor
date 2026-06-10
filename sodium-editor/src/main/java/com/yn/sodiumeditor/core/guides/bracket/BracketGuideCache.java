@@ -1,9 +1,8 @@
 package com.yn.sodiumeditor.core.guides.bracket;
+
 import java.util.List;
 
-/**
- * Manages the main bracket guide cache with atomic swapping.
- */
+/** Manages the main bracket guide cache with atomic swapping. */
 public class BracketGuideCache {
   private final BracketGuides editor;
 
@@ -15,8 +14,10 @@ public class BracketGuideCache {
   public BracketGuideState bracketGuideCacheStateAtStart = null;
   public BracketGuideState bracketGuideCacheStateAtEnd = null;
   public BracketGuideState bracketGuideCacheStateBeforeStart = null;
-  public java.util.ArrayList<BracketGuideState> bracketGuideStatesWindow = new java.util.ArrayList<>();
-  public java.util.ArrayList<List<BracketGuideToken>> bracketGuideTokensWindow = new java.util.ArrayList<>();
+  public java.util.ArrayList<BracketGuideState> bracketGuideStatesWindow =
+      new java.util.ArrayList<>();
+  public java.util.ArrayList<List<BracketGuideToken>> bracketGuideTokensWindow =
+      new java.util.ArrayList<>();
 
   // Build in progress tracking
   public boolean bracketGuideBuildInProgress = false;
@@ -29,9 +30,7 @@ public class BracketGuideCache {
     this.editor = editor;
   }
 
-  /**
-   * Invalidates the main cache.
-   */
+  /** Invalidates the main cache. */
   public void invalidateCache() {
     bracketGuideCacheStartLine = -1;
     bracketGuideCacheEndLine = -1;
@@ -49,9 +48,7 @@ public class BracketGuideCache {
     bracketGuideTokensWindow.clear();
   }
 
-  /**
-   * Checks if the main cache is valid.
-   */
+  /** Checks if the main cache is valid. */
   public boolean isCacheValid(int startLine, int endLine, int editVersion, int configHash) {
     return startLine == bracketGuideCacheStartLine
         && endLine == bracketGuideCacheEndLine
@@ -59,9 +56,7 @@ public class BracketGuideCache {
         && configHash == bracketGuideCacheConfigHash;
   }
 
-  /**
-   * Atomically swaps the cache with new data on the UI thread.
-   */
+  /** Atomically swaps the cache with new data on the UI thread. */
   public void swapCache(
       java.util.ArrayList<List<BracketGuideToken>> newTokens,
       java.util.ArrayList<BracketGuideState> newStates,
@@ -101,8 +96,8 @@ public class BracketGuideCache {
   }
 
   /**
-   * Partially swaps the cache with data for a subset of lines.
-   * Merges new partial data into existing cache without losing previously-built lines.
+   * Partially swaps the cache with data for a subset of lines. Merges new partial data into
+   * existing cache without losing previously-built lines.
    */
   public void swapCachePartial(
       java.util.ArrayList<List<BracketGuideToken>> newTokens,
@@ -123,8 +118,17 @@ public class BracketGuideCache {
 
     // If no existing cache, treat as full swap
     if (bracketGuideCacheStartLine < 0 || bracketGuideCacheEndLine < bracketGuideCacheStartLine) {
-      swapCache(newTokens, newStates, startLine, endLine, editVersion, configHash,
-          stateAtStart, stateAtEnd, stateBeforeStart, fallbackCache);
+      swapCache(
+          newTokens,
+          newStates,
+          startLine,
+          endLine,
+          editVersion,
+          configHash,
+          stateAtStart,
+          stateAtEnd,
+          stateBeforeStart,
+          fallbackCache);
       return;
     }
 
@@ -133,7 +137,8 @@ public class BracketGuideCache {
     int mergedEnd = Math.max(bracketGuideCacheEndLine, endLine);
     int mergedSize = mergedEnd - mergedStart + 1;
 
-    java.util.ArrayList<List<BracketGuideToken>> mergedTokens = new java.util.ArrayList<>(mergedSize);
+    java.util.ArrayList<List<BracketGuideToken>> mergedTokens =
+        new java.util.ArrayList<>(mergedSize);
     java.util.ArrayList<BracketGuideState> mergedStates = new java.util.ArrayList<>(mergedSize);
 
     for (int i = 0; i < mergedSize; i++) {
@@ -191,9 +196,7 @@ public class BracketGuideCache {
     // Keep buildInProgress = true since more data is coming
   }
 
-  /**
-   * Gets tokens for a line from the main cache.
-   */
+  /** Gets tokens for a line from the main cache. */
   public List<BracketGuideToken> getTokensForLine(int globalLine) {
     if (globalLine >= bracketGuideCacheStartLine && globalLine <= bracketGuideCacheEndLine) {
       int idx = globalLine - bracketGuideCacheStartLine;
@@ -204,9 +207,7 @@ public class BracketGuideCache {
     return null;
   }
 
-  /**
-   * Gets state for a line from the main cache.
-   */
+  /** Gets state for a line from the main cache. */
   public BracketGuideState getStateForLine(int globalLine) {
     if (globalLine >= bracketGuideCacheStartLine && globalLine <= bracketGuideCacheEndLine) {
       int idx = globalLine - bracketGuideCacheStartLine;
@@ -221,22 +222,23 @@ public class BracketGuideCache {
     if (delta == 0 || bracketGuideCacheStartLine < 0) return;
 
     if (startLine > bracketGuideCacheEndLine) {
-        // Shift occurs after our window
-        return;
+      // Shift occurs after our window
+      return;
     }
 
     if (startLine <= bracketGuideCacheStartLine) {
-        // Shift affects our window start
-        if (delta < 0 && startLine - delta > bracketGuideCacheStartLine) {
-            // Deletion overlaps or eats part of our window
-            invalidateCache();
-        } else {
-            bracketGuideCacheStartLine += delta;
-            bracketGuideCacheEndLine += delta;
-        }
+      // Shift affects our window start
+      if (delta < 0 && startLine - delta > bracketGuideCacheStartLine) {
+        // Deletion overlaps or eats part of our window
+        invalidateCache();
+      } else {
+        bracketGuideCacheStartLine += delta;
+        bracketGuideCacheEndLine += delta;
+      }
     } else {
-        // Shift occurs inside our window
-        invalidateCache(); // Too complex to shift internal ArrayLists accurately without propagate, just invalidate
+      // Shift occurs inside our window
+      invalidateCache(); // Too complex to shift internal ArrayLists accurately without propagate,
+                         // just invalidate
     }
   }
 }

@@ -45,15 +45,14 @@ public class AutoCompletionGuardTest {
     String body = methodBody(src, "public void updateSuggestionInternal()");
 
     assertTrue(
-        "BUG: AutoCompletion must ask AutoPathCompletion first so path suggestions like /sdcard/D are not cleared by word completion.",
-        body.indexOf("updatePathSuggestionFromAutoCompletion()")
-            >= 0
+        "BUG: AutoCompletion must ask AutoPathCompletion first so path suggestions like /sdcard/D"
+            + " are not cleared by word completion.",
+        body.indexOf("updatePathSuggestionFromAutoCompletion()") >= 0
             && body.indexOf("updatePathSuggestionFromAutoCompletion()")
                 < body.indexOf("String line = editor.windowRender.getLineTextForRender"));
     assertTrue(
         "BUG: a handled path context must stop normal word completion.",
-        body.contains("if (handledPathSuggestion)")
-            && body.contains("return;"));
+        body.contains("if (handledPathSuggestion)") && body.contains("return;"));
   }
 
   @Test
@@ -67,8 +66,10 @@ public class AutoCompletionGuardTest {
         "BUG: activeSuggestion should store only the suffix drawn after the cursor.",
         body.contains("activeSuggestion = suggestion.substring(wordFragment.length())"));
     assertTrue(
-        "BUG: AutoCompletion must remember where the current word started for drawing and tap hit testing.",
-        body.contains("activeSuggestionCharStart = editor.cursor.cursorChar - wordFragment.length()"));
+        "BUG: AutoCompletion must remember where the current word started for drawing and tap hit"
+            + " testing.",
+        body.contains(
+            "activeSuggestionCharStart = editor.cursor.cursorChar - wordFragment.length()"));
     assertTrue(
         "BUG: normal word suggestions must not be marked as path suggestions.",
         body.contains("activeSuggestionIsPath = false"));
@@ -82,7 +83,8 @@ public class AutoCompletionGuardTest {
     String body = methodBody(src, "acceptAutoCompletion()");
 
     assertTrue(
-        "BUG: acceptAutoCompletion must not consume path suggestions; AutoPathCompletion owns that.",
+        "BUG: acceptAutoCompletion must not consume path suggestions; AutoPathCompletion owns"
+            + " that.",
         body.contains("if (activeSuggestionIsPath)")
             && body.indexOf("if (activeSuggestionIsPath)") < body.indexOf("insertStringAtCursor"));
   }
@@ -95,14 +97,18 @@ public class AutoCompletionGuardTest {
     String body =
         methodBody(
             src,
-            "drawAutoSuggestion(Canvas canvas, String lineContent, int globalLine, float textBaselineY)");
+            "drawAutoSuggestion(Canvas canvas, String lineContent, int globalLine, float"
+                + " textBaselineY)");
 
     assertTrue(
-        "BUG: drawAutoSuggestion must not pass globalLine as Paint.measureText end index; that crashes with IndexOutOfBoundsException.",
-        body.contains("editor.textRender.measureText(lineContent, cursorPositionInLine, globalLine)"));
+        "BUG: drawAutoSuggestion must not pass globalLine as Paint.measureText end index; that"
+            + " crashes with IndexOutOfBoundsException.",
+        body.contains(
+            "editor.textRender.measureText(lineContent, cursorPositionInLine, globalLine)"));
     assertTrue(
         "BUG: drawAutoSuggestion should only use Paint.measureText for the suggestion text itself.",
-        !body.contains("suggestionPaint.measureText(lineContent, cursorPositionInLine, globalLine)"));
+        !body.contains(
+            "suggestionPaint.measureText(lineContent, cursorPositionInLine, globalLine)"));
   }
 
   @Test
@@ -113,7 +119,8 @@ public class AutoCompletionGuardTest {
     String body =
         methodBody(
             src,
-            "drawAutoSuggestionWrapped(Canvas canvas, String lineContent, int globalLine, int segStart, int segEnd, int visualIndex, float textBaselineY)");
+            "drawAutoSuggestionWrapped(Canvas canvas, String lineContent, int globalLine, int"
+                + " segStart, int segEnd, int visualIndex, float textBaselineY)");
 
     assertTrue(
         "BUG: wrapped suggestion drawing must skip segments that do not contain the cursor.",
@@ -121,7 +128,8 @@ public class AutoCompletionGuardTest {
     assertTrue(
         "BUG: wrapped suggestion drawing must measure from segment start to cursor.",
         body.contains(
-            "editor.textRender.measureTextWithVisualSpaces(lineContent, segStart, cursorPositionInLine, editor.textRender.paint)"));
+            "editor.textRender.measureTextWithVisualSpaces(lineContent, segStart,"
+                + " cursorPositionInLine, editor.textRender.paint)"));
   }
 
   private static String methodBody(String src, String signature) {

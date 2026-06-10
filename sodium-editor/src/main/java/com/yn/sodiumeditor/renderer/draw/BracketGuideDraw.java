@@ -6,9 +6,7 @@ import com.yn.sodiumeditor.core.guides.bracket.BracketGuideToken;
 import com.yn.sodiumeditor.core.guides.bracket.BracketGuides;
 import java.util.List;
 
-/**
- * Handles drawing bracket guides for lines.
- */
+/** Handles drawing bracket guides for lines. */
 public class BracketGuideDraw {
   private final SodiumEditor editor;
   private final BracketGuides bracketGuides;
@@ -30,9 +28,7 @@ public class BracketGuideDraw {
     this.bracketGuides = bracketGuides;
   }
 
-  /**
-   * Call at start of render pass to track current state and visible lines
-   */
+  /** Call at start of render pass to track current state and visible lines */
   public void beginRenderFrame(int windowStart, int windowEnd, int visibleStart, int visibleEnd) {
     lastRenderedWindowStart = windowStart;
     lastRenderedWindowEnd = windowEnd;
@@ -40,16 +36,12 @@ public class BracketGuideDraw {
     visibleEndLine = visibleEnd;
   }
 
-  /**
-   * Call at start of render pass (backward compatibility)
-   */
+  /** Call at start of render pass (backward compatibility) */
   public void beginRenderFrame(int windowStart, int windowEnd) {
     beginRenderFrame(windowStart, windowEnd, windowStart, windowEnd);
   }
 
-  /**
-   * Update fast-scroll state for the current frame.
-   */
+  /** Update fast-scroll state for the current frame. */
   public void setFrameFastScroll(boolean fastScroll) {
     this.frameFastScroll = fastScroll;
   }
@@ -58,27 +50,26 @@ public class BracketGuideDraw {
     return frameFastScroll;
   }
 
-  /**
-   * Check if bracket guides can be drawn (cache is valid)
-   */
+  /** Check if bracket guides can be drawn (cache is valid) */
   public boolean canDrawBracketGuides() {
     // Can draw if main cache is valid OR fallback cache has any entries OR span cache is valid
-    boolean mainValid = (bracketGuides.mainCache.bracketGuideCacheStartLine >= 0 && bracketGuides.mainCache.bracketGuideCacheEndLine >= bracketGuides.mainCache.bracketGuideCacheStartLine);
-    boolean fallbackValid = bracketGuides.fallbackCache.containsLine(0) || bracketGuides.fallbackCache.getEditVersion() >= 0;
+    boolean mainValid =
+        (bracketGuides.mainCache.bracketGuideCacheStartLine >= 0
+            && bracketGuides.mainCache.bracketGuideCacheEndLine
+                >= bracketGuides.mainCache.bracketGuideCacheStartLine);
+    boolean fallbackValid =
+        bracketGuides.fallbackCache.containsLine(0)
+            || bracketGuides.fallbackCache.getEditVersion() >= 0;
     boolean spanValid = bracketGuides.spanCache.canDraw();
     return mainValid || fallbackValid || spanValid;
   }
 
-  /**
-   * Check if a line is currently visible on screen
-   */
+  /** Check if a line is currently visible on screen */
   public boolean isLineVisible(int globalLine) {
     return globalLine >= visibleStartLine && globalLine <= visibleEndLine;
   }
 
-  /**
-   * Reset draw tracking (called when cache is invalidated)
-   */
+  /** Reset draw tracking (called when cache is invalidated) */
   public void resetDrawTracking() {
     lastRenderedEditVersion = -1;
     lastRenderedConfigHash = 0;
@@ -86,16 +77,15 @@ public class BracketGuideDraw {
     lastRenderedWindowEnd = -1;
   }
 
-  /**
-   * Draws bracket guides for a line.
-   */
+  /** Draws bracket guides for a line. */
   public void drawBracketGuidesForLine(
       Canvas canvas, String line, int globalLine, List<BracketGuideToken> guideTokens) {
     if (globalLine < 0 || globalLine >= editor.view.getLinesCount()) return;
     if (!bracketGuides.isBracketGuidesEnabled || editor.isHeavyDrawSuppressed()) return;
 
     // For synchronous rendering, we rely on the passed tokens directly
-    List<BracketGuideToken> tokensToDraw = (guideTokens != null && !guideTokens.isEmpty()) ? guideTokens : null;
+    List<BracketGuideToken> tokensToDraw =
+        (guideTokens != null && !guideTokens.isEmpty()) ? guideTokens : null;
 
     if (tokensToDraw == null || tokensToDraw.isEmpty()) {
       return;
@@ -107,10 +97,15 @@ public class BracketGuideDraw {
     float bottom = top + editor.textRender.lineHeight;
     int firstNonSpace = com.yn.sodiumeditor.utils.TextUtils.getFirstNonSpaceIndex(line);
 
-    // Only adjust to closing brace if we have window-cached tokens (representing state at start of line)
+    // Only adjust to closing brace if we have window-cached tokens (representing state at start of
+    // line)
     boolean isClosingBraceLine = (firstNonSpace >= 0 && line.charAt(firstNonSpace) == '}');
-    boolean adjustTopGuideToClosingBrace = (guideTokens != null && !guideTokens.isEmpty() && isClosingBraceLine);
-    float closingBraceX = adjustTopGuideToClosingBrace ? bracketGuides.getGuideX(line, firstNonSpace, globalLine) : 0f;
+    boolean adjustTopGuideToClosingBrace =
+        (guideTokens != null && !guideTokens.isEmpty() && isClosingBraceLine);
+    float closingBraceX =
+        adjustTopGuideToClosingBrace
+            ? bracketGuides.getGuideX(line, firstNonSpace, globalLine)
+            : 0f;
 
     int tokenIndex = 0;
     for (BracketGuideToken token : tokensToDraw) {
@@ -120,7 +115,10 @@ public class BracketGuideDraw {
         continue;
       }
       // Calculate X at draw time to account for zoom level changes
-      float x = (adjustTopGuideToClosingBrace && tokenIndex == 0) ? closingBraceX : token.getX(bracketGuides, line, globalLine);
+      float x =
+          (adjustTopGuideToClosingBrace && tokenIndex == 0)
+              ? closingBraceX
+              : token.getX(bracketGuides, line, globalLine);
       tokenIndex++;
 
       boolean seen = false;
@@ -132,10 +130,18 @@ public class BracketGuideDraw {
       }
       if (seen) continue;
 
-      if (editor.indentGuides.guideSeenXBuffer == null || editor.indentGuides.guideSeenXBuffer.length < editor.indentGuides.guideSeenXCount + 1) {
+      if (editor.indentGuides.guideSeenXBuffer == null
+          || editor.indentGuides.guideSeenXBuffer.length
+              < editor.indentGuides.guideSeenXCount + 1) {
         float[] next = new float[Math.max(16, editor.indentGuides.guideSeenXCount + 8)];
-        if (editor.indentGuides.guideSeenXBuffer != null && editor.indentGuides.guideSeenXCount > 0) {
-          System.arraycopy(editor.indentGuides.guideSeenXBuffer, 0, next, 0, editor.indentGuides.guideSeenXCount);
+        if (editor.indentGuides.guideSeenXBuffer != null
+            && editor.indentGuides.guideSeenXCount > 0) {
+          System.arraycopy(
+              editor.indentGuides.guideSeenXBuffer,
+              0,
+              next,
+              0,
+              editor.indentGuides.guideSeenXCount);
         }
         editor.indentGuides.guideSeenXBuffer = next;
       }
@@ -146,9 +152,7 @@ public class BracketGuideDraw {
     }
   }
 
-  /**
-   * Draws bracket guides for a line directly from the stack (avoids allocations).
-   */
+  /** Draws bracket guides for a line directly from the stack (avoids allocations). */
   public void drawBracketGuidesForLineFromStack(
       Canvas canvas, String line, int globalLine, java.util.ArrayDeque<BracketGuideToken> stack) {
     if (globalLine < 0 || globalLine >= editor.view.getLinesCount()) return;
@@ -163,7 +167,10 @@ public class BracketGuideDraw {
 
     boolean isClosingBraceLine = (firstNonSpace >= 0 && line.charAt(firstNonSpace) == '}');
     boolean adjustTopGuideToClosingBrace = (isClosingBraceLine && !stack.isEmpty());
-    float closingBraceX = adjustTopGuideToClosingBrace ? bracketGuides.getGuideX(line, firstNonSpace, globalLine) : 0f;
+    float closingBraceX =
+        adjustTopGuideToClosingBrace
+            ? bracketGuides.getGuideX(line, firstNonSpace, globalLine)
+            : 0f;
 
     int tokenIndex = 0;
     for (BracketGuideToken token : stack) {
@@ -171,7 +178,10 @@ public class BracketGuideDraw {
         tokenIndex++;
         continue;
       }
-      float x = (adjustTopGuideToClosingBrace && tokenIndex == 0) ? closingBraceX : token.getX(bracketGuides, line, globalLine);
+      float x =
+          (adjustTopGuideToClosingBrace && tokenIndex == 0)
+              ? closingBraceX
+              : token.getX(bracketGuides, line, globalLine);
       tokenIndex++;
 
       boolean seen = false;
@@ -183,10 +193,18 @@ public class BracketGuideDraw {
       }
       if (seen) continue;
 
-      if (editor.indentGuides.guideSeenXBuffer == null || editor.indentGuides.guideSeenXBuffer.length < editor.indentGuides.guideSeenXCount + 1) {
+      if (editor.indentGuides.guideSeenXBuffer == null
+          || editor.indentGuides.guideSeenXBuffer.length
+              < editor.indentGuides.guideSeenXCount + 1) {
         float[] next = new float[Math.max(16, editor.indentGuides.guideSeenXCount + 8)];
-        if (editor.indentGuides.guideSeenXBuffer != null && editor.indentGuides.guideSeenXCount > 0) {
-          System.arraycopy(editor.indentGuides.guideSeenXBuffer, 0, next, 0, editor.indentGuides.guideSeenXCount);
+        if (editor.indentGuides.guideSeenXBuffer != null
+            && editor.indentGuides.guideSeenXCount > 0) {
+          System.arraycopy(
+              editor.indentGuides.guideSeenXBuffer,
+              0,
+              next,
+              0,
+              editor.indentGuides.guideSeenXCount);
         }
         editor.indentGuides.guideSeenXBuffer = next;
       }
@@ -197,9 +215,7 @@ public class BracketGuideDraw {
     }
   }
 
-  /**
-   * Gets the guide X position at the START of the character (not center).
-   */
+  /** Gets the guide X position at the START of the character (not center). */
   public float getGuideX(String line, int column, int globalLine) {
     return editor.layout.getGuideXForColumn(line, column, globalLine);
   }

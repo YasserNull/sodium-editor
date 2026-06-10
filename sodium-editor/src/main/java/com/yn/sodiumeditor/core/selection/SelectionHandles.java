@@ -8,102 +8,89 @@ import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.animation.SelectionHandlesAnimation;
 
 /**
- * SelectionHandles handles the left and right selection handles for SodiumEditor.
- * This includes:
- * - Selection handle rendering
- * - Selection handle hit detection
- * - Handle position updates
+ * SelectionHandles handles the left and right selection handles for SodiumEditor. This includes: -
+ * Selection handle rendering - Selection handle hit detection - Handle position updates
  */
 public class SelectionHandles {
-    private static final String TAG = "SodiumSelectionHandles";
-    private static final int MAX_HANDLE_POSITION_LOGS = 240;
-    public static boolean DEBUG_SELECTION_HANDLE_LOGS = false;
+  private static final String TAG = "SodiumSelectionHandles";
+  private static final int MAX_HANDLE_POSITION_LOGS = 240;
+  public static boolean DEBUG_SELECTION_HANDLE_LOGS = false;
 
-    public final Paint handlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+  public final Paint handlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-    // Selection handle appearance
-    public float handleWidth = 40f;
-    public float handleHeight = 40f; // Square for perfect circle
-    public int handleColor = 0xFF33B5E5;
-    public int selectionHandleColor = 0xFF2196F3; // Blue
-    public float handleRadius = 6f;
+  // Selection handle appearance
+  public float handleWidth = 40f;
+  public float handleHeight = 40f; // Square for perfect circle
+  public int handleColor = 0xFF33B5E5;
+  public int selectionHandleColor = 0xFF2196F3; // Blue
+  public float handleRadius = 6f;
 
-    public float baseHandleWidthPx = handleWidth;
-    public float baseHandleHeightPx = handleHeight;
-    public float baseHandleRadiusPx = handleRadius;
-    public float baseHandleTextSizePx = 0f;
+  public float baseHandleWidthPx = handleWidth;
+  public float baseHandleHeightPx = handleHeight;
+  public float baseHandleRadiusPx = handleRadius;
+  public float baseHandleTextSizePx = 0f;
 
-    // Selection handle rects
-    public RectF leftHandleRect = new RectF();
-    public RectF rightHandleRect = new RectF();
+  // Selection handle rects
+  public RectF leftHandleRect = new RectF();
+  public RectF rightHandleRect = new RectF();
 
-    // Handle dragging state
-    public int draggingHandle = 0; // 0 = none, 1 = left, 2 = right
-    public boolean lastDragAtLineStart = false;
-    public boolean lastDragAtLineEnd = false;
-    public float lastHandleScrollX = Float.NaN;
-    public float lastHandleScrollY = Float.NaN;
+  // Handle dragging state
+  public int draggingHandle = 0; // 0 = none, 1 = left, 2 = right
+  public boolean lastDragAtLineStart = false;
+  public boolean lastDragAtLineEnd = false;
+  public float lastHandleScrollX = Float.NaN;
+  public float lastHandleScrollY = Float.NaN;
 
-    // Animation delegate
-    public final SelectionHandlesAnimation animation;
+  // Animation delegate
+  public final SelectionHandlesAnimation animation;
 
-    private final SodiumEditor editor;
-    private final Selection selection;
-    private int drawEntryLogCount = 0;
-    private int updateEntryLogCount = 0;
-    private int handlePositionLogCount = 0;
-    private int animationInvalidateLogCount = 0;
+  private final SodiumEditor editor;
+  private final Selection selection;
+  private int drawEntryLogCount = 0;
+  private int updateEntryLogCount = 0;
+  private int handlePositionLogCount = 0;
+  private int animationInvalidateLogCount = 0;
 
-    public SelectionHandles(SodiumEditor editor, Selection selection) {
-        this.editor = editor;
-        this.selection = selection;
-        this.animation = new SelectionHandlesAnimation();
-    }
+  public SelectionHandles(SodiumEditor editor, Selection selection) {
+    this.editor = editor;
+    this.selection = selection;
+    this.animation = new SelectionHandlesAnimation();
+  }
 
-    public void drawTeardropHandle(Canvas canvas, float cx, float cy, Paint paint) {
-        Paint.Style prevStyle = paint.getStyle();
-        int prevColor = paint.getColor();
-        float prevStroke = paint.getStrokeWidth();
-        Paint.Cap prevCap = paint.getStrokeCap();
+  public void drawTeardropHandle(Canvas canvas, float cx, float cy, Paint paint) {
+    Paint.Style prevStyle = paint.getStyle();
+    int prevColor = paint.getColor();
+    float prevStroke = paint.getStrokeWidth();
+    Paint.Cap prevCap = paint.getStrokeCap();
 
-        paint.setStyle(Paint.Style.FILL);
-        editor.view.teardropPath.reset();
-        editor.view.teardropPath.addOval(
-                cx - handleRadius,
-                cy,
-                cx + handleRadius,
-                cy + handleRadius * 2,
-                Path.Direction.CW);
-        canvas.drawPath(editor.view.teardropPath, paint);
+    paint.setStyle(Paint.Style.FILL);
+    editor.view.teardropPath.reset();
+    editor.view.teardropPath.addOval(
+        cx - handleRadius, cy, cx + handleRadius, cy + handleRadius * 2, Path.Direction.CW);
+    canvas.drawPath(editor.view.teardropPath, paint);
 
-        paint.setStyle(prevStyle);
-        paint.setColor(prevColor);
-        paint.setStrokeWidth(prevStroke);
-        paint.setStrokeCap(prevCap);
-    }
+    paint.setStyle(prevStyle);
+    paint.setColor(prevColor);
+    paint.setStrokeWidth(prevStroke);
+    paint.setStrokeCap(prevCap);
+  }
 
-    /**
-     * Get animated handle position (delegated to animation class).
-     */
-    public float[] getAnimatedHandlePosition(boolean isLeft, float targetX, float targetY) {
-        return animation.getAnimatedHandlePosition(isLeft, targetX, targetY);
-    }
+  /** Get animated handle position (delegated to animation class). */
+  public float[] getAnimatedHandlePosition(boolean isLeft, float targetX, float targetY) {
+    return animation.getAnimatedHandlePosition(isLeft, targetX, targetY);
+  }
 
-    /**
-     * Enable or disable handle move animation (delegated).
-     */
-    public void setHandleMoveAnimationEnabled(boolean enabled) {
-        animation.setHandleMoveAnimationEnabled(enabled);
-    }
+  /** Enable or disable handle move animation (delegated). */
+  public void setHandleMoveAnimationEnabled(boolean enabled) {
+    animation.setHandleMoveAnimationEnabled(enabled);
+  }
 
-    public void setSelectionAnimationEnabled(boolean enabled) {
-        selection.setSelectionAnimationEnabled(enabled);
-        setHandleMoveAnimationEnabled(enabled);
-    }
+  public void setSelectionAnimationEnabled(boolean enabled) {
+    selection.setSelectionAnimationEnabled(enabled);
+    setHandleMoveAnimationEnabled(enabled);
+  }
 
-  /**
-   * Update selection handles positions
-   */
+  /** Update selection handles positions */
   public void updateHandlesPosition() {
     if (!selection.hasSelection) {
       return;
@@ -119,8 +106,12 @@ public class SelectionHandles {
 
     // Get start and end positions (normalized)
     int startLine, startChar, endLine, endChar;
-    if (editor.editOperators.comparePos(selection.selStartLine, selection.selStartChar,
-                   selection.selEndLine, selection.selEndChar) > 0) {
+    if (editor.editOperators.comparePos(
+            selection.selStartLine,
+            selection.selStartChar,
+            selection.selEndLine,
+            selection.selEndChar)
+        > 0) {
       startLine = selection.selEndLine;
       startChar = selection.selEndChar;
       endLine = selection.selStartLine;
@@ -169,11 +160,7 @@ public class SelectionHandles {
     float leftHandleLeft = leftPos[0] - handleWidth / 2;
     float leftHandleTop = leftPos[1];
     leftHandleRect.set(
-        leftHandleLeft,
-        leftHandleTop,
-        leftHandleLeft + handleWidth,
-        leftHandleTop + handleHeight
-    );
+        leftHandleLeft, leftHandleTop, leftHandleLeft + handleWidth, leftHandleTop + handleHeight);
 
     // Update right handle (end) - position below the line
     float rightHandleLeft = rightPos[0] - handleWidth / 2;
@@ -182,13 +169,10 @@ public class SelectionHandles {
         rightHandleLeft,
         rightHandleTop,
         rightHandleLeft + handleWidth,
-        rightHandleTop + handleHeight
-    );
+        rightHandleTop + handleHeight);
   }
 
-  /**
-   * Draw selection handles
-   */
+  /** Draw selection handles */
   public void drawHandles(Canvas canvas) {
     if (!selection.hasSelection) {
       return;
@@ -196,7 +180,7 @@ public class SelectionHandles {
 
     updateHandlesPosition();
     if (animation.isAnimating()) {
-        editor.invalidate();
+      editor.invalidate();
     }
 
     Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -217,54 +201,48 @@ public class SelectionHandles {
     canvas.drawCircle(rightCenterX, rightCenterY, rightRadius, paint);
   }
 
-  /**
-   * Check if point hits left handle
-   */
+  /** Check if point hits left handle */
   public boolean hitTestLeft(float x, float y) {
     updateHandlesPosition();
     // Expand hit area for easier grabbing
     float expand = 20f;
-    RectF hitRect = new RectF(
-        leftHandleRect.left - expand,
-        leftHandleRect.top - expand,
-        leftHandleRect.right + expand,
-        leftHandleRect.bottom + expand
-    );
+    RectF hitRect =
+        new RectF(
+            leftHandleRect.left - expand,
+            leftHandleRect.top - expand,
+            leftHandleRect.right + expand,
+            leftHandleRect.bottom + expand);
     return hitRect.contains(x, y);
   }
 
-  /**
-   * Check if point hits right handle
-   */
+  /** Check if point hits right handle */
   public boolean hitTestRight(float x, float y) {
     updateHandlesPosition();
     // Expand hit area for easier grabbing
     float expand = 20f;
-    RectF hitRect = new RectF(
-        rightHandleRect.left - expand,
-        rightHandleRect.top - expand,
-        rightHandleRect.right + expand,
-        rightHandleRect.bottom + expand
-    );
+    RectF hitRect =
+        new RectF(
+            rightHandleRect.left - expand,
+            rightHandleRect.top - expand,
+            rightHandleRect.right + expand,
+            rightHandleRect.bottom + expand);
     return hitRect.contains(x, y);
   }
 
-  /**
-   * Get character X position
-   */
+  /** Get character X position */
   public float getCharX(int line, int ch) {
     String lineText = editor.windowRender.getLineTextForRender(line);
     if (lineText == null) return editor.layout.getTextStartX();
 
     int safeChar = Math.max(0, Math.min(ch, lineText.length()));
-    float textX = editor.textRender.measureTextWithVisualSpaces(lineText, 0, safeChar, editor.textRender.paint);
+    float textX =
+        editor.textRender.measureTextWithVisualSpaces(
+            lineText, 0, safeChar, editor.textRender.paint);
 
     return editor.layout.getTextStartX() + textX - editor.scroll.scrollX;
   }
 
-  /**
-   * Get line Y position
-   */
+  /** Get line Y position */
   public float getLineY(int line) {
     int lineForVisual = line;
     int visualLine = lineForVisual;
@@ -275,59 +253,43 @@ public class SelectionHandles {
     return (lineForVisual * editor.textRender.lineHeight) - editor.scroll.scrollY;
   }
 
-  /**
-   * Compare two positions
-   */
+  /** Compare two positions */
   public int comparePos(int lineA, int charA, int lineB, int charB) {
     if (lineA != lineB) return Integer.compare(lineA, lineB);
     return Integer.compare(charA, charB);
   }
 
-  /**
-   * Check if handles should be shown
-   */
+  /** Check if handles should be shown */
   public boolean shouldShow() {
     return selection.hasSelection;
   }
 
-  /**
-   * Start dragging left handle
-   */
+  /** Start dragging left handle */
   public void startDragLeft() {
     draggingHandle = 1;
   }
 
-  /**
-   * Start dragging right handle
-   */
+  /** Start dragging right handle */
   public void startDragRight() {
     draggingHandle = 2;
   }
 
-  /**
-   * Stop dragging
-   */
+  /** Stop dragging */
   public void stopDrag() {
     draggingHandle = 0;
   }
 
-  /**
-   * Check if currently dragging a handle
-   */
+  /** Check if currently dragging a handle */
   public boolean isDragging() {
     return draggingHandle != 0;
   }
 
-  /**
-   * Check if dragging left handle
-   */
+  /** Check if dragging left handle */
   public boolean isDraggingLeft() {
     return draggingHandle == 1;
   }
 
-  /**
-   * Check if dragging right handle
-   */
+  /** Check if dragging right handle */
   public boolean isDraggingRight() {
     return draggingHandle == 2;
   }
@@ -347,10 +309,11 @@ public class SelectionHandles {
     handleColor = color;
   }
 
-public void setSelectionHandleColor(int color) {
+  public void setSelectionHandleColor(int color) {
     selectionHandleColor = color;
     editor.invalidate();
   }
+
   public void setHandleRadius(float radius) {
     if (radius < 0f) return;
     baseHandleRadiusPx = radius;
@@ -374,5 +337,4 @@ public void setSelectionHandleColor(int color) {
     updateHandlesPosition();
     return rightHandleRect;
   }
-
 }

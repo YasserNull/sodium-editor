@@ -1,14 +1,10 @@
 package com.yn.sodiumeditor.core.guides.bracket;
 
-import android.os.SystemClock;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
-import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Handles asynchronous bracket guide cache building with visible line priority.
- */
+/** Handles asynchronous bracket guide cache building with visible line priority. */
 public class BracketGuideAsyncBuilder {
   private final SodiumEditor editor;
   private final BracketGuides bracketGuides;
@@ -30,12 +26,18 @@ public class BracketGuideAsyncBuilder {
   }
 
   /**
-   * Builds the bracket guide cache asynchronously.
-   * Builds sequentially (correct state propagation) with a partial UI update
-   * after visible lines are ready, then completes the rest.
+   * Builds the bracket guide cache asynchronously. Builds sequentially (correct state propagation)
+   * with a partial UI update after visible lines are ready, then completes the rest.
    */
   public void buildCacheAsync(
-      int startLine, int endLine, int visibleStart, int visibleEnd, int v, int cfg, long startTime, @Nullable java.util.Map<Integer, String> directLines) {
+      int startLine,
+      int endLine,
+      int visibleStart,
+      int visibleEnd,
+      int v,
+      int cfg,
+      long startTime,
+      @Nullable java.util.Map<Integer, String> directLines) {
     if (editor.selection.isSelectAllActive
         || editor.selection.isEntireFileSelected
         || editor.selection.state.isSelectAllActive
@@ -43,7 +45,7 @@ public class BracketGuideAsyncBuilder {
       mainCache.bracketGuideBuildInProgress = false;
       return;
     }
-    BracketGuideState state = new BracketGuideState(editor.highlite.isBlockCommentsEnabled, 0);
+    BracketGuideState state = new BracketGuideState(editor.highlight.isBlockCommentsEnabled, 0);
     BracketGuideState stateBeforeStart = BracketGuides.copyState(state);
     BracketGuideState stateAtStart = null;
     java.util.ArrayList<List<BracketGuideToken>> tokensWindow = new java.util.ArrayList<>();
@@ -57,9 +59,11 @@ public class BracketGuideAsyncBuilder {
     try {
       // Use smaller checkpoint step during fast scroll for quicker initial build
       int originalCheckpointStep = checkpoint.bracketGuideCheckpointStep;
-      boolean fastScroll = editor.scroll.scrollerIsScrolling || editor.scroll.flingStopAnimator != null;
+      boolean fastScroll =
+          editor.scroll.scrollerIsScrolling || editor.scroll.flingStopAnimator != null;
       if (fastScroll && bracketGuides.useFastBuildDuringFastScroll) {
-        checkpoint.bracketGuideCheckpointStep = Math.min(checkpoint.bracketGuideCheckpointStepFast, endLine - startLine + 1);
+        checkpoint.bracketGuideCheckpointStep =
+            Math.min(checkpoint.bracketGuideCheckpointStepFast, endLine - startLine + 1);
       }
 
       checkpoint.ensureCheckpointsUpTo(endLine, directLines);
@@ -73,8 +77,13 @@ public class BracketGuideAsyncBuilder {
         currentLine = 0;
       }
 
-      if (currentLine < startLine && editor.fileIO.isIndexReady && editor.fileIO.sourceFile != null && editor.fileIO.sourceFile.exists() && (directLines == null || directLines.isEmpty())) {
-        try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(editor.fileIO.sourceFile, "r")) {
+      if (currentLine < startLine
+          && editor.fileIO.isIndexReady
+          && editor.fileIO.sourceFile != null
+          && editor.fileIO.sourceFile.exists()
+          && (directLines == null || directLines.isEmpty())) {
+        try (java.io.RandomAccessFile raf =
+            new java.io.RandomAccessFile(editor.fileIO.sourceFile, "r")) {
           while (currentLine < startLine) {
             String text = bracketGuides.readIndexedLinePrefix(currentLine, raf);
             if (text == null) break;
@@ -112,7 +121,8 @@ public class BracketGuideAsyncBuilder {
 
       for (int line = startLine; line <= endLine; line++) {
         // Check if edit version changed during build - abort if so
-        if (editor.editOperators.editVersion.get() != v || bracketGuides.getBracketGuideCacheConfigHash() != cfg) {
+        if (editor.editOperators.editVersion.get() != v
+            || bracketGuides.getBracketGuideCacheConfigHash() != cfg) {
           checkpoint.bracketGuideCheckpointStep = originalCheckpointStep;
           mainCache.bracketGuideBuildInProgress = false;
           return;
@@ -120,7 +130,8 @@ public class BracketGuideAsyncBuilder {
 
         String text = bracketGuides.getLineTextForGuideScan(line, directLines, null);
         if (text == null) text = "";
-        List<BracketGuideToken> tokens = bracketGuides.updateBracketGuideStateForLine(text, line, state);
+        List<BracketGuideToken> tokens =
+            bracketGuides.updateBracketGuideStateForLine(text, line, state);
         int arrayIdx = line - startLine;
         tokensWindow.set(arrayIdx, tokens);
         // Skip state copy during async build — states are never read from cache
@@ -133,28 +144,33 @@ public class BracketGuideAsyncBuilder {
         if (!partialUpdatePosted && line >= clampedVisibleEnd) {
           partialUpdatePosted = true;
           final int partialEnd = line;
-          final java.util.ArrayList<List<BracketGuideToken>> partialTokens = new java.util.ArrayList<>(tokensWindow.subList(0, partialEnd - startLine + 1));
+          final java.util.ArrayList<List<BracketGuideToken>> partialTokens =
+              new java.util.ArrayList<>(tokensWindow.subList(0, partialEnd - startLine + 1));
           // States are null — no copy needed
-          final java.util.ArrayList<BracketGuideState> partialStates = new java.util.ArrayList<>(partialTokens.size());
+          final java.util.ArrayList<BracketGuideState> partialStates =
+              new java.util.ArrayList<>(partialTokens.size());
           for (int s = 0; s < partialTokens.size(); s++) partialStates.add(null);
-          final BracketGuideState partialStateAtStart = (stateAtStart != null) ? BracketGuides.copyState(stateAtStart) : null;
-          final BracketGuideState partialStateBeforeStart = BracketGuides.copyState(stateBeforeStart);
+          final BracketGuideState partialStateAtStart =
+              (stateAtStart != null) ? BracketGuides.copyState(stateAtStart) : null;
+          final BracketGuideState partialStateBeforeStart =
+              BracketGuides.copyState(stateBeforeStart);
           final BracketGuideState partialState = BracketGuides.copyState(state);
 
-          editor.post(() -> {
-            mainCache.swapCachePartial(
-                partialTokens,
-                partialStates,
-                startLine,
-                partialEnd,
-                v,
-                cfg,
-                partialStateAtStart,
-                partialState,
-                partialStateBeforeStart,
-                fallbackCache);
-            editor.invalidate();
-          });
+          editor.post(
+              () -> {
+                mainCache.swapCachePartial(
+                    partialTokens,
+                    partialStates,
+                    startLine,
+                    partialEnd,
+                    v,
+                    cfg,
+                    partialStateAtStart,
+                    partialState,
+                    partialStateBeforeStart,
+                    fallbackCache);
+                editor.invalidate();
+              });
         }
       }
 
@@ -166,28 +182,33 @@ public class BracketGuideAsyncBuilder {
 
     // Final full cache swap on UI thread
     // States are null — no copy needed
-    BracketGuideState finalStateAtStart = (stateAtStart != null) ? BracketGuides.copyState(stateAtStart) : BracketGuides.copyState(state);
+    BracketGuideState finalStateAtStart =
+        (stateAtStart != null)
+            ? BracketGuides.copyState(stateAtStart)
+            : BracketGuides.copyState(state);
     BracketGuideState finalState = BracketGuides.copyState(state);
     BracketGuideState finalStateBeforeStart = BracketGuides.copyState(stateBeforeStart);
 
     // Build null states list to match tokens size
-    java.util.ArrayList<BracketGuideState> nullStates = new java.util.ArrayList<>(tokensWindow.size());
+    java.util.ArrayList<BracketGuideState> nullStates =
+        new java.util.ArrayList<>(tokensWindow.size());
     for (int s = 0; s < tokensWindow.size(); s++) nullStates.add(null);
 
-    editor.post(() -> {
-      mainCache.swapCache(
-          tokensWindow,
-          nullStates,
-          startLine,
-          endLine,
-          v,
-          cfg,
-          finalStateAtStart,
-          finalState,
-          finalStateBeforeStart,
-          fallbackCache);
+    editor.post(
+        () -> {
+          mainCache.swapCache(
+              tokensWindow,
+              nullStates,
+              startLine,
+              endLine,
+              v,
+              cfg,
+              finalStateAtStart,
+              finalState,
+              finalStateBeforeStart,
+              fallbackCache);
 
-      editor.invalidate();
-    });
+          editor.invalidate();
+        });
   }
 }

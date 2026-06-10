@@ -5,9 +5,7 @@ import android.view.animation.DecelerateInterpolator;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 
-/**
- * Stretch handles all stretch/overscroll effects for SodiumEditor.
- */
+/** Stretch handles all stretch/overscroll effects for SodiumEditor. */
 public class Stretch {
 
   public boolean stretchOverscrollEnabled = true;
@@ -18,7 +16,7 @@ public class Stretch {
   public float stretchY = 0f;
   public int stretchDirX = 0; // -1 = left, 1 = right
   public int stretchDirY = 0; // -1 = top, 1 = bottom
-  
+
   @Nullable public ValueAnimator stretchReleaseAnimator;
 
   private final SodiumEditor editor;
@@ -94,12 +92,13 @@ public class Stretch {
     stretchReleaseAnimator = ValueAnimator.ofFloat(1f, 0f);
     stretchReleaseAnimator.setDuration(300); // مدة الارتداد السلس
     stretchReleaseAnimator.setInterpolator(new DecelerateInterpolator());
-    stretchReleaseAnimator.addUpdateListener(animation -> {
-      float t = (float) animation.getAnimatedValue();
-      stretchX *= t;
-      stretchY *= t;
-      editor.invalidate();
-    });
+    stretchReleaseAnimator.addUpdateListener(
+        animation -> {
+          float t = (float) animation.getAnimatedValue();
+          stretchX *= t;
+          stretchY *= t;
+          editor.invalidate();
+        });
     stretchReleaseAnimator.start();
   }
 

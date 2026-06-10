@@ -1,7 +1,9 @@
-package com.yn.sodiumeditor.core.highlight; 
-import com.yn.sodiumeditor.SodiumEditor;
+package com.yn.sodiumeditor.core.highlight;
+
 import android.graphics.Paint;
 import androidx.annotation.Nullable;
+import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.renderer.TextRender;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -12,11 +14,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import com.yn.sodiumeditor.renderer.TextRender;
-/**
- * Manages path underlining for the SodiumEditor.
- * Detects and underlines file paths in text.
- */
+
+/** Manages path underlining for the SodiumEditor. Detects and underlines file paths in text. */
 public class PathUnderline {
 
   private final SodiumEditor editor;
@@ -30,7 +29,8 @@ public class PathUnderline {
   public final LinkedHashMap<Integer, List<TextRender.UnderlineSpan>> pathUnderlineCache =
       new LinkedHashMap<Integer, List<TextRender.UnderlineSpan>>(1000, 0.75f, true) {
         @Override
-        protected boolean removeEldestEntry(Map.Entry<Integer, List<TextRender.UnderlineSpan>> eldest) {
+        protected boolean removeEldestEntry(
+            Map.Entry<Integer, List<TextRender.UnderlineSpan>> eldest) {
           return size() > 1000;
         }
       };
@@ -43,9 +43,7 @@ public class PathUnderline {
     this.editor = editor;
   }
 
-  /**
-   * Enables or disables path underlining.
-   */
+  /** Enables or disables path underlining. */
   public void setPathUnderliningEnabled(boolean enabled) {
     if (this.isPathUnderliningEnabled == enabled) return;
     this.isPathUnderliningEnabled = enabled;
@@ -53,23 +51,19 @@ public class PathUnderline {
     editor.invalidate();
   }
 
-  /**
-   * Clears path underline cache.
-   */
+  /** Clears path underline cache. */
   public void clearPathUnderlineCache() {
     pathUnderlineCache.clear();
   }
 
-  /**
-   * Clears path underline cache for a specific line.
-   */
+  /** Clears path underline cache for a specific line. */
   public void clearPathUnderlineCacheForLine(int line) {
     pathUnderlineCache.remove(line);
   }
 
   /**
-   * Gets path underline spans for a line.
-   * Only returns spans for paths that have been validated as existing.
+   * Gets path underline spans for a line. Only returns spans for paths that have been validated as
+   * existing.
    */
   public List<TextRender.UnderlineSpan> getPathUnderlineSpansForLine(String line, int globalLine) {
     if (!isPathUnderliningEnabled || pathUnderlinePattern == null) {
@@ -110,41 +104,31 @@ public class PathUnderline {
     return spans;
   }
 
-  /**
-   * Ensures path underline cache for a line.
-   */
+  /** Ensures path underline cache for a line. */
   public void ensurePathUnderlineCacheForLine(String line, int globalLine) {
     if (!isPathUnderliningEnabled || pathUnderlinePattern == null) return;
     if (pathUnderlineCache.get(globalLine) != null) return;
     getPathUnderlineSpansForLine(line, globalLine);
   }
 
-  /**
-   * Invalidates path underline cache for a line (e.g., when file system changes).
-   */
+  /** Invalidates path underline cache for a line (e.g., when file system changes). */
   public void invalidatePathUnderlineCacheForLine(int line) {
     pathUnderlineCache.remove(line);
   }
 
-  /**
-   * Clears all path underline caches and validation cache.
-   */
+  /** Clears all path underline caches and validation cache. */
   public void clearAllCaches() {
     pathUnderlineCache.clear();
     pathValidationCache.clear();
     pendingPathValidations.clear();
   }
 
-  /**
-   * Checks if path underlining is active.
-   */
+  /** Checks if path underlining is active. */
   public boolean isPathUnderliningActive() {
     return isPathUnderliningEnabled && pathUnderlinePattern != null;
   }
 
-  /**
-   * Validates a path in the background.
-   */
+  /** Validates a path in the background. */
   public void validatePathInBackground(final String path, final int lineToInvalidate) {
     // Avoid queueing the same path if it's already being checked
     if (pendingPathValidations.contains(path)) {
@@ -177,9 +161,7 @@ public class PathUnderline {
         });
   }
 
-  /**
-   * Gets the path underline paint.
-   */
+  /** Gets the path underline paint. */
   public Paint getPathUnderlinePaint() {
     return pathUnderlineTmpPaint;
   }

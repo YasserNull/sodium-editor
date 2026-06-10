@@ -3,14 +3,10 @@ package com.yn.sodiumeditor.input.events;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
-import android.graphics.RectF;
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.scroll.Popup;
 
-/**
- * OnTouch handles all touch event logic for SodiumEditor by delegating to specialized handlers.
- */
+/** OnTouch handles all touch event logic for SodiumEditor by delegating to specialized handlers. */
 public class OnTouch {
 
   private final SodiumEditor editor;
@@ -59,7 +55,8 @@ public class OnTouch {
       return true;
     }
 
-    if (editor.onTouch.hadMultiTouch && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL)) {
+    if (editor.onTouch.hadMultiTouch
+        && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL)) {
       editor.onTouch.pointerDown = false;
       editor.selectionHandles.draggingHandle = 0;
       editor.selection.selecting = false;
@@ -83,7 +80,8 @@ public class OnTouch {
         editor.onTouch.downY = ey;
         editor.onTouch.movedSinceDown = false;
         editor.autoCompletion.suggestionAcceptedThisTouch = false;
-        editor.scroll.dragMaxScrollX = editor.wordWrap.isWordWrapEnabled ? -1f : editor.scroll.getMaxScrollXForClamp();
+        editor.scroll.dragMaxScrollX =
+            editor.wordWrap.isWordWrapEnabled ? -1f : editor.scroll.getMaxScrollXForClamp();
 
         editor.scroll.showScrollBar();
         if (popupHandler.handleActionDown(event)) return true;
@@ -91,7 +89,8 @@ public class OnTouch {
 
         if (!editor.scroll.scroller.isFinished()) {
           editor.scroll.scroller.computeScrollOffset();
-          editor.scroll.startFlingStopAnimation(editor.scroll.scroller.getCurrX(), editor.scroll.scroller.getCurrY());
+          editor.scroll.startFlingStopAnimation(
+              editor.scroll.scroller.getCurrX(), editor.scroll.scroller.getCurrY());
         } else {
           editor.scroll.cancelFlingStopAnimation();
         }
@@ -103,14 +102,16 @@ public class OnTouch {
 
       case MotionEvent.ACTION_MOVE:
         if (editor.scroll.flingStopAnimator != null) editor.scroll.cancelFlingStopAnimation();
-        if (Math.abs(ex - editor.onTouch.downX) > editor.onTouch.touchSlop || Math.abs(ey - editor.onTouch.downY) > editor.onTouch.touchSlop)
+        if (Math.abs(ex - editor.onTouch.downX) > editor.onTouch.touchSlop
+            || Math.abs(ey - editor.onTouch.downY) > editor.onTouch.touchSlop)
           editor.onTouch.movedSinceDown = true;
 
         if (scrollBarHandler.handleActionMove(event)) return true;
         if (popupHandler.handleActionMove(event)) return true;
 
         if (editor.selection.isLineNumberSelecting) {
-          editor.lineNumber.updateLineNumberSelection(editor.wordWrap.getGlobalLineForY(ey + editor.scroll.scrollY));
+          editor.lineNumber.updateLineNumberSelection(
+              editor.wordWrap.getGlobalLineForY(ey + editor.scroll.scrollY));
           return true;
         }
 
@@ -121,7 +122,8 @@ public class OnTouch {
 
       case MotionEvent.ACTION_UP:
         boolean wasDraggingSelectionHandle =
-            editor.selectionHandles.draggingHandle == 1 || editor.selectionHandles.draggingHandle == 2;
+            editor.selectionHandles.draggingHandle == 1
+                || editor.selectionHandles.draggingHandle == 2;
         dragSelectionHandler.handleActionUpOrCancel();
         scrollBarHandler.handleActionUpOrCancel();
         editor.scroll.edge.releaseAll();
@@ -159,14 +161,17 @@ public class OnTouch {
         if (editor.onTouch.movedSinceDown && editor.scroll.scroller.isFinished()) {
           if (editor.selection.hasSelection) editor.popup.showPopupAtSelection();
           editor.view.restartInput();
-          if (editor.wordWrap.isWordWrapEnabled && editor.wordWrap.wrapPrefixRebuildPending && !editor.wordWrap.wrapPrefixBuilding) {
+          if (editor.wordWrap.isWordWrapEnabled
+              && editor.wordWrap.wrapPrefixRebuildPending
+              && !editor.wordWrap.wrapPrefixBuilding) {
             editor.wordWrap.wrapPrefixRebuildPending = false;
             editor.wordWrap.scheduleWrapPrefixRebuildUpToWindow();
           }
         }
 
         editor.scroll.gestureDetector.onTouchEvent(event);
-        if (editor.selection.hasSelection && !editor.popup.showPopup) editor.popup.showPopupAtSelection();
+        if (editor.selection.hasSelection && !editor.popup.showPopup)
+          editor.popup.showPopupAtSelection();
         return true;
 
       case MotionEvent.ACTION_CANCEL:
@@ -182,7 +187,9 @@ public class OnTouch {
         editor.scroll.dragMaxScrollX = -1f;
         editor.scroll.edge.releaseAll();
         editor.scroll.stretch.releaseStretch();
-        if (editor.scroll.bar.fadeEnabled) editor.caret.mainHandler.removeCallbacks(editor.scroll.bar.hideRunnable);        editor.scroll.gestureDetector.onTouchEvent(event);
+        if (editor.scroll.bar.fadeEnabled)
+          editor.caret.mainHandler.removeCallbacks(editor.scroll.bar.hideRunnable);
+        editor.scroll.gestureDetector.onTouchEvent(event);
         return true;
     }
 
@@ -190,14 +197,22 @@ public class OnTouch {
   }
 
   private boolean handleSuggestionTap(float ex, float ey) {
-    com.yn.sodiumeditor.io.EditOp.CursorTarget target = editor.wordWrap.getCursorTargetForPosition(ex, ey, null);
+    com.yn.sodiumeditor.io.EditOp.CursorTarget target =
+        editor.wordWrap.getCursorTargetForPosition(ex, ey, null);
     String ln = editor.windowRender.getLineTextForRender(target.line);
     int charIndex = Math.max(0, Math.min(target.ch, (ln == null) ? 0 : ln.length()));
     boolean isEmptyArea = (ln == null || ln.isEmpty() || charIndex >= ln.length());
 
-    boolean allowSuggestionTap = editor.autoCompletion.activeSuggestionIsPath ? editor.autoPathCompletion.isAutoPathCompletionEnabled : editor.autoCompletion.isAutoCompletionEnabled;
-    if (!editor.onTouch.movedSinceDown && allowSuggestionTap && editor.autoCompletion.activeSuggestion != null && !editor.autoCompletion.activeSuggestionRect.isEmpty()) {
-      if (editor.autoCompletion.activeSuggestionRect.contains(ex, ey) || (isEmptyArea && target.line == editor.cursor.cursorLine)) {
+    boolean allowSuggestionTap =
+        editor.autoCompletion.activeSuggestionIsPath
+            ? editor.autoPathCompletion.isAutoPathCompletionEnabled
+            : editor.autoCompletion.isAutoCompletionEnabled;
+    if (!editor.onTouch.movedSinceDown
+        && allowSuggestionTap
+        && editor.autoCompletion.activeSuggestion != null
+        && !editor.autoCompletion.activeSuggestionRect.isEmpty()) {
+      if (editor.autoCompletion.activeSuggestionRect.contains(ex, ey)
+          || (isEmptyArea && target.line == editor.cursor.cursorLine)) {
         if (editor.autoCompletion.activeSuggestionIsPath) {
           editor.autoPathCompletion.acceptPathCompletion();
         } else {
@@ -210,7 +225,17 @@ public class OnTouch {
     return false;
   }
 
-  public void drawSelectionSegment(Canvas canvas, float left, float top, float right, float bottom, boolean roundTopLeft, boolean roundTopRight, boolean roundBottomRight, boolean roundBottomLeft, Paint paint) {
+  public void drawSelectionSegment(
+      Canvas canvas,
+      float left,
+      float top,
+      float right,
+      float bottom,
+      boolean roundTopLeft,
+      boolean roundTopRight,
+      boolean roundBottomRight,
+      boolean roundBottomLeft,
+      Paint paint) {
     if (right <= left || bottom <= top) return;
     float radius = Math.min(12f, Math.max(2f, editor.textRender.lineHeight * 0.22f));
     float insetX = 0.5f;
@@ -219,10 +244,21 @@ public class OnTouch {
       canvas.drawRect(editor.selection.selectionRectTmp, paint);
       return;
     }
-    float tl = roundTopLeft ? radius : 0f, tr = roundTopRight ? radius : 0f, br = roundBottomRight ? radius : 0f, bl = roundBottomLeft ? radius : 0f;
-    editor.selection.selectionRadiiTmp[0] = tl; editor.selection.selectionRadiiTmp[1] = tl; editor.selection.selectionRadiiTmp[2] = tr; editor.selection.selectionRadiiTmp[3] = tr;
-    editor.selection.selectionRadiiTmp[4] = br; editor.selection.selectionRadiiTmp[5] = br; editor.selection.selectionRadiiTmp[6] = bl; editor.selection.selectionRadiiTmp[7] = bl;
-    editor.selection.selectionPathTmp.reset(); editor.selection.selectionPathTmp.addRoundRect(editor.selection.selectionRectTmp, editor.selection.selectionRadiiTmp, Path.Direction.CW);
+    float tl = roundTopLeft ? radius : 0f,
+        tr = roundTopRight ? radius : 0f,
+        br = roundBottomRight ? radius : 0f,
+        bl = roundBottomLeft ? radius : 0f;
+    editor.selection.selectionRadiiTmp[0] = tl;
+    editor.selection.selectionRadiiTmp[1] = tl;
+    editor.selection.selectionRadiiTmp[2] = tr;
+    editor.selection.selectionRadiiTmp[3] = tr;
+    editor.selection.selectionRadiiTmp[4] = br;
+    editor.selection.selectionRadiiTmp[5] = br;
+    editor.selection.selectionRadiiTmp[6] = bl;
+    editor.selection.selectionRadiiTmp[7] = bl;
+    editor.selection.selectionPathTmp.reset();
+    editor.selection.selectionPathTmp.addRoundRect(
+        editor.selection.selectionRectTmp, editor.selection.selectionRadiiTmp, Path.Direction.CW);
     canvas.drawPath(editor.selection.selectionPathTmp, paint);
   }
 }

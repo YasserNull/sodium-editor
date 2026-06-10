@@ -3,14 +3,12 @@ package com.yn.sodiumeditor.utils;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.guides.bracket.BracketGuideState;
 import com.yn.sodiumeditor.core.guides.bracket.BracketGuideToken;
-import com.yn.sodiumeditor.core.highlight.Highlite;
+import com.yn.sodiumeditor.core.highlight.Highlight;
 import com.yn.sodiumeditor.renderer.draw.BracketGuideDraw;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Scans lines for bracket guide tokens and span calculation.
- */
+/** Scans lines for bracket guide tokens and span calculation. */
 public class BracketGuideScanner {
   private final SodiumEditor editor;
   private final BracketGuideDraw bracketGuideDraw;
@@ -23,7 +21,9 @@ public class BracketGuideScanner {
     char[] brackets = new char[32];
     public int size = 0;
 
-    public void clear() { size = 0; }
+    public void clear() {
+      size = 0;
+    }
 
     public void push(int column, int guideStartLine, int openLine, char bracket) {
       if (size >= columns.length) {
@@ -48,12 +48,25 @@ public class BracketGuideScanner {
       size++;
     }
 
-    public void pop() { if (size > 0) size--; }
+    public void pop() {
+      if (size > 0) size--;
+    }
 
-    public int topColumn() { return columns[size - 1]; }
-    public int topStartLine() { return startLines[size - 1]; }
-    public int topOpenLine() { return openLines[size - 1]; }
-    public char topBracket() { return brackets[size - 1]; }
+    public int topColumn() {
+      return columns[size - 1];
+    }
+
+    public int topStartLine() {
+      return startLines[size - 1];
+    }
+
+    public int topOpenLine() {
+      return openLines[size - 1];
+    }
+
+    public char topBracket() {
+      return brackets[size - 1];
+    }
 
     public int findNearestOpenParenIndex() {
       for (int i = size - 1; i >= 0; i--) {
@@ -82,16 +95,16 @@ public class BracketGuideScanner {
     this.bracketGuideDraw = bracketGuideDraw;
   }
 
-  /**
-   * Updates bracket guide state for a line.
-   */
+  /** Updates bracket guide state for a line. */
   public List<BracketGuideToken> updateBracketGuideStateForLine(
       String line, int globalLine, BracketGuideState state) {
     if (line == null) line = "";
     int length = line.length();
     int firstNonSpace = com.yn.sodiumeditor.utils.TextUtils.getFirstNonSpaceIndex(line);
 
-    if (state.stringState != 0 && !editor.highlite.isMultiLineStringsEnabled && state.stringState != com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_TRIPLE) {
+    if (state.stringState != 0
+        && !editor.highlight.isMultiLineStringsEnabled
+        && state.stringState != com.yn.sodiumeditor.core.highlight.Highlight.STRING_STATE_TRIPLE) {
       state.stringState = 0;
     }
 
@@ -104,7 +117,7 @@ public class BracketGuideScanner {
       if (inLineComment) break;
 
       if (state.inBlockComment) {
-        int end = Highlite.findBlockCommentEnd(line, i);
+        int end = Highlight.findBlockCommentEnd(line, i);
         if (end < 0) break;
         i = end + 2;
         state.inBlockComment = false;
@@ -113,7 +126,7 @@ public class BracketGuideScanner {
 
       if (state.stringState != 0) {
         com.yn.sodiumeditor.core.StringEndResult endResult =
-            editor.highlite.findStringEndForState(line, i, state.stringState);
+            editor.highlight.findStringEndForState(line, i, state.stringState);
         if (!endResult.found) {
           i = length;
           break;
@@ -123,17 +136,17 @@ public class BracketGuideScanner {
         continue;
       }
 
-      if (editor.highlite.isLineCommentStart(line, i)) {
+      if (editor.highlight.isLineCommentStart(line, i)) {
         inLineComment = true;
         break;
       }
 
-      if (editor.highlite.isBlockCommentsEnabled
+      if (editor.highlight.isBlockCommentsEnabled
           && i + 1 < length
           && line.charAt(i) == '/'
           && line.charAt(i + 1) == '*'
-          && !Highlite.isTokenEscaped(line, i)) {
-        int end = Highlite.findBlockCommentEnd(line, i + 2);
+          && !Highlight.isTokenEscaped(line, i)) {
+        int end = Highlight.findBlockCommentEnd(line, i + 2);
         if (end < 0) {
           state.inBlockComment = true;
           break;
@@ -142,11 +155,11 @@ public class BracketGuideScanner {
         continue;
       }
 
-      if (editor.highlite.isTripleQuoteStart(line, i) && !Highlite.isEscaped(line, i)) {
-        int end = Highlite.findTripleQuoteEnd(line, i + 3);
+      if (editor.highlight.isTripleQuoteStart(line, i) && !Highlight.isEscaped(line, i)) {
+        int end = Highlight.findTripleQuoteEnd(line, i + 3);
         if (end < 0) {
-          if (editor.highlite.isTripleQuoteStringsEnabled) {
-            state.stringState = com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_TRIPLE;
+          if (editor.highlight.isTripleQuoteStringsEnabled) {
+            state.stringState = com.yn.sodiumeditor.core.highlight.Highlight.STRING_STATE_TRIPLE;
           }
           break;
         }
@@ -155,11 +168,11 @@ public class BracketGuideScanner {
       }
 
       char c = line.charAt(i);
-      if (editor.highlite.isStringDelimiter(c) && !Highlite.isEscaped(line, i)) {
-        int end = Highlite.findStringEnd(line, i + 1, c);
+      if (editor.highlight.isStringDelimiter(c) && !Highlight.isEscaped(line, i)) {
+        int end = Highlight.findStringEnd(line, i + 1, c);
         if (end < 0) {
-          if (editor.highlite.isMultiLineStringsEnabled) {
-            state.stringState = editor.highlite.getStringStateForDelimiter(c);
+          if (editor.highlight.isMultiLineStringsEnabled) {
+            state.stringState = editor.highlight.getStringStateForDelimiter(c);
           }
           break;
         }
@@ -167,7 +180,8 @@ public class BracketGuideScanner {
         continue;
       }
 
-      if ((c == '{' || c == '}' || c == '(' || c == ')' || c == '[' || c == ']') && !Highlite.isEscaped(line, i)) {
+      if ((c == '{' || c == '}' || c == '(' || c == ')' || c == '[' || c == ']')
+          && !Highlight.isEscaped(line, i)) {
         if (c == '{' || c == '(' || c == '[') {
           int column = getOpeningBracketGuideColumn(i, firstNonSpace);
           float x = bracketGuideDraw.getGuideX(line, column, globalLine);
@@ -187,15 +201,16 @@ public class BracketGuideScanner {
     return tokensToDraw;
   }
 
-  /**
-   * Scans a line for spans (used by span cache).
-   */
-  public void scanLineForSpans(String line, int globalLine, BracketSpanScanState state, SpanCollector collector) {
+  /** Scans a line for spans (used by span cache). */
+  public void scanLineForSpans(
+      String line, int globalLine, BracketSpanScanState state, SpanCollector collector) {
     if (line == null) line = "";
     int length = line.length();
     int firstNonSpace = com.yn.sodiumeditor.utils.TextUtils.getFirstNonSpaceIndex(line);
 
-    if (state.stringState != 0 && !editor.highlite.isMultiLineStringsEnabled && state.stringState != com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_TRIPLE) {
+    if (state.stringState != 0
+        && !editor.highlight.isMultiLineStringsEnabled
+        && state.stringState != com.yn.sodiumeditor.core.highlight.Highlight.STRING_STATE_TRIPLE) {
       state.stringState = 0;
     }
 
@@ -206,7 +221,7 @@ public class BracketGuideScanner {
       if (inLineComment) break;
 
       if (state.inBlockComment) {
-        int end = Highlite.findBlockCommentEnd(line, i);
+        int end = Highlight.findBlockCommentEnd(line, i);
         if (end < 0) break;
         i = end + 2;
         state.inBlockComment = false;
@@ -215,7 +230,7 @@ public class BracketGuideScanner {
 
       if (state.stringState != 0) {
         com.yn.sodiumeditor.core.StringEndResult endResult =
-            editor.highlite.findStringEndForState(line, i, state.stringState);
+            editor.highlight.findStringEndForState(line, i, state.stringState);
         if (!endResult.found) {
           i = length;
           break;
@@ -225,17 +240,17 @@ public class BracketGuideScanner {
         continue;
       }
 
-      if (editor.highlite.isLineCommentStart(line, i)) {
+      if (editor.highlight.isLineCommentStart(line, i)) {
         inLineComment = true;
         break;
       }
 
-      if (editor.highlite.isBlockCommentsEnabled
+      if (editor.highlight.isBlockCommentsEnabled
           && i + 1 < length
           && line.charAt(i) == '/'
           && line.charAt(i + 1) == '*'
-          && !Highlite.isTokenEscaped(line, i)) {
-        int end = Highlite.findBlockCommentEnd(line, i + 2);
+          && !Highlight.isTokenEscaped(line, i)) {
+        int end = Highlight.findBlockCommentEnd(line, i + 2);
         if (end < 0) {
           state.inBlockComment = true;
           break;
@@ -244,11 +259,11 @@ public class BracketGuideScanner {
         continue;
       }
 
-      if (editor.highlite.isTripleQuoteStart(line, i) && !Highlite.isEscaped(line, i)) {
-        int end = Highlite.findTripleQuoteEnd(line, i + 3);
+      if (editor.highlight.isTripleQuoteStart(line, i) && !Highlight.isEscaped(line, i)) {
+        int end = Highlight.findTripleQuoteEnd(line, i + 3);
         if (end < 0) {
-          if (editor.highlite.isTripleQuoteStringsEnabled) {
-            state.stringState = com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_TRIPLE;
+          if (editor.highlight.isTripleQuoteStringsEnabled) {
+            state.stringState = com.yn.sodiumeditor.core.highlight.Highlight.STRING_STATE_TRIPLE;
           }
           break;
         }
@@ -257,11 +272,11 @@ public class BracketGuideScanner {
       }
 
       char c = line.charAt(i);
-      if (editor.highlite.isStringDelimiter(c) && !Highlite.isEscaped(line, i)) {
-        int end = Highlite.findStringEnd(line, i + 1, c);
+      if (editor.highlight.isStringDelimiter(c) && !Highlight.isEscaped(line, i)) {
+        int end = Highlight.findStringEnd(line, i + 1, c);
         if (end < 0) {
-          if (editor.highlite.isMultiLineStringsEnabled) {
-            state.stringState = editor.highlite.getStringStateForDelimiter(c);
+          if (editor.highlight.isMultiLineStringsEnabled) {
+            state.stringState = editor.highlight.getStringStateForDelimiter(c);
           }
           break;
         }
@@ -269,7 +284,8 @@ public class BracketGuideScanner {
         continue;
       }
 
-      if ((c == '{' || c == '}' || c == '(' || c == ')' || c == '[' || c == ']') && !Highlite.isEscaped(line, i)) {
+      if ((c == '{' || c == '}' || c == '(' || c == ')' || c == '[' || c == ']')
+          && !Highlight.isEscaped(line, i)) {
         if (state.pendingParen && c != '{') {
           int spanStart = state.pendingParenOpenLine + 1;
           int spanEnd = state.pendingParenCloseLine - 1;
@@ -325,9 +341,7 @@ public class BracketGuideScanner {
     return (firstNonSpace >= 0) ? firstNonSpace : bracketIndex;
   }
 
-  /**
-   * Gets guide tokens from stack.
-   */
+  /** Gets guide tokens from stack. */
   public static List<BracketGuideToken> getGuideTokensFromStack(
       java.util.ArrayDeque<BracketGuideToken> stack) {
     List<BracketGuideToken> tokens = new ArrayList<>();
@@ -337,9 +351,7 @@ public class BracketGuideScanner {
     return tokens;
   }
 
-  /**
-   * Copy bracket guide state.
-   */
+  /** Copy bracket guide state. */
   public static BracketGuideState copyState(BracketGuideState src) {
     BracketGuideState out = new BracketGuideState(src.inBlockComment, src.stringState);
     for (BracketGuideToken token : src.stack) {
@@ -348,9 +360,7 @@ public class BracketGuideScanner {
     return out;
   }
 
-  /**
-   * Gets line text for guide scanning.
-   */
+  /** Gets line text for guide scanning. */
   public String getLineTextForGuideScan(
       int line, java.util.Map<Integer, String> directLines, java.io.RandomAccessFile raf) {
     if (directLines != null) {
@@ -380,9 +390,7 @@ public class BracketGuideScanner {
     return "";
   }
 
-  /**
-   * Span collector for building span cache.
-   */
+  /** Span collector for building span cache. */
   public static final class SpanCollector {
     public int[] columns;
     public int[] startLines;

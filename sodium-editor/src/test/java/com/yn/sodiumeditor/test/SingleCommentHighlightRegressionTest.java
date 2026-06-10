@@ -11,35 +11,39 @@ import org.junit.Test;
 public class SingleCommentHighlightRegressionTest {
 
   @Test
-  public void setSingleCommentsHighlite_shouldRegisterDelimiterAndPaintRule() throws Exception {
-    String highlite = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/Highlite.java");
+  public void setSingleCommentsHighlight_shouldRegisterDelimiterAndPaintRule() throws Exception {
+    String highlight =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/Highlight.java");
     String parser =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/HighlightParser.java");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/HighlightParser.java");
 
-    assertTrue(highlite.contains("setSingleCommentsHighlite"));
-    assertTrue(highlite.contains("isSyntaxHighlightingEnabled = true;"));
-    assertTrue(highlite.contains("setSingleLineCommentSyntax(true, style, color, delimiter)"));
-    assertTrue(highlite.contains("setSingleLineCommentDelimiters(delimiters)"));
-    assertTrue(highlite.contains("rules.lineCommentHighlightRule = lineCommentHighlightRule"));
-    assertTrue(highlite.contains("highlightRules.add(lineCommentHighlightRule)"));
-    assertTrue(highlite.contains("highlightRules.remove(lineCommentHighlightRule)"));
+    assertTrue(highlight.contains("setSingleCommentsHighlight"));
+    assertTrue(highlight.contains("isSyntaxHighlightingEnabled = true;"));
+    assertTrue(highlight.contains("setSingleLineCommentSyntax(true, style, color, delimiter)"));
+    assertTrue(highlight.contains("setSingleLineCommentDelimiters(delimiters)"));
+    assertTrue(highlight.contains("rules.lineCommentHighlightRule = lineCommentHighlightRule"));
+    assertTrue(highlight.contains("highlightRules.add(lineCommentHighlightRule)"));
+    assertTrue(highlight.contains("highlightRules.remove(lineCommentHighlightRule)"));
     assertTrue(parser.contains("isLineCommentStart(line, i)"));
-    assertTrue(parser.contains("highlite.rules.lineCommentHighlightRule.paint"));
-    assertTrue(parser.contains("new HighliteRender.HighlightSpan(i, len, p)"));
+    assertTrue(parser.contains("highlight.rules.lineCommentHighlightRule.paint"));
+    assertTrue(parser.contains("new HighlightRender.HighlightSpan(i, len, p)"));
   }
 
   @Test
   public void singleCommentOnlyHighlight_shouldNotBeSkippedAsEmptyRules() throws Exception {
     String rules =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/HighlightRules.java");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/HighlightRules.java");
     String renderer =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/HighliteRender.java");
-    String highlite = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/Highlite.java");
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/HighlightRender.java");
+    String highlight =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/Highlight.java");
 
     assertTrue(rules.contains("lineCommentHighlightRule == null"));
-    assertTrue(renderer.contains("editor.highlite.rules.isEmpty()"));
-    assertTrue(highlite.contains("rules.isEmpty()"));
-    assertTrue(!renderer.contains("editor.highlite.highlightRules.isEmpty()"));
+    assertTrue(renderer.contains("editor.highlight.rules.isEmpty()"));
+    assertTrue(highlight.contains("rules.isEmpty()"));
+    assertTrue(!renderer.contains("editor.highlight.highlightRules.isEmpty()"));
   }
 
   private static String readSource(String rel) throws Exception {

@@ -18,11 +18,16 @@ public class ColorCodeHighlightGuardTest {
         readSource(
             "sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/ColorCodeHighlight.java");
     String pattern = fieldInitializer(src, "public static final Pattern COLOR_HEX_PATTERN");
-    String body = methodBody(src, "drawColorCodeBackgrounds(Canvas canvas, String line, int globalLine)");
+    String body =
+        methodBody(src, "drawColorCodeBackgrounds(Canvas canvas, String line, int globalLine)");
 
     assertTrue("BUG: color code pattern must detect short #RGB colors.", pattern.contains("{3,4}"));
-    assertTrue("BUG: color code pattern must detect #RRGGBB and #AARRGGBB colors.", pattern.contains("{6}"));
-    assertTrue("BUG: color code pattern must detect 0xRRGGBB and 0xAARRGGBB colors.", pattern.contains("0x"));
+    assertTrue(
+        "BUG: color code pattern must detect #RRGGBB and #AARRGGBB colors.",
+        pattern.contains("{6}"));
+    assertTrue(
+        "BUG: color code pattern must detect 0xRRGGBB and 0xAARRGGBB colors.",
+        pattern.contains("0x"));
     assertTrue(
         "BUG: 0xRRGGBB color codes must be made opaque before drawing.",
         src.contains("if (hex.length() == 6) hex = \"FF\" + hex"));
@@ -36,7 +41,8 @@ public class ColorCodeHighlightGuardTest {
             && src.contains("tmp.add(backgroundColor)")
             && src.contains("colorCodeBgCache.put(globalLine, triples)"));
     assertTrue(
-        "BUG: color code drawing must measure exact text bounds and draw a rectangle over the literal.",
+        "BUG: color code drawing must measure exact text bounds and draw a rectangle over the"
+            + " literal.",
         body.contains("editor.textRender.measureText(line, start, globalLine)")
             && body.contains("editor.textRender.measureText(line, end, globalLine)")
             && body.contains("canvas.drawRect(left, top, right, bottom, colorOverlayPaint)"));
@@ -45,11 +51,11 @@ public class ColorCodeHighlightGuardTest {
   @Test
   public void drawColorCodeBackgrounds_shouldBeCalledFromViewRenderDrawLoop() throws Exception {
     String src =
-        readSource(
-            "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/ViewRender.java");
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/ViewRender.java");
     String drawLoop = methodBody(src, "void drawTextContent(Canvas canvas,");
     assertTrue(
-        "BUG: drawColorCodeBackgrounds must be called in the render loop, otherwise color swatches are never drawn.",
+        "BUG: drawColorCodeBackgrounds must be called in the render loop, otherwise color swatches"
+            + " are never drawn.",
         drawLoop.contains("drawColorCodeBackgrounds(canvas, line, i)"));
   }
 
@@ -58,7 +64,8 @@ public class ColorCodeHighlightGuardTest {
     String src =
         readSource(
             "sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/ColorCodeHighlight.java");
-    String body = methodBody(src, "drawColorCodeBackgrounds(Canvas canvas, String line, int globalLine)");
+    String body =
+        methodBody(src, "drawColorCodeBackgrounds(Canvas canvas, String line, int globalLine)");
 
     assertTrue(
         "BUG: color code drawing should skip obvious non-color lines before regex work.",
@@ -73,17 +80,17 @@ public class ColorCodeHighlightGuardTest {
     String colorCode =
         readSource(
             "sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/ColorCodeHighlight.java");
-    String highlite =
-        readSource(
-            "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/HighliteRender.java");
+    String highlight =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/HighlightRender.java");
 
     assertTrue(
-        "BUG: color-code scanner must expose cached literal ranges so syntax text coloring can skip them.",
+        "BUG: color-code scanner must expose cached literal ranges so syntax text coloring can skip"
+            + " them.",
         colorCode.contains("getColorCodeSpansForLine(String line, int globalLine)"));
     assertTrue(
         "BUG: highlighted text drawing must mask color-code ranges before applying syntax spans.",
-        highlite.contains("maskColorCodeSpans(line, globalLine, spans)")
-            && highlite.contains("drawSyntaxSpansMaskedByColorCodes("));
+        highlight.contains("maskColorCodeSpans(line, globalLine, spans)")
+            && highlight.contains("drawSyntaxSpansMaskedByColorCodes("));
   }
 
   private static String fieldInitializer(String src, String fieldPrefix) {

@@ -18,7 +18,8 @@ public class SelectAllDeleteSaveUndoRaceGuardTest {
             "sodium-editor/src/main/java/com/yn/sodiumeditor/core/selection/SelectionActionHandler.java");
 
     assertDeferredCleanupUsesVersionOnly(src, "public void deleteEntireFileSelectionFast()");
-    assertDeferredCleanupUsesVersionOnly(src, "public void replaceEntireFileSelectionFast(String insertText)");
+    assertDeferredCleanupUsesVersionOnly(
+        src, "public void replaceEntireFileSelectionFast(String insertText)");
   }
 
   @Test
@@ -27,11 +28,13 @@ public class SelectAllDeleteSaveUndoRaceGuardTest {
     String body = methodBody(src, "public void invalidatePendingIOVersionForEdit()");
 
     assertTrue(
-        "BUG: deferred fast-delete cleanup may invalidate stale reads, but must not remove queued Save IO.",
-        body.contains("ioTaskVersion.incrementAndGet()") && !body.contains("removeCallbacksAndMessages"));
+        "BUG: deferred fast-delete cleanup may invalidate stale reads, but must not remove queued"
+            + " Save IO.",
+        body.contains("ioTaskVersion.incrementAndGet()")
+            && !body.contains("removeCallbacksAndMessages"));
     assertTrue(
         "Expected edit cleanup to keep highlight caches invalidated.",
-        body.contains("editor.highlite.clearHighlightCaches()"));
+        body.contains("editor.highlight.clearHighlightCaches()"));
   }
 
   private static void assertDeferredCleanupUsesVersionOnly(String src, String signature) {

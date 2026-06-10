@@ -36,28 +36,32 @@ public class BinaryFileFeaturePolicyGuardTest {
     String magicBody = methodBody(src, "hasKnownBinaryMagic(byte[] buffer, int len)");
 
     assertTrue(
-        "BUG: ELF files must be treated as binary by magic bytes, independent of threshold heuristics.",
+        "BUG: ELF files must be treated as binary by magic bytes, independent of threshold"
+            + " heuristics.",
         magicBody.contains("b0 == 0x7F && b1 == 'E' && b2 == 'L' && b3 == 'F'"));
     assertTrue(
         "BUG: binary detection must check magic bytes before printable-ratio heuristics.",
-        detectBody.indexOf("hasKnownBinaryMagic(buffer, bytesRead)") < detectBody.indexOf("int nonPrintableCount"));
+        detectBody.indexOf("hasKnownBinaryMagic(buffer, bytesRead)")
+            < detectBody.indexOf("int nonPrintableCount"));
     assertTrue(
         "BUG: NUL bytes in ELF/object files must count as non-printable, not be ignored.",
-        detectBody.contains("if (b == 0 || b < 9 || (b > 13 && b < 32) || b == 127) nonPrintableCount++"));
+        detectBody.contains(
+            "if (b == 0 || b < 9 || (b > 13 && b < 32) || b == 127) nonPrintableCount++"));
   }
 
   @Test
   public void binaryFeaturePolicy_shouldDisableDecorationsAndAnalysisFeatures() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/BinaryRender.java");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/BinaryRender.java");
     String body = methodBody(src, "applyBinaryFileFeaturePolicy(boolean active)");
 
     assertTrue(body.contains("setBinarySafeRenderingEnabled(false, false)"));
-    assertTrue(body.contains("editor.highlite.isSyntaxHighlightingEnabled = false"));
+    assertTrue(body.contains("editor.highlight.isSyntaxHighlightingEnabled = false"));
     assertTrue(body.contains("editor.colorCodeHighlight.setColorCodeHighlightingEnabled(false)"));
     assertTrue(body.contains("editor.urlUnderline.setUrlUnderliningEnabled(false)"));
     assertTrue(body.contains("editor.pathUnderline.setPathUnderliningEnabled(false)"));
     assertTrue(body.contains("editor.errorUnderline.setErrorUnderlineEnabled(false)"));
-    assertTrue(body.contains("editor.bracketMatchManager.setBracketMatchingEnabled(false)"));
+    assertTrue(body.contains("editor.symbolsMatch.setSymbolsMatchingEnabled(false)"));
     assertTrue(body.contains("editor.bracketGuides.setBracketGuidesEnabled(false)"));
     assertTrue(body.contains("editor.indentGuides.setIndentGuidesEnabled(false)"));
     assertTrue(body.contains("editor.whitespaceGuides.setWhitespaceGuidesEnabled(false)"));
@@ -69,13 +73,16 @@ public class BinaryFileFeaturePolicyGuardTest {
   }
 
   @Test
-  public void highlite_shouldKeepRulesButReturnNoSpansWhenSyntaxHighlightingDisabled() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/Highlite.java");
+  public void highlight_shouldKeepRulesButReturnNoSpansWhenSyntaxHighlightingDisabled()
+      throws Exception {
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/Highlight.java");
     String calculateBody = methodBody(src, "calculateSpansForLine(String line, int gl)");
     String getBody = methodBody(src, "getHighlightSpansForLine(String line, int gl)");
 
     assertTrue(
-        "BUG: binary policy should disable syntax highlighting without clearing user highlight rules.",
+        "BUG: binary policy should disable syntax highlighting without clearing user highlight"
+            + " rules.",
         src.contains("public boolean isSyntaxHighlightingEnabled = true"));
     assertTrue(calculateBody.contains("if (!isSyntaxHighlightingEnabled) return spans"));
     assertTrue(getBody.contains("if (!isSyntaxHighlightingEnabled) return new ArrayList<>()"));

@@ -34,16 +34,8 @@ public final class TextUtils {
     if (text == null || text.isEmpty()) return false;
     for (int i = 0; i < text.length(); i++) {
       char c = text.charAt(i);
-      if (c == '{'
-          || c == '}'
-          || c == '('
-          || c == ')'
-          || c == '['
-          || c == ']'
-          || c == '"'
-          || c == '\''
-          || c == '`'
-          || c == '\\') {
+      if (c == '{' || c == '}' || c == '(' || c == ')' || c == '[' || c == ']' || c == '"'
+          || c == '\'' || c == '`' || c == '\\') {
         return true;
       }
     }

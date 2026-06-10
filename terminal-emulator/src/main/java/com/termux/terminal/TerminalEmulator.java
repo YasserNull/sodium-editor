@@ -650,7 +650,7 @@ public final class TerminalEmulator {
       case 0: // Null character (NUL, ^@). Do nothing.
         break;
       case 7: // Bell (BEL, ^G, \a). If in an OSC sequence, BEL may terminate a string; otherwise
-              // signal bell.
+        // signal bell.
         if (mEscapeState == ESC_OSC) doOsc(b);
         else mSession.onBell();
         break;
@@ -685,11 +685,11 @@ public final class TerminalEmulator {
         setCursorCol(mLeftMargin);
         break;
       case 14: // Shift Out (Ctrl-N, SO) → Switch to Alternate Character Set. This invokes the G1
-               // character set.
+        // character set.
         mUseLineDrawingUsesG0 = false;
         break;
       case 15: // Shift In (Ctrl-O, SI) → Switch to Standard Character Set. This invokes the G0
-               // character set.
+        // character set.
         mUseLineDrawingUsesG0 = true;
         break;
       case 24: // CAN.
@@ -1005,7 +1005,7 @@ public final class TerminalEmulator {
             int arg = getArg0(0);
             switch (b) {
               case 'q': // "${CSI}${STYLE} q" - set cursor style
-                        // (http://www.vt100.net/docs/vt510-rm/DECSCUSR).
+                // (http://www.vt100.net/docs/vt510-rm/DECSCUSR).
                 switch (arg) {
                   case 0: // Blinking block.
                   case 1: // Blinking block.
@@ -1378,7 +1378,7 @@ public final class TerminalEmulator {
       case 9: // X10 mouse reporting - outdated. Do not implement.
       case 12: // Control cursor blinking - ignore.
       case 25: // Hide/show cursor - no action needed, renderer will check with
-               // shouldCursorBeVisible().
+        // shouldCursorBeVisible().
         if (mClient != null) mClient.onTerminalCursorStateChange(setting);
         break;
       case 40: // Allow 80 => 132 Mode, ignore.
@@ -1600,7 +1600,7 @@ public final class TerminalEmulator {
         continueSequence(ESC_SELECT_RIGHT_PAREN);
         break;
       case '6': // Back index (http://www.vt100.net/docs/vt510-rm/DECBI). Move left, insert blank
-                // column if start.
+        // column if start.
         if (mCursorCol > mLeftMargin) {
           mCursorCol--;
         } else {
@@ -1623,7 +1623,7 @@ public final class TerminalEmulator {
         restoreCursor();
         break;
       case '9': // Forward Index (http://www.vt100.net/docs/vt510-rm/DECFI). Move right, insert
-                // blank column if end.
+        // blank column if end.
         if (mCursorCol < mRightMargin - 1) {
           mCursorCol++;
         } else {
@@ -1798,7 +1798,7 @@ public final class TerminalEmulator {
         setCursorPosition(getArg1(1) - 1, getArg0(1) - 1);
         break;
       case 'I': // Cursor Horizontal Forward Tabulation (CHT). Move the active position n tabs
-                // forward.
+        // forward.
         setCursorCol(nextTabStop(getArg0(1)));
         break;
       case 'J': // "${CSI}${0,1,2,3}J" - Erase in Display (ED)
@@ -1813,7 +1813,7 @@ public final class TerminalEmulator {
             blockClear(0, mCursorRow, mCursorCol + 1);
             break;
           case 2: // Erase all of the display - all lines are erased, changed to single-width, and
-                  // the cursor does not
+            // the cursor does not
             // move..
             blockClear(0, 0, mColumns, mRows);
             break;
@@ -1913,7 +1913,7 @@ public final class TerminalEmulator {
         }
         break;
       case 'X': // "${CSI}${N}X" - Erase ${N:=1} character(s) (ECH). FIXME: Clears character
-                // attributes?
+        // attributes?
         mAboutToAutoWrap = false;
         mScreen.blockSet(
             mCursorCol,
@@ -1954,7 +1954,7 @@ public final class TerminalEmulator {
         for (int i = 0; i < numRepeat; i++) emitCodePoint(mLastEmittedCodePoint);
         break;
       case 'c': // Primary Device Attributes (http://www.vt100.net/docs/vt510-rm/DA1) if argument is
-                // missing or zero.
+        // missing or zero.
         // The important part that may still be used by some (tmux stores this value but does not
         // currently use it)
         // is the first response parameter identifying the terminal service class, where we send 64
@@ -2044,7 +2044,7 @@ public final class TerminalEmulator {
       case 't': // Window manipulation (from dtterm, as well as extensions)
         switch (getArg0(0)) {
           case 11: // Report xterm window state. If the xterm window is open (non-iconified), it
-                   // returns CSI 1 t .
+            // returns CSI 1 t .
             mSession.write("\033[1t");
             break;
           case 13: // Report xterm window position. Result is CSI 3 ; x ; y t
@@ -2063,21 +2063,21 @@ public final class TerminalEmulator {
                 String.format(Locale.US, "\033[6;%d;%dt", mCellHeightPixels, mCellWidthPixels));
             break;
           case 18: // Report the size of the text area in characters. Result is CSI 8 ; height ;
-                   // width t
+            // width t
             mSession.write(String.format(Locale.US, "\033[8;%d;%dt", mRows, mColumns));
             break;
           case 19: // Report the size of the screen in characters. Result is CSI 9 ; height ; width
-                   // t
+            // t
             // We report the same size as the view, since it's the view really isn't resizable from
             // the shell.
             mSession.write(String.format(Locale.US, "\033[9;%d;%dt", mRows, mColumns));
             break;
           case 20: // Report xterm windows icon label. Result is OSC L label ST. Disabled due to
-                   // security concerns:
+            // security concerns:
             mSession.write("\033]LIconLabel\033\\");
             break;
           case 21: // Report xterm windows title. Result is OSC l label ST. Disabled due to security
-                   // concerns:
+            // concerns:
             mSession.write("\033]l\033\\");
             break;
           case 22:

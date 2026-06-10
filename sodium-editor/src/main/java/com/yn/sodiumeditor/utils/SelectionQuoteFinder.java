@@ -1,13 +1,11 @@
 package com.yn.sodiumeditor.utils;
 
+import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.core.selection.SelectionTextRange;
-import androidx.annotation.Nullable;
 import java.util.ArrayList;
 
-/**
- * Handles quote and bracket finding logic for selection.
- */
+/** Handles quote and bracket finding logic for selection. */
 public class SelectionQuoteFinder {
 
   private final SodiumEditor editor;
@@ -31,12 +29,12 @@ public class SelectionQuoteFinder {
     for (int i = 0; i < len; i++) {
       char c = line.charAt(i);
       if (current == 0) {
-        if (isQuoteChar(c) && !editor.highlite.isEscaped(line, i)) {
+        if (isQuoteChar(c) && !editor.highlight.isEscaped(line, i)) {
           current = c;
           start = i;
         }
       } else {
-        if (c == current && !editor.highlite.isEscaped(line, i)) {
+        if (c == current && !editor.highlight.isEscaped(line, i)) {
           ranges.add(new SelectionTextRange(start, i));
           current = 0;
           start = -1;
@@ -70,12 +68,12 @@ public class SelectionQuoteFinder {
     for (int i = 0; i < len; i++) {
       char c = line.charAt(i);
       if (currentQuote != 0) {
-        if (c == currentQuote && !editor.highlite.isEscaped(line, i)) {
+        if (c == currentQuote && !editor.highlight.isEscaped(line, i)) {
           currentQuote = 0;
         }
         continue;
       }
-      if (isQuoteChar(c) && !editor.highlite.isEscaped(line, i)) {
+      if (isQuoteChar(c) && !editor.highlight.isEscaped(line, i)) {
         currentQuote = c;
         continue;
       }

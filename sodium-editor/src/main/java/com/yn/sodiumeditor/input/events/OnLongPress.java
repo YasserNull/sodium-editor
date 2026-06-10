@@ -2,13 +2,10 @@ package com.yn.sodiumeditor.input.events;
 
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.io.EditOperators;
 import com.yn.sodiumeditor.io.EditOp;
 import java.util.HashMap;
 
-/**
- * OnLongPress handles onLongPress() gesture event for SodiumEditor.
- */
+/** OnLongPress handles onLongPress() gesture event for SodiumEditor. */
 public class OnLongPress {
 
   private final SodiumEditor editor;
@@ -17,9 +14,7 @@ public class OnLongPress {
     this.editor = editor;
   }
 
-  /**
-   * Handle onLongPress event
-   */
+  /** Handle onLongPress event */
   public void onLongPress(MotionEvent e) {
     if (editor.autoCompletion.suggestionAcceptedThisTouch) return;
     if (editor.onTouch.multiTouchActive || editor.onTouch.hadMultiTouch) return;
@@ -33,7 +28,8 @@ public class OnLongPress {
       }
     }
 
-    if (editor.lineNumber.lineNumberSelectionEnabled && editor.lineNumber.isInLineNumberGutter(e.getX())) {
+    if (editor.lineNumber.lineNumberSelectionEnabled
+        && editor.lineNumber.isInLineNumberGutter(e.getX())) {
       float y = e.getY() + editor.scroll.scrollY;
       int line = editor.wordWrap.getGlobalLineForY(y);
       editor.lineNumber.beginLineNumberSelection(line);
@@ -41,7 +37,8 @@ public class OnLongPress {
     }
 
     // Position calculation
-    EditOp.CursorTarget target = editor.wordWrap.getCursorTargetForPosition(e.getX(), e.getY(), null);
+    EditOp.CursorTarget target =
+        editor.wordWrap.getCursorTargetForPosition(e.getX(), e.getY(), null);
     int line = target.line;
     editor.fileIO.ensureLineInWindow(line, true); // Make sure line data is available
 
@@ -55,24 +52,28 @@ public class OnLongPress {
           editor.wordWrap.getWrapSegmentIndexForChar(
               starts, Math.max(0, Math.min(target.ch, ln.length())));
       int segStart = editor.wordWrap.getWrapSegmentStart(starts, seg);
-      xLocal = xLocal + editor.textRender.measureTextWithVisualSpaces(ln, 0, segStart, editor.textRender.paint);
+      xLocal =
+          xLocal
+              + editor.textRender.measureTextWithVisualSpaces(
+                  ln, 0, segStart, editor.textRender.paint);
     }
 
-    float textWidth = editor.textRender.measureTextWithVisualSpaces(ln, 0, ln.length(), editor.textRender.paint);
+    float textWidth =
+        editor.textRender.measureTextWithVisualSpaces(ln, 0, ln.length(), editor.textRender.paint);
     if (xLocal > textWidth) {
       // Correctly clear selection and sync state
       editor.selection.clearSelection();
-      
+
       setCursorFromFoldLongPress(cursorLine, charIndex, ln);
-      
+
       // Record anchor point so finger movement can start selection from here
       editor.selection.beginLongPressSelection(cursorLine, charIndex);
       editor.selection.state.longPressFreeForm = false; // Require movement threshold
       editor.selection.syncFromState();
-      
+
       // Show minimal popup (Paste/Select All)
       editor.popup.showMinimalPopupAtCursor();
-      
+
       editor.caret.resetBlink();
       editor.invalidate();
       editor.ime.showKeyboard();
@@ -135,9 +136,7 @@ public class OnLongPress {
     editor.view.restartInput();
   }
 
-  /**
-   * Called when smart double tap selection fails - delegates to OnSingleTapUp
-   */
+  /** Called when smart double tap selection fails - delegates to OnSingleTapUp */
   public void onSingleTapUpFallback(MotionEvent e, OnSingleTapUp onSingleTapUp) {
     onSingleTapUp.onSingleTapUp(e);
   }

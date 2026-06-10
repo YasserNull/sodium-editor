@@ -12,38 +12,51 @@ public class StringHighlightRuleRegressionTest {
 
   @Test
   public void stringHighlightApi_shouldRegisterDelimiterMultiLineColorAndStyle() throws Exception {
-    String highlite =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/Highlite.java");
+    String highlight =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/Highlight.java");
     String parser =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/HighlightParser.java");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/HighlightParser.java");
     String editor = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/SodiumEditor.java");
 
-    assertTrue(highlite.contains("setStringsHighlite(String delimiter, boolean multiLine, int color, int style)"));
-    assertTrue(highlite.contains("public final LinkedHashMap<String, StringHighlightConfig> stringHighlightConfigs"));
-    assertTrue(highlite.contains("public final boolean multiLine;"));
-    assertTrue(highlite.contains("HighliteRender.HighlightRuleType.STRING"));
+    assertTrue(
+        highlight.contains(
+            "setStringsHighlight(String delimiter, boolean multiLine, int color, int style)"));
+    assertTrue(
+        highlight.contains(
+            "public final LinkedHashMap<String, StringHighlightConfig> stringHighlightConfigs"));
+    assertTrue(highlight.contains("public final boolean multiLine;"));
+    assertTrue(highlight.contains("HighlightRender.HighlightRuleType.STRING"));
     assertTrue(parser.contains("configuredString.multiLine ? configuredString.state : 0"));
     assertTrue(parser.contains("findStringEndForConfig"));
-    assertTrue(editor.contains("setStringsHighlite(String delimiter, boolean multiLine, int color, int style)"));
+    assertTrue(
+        editor.contains(
+            "setStringsHighlight(String delimiter, boolean multiLine, int color, int style)"));
   }
 
   @Test
   public void shellFiles_shouldHighlightSingleAndDoubleQuotedStringsGreen() throws Exception {
     String app = readSource("app/src/main/java/com/yn/sodiumeditordemo/MainActivity.java");
 
-    assertTrue(app.contains("editor.setStringsHighlite(\"\\\"\", true, 0xFF00FF00, FontStyle.STYLE_NORMAL)"));
-    assertTrue(app.contains("editor.setStringsHighlite(\"'\", true, 0xFF00FF00, FontStyle.STYLE_NORMAL)"));
+    assertTrue(
+        app.contains(
+            "editor.setStringsHighlight(\"\\\"\", true, 0xFF00FF00, FontStyle.STYLE_NORMAL)"));
+    assertTrue(
+        app.contains("editor.setStringsHighlight(\"'\", true, 0xFF00FF00, FontStyle.STYLE_NORMAL)"));
   }
 
   @Test
   public void visibleRangeCache_shouldPropagateMultilineStringStateAcrossLines() throws Exception {
     String cache =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/HighlightCacheManager.java");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/HighlightCacheManager.java");
     String body = methodBody(cache, "ensureHighlightCacheForVisibleRange");
 
     assertTrue(
         "BUG: visible range parsing must start from the real state before the first visible line.",
-        body.contains("HighliteRender.HighlightLineState rangeStartState = getLineStateAtStart(startLine)")
+        body.contains(
+                "HighlightRender.HighlightLineState rangeStartState ="
+                    + " getLineStateAtStart(startLine)")
             && body.contains("int strState = rangeStartState.stringState"));
     assertTrue(
         "BUG: cached lines must not be skipped before updating multiline string state.",
@@ -57,29 +70,39 @@ public class StringHighlightRuleRegressionTest {
   @Test
   public void customStringMultiline_shouldNotBeDisabledByLegacyGlobalFlag() throws Exception {
     String parser =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/HighlightParser.java");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/HighlightParser.java");
     String body = methodBody(parser, "parseLineForSyntax");
 
     assertTrue(
-        "BUG: custom setStringsHighlite multiLine=true must be checked before legacy global flags clear strState.",
-        body.indexOf("Highlite.StringHighlightConfig activeStateConfig = highlite.getStringHighlightConfigForState(strState)")
-            < body.indexOf("!highlite.isMultiLineStringsEnabled"));
+        "BUG: custom setStringsHighlight multiLine=true must be checked before legacy global flags"
+            + " clear strState.",
+        body.indexOf(
+                "Highlight.StringHighlightConfig activeStateConfig ="
+                    + " highlight.getStringHighlightConfigForState(strState)")
+            < body.indexOf("!highlight.isMultiLineStringsEnabled"));
     assertTrue(
-        "BUG: legacy multiline/backtick/triple flags must only clear states that do not belong to setStringsHighlite.",
-        body.contains("activeStateConfig == null\n                && strState != 0")
-            && body.contains("activeStateConfig == null\n                && strState == com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_BACKTICK")
-            && body.contains("activeStateConfig == null\n                && strState == com.yn.sodiumeditor.core.highlight.Highlite.STRING_STATE_TRIPLE"));
+        "BUG: legacy multiline/backtick/triple flags must only clear states that do not belong to"
+            + " setStringsHighlight.",
+        body.contains("activeStateConfig == null")
+            && body.contains("&& strState != 0")
+            && body.contains(
+                "&& strState == com.yn.sodiumeditor.core.highlight.Highlight.STRING_STATE_BACKTICK")
+            && body.contains(
+                "&& strState == com.yn.sodiumeditor.core.highlight.Highlight.STRING_STATE_TRIPLE"));
     assertTrue(
-        "BUG: setStringsHighlite multiLine=false should still stop cross-line string state.",
-        body.contains("if (activeStateConfig != null && !activeStateConfig.multiLine) strState = 0;"));
+        "BUG: setStringsHighlight multiLine=false should still stop cross-line string state.",
+        body.contains(
+            "if (activeStateConfig != null && !activeStateConfig.multiLine) strState = 0;"));
   }
 
   @Test
-  public void invalidatingLine_shouldDropFollowingHighlightStateForMultilineStrings() throws Exception {
-    String highlite =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/Highlite.java");
-    String invalidateBody = methodBody(highlite, "invalidateHighlightCacheForLine");
-    String helperBody = methodBody(highlite, "removeCachedHighlightStateFromLine");
+  public void invalidatingLine_shouldDropFollowingHighlightStateForMultilineStrings()
+      throws Exception {
+    String highlight =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/Highlight.java");
+    String invalidateBody = methodBody(highlight, "invalidateHighlightCacheForLine");
+    String helperBody = methodBody(highlight, "removeCachedHighlightStateFromLine");
 
     assertTrue(
         "BUG: editing an opening quote line must invalidate following cached lines too.",
@@ -94,16 +117,17 @@ public class StringHighlightRuleRegressionTest {
 
   @Test
   public void loadingFileWindow_shouldClearStaleHighlightCacheBeforeFirstDraw() throws Exception {
-    String loader = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileWindowLoader.java");
+    String loader =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileWindowLoader.java");
     String body = methodBody(loader, "private void loadWindowInternal");
 
     assertTrue(
         "BUG: opening a file can reuse highlight spans cached for the previous/empty window.",
-        body.contains("editor.highlite.clearHighlightCaches()"));
+        body.contains("editor.highlight.clearHighlightCaches()"));
     assertTrue(
         "BUG: highlight cache must be cleared after replacing linesWindow content.",
         body.indexOf("editor.windowRender.linesWindow.clear()")
-            < body.indexOf("editor.highlite.clearHighlightCaches()"));
+            < body.indexOf("editor.highlight.clearHighlightCaches()"));
   }
 
   private static String readSource(String rel) throws Exception {

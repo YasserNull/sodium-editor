@@ -1,95 +1,46 @@
 package com.yn.sodiumeditor;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.animation.ValueAnimator;
-import android.content.ClipData;
-import android.content.ClipboardManager;
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
-import android.graphics.RectF;
 import android.graphics.Typeface;
-import android.os.Handler;
-import android.os.HandlerThread;
-import android.os.Looper;
-import android.os.SystemClock;
-import android.text.Editable;
-import android.text.TextPaint;
-import android.text.TextUtils;
 import android.util.AttributeSet;
-import android.util.SparseIntArray;
-import android.view.GestureDetector;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
-import android.view.ViewConfiguration;
-import android.view.animation.DecelerateInterpolator;
-import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.EditorInfo;
-import android.view.inputmethod.ExtractedText;
-import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
-import android.view.inputmethod.SurroundingText;
-import android.widget.OverScroller;
 import androidx.annotation.Nullable;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
-import org.json.JSONArray;
-import org.json.JSONObject;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.io.RandomAccessFile;
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.charset.Charset;
-import java.nio.charset.CharsetDecoder;
-import java.nio.charset.CoderResult;
-import java.nio.charset.CodingErrorAction;
-import java.nio.charset.StandardCharsets;
-import java.text.Bidi;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import android.widget.Scroller;
-import com.yn.sodiumeditor.input.events.OnScroll;
-import com.yn.sodiumeditor.input.events.OnTouch;
-import com.yn.sodiumeditor.input.events.OnKeyDown;
 import com.yn.sodiumeditor.core.autocompletion.*;
 import com.yn.sodiumeditor.core.binary.*;
 import com.yn.sodiumeditor.core.cursor.*;
 import com.yn.sodiumeditor.core.features.AutoBracketNewline;
 import com.yn.sodiumeditor.core.features.AutoBracketPair;
 import com.yn.sodiumeditor.core.features.ClickAfterEndToAddLine;
-import com.yn.sodiumeditor.core.search.*;
-import com.yn.sodiumeditor.core.guides.indent.*;
 import com.yn.sodiumeditor.core.guides.bracket.*;
+import com.yn.sodiumeditor.core.guides.SymbolsMatch;
+import com.yn.sodiumeditor.core.guides.indent.*;
 import com.yn.sodiumeditor.core.guides.whitespace.*;
 import com.yn.sodiumeditor.core.highlight.*;
 import com.yn.sodiumeditor.core.linenumber.*;
 import com.yn.sodiumeditor.core.scroll.*;
+import com.yn.sodiumeditor.core.search.*;
 import com.yn.sodiumeditor.core.selection.*;
 import com.yn.sodiumeditor.core.view.*;
 import com.yn.sodiumeditor.core.view.events.*;
 import com.yn.sodiumeditor.core.wordwrap.*;
 import com.yn.sodiumeditor.core.zoom.*;
-import com.yn.sodiumeditor.renderer.animation.*;
+import com.yn.sodiumeditor.input.Ime;
+import com.yn.sodiumeditor.input.events.OnKeyDown;
+import com.yn.sodiumeditor.input.events.OnScroll;
+import com.yn.sodiumeditor.input.events.OnTouch;
 import com.yn.sodiumeditor.io.*;
 import com.yn.sodiumeditor.renderer.*;
-import com.yn.sodiumeditor.input.Ime;
+import com.yn.sodiumeditor.renderer.animation.*;
 
 public class SodiumEditor extends View {
   public static boolean DEBUG_LOGS = false;
@@ -110,7 +61,7 @@ public class SodiumEditor extends View {
   public final onGenericMotionEvent onGenericMotionEvent;
   public final ColorCodeHighlight colorCodeHighlight;
   public final BracketGuides bracketGuides;
-  public final BracketMatchManager bracketMatchManager;
+  public final SymbolsMatch symbolsMatch;
   public final WhitespaceGuides whitespaceGuides;
   public final UrlUnderline urlUnderline;
   public final PathUnderline pathUnderline;
@@ -122,8 +73,8 @@ public class SodiumEditor extends View {
   public final Popup popup;
   public final TextRender textRender;
   public final WindowRender windowRender;
-  public final HighliteRender highliteRender;
-  public final Highlite highlite;
+  public final HighlightRender highlightRender;
+  public final Highlight highlight;
   public final AutoCompletion autoCompletion;
   public final AutoPathCompletion autoPathCompletion;
   public final ErrorUnderline errorUnderline;
@@ -146,125 +97,127 @@ public class SodiumEditor extends View {
   public final EditOperators editOperators;
   public final ViewRender viewRender;
   public final WordWrap wordWrap;
-  
+
   public SodiumEditor(Context ctx, @Nullable AttributeSet attrs) {
-  super(ctx, attrs);
+    super(ctx, attrs);
 
-  float density = getContext().getResources().getDisplayMetrics().density;
-  binaryRender = new BinaryRender(this);
-  textRender = new TextRender(this);
-  windowRender = new WindowRender(this);
-  textRange = new com.yn.sodiumeditor.core.TextRange(this);
-  textLineDraw = new com.yn.sodiumeditor.renderer.draw.TextLineDraw(this);
-  highliteRender = new HighliteRender(this);
-  lineNumber = new LineNumber(this);
-  currentLineHighlight = new CurrentLineHighlight(this);
-  clickAfterEndToAddLine = new ClickAfterEndToAddLine(this);
-  highlite = new Highlite(this);
-  highlightRules = new HighlightRules(this, highlite);
-  view = new com.yn.sodiumeditor.core.view.View(this);
-  errorUnderline = new ErrorUnderline(this);
-  scroll = new Scroll(this);
-  layout = new Layout(this);
-  zoom = new Zoom(this);
-  scaleGestureDetector = new ScaleGestureDetector(ctx, zoom.createScaleListener());
-  scaleGestureDetector.setQuickScaleEnabled(false);
-  ime = new Ime(this);
-  onTouch = new OnTouch(this);
-  onScroll = new OnScroll(this);
-  scroll.gestureDetector = onScroll.getGestureDetector();
-  onKeyDown = new OnKeyDown(this);
-  onDraw = new onDraw(this);
-  onMeasure = new onMeasure(this);
-  onSizeChanged = new onSizeChanged(this);
-  onFocusChanged = new onFocusChanged(this);
-  onGenericMotionEvent = new onGenericMotionEvent(this);
-  colorCodeHighlight = new ColorCodeHighlight(this);
-  bracketGuides = new BracketGuides(this);
-  bracketMatchManager = new BracketMatchManager(this);
-  whitespaceGuides = new WhitespaceGuides(this);
-  urlUnderline = new UrlUnderline(this);
-  pathUnderline = new PathUnderline(this);
-  indentGuides = new IndentGuides(this);
-  autoBracketPair = new AutoBracketPair(this);
-  autoBracketNewline = new AutoBracketNewline(this);
-  search = new Search(this);
-  popup = new Popup(this);
-  autoCompletion = new AutoCompletion(this);
-  autoPathCompletion = new AutoPathCompletion(this);
-  loadingCircle = new LoadingCircle(this);
-  editOperators = new EditOperators(this);
-  viewRender = new ViewRender(this);
-  cursorAnimation = new CursorAnimation(this);
-  charAnimation = new CharAnimation(this);
-  bracketCache = new BracketCache(this);
-  cursor = new Cursor(this);
-  caret = new Caret(this, cursor);
-  cursorHandle = new CursorHandle(this, cursor, caret);
-  selection = new Selection(this, cursor);
-  selectionHandles = new SelectionHandles(this, selection);
-  wordWrap = new WordWrap(this);
-  fileIO = new FileIO(this);
+    float density = getContext().getResources().getDisplayMetrics().density;
+    binaryRender = new BinaryRender(this);
+    textRender = new TextRender(this);
+    windowRender = new WindowRender(this);
+    textRange = new com.yn.sodiumeditor.core.TextRange(this);
+    textLineDraw = new com.yn.sodiumeditor.renderer.draw.TextLineDraw(this);
+    highlightRender = new HighlightRender(this);
+    lineNumber = new LineNumber(this);
+    currentLineHighlight = new CurrentLineHighlight(this);
+    clickAfterEndToAddLine = new ClickAfterEndToAddLine(this);
+    highlight = new Highlight(this);
+    highlightRules = new HighlightRules(this, highlight);
+    view = new com.yn.sodiumeditor.core.view.View(this);
+    errorUnderline = new ErrorUnderline(this);
+    scroll = new Scroll(this);
+    layout = new Layout(this);
+    zoom = new Zoom(this);
+    scaleGestureDetector = new ScaleGestureDetector(ctx, zoom.createScaleListener());
+    scaleGestureDetector.setQuickScaleEnabled(false);
+    ime = new Ime(this);
+    onTouch = new OnTouch(this);
+    onScroll = new OnScroll(this);
+    scroll.gestureDetector = onScroll.getGestureDetector();
+    onKeyDown = new OnKeyDown(this);
+    onDraw = new onDraw(this);
+    onMeasure = new onMeasure(this);
+    onSizeChanged = new onSizeChanged(this);
+    onFocusChanged = new onFocusChanged(this);
+    onGenericMotionEvent = new onGenericMotionEvent(this);
+    colorCodeHighlight = new ColorCodeHighlight(this);
+    bracketGuides = new BracketGuides(this);
+    symbolsMatch = new SymbolsMatch(this);
+    whitespaceGuides = new WhitespaceGuides(this);
+    urlUnderline = new UrlUnderline(this);
+    pathUnderline = new PathUnderline(this);
+    indentGuides = new IndentGuides(this);
+    autoBracketPair = new AutoBracketPair(this);
+    autoBracketNewline = new AutoBracketNewline(this);
+    search = new Search(this);
+    popup = new Popup(this);
+    autoCompletion = new AutoCompletion(this);
+    autoPathCompletion = new AutoPathCompletion(this);
+    loadingCircle = new LoadingCircle(this);
+    editOperators = new EditOperators(this);
+    viewRender = new ViewRender(this);
+    cursorAnimation = new CursorAnimation(this);
+    charAnimation = new CharAnimation(this);
+    bracketCache = new BracketCache(this);
+    cursor = new Cursor(this);
+    caret = new Caret(this, cursor);
+    cursorHandle = new CursorHandle(this, cursor, caret);
+    selection = new Selection(this, cursor);
+    selectionHandles = new SelectionHandles(this, selection);
+    wordWrap = new WordWrap(this);
+    fileIO = new FileIO(this);
 
-  textRender.paint.setTextSize(36);
-  textRender.paint.setTypeface(Typeface.DEFAULT);
-  textRender.paint.setColor(0xFF000000);
-  textRender.paint.setAntiAlias(true);
-  textRender.paint.setSubpixelText(true);
-  textRender.paint.setHinting(Paint.HINTING_ON);
-  textRender.paint.setUnderlineText(false); 
-  textRender.baseTypeface = (textRender.paint.getTypeface() != null) ? textRender.paint.getTypeface() : Typeface.DEFAULT;
-  textRender.lineHeight = textRender.paint.getFontSpacing();
-  whitespaceGuides.updateMetrics();
-  lineNumber.lineNumbersPaint.setTextSize(36);
-  selectionHandles.baseHandleTextSizePx = textRender.paint.getTextSize();
-  selectionHandles.updateHandleMetricsForTextSize(textRender.paint.getTextSize());
-  cursorHandle.baseCursorHandleTextSizePx = textRender.paint.getTextSize();
-  cursorHandle.updateHandleMetricsForTextSize(textRender.paint.getTextSize());
-  cursor.baseCursorTextSizePx = textRender.paint.getTextSize();
-  highlightRules.whitespaceStringRule =
-    new HighliteRender.HighlightRule(
-      "",
-      com.yn.sodiumeditor.core.view.FontStyle.STYLE_NORMAL,
-      0xFF000000,
-      textRender.paint.getTextSize(),
-      textRender.paint.getTypeface(),
-      false,
-      HighliteRender.HighlightRuleType.STRING);
-  highlightRules.whitespaceCommentRule =
-    new HighliteRender.HighlightRule(
-      "",
-      com.yn.sodiumeditor.core.view.FontStyle.STYLE_NORMAL,
-      0xFF000000,
-      textRender.paint.getTextSize(),
-      textRender.paint.getTypeface(),
-      false,
-      HighliteRender.HighlightRuleType.BLOCK_COMMENT);
+    textRender.paint.setTextSize(36);
+    textRender.paint.setTypeface(Typeface.DEFAULT);
+    textRender.paint.setColor(0xFF000000);
+    textRender.paint.setAntiAlias(true);
+    textRender.paint.setSubpixelText(true);
+    textRender.paint.setHinting(Paint.HINTING_ON);
+    textRender.paint.setUnderlineText(false);
+    textRender.baseTypeface =
+        (textRender.paint.getTypeface() != null)
+            ? textRender.paint.getTypeface()
+            : Typeface.DEFAULT;
+    textRender.lineHeight = textRender.paint.getFontSpacing();
+    whitespaceGuides.updateMetrics();
+    lineNumber.lineNumbersPaint.setTextSize(36);
+    selectionHandles.baseHandleTextSizePx = textRender.paint.getTextSize();
+    selectionHandles.updateHandleMetricsForTextSize(textRender.paint.getTextSize());
+    cursorHandle.baseCursorHandleTextSizePx = textRender.paint.getTextSize();
+    cursorHandle.updateHandleMetricsForTextSize(textRender.paint.getTextSize());
+    highlightRules.whitespaceStringRule =
+        new HighlightRender.HighlightRule(
+            "",
+            com.yn.sodiumeditor.core.view.FontStyle.STYLE_NORMAL,
+            0xFF000000,
+            textRender.paint.getTextSize(),
+            textRender.paint.getTypeface(),
+            false,
+            HighlightRender.HighlightRuleType.STRING);
+    highlightRules.whitespaceCommentRule =
+        new HighlightRender.HighlightRule(
+            "",
+            com.yn.sodiumeditor.core.view.FontStyle.STYLE_NORMAL,
+            0xFF000000,
+            textRender.paint.getTextSize(),
+            textRender.paint.getTypeface(),
+            false,
+            HighlightRender.HighlightRuleType.BLOCK_COMMENT);
 
-  selection.selectionPaint.setStyle(Paint.Style.FILL);
-  caret.caretPaint.setStyle(Paint.Style.FILL);
-  caret.caretPaint.setStrokeCap(Paint.Cap.BUTT);
-  selectionHandles.handlePaint.setStyle(Paint.Style.FILL);
-  loadingCircle.loadingCirclePaint.setStyle(Paint.Style.STROKE);
-  loadingCircle.loadingCirclePaint.setStrokeCap(Paint.Cap.ROUND);
+    selection.selectionPaint.setStyle(Paint.Style.FILL);
+    caret.caretPaint.setStyle(Paint.Style.FILL);
+    caret.caretPaint.setStrokeCap(Paint.Cap.BUTT);
+    selectionHandles.handlePaint.setStyle(Paint.Style.FILL);
+    loadingCircle.loadingCirclePaint.setStyle(Paint.Style.STROKE);
+    loadingCircle.loadingCirclePaint.setStrokeCap(Paint.Cap.ROUND);
 
-  setFocusable(true);
-  setFocusableInTouchMode(true);
+    setFocusable(true);
+    setFocusableInTouchMode(true);
 
-  getViewTreeObserver()
-    .addOnGlobalLayoutListener(
-      () -> {
-        int newKeyboardHeight = 0;
-        WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(this);
-        if (insets != null && insets.isVisible(WindowInsetsCompat.Type.ime())) {
-        int imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
-        int windowHeight = getRootView().getHeight();
-        int imeTop = windowHeight - imeBottom;
-        getLocationInWindow(view.tmpLocationInWindow);
-        int viewBottom = view.tmpLocationInWindow[1] + getHeight();
-        int overlap = Math.max(0, viewBottom - imeTop);
-        newKeyboardHeight = Math.min(overlap, getHeight());
-        } else {
+    getViewTreeObserver()
+        .addOnGlobalLayoutListener(
+            () -> {
+              int newKeyboardHeight = 0;
+              WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(this);
+              if (insets != null && insets.isVisible(WindowInsetsCompat.Type.ime())) {
+                int imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
+                int windowHeight = getRootView().getHeight();
+                int imeTop = windowHeight - imeBottom;
+                getLocationInWindow(view.tmpLocationInWindow);
+                int viewBottom = view.tmpLocationInWindow[1] + getHeight();
+                int overlap = Math.max(0, viewBottom - imeTop);
+                newKeyboardHeight = Math.min(overlap, getHeight());
+              } else {
                 getWindowVisibleDisplayFrame(view.visibleDisplayFrame);
                 getLocationInWindow(view.tmpLocationInWindow);
                 int viewBottom = view.tmpLocationInWindow[1] + getHeight();
@@ -274,116 +227,115 @@ public class SodiumEditor extends View {
 
               if (newKeyboardHeight != view.keyboardHeight) {
                 view.keyboardHeight = newKeyboardHeight;
-                
+
                 post(() -> scroll.keepCursorVisibleHorizontally());
-                
               }
-      });
+            });
 
-  autoCompletion.suggestionPaint.set(textRender.paint);
-  autoCompletion.suggestionPaint.setColor(0xFFAAAAAA); 
-  autoCompletion.suggestionPaint.setAntiAlias(true);
-  autoCompletion.suggestionPaint.setSubpixelText(true);
-  autoCompletion.suggestionPaint.setHinting(Paint.HINTING_ON);
-  autoCompletion.isSuggestionTextSizeCustom = false; 
+    autoCompletion.suggestionPaint.set(textRender.paint);
+    autoCompletion.suggestionPaint.setColor(0xFFAAAAAA);
+    autoCompletion.suggestionPaint.setAntiAlias(true);
+    autoCompletion.suggestionPaint.setSubpixelText(true);
+    autoCompletion.suggestionPaint.setHinting(Paint.HINTING_ON);
+    autoCompletion.isSuggestionTextSizeCustom = false;
   }
-
 
   @Override
   protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-  super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-  onMeasure.onMeasure(widthMeasureSpec, heightMeasureSpec);
+    super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+    onMeasure.onMeasure(widthMeasureSpec, heightMeasureSpec);
   }
 
   @Override
   protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-  super.onSizeChanged(w, h, oldw, oldh);
-onSizeChanged.onSizeChanged(w, h, oldw, oldh);
+    super.onSizeChanged(w, h, oldw, oldh);
+    onSizeChanged.onSizeChanged(w, h, oldw, oldh);
   }
 
   @Override
   public boolean onGenericMotionEvent(MotionEvent event) {
-  if (onGenericMotionEvent.onGenericMotionEvent(event)) return true;
-  return super.onGenericMotionEvent(event);
+    if (onGenericMotionEvent.onGenericMotionEvent(event)) return true;
+    return super.onGenericMotionEvent(event);
   }
 
   @Override
   public boolean onKeyDown(int keyCode, KeyEvent event) {
-  if (onKeyDown.onKeyDown(keyCode, event)) {
-    return true;
-  }
-  return super.onKeyDown(keyCode, event);
+    if (onKeyDown.onKeyDown(keyCode, event)) {
+      return true;
+    }
+    return super.onKeyDown(keyCode, event);
   }
 
   @Override
   public boolean onCheckIsTextEditor() {
-  return !view.isDisabled && !view.isReadOnly;
+    return !view.isDisabled && !view.isReadOnly;
   }
 
   @Override
   public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
-  return ime.onCreateInputConnection(outAttrs);
+    return ime.onCreateInputConnection(outAttrs);
   }
 
   public void setKeyboardSuggestionsEnabled(boolean enabled) {
-  ime.setKeyboardSuggestionsEnabled(enabled);
+    ime.setKeyboardSuggestionsEnabled(enabled);
   }
 
   public boolean isKeyboardSuggestionsEnabled() {
-  return ime.isKeyboardSuggestionsEnabled();
+    return ime.isKeyboardSuggestionsEnabled();
   }
 
   public void setVisualSpaceScale(int scale) {
-  textRender.setVisualSpaceScale(scale);
+    textRender.setVisualSpaceScale(scale);
   }
 
   public int getVisualSpaceScale() {
-  return textRender.getVisualSpaceScale();
+    return textRender.getVisualSpaceScale();
   }
 
-  public void setSingleCommentsHighlite(String delimiter, int color, int style) {
-  highlite.setSingleCommentsHighlite(delimiter, color, style);
+  public void setSingleCommentsHighlight(String delimiter, int color, int style) {
+    highlight.setSingleCommentsHighlight(delimiter, color, style);
   }
 
-  public void setMultiCommentsHighlite(String startDelimiter, String endDelimiter, int color, int style) {
-  highlite.setMultiCommentsHighlite(startDelimiter, endDelimiter, color, style);
+  public void setMultiCommentsHighlight(
+      String startDelimiter, String endDelimiter, int color, int style) {
+    highlight.setMultiCommentsHighlight(startDelimiter, endDelimiter, color, style);
   }
 
-  public void setStringsHighlite(String delimiter, boolean multiLine, int color, int style) {
-  highlite.setStringsHighlite(delimiter, multiLine, color, style);
+  public void setStringsHighlight(String delimiter, boolean multiLine, int color, int style) {
+    highlight.setStringsHighlight(delimiter, multiLine, color, style);
   }
 
-  public void clearStringsHighlite() {
-  highlite.clearStringsHighlite();
+  public void clearStringsHighlight() {
+    highlight.clearStringsHighlight();
   }
 
   @Override
   public boolean onTouchEvent(MotionEvent event) {
-  return onTouch.onTouchEvent(event);
+    return onTouch.onTouchEvent(event);
   }
 
   @Override
   protected void onFocusChanged(boolean focused, int direction, Rect previouslyFocusedRect) {
-  super.onFocusChanged(focused, direction, previouslyFocusedRect);
-  onFocusChanged.onFocusChanged(focused, direction, previouslyFocusedRect);
+    super.onFocusChanged(focused, direction, previouslyFocusedRect);
+    onFocusChanged.onFocusChanged(focused, direction, previouslyFocusedRect);
   }
 
-   public boolean callSuperOnTouchEvent(android.view.MotionEvent event) {
-  return super.onTouchEvent(event);
-  }
-public boolean isHeavyDrawSuppressed() {
-  boolean fastScroll = scroll.scrollerIsScrolling || scroll.flingStopAnimator != null;
-  boolean zooming = zoom.isZoomGestureActive() || zoom.isScaling;
-  boolean hugeFile = view.getLinesCount() > view.heavyFeaturesThreshold;
-  boolean loading = fileIO.isWindowLoading;
-  return zooming || loading || (fastScroll && hugeFile);
+  public boolean callSuperOnTouchEvent(android.view.MotionEvent event) {
+    return super.onTouchEvent(event);
   }
 
+  public boolean isHeavyDrawSuppressed() {
+    boolean fastScroll = scroll.scrollerIsScrolling || scroll.flingStopAnimator != null;
+    boolean zooming = zoom.isZoomGestureActive() || zoom.isScaling;
+    boolean hugeFile = view.getLinesCount() > view.heavyFeaturesThreshold;
+    boolean loading = fileIO.isWindowLoading;
+    return zooming || loading || (fastScroll && hugeFile);
+  }
 
   @Override
   protected void onDraw(Canvas canvas) {
-  super.onDraw(canvas);
-  onDraw.onDraw(canvas);
+    super.onDraw(canvas);
+    onDraw.onDraw(canvas);
   }
 
   @Override

@@ -1,14 +1,12 @@
 package com.yn.sodiumeditor.renderer.animation;
 
-import android.os.Handler;
-import android.os.Looper;
 import android.os.SystemClock;
-import android.view.View;
 import android.view.animation.PathInterpolator;
 import com.yn.sodiumeditor.SodiumEditor;
+
 /**
- * Manages cursor movement animation for SodiumEditor.
- * Handles smooth interpolation of cursor position when moving between locations.
+ * Manages cursor movement animation for SodiumEditor. Handles smooth interpolation of cursor
+ * position when moving between locations.
  */
 public class CursorAnimation {
 
@@ -56,6 +54,7 @@ public class CursorAnimation {
 
   /**
    * Enable or disable cursor animation.
+   *
    * @param enabled true to enable, false to disable
    */
   public void setCursorAnimationEnabled(boolean enabled) {
@@ -71,6 +70,7 @@ public class CursorAnimation {
 
   /**
    * Check if cursor animation is enabled.
+   *
    * @return true if enabled
    */
   public boolean isCursorAnimationEnabled() {
@@ -79,6 +79,7 @@ public class CursorAnimation {
 
   /**
    * Set animation speed parameters.
+   *
    * @param normalTauMs Time constant for normal movement (ms)
    * @param fastTauMs Time constant for fast movement (ms)
    * @param fastThresholdMs Threshold for detecting fast movement (ms)
@@ -94,6 +95,7 @@ public class CursorAnimation {
 
   /**
    * Update cursor draw position with animation.
+   *
    * @param targetX Target X position in pixels
    * @param targetY Target Y position in pixels
    */
@@ -113,7 +115,7 @@ public class CursorAnimation {
 
     long now = SystemClock.uptimeMillis();
     boolean targetChanged = (targetX != cursorAnimTargetX || targetY != cursorAnimTargetY);
-    
+
     // Initial setup if state is invalid
     if (!cursorAnimValid || Float.isNaN(cursorDrawX)) {
       cursorAnimX = targetX;
@@ -157,13 +159,11 @@ public class CursorAnimation {
       } else {
         cursorAnimActiveDurationMs = cursorAnimDurationMs;
       }
-      
+
       cursorAnimTargetX = targetX;
       cursorAnimTargetY = targetY;
       lastCursorAnimLine = editor.cursor.cursorLine;
       lastCursorAnimChar = editor.cursor.cursorChar;
-
-     
 
       if (!cursorAnimRunning) {
         cursorAnimRunning = true;
@@ -176,7 +176,8 @@ public class CursorAnimation {
     lastScrollY = editor.scroll.scrollY;
 
     // Small distance check to snap and stop animation
-    float finalDist = (float) Math.hypot(cursorAnimTargetX - cursorDrawX, cursorAnimTargetY - cursorDrawY);
+    float finalDist =
+        (float) Math.hypot(cursorAnimTargetX - cursorDrawX, cursorAnimTargetY - cursorDrawY);
     if (cursorAnimRunning && finalDist < 0.05f) {
       cursorAnimX = cursorAnimTargetX;
       cursorAnimY = cursorAnimTargetY;
@@ -188,6 +189,7 @@ public class CursorAnimation {
 
   /**
    * Snap cursor to target position immediately (no animation).
+   *
    * @param x X position in pixels
    * @param y Y position in pixels
    */
@@ -204,9 +206,7 @@ public class CursorAnimation {
     cursorAnimActiveDurationMs = cursorAnimFastRedirectMinDurationMs;
   }
 
-  /**
-   * Cancel any running animation.
-   */
+  /** Cancel any running animation. */
   public void cancelAnimation() {
     editor.removeCallbacks(cursorAnimStep);
     cursorAnimRunning = false;
@@ -214,6 +214,7 @@ public class CursorAnimation {
 
   /**
    * Get current draw X position (animated).
+   *
    * @return Current X position in pixels
    */
   public float getDrawX() {
@@ -222,6 +223,7 @@ public class CursorAnimation {
 
   /**
    * Get current draw Y position (animated).
+   *
    * @return Current Y position in pixels
    */
   public float getDrawY() {
@@ -230,6 +232,7 @@ public class CursorAnimation {
 
   /**
    * Get target X position.
+   *
    * @return Target X position in pixels
    */
   public float getTargetX() {
@@ -238,6 +241,7 @@ public class CursorAnimation {
 
   /**
    * Get target Y position.
+   *
    * @return Target Y position in pixels
    */
   public float getTargetY() {
@@ -246,15 +250,14 @@ public class CursorAnimation {
 
   /**
    * Check if animation is currently running.
+   *
    * @return true if animation is running
    */
   public boolean isRunning() {
     return cursorAnimRunning;
   }
 
-  /**
-   * Internal runnable for animation step.
-   */
+  /** Internal runnable for animation step. */
   public class CursorAnimStepRunnable implements Runnable {
     @Override
     public void run() {
@@ -262,18 +265,15 @@ public class CursorAnimation {
         cursorAnimRunning = false;
         return;
       }
-      
+
       long now = SystemClock.uptimeMillis();
       if (cursorAnimStartUptime == 0L) cursorAnimStartUptime = now;
       long elapsed = Math.max(0L, now - cursorAnimStartUptime);
-      float t =
-          Math.min(
-              1f,
-              (float) elapsed / (float) Math.max(1L, cursorAnimActiveDurationMs));
-      
+      float t = Math.min(1f, (float) elapsed / (float) Math.max(1L, cursorAnimActiveDurationMs));
+
       // Use the same PathInterpolator as CurrentLineHighlight for sync
       float eased = smoothInterpolator.getInterpolation(t);
-      
+
       cursorAnimX = cursorAnimStartX + (cursorAnimTargetX - cursorAnimStartX) * eased;
       cursorAnimY = cursorAnimStartY + (cursorAnimTargetY - cursorAnimStartY) * eased;
       cursorDrawX = cursorAnimX;
@@ -281,7 +281,7 @@ public class CursorAnimation {
       editor.cursor.invalidateCursorArea();
       if (t >= 1f) {
         cursorAnimRunning = false;
-        
+
       } else {
         editor.postOnAnimation(this);
       }

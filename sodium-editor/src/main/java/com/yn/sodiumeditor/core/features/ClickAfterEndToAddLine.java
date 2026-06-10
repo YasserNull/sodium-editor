@@ -1,9 +1,11 @@
-package com.yn.sodiumeditor.core.features; 
+package com.yn.sodiumeditor.core.features;
+
 import com.yn.sodiumeditor.SodiumEditor;
 import java.util.HashMap;
+
 /**
- * Manages the click-after-end-to-add-line functionality for the SodiumEditor.
- * Allows users to tap after the end of the last line to add a new line.
+ * Manages the click-after-end-to-add-line functionality for the SodiumEditor. Allows users to tap
+ * after the end of the last line to add a new line.
  */
 public class ClickAfterEndToAddLine {
 
@@ -16,24 +18,17 @@ public class ClickAfterEndToAddLine {
     this.editor = editor;
   }
 
-  /**
-   * Enables or disables the click-after-end-to-add-line feature.
-   */
+  /** Enables or disables the click-after-end-to-add-line feature. */
   public void setClickAfterEndToAddLineEnabled(boolean enabled) {
     this.isClickAfterEndToAddLineEnabled = enabled;
   }
 
-  /**
-   * Checks if the click is after the end of the document.
-   */
+  /** Checks if the click is after the end of the document. */
   public boolean isClickAfterEnd(int visibleIndex, int totalVisible) {
     return totalVisible > 0 && visibleIndex >= totalVisible;
   }
 
-  /**
-   * Handles the click after end action.
-   * Returns true if the click was handled, false otherwise.
-   */
+  /** Handles the click after end action. Returns true if the click was handled, false otherwise. */
   public boolean handleClickAfterEnd(int visibleIndex, int totalVisible) {
     if (!isClickAfterEndToAddLineEnabled) {
       return false;
@@ -60,8 +55,8 @@ public class ClickAfterEndToAddLine {
   }
 
   /**
-   * Handles the click after end action without adding a line.
-   * Just moves the cursor to the end of the last line.
+   * Handles the click after end action without adding a line. Just moves the cursor to the end of
+   * the last line.
    */
   public void handleDefaultAfterEnd() {
     int totalVisible =

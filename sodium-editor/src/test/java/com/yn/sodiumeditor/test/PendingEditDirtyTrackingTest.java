@@ -12,7 +12,8 @@ public class PendingEditDirtyTrackingTest {
 
   @Test
   public void editOperators_shouldExposePendingEditState() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/EditOperators.java");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/EditOperators.java");
 
     assertTrue(src.contains("public final java.util.ArrayDeque<EditOp> pendingEdits"));
     assertTrue(src.contains("public int getPendingEditsCount()"));
@@ -21,8 +22,10 @@ public class PendingEditDirtyTrackingTest {
 
   @Test
   public void insertDeleteUndoRedo_shouldFlowThroughTrackedComponents() throws Exception {
-    String editOperators = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/EditOperators.java");
-    String recorder = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/EditRecordManager.java");
+    String editOperators =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/EditOperators.java");
+    String recorder =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/EditRecordManager.java");
     String undo = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/Undo.java");
     String redo = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/Redo.java");
 

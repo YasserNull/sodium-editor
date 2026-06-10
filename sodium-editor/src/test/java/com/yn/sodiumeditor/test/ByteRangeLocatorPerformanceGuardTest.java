@@ -13,7 +13,8 @@ public class ByteRangeLocatorPerformanceGuardTest {
 
   @Test
   public void byteRangeLocator_usesReadyLineIndexAndBufferedScanning() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/ByteRangeLocator.java");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/ByteRangeLocator.java");
     String fastBody = methodBody(src, "public EditOp.RangeBytes computeByteRangeFastOrScan(");
     String twoLineScanBody = methodBody(src, "public long[] findTwoLineStartBytesByScanning(");
     String oneLineScanBody = methodBody(src, "public long findLineStartByteByScanning(");

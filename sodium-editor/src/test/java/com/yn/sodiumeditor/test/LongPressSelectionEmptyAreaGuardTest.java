@@ -14,11 +14,13 @@ public class LongPressSelectionEmptyAreaGuardTest {
   @Test
   public void longPressDrag_shouldClampSelectionTargetToLastRealLine() throws Exception {
     String src =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/input/events/DragSelectionHandler.java");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/input/events/DragSelectionHandler.java");
     String body = methodBody(src, "public boolean handleActionMove(MotionEvent event)");
 
     assertTrue(
-        "BUG: long-press drag selection must clamp targets below EOF/loaded lines before updating selection.",
+        "BUG: long-press drag selection must clamp targets below EOF/loaded lines before updating"
+            + " selection.",
         body.contains("line = clampDragLineToRealContent(line)")
             && body.indexOf("line = clampDragLineToRealContent(line)")
                 < body.indexOf("editor.selection.updateLongPressSelection(line, clamped)"));

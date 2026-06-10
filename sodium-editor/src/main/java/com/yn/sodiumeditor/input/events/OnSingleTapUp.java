@@ -3,13 +3,10 @@ package com.yn.sodiumeditor.input.events;
 import android.util.Log;
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.io.EditOperators;
 import com.yn.sodiumeditor.io.EditOp;
 import java.util.HashMap;
 
-/**
- * OnSingleTapUp handles onSingleTapUp() gesture event for SodiumEditor.
- */
+/** OnSingleTapUp handles onSingleTapUp() gesture event for SodiumEditor. */
 public class OnSingleTapUp {
 
   private static final String TAG = "SodiumEditor";
@@ -19,9 +16,7 @@ public class OnSingleTapUp {
     this.editor = editor;
   }
 
-  /**
-   * Handle onSingleTapUp event
-   */
+  /** Handle onSingleTapUp event */
   public boolean onSingleTapUp(MotionEvent e) {
     if (editor.autoCompletion.suggestionAcceptedThisTouch) return true;
     if (editor.onTouch.multiTouchActive || editor.onTouch.hadMultiTouch) return true;
@@ -32,11 +27,19 @@ public class OnSingleTapUp {
     float y = e.getY() + editor.scroll.scrollY;
     int visibleIndex = Math.max(0, (int) (y / editor.textRender.lineHeight));
     int totalVisible =
-        editor.wordWrap.isWordWrapEnabled ? editor.wordWrap.getTotalVisualLineCount() : Math.max(1, editor.view.getLinesCount());
+        editor.wordWrap.isWordWrapEnabled
+            ? editor.wordWrap.getTotalVisualLineCount()
+            : Math.max(1, editor.view.getLinesCount());
     boolean afterEnd = editor.clickAfterEndToAddLine.isClickAfterEnd(visibleIndex, totalVisible);
     if (afterEnd) {
       placeCursorAtLastVisibleLineEnd(totalVisible);
-      logTapCursor(e, editor.cursor.cursorLine, editor.cursor.cursorChar, editor.cursor.cursorLine, editor.cursor.cursorChar, true);
+      logTapCursor(
+          e,
+          editor.cursor.cursorLine,
+          editor.cursor.cursorChar,
+          editor.cursor.cursorLine,
+          editor.cursor.cursorChar,
+          true);
       if (editor.clickAfterEndToAddLine.isClickAfterEndToAddLineEnabled
           && visibleIndex == totalVisible) {
         editor.editOperators.insertTextAtCursor("\n");
@@ -45,12 +48,15 @@ public class OnSingleTapUp {
       return true;
     }
 
-    EditOp.CursorTarget target = editor.wordWrap.getCursorTargetForPosition(e.getX(), e.getY(), null);
+    EditOp.CursorTarget target =
+        editor.wordWrap.getCursorTargetForPosition(e.getX(), e.getY(), null);
     int line = target.line;
     editor.fileIO.ensureLineInWindow(line, true);
     String ln = editor.windowRender.getLineTextForRender(line);
-    editor.cursor.setCursorPosition(line, Math.max(0, Math.min(target.ch, (ln == null) ? 0 : ln.length())));
-    logTapCursor(e, target.line, target.ch, editor.cursor.cursorLine, editor.cursor.cursorChar, false);
+    editor.cursor.setCursorPosition(
+        line, Math.max(0, Math.min(target.ch, (ln == null) ? 0 : ln.length())));
+    logTapCursor(
+        e, target.line, target.ch, editor.cursor.cursorLine, editor.cursor.cursorChar, false);
 
     finishTapCursorPlacement(false);
     return true;

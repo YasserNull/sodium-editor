@@ -1,9 +1,6 @@
 package com.yn.sodiumeditor.core.guides.bracket;
 
-/**
- * Bracket guide state class.
- * Tracks the parsing state for bracket guide calculation.
- */
+/** Bracket guide state class. Tracks the parsing state for bracket guide calculation. */
 public class BracketGuideState {
   public boolean inBlockComment;
   public int stringState;
@@ -14,9 +11,7 @@ public class BracketGuideState {
     this.stringState = stringState;
   }
 
-  /**
-   * Create a deep copy of this state.
-   */
+  /** Create a deep copy of this state. */
   public BracketGuideState cloneState() {
     BracketGuideState copy = new BracketGuideState(inBlockComment, stringState);
     copy.stack.addAll(this.stack);

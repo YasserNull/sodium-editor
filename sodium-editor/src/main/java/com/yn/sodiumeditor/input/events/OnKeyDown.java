@@ -3,9 +3,7 @@ package com.yn.sodiumeditor.input.events;
 import android.view.KeyEvent;
 import com.yn.sodiumeditor.SodiumEditor;
 
-/**
- * Handles key down events for the SodiumEditor.
- */
+/** Handles key down events for the SodiumEditor. */
 public class OnKeyDown {
   private static final String TAG = "SodiumSelectionEdit";
   private static final int MAX_KEY_LOGS = 240;
@@ -20,13 +18,14 @@ public class OnKeyDown {
 
   /**
    * Handles key down events.
+   *
    * @param keyCode The key code of the pressed key
    * @param event The KeyEvent object
    * @return true if the event was handled, false otherwise
    */
   public boolean onKeyDown(int keyCode, KeyEvent event) {
     if (editor.view.isDisabled) return true;
-    
+
     if (editor.view.isReadOnly) {
       return handleReadOnlyKey(keyCode, event);
     }
@@ -38,9 +37,7 @@ public class OnKeyDown {
     return handleNormalKey(keyCode, event);
   }
 
-  /**
-   * Handles key events in read-only mode.
-   */
+  /** Handles key events in read-only mode. */
   private boolean handleReadOnlyKey(int keyCode, KeyEvent event) {
     switch (keyCode) {
       case KeyEvent.KEYCODE_DPAD_LEFT:
@@ -69,9 +66,7 @@ public class OnKeyDown {
     return false;
   }
 
-  /**
-   * Handles printing key when selection is active.
-   */
+  /** Handles printing key when selection is active. */
   private boolean handleSelectionWithPrintingKey(KeyEvent event) {
     String text = getPrintingText(event);
     if (text != null) {
@@ -82,9 +77,7 @@ public class OnKeyDown {
     return true;
   }
 
-  /**
-   * Handles key events in normal mode.
-   */
+  /** Handles key events in normal mode. */
   private boolean handleNormalKey(int keyCode, KeyEvent event) {
     switch (keyCode) {
       case KeyEvent.KEYCODE_DPAD_LEFT:
@@ -150,5 +143,4 @@ public class OnKeyDown {
     String chars = event.getCharacters();
     return (chars == null || chars.isEmpty()) ? null : chars;
   }
-
 }

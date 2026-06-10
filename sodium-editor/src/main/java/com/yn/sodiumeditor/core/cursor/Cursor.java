@@ -1,19 +1,15 @@
-package com.yn.sodiumeditor.core.cursor; 
+package com.yn.sodiumeditor.core.cursor;
+
 import android.graphics.Rect;
 import android.graphics.RectF;
 import com.yn.sodiumeditor.SodiumEditor;
+
 /**
- * Cursor handles cursor state and position for SodiumEditor.
- * This includes:
- * - Cursor position (line and character)
- * - Cursor state tracking
+ * Cursor handles cursor state and position for SodiumEditor. This includes: - Cursor position (line
+ * and character) - Cursor state tracking
  */
 public class Cursor {
 
-  public float cursorWidth = 6f;
-public float baseCursorWidthPx = cursorWidth;
-  public float baseCursorTextSizePx = 0f;
-  // Cursor position
   public int cursorLine = 0;
   public int cursorChar = 0;
 
@@ -23,16 +19,6 @@ public float baseCursorWidthPx = cursorWidth;
     this.editor = editor;
   }
 
-  /**
-   * Set cursor position
-   */
-   public void setCursorWidth(float width) {
-    if (baseCursorWidthPx == width && baseCursorTextSizePx == editor.textRender.paint.getTextSize()) return;
-    baseCursorWidthPx = width;
-    baseCursorTextSizePx = editor.textRender.paint.getTextSize();
-    editor.windowRender.recalculateMaxLineWidth();
-    editor.invalidate();
-  }
   public void setCursorPosition(int line, int col) {
     int totalLines = editor.view.getLinesCount();
     int maxLine = Math.max(0, totalLines - 1);
@@ -45,7 +31,9 @@ public float baseCursorWidthPx = cursorWidth;
       editor.selection.selecting = false;
     }
     cursorLine = targetLine;
-    if (cursorLine >= editor.windowRender.windowStartLine && cursorLine < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) {
+    if (cursorLine >= editor.windowRender.windowStartLine
+        && cursorLine
+            < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) {
       String lineText = editor.windowRender.getLineTextForRender(cursorLine);
       cursorChar = Math.max(0, Math.min(targetCol, lineText.length()));
       if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
@@ -62,23 +50,17 @@ public float baseCursorWidthPx = cursorWidth;
     editor.cursor.invalidateCursorArea();
   }
 
-  /**
-   * Move cursor to line
-   */
+  /** Move cursor to line */
   public void moveToLine(int line) {
     cursorLine = line;
   }
 
-  /**
-   * Move cursor to character position
-   */
+  /** Move cursor to character position */
   public void moveToChar(int ch) {
     cursorChar = ch;
   }
 
-  /**
-   * Clamp cursor to valid document bounds
-   */
+  /** Clamp cursor to valid document bounds */
   public void clampToDocument() {
     int totalLines = editor.view.getLinesCount();
     if (totalLines <= 0) {
@@ -86,9 +68,9 @@ public float baseCursorWidthPx = cursorWidth;
       cursorChar = 0;
       return;
     }
-    
+
     cursorLine = Math.max(0, Math.min(cursorLine, totalLines - 1));
-    
+
     String lineText = editor.windowRender.getLineTextForRender(cursorLine);
     if (lineText != null) {
       cursorChar = Math.max(0, Math.min(cursorChar, lineText.length()));
@@ -100,74 +82,64 @@ public float baseCursorWidthPx = cursorWidth;
     }
   }
 
-  /**
-   * Get cursor line
-   */
+  /** Get cursor line */
   public int getLine() {
     return cursorLine;
   }
 
-  /**
-   * Get cursor character
-   */
+  /** Get cursor character */
   public int getChar() {
     return cursorChar;
   }
 
-  /**
-   * Reset cursor to beginning
-   */
+  /** Reset cursor to beginning */
   public void reset() {
     cursorLine = 0;
     cursorChar = 0;
   }
 
-  /**
-   * Check if cursor is at end of line
-   */
+  /** Check if cursor is at end of line */
   public boolean isAtEndOfLine() {
     String lineText = editor.windowRender.getLineTextForRender(cursorLine);
     return lineText == null || cursorChar >= lineText.length();
   }
 
-  /**
-   * Check if cursor is at start of line
-   */
+  /** Check if cursor is at start of line */
   public boolean isAtStartOfLine() {
     return cursorChar <= 0;
   }
 
-  /**
-   * Check if cursor is at end of document
-   */
+  /** Check if cursor is at end of document */
   public boolean isAtEndOfDocument() {
     int totalLines = editor.view.getLinesCount();
     if (totalLines <= 0) return true;
-    
+
     if (cursorLine < totalLines - 1) return false;
-    
+
     String lineText = editor.windowRender.getLineTextForRender(cursorLine);
     return lineText == null || cursorChar >= lineText.length();
   }
 
-  /**
-   * Check if cursor is at start of document
-   */
+  /** Check if cursor is at start of document */
   public boolean isAtStartOfDocument() {
     return cursorLine <= 0 && cursorChar <= 0;
   }
-    /**
-   * Moves the cursor left.
-   * If selection is active, moves to the start of selection.
-   * If at beginning of line, moves to end of previous line.
+
+  /**
+   * Moves the cursor left. If selection is active, moves to the start of selection. If at beginning
+   * of line, moves to end of previous line.
    */
   public void moveCursorLeft() {
     editor.autoCompletion.clearActiveSuggestion();
-    
+
     if (editor.selection.hasSelection) {
       int sL = editor.selection.selStartLine, sC = editor.selection.selStartChar;
-      if (editor.editOperators.comparePos(editor.selection.selStartLine, editor.selection.selStartChar, 
-          editor.selection.selEndLine, editor.selection.selEndChar) > 0) {
+      if (editor.editOperators.comparePos(
+              editor.selection.selStartLine,
+              editor.selection.selStartChar,
+              editor.selection.selEndLine,
+              editor.selection.selEndChar)
+          > 0) {
         sL = editor.selection.selEndLine;
         sC = editor.selection.selEndChar;
       }
@@ -181,9 +153,9 @@ public float baseCursorWidthPx = cursorWidth;
       if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
         int[] span = new int[2];
         if (editor.binaryRender.findBinaryTokenSpanInSpans(
-                editor.binaryRender.getBinaryTokenSpans(editor.cursor.cursorLine),
-                editor.cursor.cursorChar,
-                span)) {
+            editor.binaryRender.getBinaryTokenSpans(editor.cursor.cursorLine),
+            editor.cursor.cursorChar,
+            span)) {
           editor.cursor.cursorChar = span[0];
         }
       }
@@ -194,7 +166,7 @@ public float baseCursorWidthPx = cursorWidth;
       editor.cursor.cursorChar = ln.length();
       skipForbiddenBracePositions(false);
     }
-    
+
     editor.selection.hasSelection = false;
     editor.selection.isSelectAllActive = false;
     editor.selection.isEntireFileSelected = false;
@@ -207,17 +179,20 @@ public float baseCursorWidthPx = cursorWidth;
   }
 
   /**
-   * Moves the cursor right.
-   * If selection is active, moves to the end of selection.
-   * If at end of line, moves to beginning of next line.
+   * Moves the cursor right. If selection is active, moves to the end of selection. If at end of
+   * line, moves to beginning of next line.
    */
   public void moveCursorRight() {
     editor.autoCompletion.clearActiveSuggestion();
-    
+
     if (editor.selection.hasSelection) {
       int eL = editor.selection.selEndLine, eC = editor.selection.selEndChar;
-      if (editor.editOperators.comparePos(editor.selection.selStartLine, editor.selection.selStartChar, 
-          editor.selection.selEndLine, editor.selection.selEndChar) > 0) {
+      if (editor.editOperators.comparePos(
+              editor.selection.selStartLine,
+              editor.selection.selStartChar,
+              editor.selection.selEndLine,
+              editor.selection.selEndChar)
+          > 0) {
         eL = editor.selection.selStartLine;
         eC = editor.selection.selStartChar;
       }
@@ -232,23 +207,25 @@ public float baseCursorWidthPx = cursorWidth;
         if (editor.binaryRender.isBinarySafeRenderingEnabled()) {
           int[] span = new int[2];
           if (editor.binaryRender.findBinaryTokenSpanInSpans(
-                  editor.binaryRender.getBinaryTokenSpans(editor.cursor.cursorLine),
-                  editor.cursor.cursorChar,
-                  span)) {
+              editor.binaryRender.getBinaryTokenSpans(editor.cursor.cursorLine),
+              editor.cursor.cursorChar,
+              span)) {
             editor.cursor.cursorChar = span[1];
           }
         }
         skipForbiddenBracePositions(true);
       } else {
         int next = editor.cursor.cursorLine + 1;
-        if (!editor.fileIO.isEof || next < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) {
+        if (!editor.fileIO.isEof
+            || next
+                < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) {
           editor.cursor.cursorLine = next;
           editor.cursor.cursorChar = 0;
           skipForbiddenBracePositions(true);
         }
       }
     }
-    
+
     editor.selection.hasSelection = false;
     editor.selection.isSelectAllActive = false;
     editor.selection.isEntireFileSelected = false;
@@ -261,8 +238,7 @@ public float baseCursorWidthPx = cursorWidth;
   }
 
   /**
-   * Moves the cursor up one line.
-   * If selection is active, moves to the start of selection.
+   * Moves the cursor up one line. If selection is active, moves to the start of selection.
    * Maintains column position when possible.
    */
   public void moveCursorUp() {
@@ -270,8 +246,12 @@ public float baseCursorWidthPx = cursorWidth;
 
     if (editor.selection.hasSelection) {
       int sL = editor.selection.selStartLine, sC = editor.selection.selStartChar;
-      if (editor.editOperators.comparePos(editor.selection.selStartLine, editor.selection.selStartChar,
-          editor.selection.selEndLine, editor.selection.selEndChar) > 0) {
+      if (editor.editOperators.comparePos(
+              editor.selection.selStartLine,
+              editor.selection.selStartChar,
+              editor.selection.selEndLine,
+              editor.selection.selEndChar)
+          > 0) {
         sL = editor.selection.selEndLine;
         sC = editor.selection.selEndChar;
       }
@@ -307,8 +287,7 @@ public float baseCursorWidthPx = cursorWidth;
   }
 
   /**
-   * Moves the cursor down one line.
-   * If selection is active, moves to the end of selection.
+   * Moves the cursor down one line. If selection is active, moves to the end of selection.
    * Maintains column position when possible.
    */
   public void moveCursorDown() {
@@ -316,8 +295,12 @@ public float baseCursorWidthPx = cursorWidth;
 
     if (editor.selection.hasSelection) {
       int eL = editor.selection.selEndLine, eC = editor.selection.selEndChar;
-      if (editor.editOperators.comparePos(editor.selection.selStartLine, editor.selection.selStartChar,
-          editor.selection.selEndLine, editor.selection.selEndChar) > 0) {
+      if (editor.editOperators.comparePos(
+              editor.selection.selStartLine,
+              editor.selection.selStartChar,
+              editor.selection.selEndLine,
+              editor.selection.selEndChar)
+          > 0) {
         eL = editor.selection.selStartLine;
         eC = editor.selection.selStartChar;
       }
@@ -338,7 +321,8 @@ public float baseCursorWidthPx = cursorWidth;
       }
     } else {
       int next = editor.cursor.cursorLine + 1;
-      if (!editor.fileIO.isEof || next < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) {
+      if (!editor.fileIO.isEof
+          || next < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) {
         editor.cursor.cursorLine = next;
         String ln = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
         editor.cursor.cursorChar = Math.min(editor.cursor.cursorChar, ln.length());
@@ -361,16 +345,16 @@ public float baseCursorWidthPx = cursorWidth;
   // Cursor Helper Methods
   // ========================================================================
 
-  /**
-   * Set cursor position without clearing caches
-   */
+  /** Set cursor position without clearing caches */
   public void setCursorPositionNoClear(int line, int col) {
     int totalLines = editor.view.getLinesCount();
     int maxLine = Math.max(0, totalLines - 1);
     int targetLine = Math.max(0, Math.min(line, maxLine));
     int targetCol = Math.max(0, col);
     cursorLine = targetLine;
-    if (cursorLine >= editor.windowRender.windowStartLine && cursorLine < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) {
+    if (cursorLine >= editor.windowRender.windowStartLine
+        && cursorLine
+            < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) {
       String lineText = editor.windowRender.getLineTextForRender(cursorLine);
       cursorChar = Math.max(0, Math.min(targetCol, lineText.length()));
     } else {
@@ -394,10 +378,11 @@ public float baseCursorWidthPx = cursorWidth;
     int guard = 0;
     while (guard < 4) {
       // Only forbid the exact middle position of an empty pair "{}"
-      boolean inEmptyPair = editor.cursor.cursorChar > 0
-          && editor.cursor.cursorChar < len
-          && ln.charAt(editor.cursor.cursorChar - 1) == '{'
-          && ln.charAt(editor.cursor.cursorChar) == '}';
+      boolean inEmptyPair =
+          editor.cursor.cursorChar > 0
+              && editor.cursor.cursorChar < len
+              && ln.charAt(editor.cursor.cursorChar - 1) == '{'
+              && ln.charAt(editor.cursor.cursorChar) == '}';
       if (!inEmptyPair) break;
       if (movingRight) {
         if (editor.cursor.cursorChar < len) {
@@ -416,9 +401,7 @@ public float baseCursorWidthPx = cursorWidth;
     }
   }
 
-  /**
-   * Invalidate cursor area for redraw
-   */
+  /** Invalidate cursor area for redraw */
   public void invalidateCursorArea() {
     RectF oldHandleRect = new RectF(editor.cursorHandle.cursorHandleRect);
     // Update animation target immediately regardless of current state
@@ -427,30 +410,30 @@ public float baseCursorWidthPx = cursorWidth;
     float targetY = editor.caret.getCaretDocumentY();
     editor.cursorAnimation.updateCursorDrawPosition(targetX, targetY);
     editor.cursorHandle.updateCursorHandlePosition();
-    
+
     if (editor.wordWrap.isWordWrapEnabled) {
       editor.invalidate();
       return;
     }
     int idx = cursorLine;
     float top = (idx * editor.textRender.lineHeight) - editor.scroll.scrollY;
-    Rect dirty = new Rect(
+    Rect dirty =
+        new Rect(
             0,
             (int) Math.floor(top),
             editor.getWidth(),
             (int) Math.ceil(top + editor.textRender.lineHeight));
     dirty.union(
-            (int) Math.floor(oldHandleRect.left),
-            (int) Math.floor(oldHandleRect.top),
-            (int) Math.ceil(oldHandleRect.right),
-            (int) Math.ceil(oldHandleRect.bottom));
+        (int) Math.floor(oldHandleRect.left),
+        (int) Math.floor(oldHandleRect.top),
+        (int) Math.ceil(oldHandleRect.right),
+        (int) Math.ceil(oldHandleRect.bottom));
     RectF newHandleRect = editor.cursorHandle.cursorHandleRect;
     dirty.union(
-            (int) Math.floor(newHandleRect.left),
-            (int) Math.floor(newHandleRect.top),
-            (int) Math.ceil(newHandleRect.right),
-            (int) Math.ceil(newHandleRect.bottom));
+        (int) Math.floor(newHandleRect.left),
+        (int) Math.floor(newHandleRect.top),
+        (int) Math.ceil(newHandleRect.right),
+        (int) Math.ceil(newHandleRect.bottom));
     editor.invalidate(dirty);
   }
-
 }

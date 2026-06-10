@@ -18,7 +18,9 @@ public class TapDecorationStabilityGuardTest {
 
     assertTrue(
         "BUG: cursor taps on already loaded lines must not set isWindowLoading and hide guides.",
-        body.contains("windowStartLine") && body.contains("linesWindow.size()") && body.contains("return;"));
+        body.contains("windowStartLine")
+            && body.contains("linesWindow.size()")
+            && body.contains("return;"));
     assertTrue(body.contains("loadWindowAround("));
   }
 

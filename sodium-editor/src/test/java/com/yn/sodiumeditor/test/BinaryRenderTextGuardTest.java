@@ -18,7 +18,8 @@ public class BinaryRenderTextGuardTest {
     BinaryTokenConverter converter = new BinaryTokenConverter();
     byte[] bytes = "مرحبا".getBytes(StandardCharsets.UTF_8);
 
-    assertEquals("مرحبا", converter.bytesToControlVisible(bytes, bytes.length, StandardCharsets.UTF_8));
+    assertEquals(
+        "مرحبا", converter.bytesToControlVisible(bytes, bytes.length, StandardCharsets.UTF_8));
   }
 
   @Test
@@ -26,18 +27,25 @@ public class BinaryRenderTextGuardTest {
     BinaryTokenConverter converter = new BinaryTokenConverter();
     byte[] bytes = "A\u0000ب\u007F".getBytes(StandardCharsets.UTF_8);
 
-    assertEquals("ANULبDEL", converter.bytesToControlVisible(bytes, bytes.length, StandardCharsets.UTF_8));
+    assertEquals(
+        "ANULبDEL", converter.bytesToControlVisible(bytes, bytes.length, StandardCharsets.UTF_8));
   }
 
   @Test
   public void bytesToControlVisibleAndCacheSpans_shouldOnlySpanControlTokens() throws Exception {
     String src =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/binary/BinaryTokenConverter.java");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/binary/BinaryTokenConverter.java");
     String body =
-        methodBody(src, "charsToControlVisibleAndCacheSpans(\n            String text, int lineIndex, android.util.SparseArray<int[]> binaryTokenSpans)");
+        methodBody(
+            src,
+            "charsToControlVisibleAndCacheSpans(\n"
+                + "            String text, int lineIndex, android.util.SparseArray<int[]>"
+                + " binaryTokenSpans)");
 
     assertTrue(
-        "BUG: binary spans should only be added for hidden control characters, not every non-ASCII character.",
+        "BUG: binary spans should only be added for hidden control characters, not every non-ASCII"
+            + " character.",
         body.contains("if (needsEscaping(c))"));
     assertTrue(
         "BUG: normal Unicode characters should be appended as text, not converted to byte tokens.",
@@ -53,7 +61,8 @@ public class BinaryRenderTextGuardTest {
         readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/BinaryFileReader.java");
 
     assertTrue(
-        "BUG: window loading must decode bytes using the file charset before tokenizing hidden controls.",
+        "BUG: window loading must decode bytes using the file charset before tokenizing hidden"
+            + " controls.",
         windowLoader.contains(
             "bytesToControlVisibleAndCacheSpans(buf, buf.length, lineIdx, fileIO.fileCharset)"));
     assertTrue(

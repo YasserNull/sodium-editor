@@ -14,11 +14,13 @@ public class PasteBatchInsertGuardTest {
 
   @Test
   public void insertTextAtCursor_shouldBatchMultiCharacterPaste() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/EditorActions.java");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/EditorActions.java");
     String body = methodBody(src, "public void insertTextAtCursor(String text)");
 
     assertFalse(
-        "BUG: paste must not loop through insertCharAtCursor for every character; that repeats highlight, width, invalidate, and autocomplete work.",
+        "BUG: paste must not loop through insertCharAtCursor for every character; that repeats"
+            + " highlight, width, invalidate, and autocomplete work.",
         body.contains("for (char c : text.toCharArray()) insertCharAtCursor(c)"));
     assertTrue(
         "BUG: multi-character insert should use a batch window edit path.",

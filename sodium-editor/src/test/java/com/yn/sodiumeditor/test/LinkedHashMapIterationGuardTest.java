@@ -13,14 +13,15 @@ public class LinkedHashMapIterationGuardTest {
 
   @Test
   public void lineCacheShifter_shouldIterateSnapshotsOfAccessOrderMaps() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/LineCacheShifter.java");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/LineCacheShifter.java");
 
     assertTrue(
         "BUG: modifiedLines is access-order LinkedHashMap; shifting must iterate a snapshot.",
         src.contains("new ArrayList<>(editor.windowRender.modifiedLines.entrySet())"));
     assertTrue(
         "BUG: highlightCache is access-order LinkedHashMap; shifting must iterate a snapshot.",
-        src.contains("new ArrayList<>(editor.highlite.highlightCache.entrySet())"));
+        src.contains("new ArrayList<>(editor.highlight.highlightCache.entrySet())"));
     assertTrue(
         "BUG: colorCodeBgCache is access-order LinkedHashMap; shifting must iterate a snapshot.",
         src.contains("new ArrayList<>(editor.colorCodeHighlight.colorCodeBgCache.entrySet())"));
@@ -34,7 +35,8 @@ public class LinkedHashMapIterationGuardTest {
 
   @Test
   public void fileWindowLoader_shouldIterateModifiedLinesSnapshot() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileWindowLoader.java");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileWindowLoader.java");
 
     assertTrue(
         "BUG: applying modifiedLines over a reloaded window must iterate a snapshot to avoid CME.",
@@ -43,11 +45,13 @@ public class LinkedHashMapIterationGuardTest {
 
   @Test
   public void windowRender_shouldCacheFirstModifiedLineWithoutPerFrameSnapshot() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/WindowRender.java");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/WindowRender.java");
     String body = methodBody(src, "getFirstModifiedLine()");
 
     assertTrue(
-        "BUG: getFirstModifiedLine() must use the cached first modified line instead of allocating a key snapshot in the render path.",
+        "BUG: getFirstModifiedLine() must use the cached first modified line instead of allocating"
+            + " a key snapshot in the render path.",
         src.contains("new java.util.LinkedHashMap<Integer, String>(1000, 0.75f, false)")
             && src.contains("private int firstModifiedLine")
             && body.contains("return firstModifiedLine")

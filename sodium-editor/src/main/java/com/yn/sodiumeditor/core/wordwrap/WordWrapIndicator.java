@@ -1,13 +1,14 @@
-package com.yn.sodiumeditor.core.wordwrap; 
-import com.yn.sodiumeditor.SodiumEditor;
+package com.yn.sodiumeditor.core.wordwrap;
+
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.os.Handler;
 import android.os.Looper;
+import com.yn.sodiumeditor.SodiumEditor;
 
 /**
- * Manages the word wrap indicator for the SodiumEditor.
- * Handles drawing the indicator at the end of wrapped lines.
+ * Manages the word wrap indicator for the SodiumEditor. Handles drawing the indicator at the end of
+ * wrapped lines.
  */
 public class WordWrapIndicator {
 
@@ -16,7 +17,8 @@ public class WordWrapIndicator {
 
   // Word wrap indicator state
   public boolean isWordWrapIndicatorEnabled = true;
-  public static final String WORD_WRAP_INDICATOR_TEXT = "\u21A9"; // ↩
+  public static final String DEFAULT_WORD_WRAP_INDICATOR_TEXT = "\u21A9"; // ↩
+  public String wordWrapIndicatorText = DEFAULT_WORD_WRAP_INDICATOR_TEXT;
   public final Paint wordWrapIndicatorPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public float wordWrapIndicatorPadPx = 0f;
   public float wordWrapIndicatorWidth = 0f;
@@ -28,9 +30,7 @@ public class WordWrapIndicator {
     initPaint();
   }
 
-  /**
-   * Initializes the indicator paint.
-   */
+  /** Initializes the indicator paint. */
   private void initPaint() {
     wordWrapIndicatorPaint.setColor(0xFF9E9E9E);
     wordWrapIndicatorPaint.setAlpha(180);
@@ -39,26 +39,34 @@ public class WordWrapIndicator {
     updateMetrics();
   }
 
-  /**
-   * Enables or disables the word wrap indicator.
-   */
+  /** Enables or disables the word wrap indicator. */
   public void setWordWrapIndicatorEnabled(boolean enabled) {
     if (this.isWordWrapIndicatorEnabled == enabled) return;
     this.isWordWrapIndicatorEnabled = enabled;
     editor.invalidate();
   }
 
-  /**
-   * Sets the color of the word wrap indicator.
-   */
+  /** Sets the color of the word wrap indicator. */
   public void setWordWrapIndicatorColor(int color) {
     wordWrapIndicatorPaint.setColor(color);
     editor.invalidate();
   }
 
-  /**
-   * Sets the text size of the word wrap indicator.
-   */
+  /** Sets the text drawn for wrapped-line indicators. */
+  public void setWordWrapIndicatorText(String text) {
+    String safeText = (text == null || text.isEmpty()) ? DEFAULT_WORD_WRAP_INDICATOR_TEXT : text;
+    if (wordWrapIndicatorText.equals(safeText)) return;
+    wordWrapIndicatorText = safeText;
+    updateMetrics();
+    editor.wordWrap.invalidateWrapMetrics(false, false);
+    editor.invalidate();
+  }
+
+  public String getWordWrapIndicatorText() {
+    return wordWrapIndicatorText;
+  }
+
+  /** Sets the text size of the word wrap indicator. */
   public void setWordWrapIndicatorTextSize(float sizeSp) {
     if (sizeSp <= 0f) return;
     float px = editor.view.spToPx(sizeSp);
@@ -73,65 +81,54 @@ public class WordWrapIndicator {
     editor.invalidate();
   }
 
-  /**
-   * Updates the indicator metrics based on current paint settings.
-   */
-  public void updateMetrics() {
-    wordWrapIndicatorPaint.setTextSize(editor.textRender.paint.getTextSize() * wordWrapIndicatorTextScale);
-    wordWrapIndicatorPaint.setTypeface(editor.textRender.paint.getTypeface());
-    wordWrapIndicatorWidth = wordWrapIndicatorPaint.measureText(WORD_WRAP_INDICATOR_TEXT);
+  public float getWordWrapIndicatorTextSize() {
+    return wordWrapIndicatorPaint.getTextSize();
   }
 
-  /**
-   * Updates the indicator metrics when text size changes.
-   */
+  /** Updates the indicator metrics based on current paint settings. */
+  public void updateMetrics() {
+    wordWrapIndicatorPaint.setTextSize(
+        editor.textRender.paint.getTextSize() * wordWrapIndicatorTextScale);
+    wordWrapIndicatorPaint.setTypeface(editor.textRender.paint.getTypeface());
+    wordWrapIndicatorWidth = wordWrapIndicatorPaint.measureText(wordWrapIndicatorText);
+  }
+
+  /** Updates the indicator metrics when text size changes. */
   public void onTextSizeChanged(float sizePx) {
     wordWrapIndicatorPaint.setTextSize(sizePx * wordWrapIndicatorTextScale);
     updateMetrics();
   }
 
-  /**
-   * Updates the indicator typeface when typeface changes.
-   */
+  /** Updates the indicator typeface when typeface changes. */
   public void onTypefaceChanged() {
     wordWrapIndicatorPaint.setTypeface(editor.textRender.paint.getTypeface());
     updateMetrics();
   }
 
-  /**
-   * Gets the reserved width for the indicator (including padding).
-   */
+  /** Gets the reserved width for the indicator (including padding). */
   public float getReservedWidth() {
     return wordWrapIndicatorWidth + (wordWrapIndicatorPadPx * 2f);
   }
 
-  /**
-   * Calculates the X position for the indicator.
-   */
+  /** Calculates the X position for the indicator. */
   public float getIndicatorX(float wrapWidthPx) {
     return wrapWidthPx - wordWrapIndicatorWidth - wordWrapIndicatorPadPx;
   }
 
-  /**
-   * Draws the word wrap indicator at the end of a line segment.
-   */
+  /** Draws the word wrap indicator at the end of a line segment. */
   public void drawIndicator(Canvas canvas, float x, float y, float wrapWidthPx) {
     if (!isWordWrapIndicatorEnabled) return;
     float indicatorX = getIndicatorX(wrapWidthPx);
-    canvas.drawText(WORD_WRAP_INDICATOR_TEXT, indicatorX, y, wordWrapIndicatorPaint);
+    canvas.drawText(wordWrapIndicatorText, indicatorX, y, wordWrapIndicatorPaint);
   }
 
-  /**
-   * Checks if the indicator should be shown for a given segment.
-   */
+  /** Checks if the indicator should be shown for a given segment. */
   public boolean shouldShowIndicator(String line, int segStart, int segEnd) {
     if (!isWordWrapIndicatorEnabled || line == null) return false;
     return segEnd < line.length();
   }
 
-  /**
-   * Clamps segment end to account for indicator space.
-   */
+  /** Clamps segment end to account for indicator space. */
   public int clampSegmentEndForIndicator(String line, int segStart, int segEnd, float wrapWidthPx) {
     if (!isWordWrapIndicatorEnabled || line == null) return segEnd;
     if (segEnd <= segStart) return segEnd;
@@ -140,13 +137,17 @@ public class WordWrapIndicator {
     float available = wrapWidthPx - reserved;
     if (available <= 0f) return segStart;
 
-    float width = editor.textRender.measureTextWithVisualSpaces(line, segStart, segEnd, editor.textRender.paint);
+    float width =
+        editor.textRender.measureTextWithVisualSpaces(
+            line, segStart, segEnd, editor.textRender.paint);
     if (width <= available) return segEnd;
 
     int end = segEnd;
     while (end > segStart) {
       end--;
-      float w = editor.textRender.measureTextWithVisualSpaces(line, segStart, end, editor.textRender.paint);
+      float w =
+          editor.textRender.measureTextWithVisualSpaces(
+              line, segStart, end, editor.textRender.paint);
       if (w <= available) break;
     }
     return end;

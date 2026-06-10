@@ -3,9 +3,7 @@ package com.yn.sodiumeditor.io;
 import com.yn.sodiumeditor.SodiumEditor;
 import java.io.RandomAccessFile;
 
-/**
- * Handles building selected text from file or window.
- */
+/** Handles building selected text from file or window. */
 public class SelectionTextBuilder {
   private static final int MAX_SELECTION_LINE_READ_BYTES = 64 * 1024;
 
@@ -15,15 +13,16 @@ public class SelectionTextBuilder {
     this.editor = editor;
   }
 
-  /**
-   * Build selected text from window (fast path).
-   */
+  /** Build selected text from window (fast path). */
   public String buildSelectedTextFromWindow(int sL, int sC, int eL, int eC, int maxChars) {
     StringBuilder sb = new StringBuilder();
     synchronized (editor.windowRender.linesWindow) {
       for (int L = sL; L <= eL; L++) {
         int local = L - editor.windowRender.windowStartLine;
-        String ln = (local >= 0 && local < editor.windowRender.linesWindow.size()) ? editor.windowRender.linesWindow.get(local) : "";
+        String ln =
+            (local >= 0 && local < editor.windowRender.linesWindow.size())
+                ? editor.windowRender.linesWindow.get(local)
+                : "";
         if (ln == null) ln = "";
         int startIdx = (L == sL) ? Math.min(sC, ln.length()) : 0;
         int endIdx = (L == eL) ? Math.min(eC, ln.length()) : ln.length();
@@ -36,9 +35,7 @@ public class SelectionTextBuilder {
     return sb.toString();
   }
 
-  /**
-   * Build selected text blocking (reads from file if needed).
-   */
+  /** Build selected text blocking (reads from file if needed). */
   public String buildSelectedTextBlocking(int sL, int sC, int eL, int eC, int maxChars) {
     if (editor.selection.comparePos(sL, sC, eL, eC) > 0) {
       int tL = sL, tC = sC;
@@ -54,7 +51,9 @@ public class SelectionTextBuilder {
     }
 
     // If the selection is fully inside the current window, prefer the window snapshot
-    boolean fullyInWindow = (sL >= editor.windowRender.windowStartLine) && (eL < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size());
+    boolean fullyInWindow =
+        (sL >= editor.windowRender.windowStartLine)
+            && (eL < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size());
     if (fullyInWindow) {
       return editor.selection.buildSelectedTextFromWindow(sL, sC, eL, eC, maxChars);
     }
@@ -67,9 +66,11 @@ public class SelectionTextBuilder {
         ln = editor.windowRender.getModifiedLine(L);
         if (ln == null) {
           long lineOffset = getLineOffset(raf, L);
-          ln = lineOffset >= 0
-              ? editor.fileIO.readLinePrefixUtf8AtByte(raf, lineOffset, getSelectionLineReadLimit(sC, eC, maxChars, sb.length()))
-              : "";
+          ln =
+              lineOffset >= 0
+                  ? editor.fileIO.readLinePrefixUtf8AtByte(
+                      raf, lineOffset, getSelectionLineReadLimit(sC, eC, maxChars, sb.length()))
+                  : "";
         }
         if (ln == null) ln = "";
 
@@ -89,7 +90,8 @@ public class SelectionTextBuilder {
   private long getLineOffset(RandomAccessFile raf, int line) throws Exception {
     if (editor.fileIO.isIndexReady) {
       synchronized (editor.fileIO.lineOffsetsLock) {
-        if (line >= 0 && line < editor.fileIO.lineOffsets.length) return editor.fileIO.lineOffsets[line];
+        if (line >= 0 && line < editor.fileIO.lineOffsets.length)
+          return editor.fileIO.lineOffsets[line];
       }
       return -1L;
     }

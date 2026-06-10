@@ -1,14 +1,12 @@
 package com.yn.sodiumeditor.core.selection;
 
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.RectF;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.animation.SelectionAnimation;
-import android.graphics.Paint;
-import android.graphics.RectF;
-import android.graphics.Path;
 
-/**
- * Manages selection state, appearance, and animation for SodiumEditor.
- */
+/** Manages selection state, appearance, and animation for SodiumEditor. */
 public class SelectionState {
 
   // Selection state
@@ -85,12 +83,13 @@ public class SelectionState {
     return animation.selectionAnimationEnabled;
   }
 
-  /**
-   * Set selection range
-   */
+  /** Set selection range */
   public void setSelection(int startLine, int startChar, int endLine, int endChar) {
     boolean oldHasSelection = hasSelection;
-    int oldStartLine = selStartLine, oldStartChar = selStartChar, oldEndLine = selEndLine, oldEndChar = selEndChar;
+    int oldStartLine = selStartLine,
+        oldStartChar = selStartChar,
+        oldEndLine = selEndLine,
+        oldEndChar = selEndChar;
     selStartLine = startLine;
     selStartChar = startChar;
     selEndLine = endLine;
@@ -116,9 +115,7 @@ public class SelectionState {
                 || oldEndChar != selEndChar));
   }
 
-  /**
-   * Clear selection
-   */
+  /** Clear selection */
   public void clearSelection() {
     hasSelection = false;
     isSelectAllActive = false;
@@ -137,12 +134,13 @@ public class SelectionState {
     updateSelectionVisibility(false);
   }
 
-  /**
-   * Set selection internal (normalized)
-   */
+  /** Set selection internal (normalized) */
   public void setSelectionInternal(int sL, int sC, int eL, int eC) {
     boolean oldHasSelection = hasSelection;
-    int oldStartLine = selStartLine, oldStartChar = selStartChar, oldEndLine = selEndLine, oldEndChar = selEndChar;
+    int oldStartLine = selStartLine,
+        oldStartChar = selStartChar,
+        oldEndLine = selEndLine,
+        oldEndChar = selEndChar;
     int startL = sL, startC = sC, endL = eL, endC = eC;
     if (comparePos(startL, startC, endL, endC) > 0) {
       int tL = startL, tC = startC;
@@ -176,17 +174,13 @@ public class SelectionState {
                 || oldEndChar != selEndChar));
   }
 
-  /**
-   * Compare two positions
-   */
+  /** Compare two positions */
   public int comparePos(int lineA, int charA, int lineB, int charB) {
     if (lineA != lineB) return Integer.compare(lineA, lineB);
     return Integer.compare(charA, charB);
   }
 
-  /**
-   * Check if position is within selection
-   */
+  /** Check if position is within selection */
   public boolean contains(int line, int ch) {
     if (!hasSelection) return false;
 
@@ -208,9 +202,7 @@ public class SelectionState {
     return true;
   }
 
-  /**
-   * Check if copy/cut should be hidden for current selection
-   */
+  /** Check if copy/cut should be hidden for current selection */
   public boolean shouldHideCopyCutForSelection() {
     if (!hasSelection) return true;
 
@@ -224,114 +216,84 @@ public class SelectionState {
     return lines > copyCutMaxLines;
   }
 
-  /**
-   * Get selection start line
-   */
+  /** Get selection start line */
   public int getStartLine() {
     return selStartLine;
   }
 
-  /**
-   * Get selection start character
-   */
+  /** Get selection start character */
   public int getStartChar() {
     return selStartChar;
   }
 
-  /**
-   * Get selection end line
-   */
+  /** Get selection end line */
   public int getEndLine() {
     return selEndLine;
   }
 
-  /**
-   * Get selection end character
-   */
+  /** Get selection end character */
   public int getEndChar() {
     return selEndChar;
   }
 
-  /**
-   * Get selection line count
-   */
+  /** Get selection line count */
   public int getLineCount() {
     if (!hasSelection) return 0;
     return Math.abs(selEndLine - selStartLine) + 1;
   }
 
-  /**
-   * Check if selection is empty
-   */
+  /** Check if selection is empty */
   public boolean isEmpty() {
     return !hasSelection || (selStartLine == selEndLine && selStartChar == selEndChar);
   }
 
-  /**
-   * Check if selection is active
-   */
+  /** Check if selection is active */
   public boolean hasSelection() {
     return hasSelection;
   }
 
-  /**
-   * Check if select all is active
-   */
+  /** Check if select all is active */
   public boolean isSelectAll() {
     return isSelectAllActive || isEntireFileSelected;
   }
 
-  /**
-   * Set selection color
-   */
+  /** Set selection color */
   public void setSelectionColor(int color) {
     selectionColor = color;
     selectionPaint.setColor(color);
     editor.invalidate();
   }
 
-  /**
-   * Set selection handle color
-   */
+  /** Set selection handle color */
   public void setSelectionHandleColor(int color) {
     selectionHandleColor = color;
   }
 
-  /**
-   * Set selection highlight color
-   */
+  /** Set selection highlight color */
   public void setSelectionHighlightColor(int color) {
     if (this.selectionHighlightColor == color) return;
     this.selectionHighlightColor = color;
     if (hasSelection) editor.invalidate();
   }
 
-  /**
-   * Set selection animation enabled
-   */
+  /** Set selection animation enabled */
   public void setSelectionAnimationEnabled(boolean enabled) {
     animation.setSelectionAnimationEnabled(enabled);
   }
 
-  /**
-   * Update selection visibility
-   */
+  /** Update selection visibility */
   public void updateSelectionVisibility(boolean nowHasSelection) {
     animation.updateSelectionVisibility(nowHasSelection);
   }
 
-  /**
-   * Begin long press selection
-   */
+  /** Begin long press selection */
   public void beginLongPressSelection(int line, int ch) {
     longPressSelecting = true;
     longPressAnchorLine = Math.max(0, line);
     longPressAnchorChar = Math.max(0, ch);
   }
 
-  /**
-   * Update long press selection
-   */
+  /** Update long press selection */
   public void updateLongPressSelection(int line, int ch) {
     if (!longPressSelecting) return;
     setSelectionInternal(longPressAnchorLine, longPressAnchorChar, line, ch);
@@ -339,8 +301,8 @@ public class SelectionState {
   }
 
   /**
-   * Update long press selection extending from current selection end
-   * Used when smart selection was active before long press drag
+   * Update long press selection extending from current selection end Used when smart selection was
+   * active before long press drag
    */
   public void updateLongPressSelectionFromSelectionEnd(int line, int ch) {
     if (!longPressSelecting) return;
@@ -349,18 +311,14 @@ public class SelectionState {
     selecting = true;
   }
 
-  /**
-   * End long press selection
-   */
+  /** End long press selection */
   public void endLongPressSelection() {
     longPressSelecting = false;
     selecting = false;
     longPressEndPointerId = -1;
   }
 
-  /**
-   * Clear selection state after delete
-   */
+  /** Clear selection state after delete */
   public void clearSelectionStateAfterDelete() {
     hasSelection = false;
     selecting = false;
@@ -369,9 +327,7 @@ public class SelectionState {
     editor.caret.resetBlink();
   }
 
-  /**
-   * Clamp line for selection
-   */
+  /** Clamp line for selection */
   public int clampLineForSelection(int line) {
     if (line < 0) return 0;
     if (editor.fileIO.isEof) {
@@ -382,18 +338,14 @@ public class SelectionState {
     return line;
   }
 
-  /**
-   * Check if line is selectable
-   */
+  /** Check if line is selectable */
   public boolean isLineSelectable(int line) {
     editor.fileIO.ensureLineInWindow(line, true);
     String ln = editor.windowRender.getLineTextForRender(line);
     return ln != null && ln.length() > 0;
   }
 
-  /**
-   * Check if position is inside selection
-   */
+  /** Check if position is inside selection */
   public boolean isPositionInsideSelection(int line, int ch) {
     if (!hasSelection) return false;
     int sL = selStartLine;
@@ -410,16 +362,15 @@ public class SelectionState {
     return comparePos(line, ch, eL, eC) <= 0;
   }
 
-  /**
-   * Restore selection
-   */
+  /** Restore selection */
   public void restoreSelection(int sL, int sC, int eL, int eC, int cursorLine, int cursorChar) {
     setSelectionInternal(sL, sC, eL, eC);
     int targetLine = Math.max(0, cursorLine);
     int targetChar = Math.max(0, editor.cursor.cursorChar);
     cursorLine = targetLine;
     if (cursorLine >= editor.windowRender.windowStartLine
-        && cursorLine < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) {
+        && cursorLine
+            < editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) {
       String lineText = editor.windowRender.getLineTextForRender(cursorLine);
       this.editor.cursor.cursorChar = Math.max(0, Math.min(targetChar, lineText.length()));
     } else {
@@ -429,16 +380,15 @@ public class SelectionState {
     editor.invalidate();
   }
 
-  /**
-   * Paste text from clipboard
-   */
+  /** Paste text from clipboard */
   public void pasteFromClipboard() {
     editor.fileIO.invalidatePendingIOForEdit();
     editor.editOperators.editVersion.incrementAndGet();
     editor.autoCompletion.clearActiveSuggestion();
 
     android.content.ClipboardManager cm =
-        (android.content.ClipboardManager) editor.getContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+        (android.content.ClipboardManager)
+            editor.getContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
     if (cm == null || !cm.hasPrimaryClip()) return;
     android.content.ClipData cd = cm.getPrimaryClip();
     if (cd == null || cd.getItemCount() == 0) return;

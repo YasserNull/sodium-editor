@@ -5,125 +5,117 @@ import android.view.animation.PathInterpolator;
 import com.yn.sodiumeditor.SodiumEditor;
 
 /**
- * CurrentLineHighlightAnimation handles the smooth sliding animation
- * for the current line highlight indicator.
+ * CurrentLineHighlightAnimation handles the smooth sliding animation for the current line highlight
+ * indicator.
  */
 public class CurrentLineHighlightAnimation {
-    private static final long NORMAL_MIN_DURATION_MS = 90L;
-    private static final long NORMAL_MAX_DURATION_MS = 180L;
-    private static final long DRAG_MIN_DURATION_MS = 16L;
-    private static final long DRAG_MAX_DURATION_MS = 72L;
-    private static final float NORMAL_DISTANCE_FOR_MIN_DURATION = 12f;
-    private static final float DRAG_DISTANCE_FOR_MIN_DURATION = 4f;
+  private static final long NORMAL_MIN_DURATION_MS = 90L;
+  private static final long NORMAL_MAX_DURATION_MS = 180L;
+  private static final long DRAG_MIN_DURATION_MS = 16L;
+  private static final long DRAG_MAX_DURATION_MS = 72L;
+  private static final float NORMAL_DISTANCE_FOR_MIN_DURATION = 12f;
+  private static final float DRAG_DISTANCE_FOR_MIN_DURATION = 4f;
 
-    private final SodiumEditor editor;
+  private final SodiumEditor editor;
 
-    // Animation state
-    private float animatedVisualIndex = -1f;
-    private float lastTargetIndex = -1f;
-    private ValueAnimator lineAnimator;
+  // Animation state
+  private float animatedVisualIndex = -1f;
+  private float lastTargetIndex = -1f;
+  private ValueAnimator lineAnimator;
 
-    // Smooth interpolator (Bezier curve for material motion)
-    private final PathInterpolator smoothInterpolator = new PathInterpolator(0.4f, 0f, 0.2f, 1f);
+  // Smooth interpolator (Bezier curve for material motion)
+  private final PathInterpolator smoothInterpolator = new PathInterpolator(0.4f, 0f, 0.2f, 1f);
 
-    // Animation enable/disable
-    public boolean isCurrentLineAnimationEnabled = true;
+  // Animation enable/disable
+  public boolean isCurrentLineAnimationEnabled = true;
 
-    public CurrentLineHighlightAnimation(SodiumEditor editor) {
-        this.editor = editor;
+  public CurrentLineHighlightAnimation(SodiumEditor editor) {
+    this.editor = editor;
+  }
+
+  /** Get the target visual index based on cursor position. */
+  private float getTargetVisualIndex() {
+    if (editor.wordWrap.isWordWrapEnabled) {
+      return (float)
+          editor.wordWrap.getVisualIndexForLineAndChar(
+              editor.cursor.cursorLine, editor.cursor.cursorChar);
     }
+    return (float) editor.cursor.cursorLine;
+  }
 
-    /**
-     * Get the target visual index based on cursor position.
-     */
-    private float getTargetVisualIndex() {
-        if (editor.wordWrap.isWordWrapEnabled) {
-            return (float) editor.wordWrap.getVisualIndexForLineAndChar(editor.cursor.cursorLine, editor.cursor.cursorChar);
-        }
-        return (float) editor.cursor.cursorLine;
+  /** Check if animation needs to be started and run it. */
+  public void checkAndStartAnimation() {
+    float target = getTargetVisualIndex();
+    if (!isCurrentLineAnimationEnabled) {
+      cancelAnimation();
+      animatedVisualIndex = target;
+      lastTargetIndex = target;
+      return;
     }
+    if (Math.abs(lastTargetIndex - target) > 0.01f) {
+      cancelAnimation();
+      float start = animatedVisualIndex < 0 ? target : animatedVisualIndex;
+      float distance = Math.abs(target - start);
+      boolean dragActive =
+          editor.selectionHandles.draggingHandle != 0
+              || editor.onTouch.pointerDown
+              || editor.selection.selecting
+              || editor.selection.longPressSelecting;
+      long duration =
+          computeDuration(
+              distance,
+              dragActive ? DRAG_MIN_DURATION_MS : NORMAL_MIN_DURATION_MS,
+              dragActive ? DRAG_MAX_DURATION_MS : NORMAL_MAX_DURATION_MS,
+              dragActive ? DRAG_DISTANCE_FOR_MIN_DURATION : NORMAL_DISTANCE_FOR_MIN_DURATION);
+      lineAnimator = ValueAnimator.ofFloat(start, target);
+      lineAnimator.setDuration(duration);
+      lineAnimator.setInterpolator(smoothInterpolator);
+      lineAnimator.addUpdateListener(
+          animation -> {
+            animatedVisualIndex = (float) animation.getAnimatedValue();
+            editor.invalidate();
+          });
+      lineAnimator.start();
+      lastTargetIndex = target;
+    }
+  }
 
-    /**
-     * Check if animation needs to be started and run it.
-     */
-    public void checkAndStartAnimation() {
-        float target = getTargetVisualIndex();
-        if (!isCurrentLineAnimationEnabled) {
-            cancelAnimation();
-            animatedVisualIndex = target;
-            lastTargetIndex = target;
-            return;
-        }
-        if (Math.abs(lastTargetIndex - target) > 0.01f) {
-            cancelAnimation();
-            float start = animatedVisualIndex < 0 ? target : animatedVisualIndex;
-            float distance = Math.abs(target - start);
-            boolean dragActive =
-                    editor.selectionHandles.draggingHandle != 0
-                            || editor.onTouch.pointerDown
-                            || editor.selection.selecting
-                            || editor.selection.longPressSelecting;
-            long duration =
-                    computeDuration(
-                            distance,
-                            dragActive ? DRAG_MIN_DURATION_MS : NORMAL_MIN_DURATION_MS,
-                            dragActive ? DRAG_MAX_DURATION_MS : NORMAL_MAX_DURATION_MS,
-                            dragActive
-                                    ? DRAG_DISTANCE_FOR_MIN_DURATION
-                                    : NORMAL_DISTANCE_FOR_MIN_DURATION);
-            lineAnimator = ValueAnimator.ofFloat(start, target);
-            lineAnimator.setDuration(duration);
-            lineAnimator.setInterpolator(smoothInterpolator);
-            lineAnimator.addUpdateListener(animation -> {
-                animatedVisualIndex = (float) animation.getAnimatedValue();
-                editor.invalidate();
-            });
-            lineAnimator.start();
-            lastTargetIndex = target;
-        }
+  private long computeDuration(
+      float distance, long minDuration, long maxDuration, float distanceForMinDuration) {
+    if (distance <= 0.01f) {
+      return minDuration;
     }
+    float ratio = Math.min(1f, distance / Math.max(0.01f, distanceForMinDuration));
+    long duration = Math.round(maxDuration - ((maxDuration - minDuration) * ratio));
+    return Math.max(minDuration, Math.min(maxDuration, duration));
+  }
 
-    private long computeDuration(
-            float distance, long minDuration, long maxDuration, float distanceForMinDuration) {
-        if (distance <= 0.01f) {
-            return minDuration;
-        }
-        float ratio = Math.min(1f, distance / Math.max(0.01f, distanceForMinDuration));
-        long duration = Math.round(maxDuration - ((maxDuration - minDuration) * ratio));
-        return Math.max(minDuration, Math.min(maxDuration, duration));
-    }
-    /**
-     * Get the current animated visual index (starts animation if needed).
-     */
-    public float getAnimatedVisualIndex() {
-        checkAndStartAnimation();
-        return animatedVisualIndex;
-    }
+  /** Get the current animated visual index (starts animation if needed). */
+  public float getAnimatedVisualIndex() {
+    checkAndStartAnimation();
+    return animatedVisualIndex;
+  }
 
-    /**
-     * Enable or disable the animation.
-     */
-    public void setAnimationEnabled(boolean enabled) {
-        this.isCurrentLineAnimationEnabled = enabled;
-    }
+  /** Enable or disable the animation. */
+  public void setAnimationEnabled(boolean enabled) {
+    this.isCurrentLineAnimationEnabled = enabled;
+  }
 
-    /**
-     * Cancel any running animation.
-     */
-    public void cancelAnimation() {
-        if (lineAnimator != null) {
-            lineAnimator.cancel();
-        }
+  /** Cancel any running animation. */
+  public void cancelAnimation() {
+    if (lineAnimator != null) {
+      lineAnimator.cancel();
     }
+  }
 
-    /**
-     * Reset the animation state to the current cursor target immediately,
-     * preventing any ongoing or pending slide animation.
-     */
-    public void resetToTarget() {
-        cancelAnimation();
-        float target = getTargetVisualIndex();
-        animatedVisualIndex = target;
-        lastTargetIndex = target;
-    }
+  /**
+   * Reset the animation state to the current cursor target immediately, preventing any ongoing or
+   * pending slide animation.
+   */
+  public void resetToTarget() {
+    cancelAnimation();
+    float target = getTargetVisualIndex();
+    animatedVisualIndex = target;
+    lastTargetIndex = target;
+  }
 }

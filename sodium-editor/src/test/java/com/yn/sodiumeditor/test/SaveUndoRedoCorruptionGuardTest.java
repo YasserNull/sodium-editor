@@ -14,7 +14,8 @@ public class SaveUndoRedoCorruptionGuardTest {
 
   @Test
   public void largePasteDoesNotRewriteSourceFileBeforeSave() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/EditorActions.java");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/EditorActions.java");
     String body = methodBody(src, "public void insertTextAtCursor(");
     assertFalse(
         "BUG: large paste must not rewrite the source file and then also enter pendingEdits.",
@@ -48,7 +49,8 @@ public class SaveUndoRedoCorruptionGuardTest {
     String helper = methodBody(redo, "private void applyEntireFileDeleteForRedo(");
 
     assertTrue(
-        "BUG: redo of select-all delete must use a dedicated fast path, not a stale selection replace.",
+        "BUG: redo of select-all delete must use a dedicated fast path, not a stale selection"
+            + " replace.",
         body.contains("op.entireFileDelete") && body.contains("applyEntireFileDeleteForRedo(op)"));
     assertTrue(helper.contains("editor.windowRender.linesWindow.clear()"));
     assertTrue(helper.contains("editor.windowRender.linesWindow.add(\"\")"));
@@ -62,7 +64,8 @@ public class SaveUndoRedoCorruptionGuardTest {
 
   @Test
   public void saveSuccessDoesNotClearNewEditsMadeDuringSave() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileEditHandler.java");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileEditHandler.java");
     String body = methodBody(src, "public void applyPendingEditsToFileAsync(");
     assertTrue(body.contains("saveStartVersion"));
     assertTrue(body.contains("computeDeltaForOps"));
@@ -70,22 +73,31 @@ public class SaveUndoRedoCorruptionGuardTest {
     assertTrue(body.contains("operators.lineCountDelta -= savedDelta"));
     assertFalse(
         "BUG: save success must not always clear modifiedLines regardless of new edits.",
-        body.contains("editor.windowRender.clearModifiedLines();\n                    }\n                    synchronized"));
+        body.contains(
+            "editor.windowRender.clearModifiedLines();\n"
+                + "                    }\n"
+                + "                    synchronized"));
   }
 
   @Test
   public void byteRangesUseCharsetAwareCharToByteOffsets() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/ByteRangeLocator.java");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/ByteRangeLocator.java");
     String indexed = methodBody(src, "private EditOp.RangeBytes computeByteRangeFromReadyIndex(");
     assertTrue(indexed.contains("byteOffsetForChar"));
-    assertFalse("BUG: UTF-8 char indexes are not byte offsets.", indexed.contains("offsets[sL] + Math.max(0, sC)"));
+    assertFalse(
+        "BUG: UTF-8 char indexes are not byte offsets.",
+        indexed.contains("offsets[sL] + Math.max(0, sC)"));
     assertTrue(src.contains("CharsetDecoder"));
   }
 
   @Test
   public void fileWritesUseEditorFileCharsetAndFullChannelWrites() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileEditHandler.java");
-    assertFalse("BUG: save path must not hard-code UTF-8 for inserted text.", src.contains("StandardCharsets.UTF_8"));
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileEditHandler.java");
+    assertFalse(
+        "BUG: save path must not hard-code UTF-8 for inserted text.",
+        src.contains("StandardCharsets.UTF_8"));
     assertTrue(src.contains("editor.fileIO.fileCharset"));
     assertTrue(src.contains("readFully("));
     assertTrue(src.contains("writeFully("));

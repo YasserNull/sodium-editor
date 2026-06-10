@@ -1,0 +1,849 @@
+package com.yn.sodiumeditor.renderer;
+
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.RectF;
+import android.graphics.Typeface;
+import com.yn.sodiumeditor.SodiumEditor;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.regex.Pattern;
+
+/** HighlightRender handles syntax highlighting rendering logic for SodiumEditor. */
+public class HighlightRender {
+  private static final String CHAR_ANIM_TAG = "SodiumCharAnim";
+  private static final ThreadLocal<ArrayList<HighlightSpan>> TL_MASKED_COLOR_SPANS =
+      ThreadLocal.withInitial(ArrayList::new);
+
+  private final SodiumEditor editor;
+  private int charAnimRenderLogCount = 0;
+
+  // Moved from TextRender
+  public final RectF binaryTokenRect = new RectF();
+  public int maxSyntaxLineLength = 4096;
+  public int prefetchCols = 100;
+  public int visibleCharPadding = 2;
+
+  // Highlight span class
+  public static class HighlightSpan {
+    public final int start;
+    public final int end;
+    public final Paint paint;
+
+    public HighlightSpan(int start, int end, Paint paint) {
+      this.start = start;
+      this.end = end;
+      this.paint = paint;
+    }
+  }
+
+  // Highlight rule class
+  public static class HighlightRule {
+    public final HighlightRuleType type;
+    public final Pattern pattern;
+    public final Paint paint;
+    public final int style;
+    public final boolean underline;
+
+    public HighlightRule(
+        String regex,
+        int style,
+        int color,
+        float baseTextSize,
+        Typeface baseTypeface,
+        boolean underline,
+        HighlightRuleType type) {
+      this.type = type;
+      if (type == HighlightRuleType.REGEX) {
+        this.pattern = Pattern.compile(regex);
+      } else {
+        this.pattern = null;
+      }
+      this.paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+      this.paint.setColor(color);
+      this.paint.setTextSize(baseTextSize);
+      this.style = style;
+      this.underline = underline;
+
+      int typefaceStyle;
+      switch (style) {
+        case com.yn.sodiumeditor.core.view.FontStyle.STYLE_BOLD:
+          typefaceStyle = Typeface.BOLD;
+          break;
+        case com.yn.sodiumeditor.core.view.FontStyle.STYLE_ITALIC:
+          typefaceStyle = Typeface.ITALIC;
+          break;
+        case com.yn.sodiumeditor.core.view.FontStyle.STYLE_BOLD_ITALIC:
+          typefaceStyle = Typeface.BOLD_ITALIC;
+          break;
+        default:
+          typefaceStyle = Typeface.NORMAL;
+          break;
+      }
+
+      this.paint.setTypeface(Typeface.create(baseTypeface, typefaceStyle));
+      this.paint.setUnderlineText(underline);
+    }
+
+    public void updateTextSize(float size) {
+      paint.setTextSize(size);
+    }
+
+    public void updateTypeface(Typeface baseTypeface) {
+      int typefaceStyle;
+      switch (style) {
+        case com.yn.sodiumeditor.core.view.FontStyle.STYLE_BOLD:
+          typefaceStyle = Typeface.BOLD;
+          break;
+        case com.yn.sodiumeditor.core.view.FontStyle.STYLE_ITALIC:
+          typefaceStyle = Typeface.ITALIC;
+          break;
+        case com.yn.sodiumeditor.core.view.FontStyle.STYLE_BOLD_ITALIC:
+          typefaceStyle = Typeface.BOLD_ITALIC;
+          break;
+        default:
+          typefaceStyle = Typeface.NORMAL;
+          break;
+      }
+      paint.setTypeface(Typeface.create(baseTypeface, typefaceStyle));
+    }
+  }
+
+  // Highlight rule type enum
+  public enum HighlightRuleType {
+    REGEX,
+    STRING,
+    BLOCK_COMMENT,
+    LINE_COMMENT
+  }
+
+  // Line parse result
+  public static class LineParseResult {
+    public final List<HighlightSpan> spans;
+    public final boolean endsInBlockComment;
+    public final int endsInStringState;
+
+    public LineParseResult(
+        List<HighlightSpan> spans, boolean endsInBlockComment, int endsInStringState) {
+      this.spans = spans;
+      this.endsInBlockComment = endsInBlockComment;
+      this.endsInStringState = endsInStringState;
+    }
+  }
+
+  // Highlight line state
+  public static class HighlightLineState {
+    public final boolean inBlockComment;
+    public final int stringState;
+
+    public HighlightLineState(boolean inBlockComment, int stringState) {
+      this.inBlockComment = inBlockComment;
+      this.stringState = stringState;
+    }
+  }
+
+  public HighlightRender(SodiumEditor editor) {
+    this.editor = editor;
+  }
+
+  /** Get paint for a specific character based on syntax highlighting */
+  public Paint getPaintForChar(int lineIndex, int charIndex, String lineText) {
+    List<HighlightSpan> spans = editor.highlight.highlightCache.get(lineIndex);
+    if (spans == null) {
+      spans = editor.highlight.calculateSpansForLine(lineText, lineIndex);
+      editor.highlight.highlightCache.put(lineIndex, spans);
+    }
+    for (HighlightSpan span : spans) {
+      if (charIndex >= span.start && charIndex < span.end) {
+        return span.paint;
+      }
+    }
+    return editor.textRender.paint;
+  }
+
+  /** Draw a highlighted line with syntax highlighting, underlines, and animations */
+  public void drawHighlightedLine(Canvas canvas, String line, int globalLine, float y) {
+    boolean tracingCharAnimLine = isTracingCharAnimLine(globalLine);
+    if (tracingCharAnimLine) {}
+    // Fast path only for lines that actually contain binary replacement tokens.
+    if (editor.binaryRender.shouldUseBinaryRenderingForLine(globalLine)) {
+      editor.textRender.getVisibleCharRangeForLine(
+          line, globalLine, editor.textRender.visibleCharRangeTmp);
+      int visibleStart = editor.textRender.visibleCharRangeTmp[0];
+      int visibleEnd = editor.textRender.visibleCharRangeTmp[1];
+      if (visibleEnd > visibleStart) {
+        int sliceStart = editor.windowRender.getStreamedLineSliceStart(globalLine);
+        int sliceEnd = sliceStart + line.length();
+        int drawStart = Math.max(visibleStart, sliceStart);
+        int drawEnd = Math.min(visibleEnd, sliceEnd);
+        if (drawEnd > drawStart) {
+          int relStart = Math.max(0, drawStart - sliceStart);
+          int relEnd = Math.max(relStart, Math.min(line.length(), drawEnd - sliceStart));
+
+          int fadeStart = -1;
+          int fadeEnd = -1;
+          float fadeAlpha = 1f;
+          if (editor.charAnimation.isCharAnimationEnabled
+              && globalLine == editor.charAnimation.charAnimLine
+              && editor.charAnimation.charAnimEndChar > editor.charAnimation.charAnimStartChar
+              && editor.charAnimation.charAnimAlpha < 1f) {
+            fadeStart =
+                Math.max(
+                    0,
+                    Math.min(editor.charAnimation.charAnimStartChar - sliceStart, line.length()));
+            fadeEnd =
+                Math.max(
+                    0, Math.min(editor.charAnimation.charAnimEndChar - sliceStart, line.length()));
+            fadeAlpha = Math.max(0f, Math.min(1f, editor.charAnimation.charAnimAlpha));
+            if (fadeEnd <= fadeStart) {
+              fadeStart = -1;
+              fadeEnd = -1;
+            }
+          }
+          editor.binaryRender.drawBinaryLineSliceWithFade(
+              canvas,
+              line,
+              globalLine,
+              relStart,
+              relEnd,
+              sliceStart,
+              y,
+              editor.textRender.paint,
+              fadeStart,
+              fadeEnd,
+              fadeAlpha);
+        }
+      }
+      // Draw error underlines even in binary mode
+      drawUrlAndPathUnderlinesForBinaryLine(canvas, line, globalLine, y);
+      editor.errorUnderline.drawErrorUnderlinesForLine(
+          canvas,
+          line,
+          globalLine,
+          y,
+          editor.textRender.getDrawLineTop(globalLine),
+          editor.textRender.getDrawLineBottom(globalLine));
+      drawDeleteAnimationGhost(canvas, line, globalLine, y);
+      return;
+    }
+    if (line.isEmpty()) {
+      drawDeleteAnimationGhost(canvas, line, globalLine, y);
+      return;
+    }
+
+    // Get visible character range
+    editor.textRender.getVisibleCharRangeForLine(
+        line, globalLine, editor.textRender.visibleCharRangeTmp);
+    int visibleStart = editor.textRender.visibleCharRangeTmp[0];
+    int visibleEnd = editor.textRender.visibleCharRangeTmp[1];
+    int len = editor.view.getLogicalLineLength(globalLine, line);
+    if (tracingCharAnimLine) {}
+
+    // Handle lines exceeding max syntax length
+    if (len > maxSyntaxLineLength) {
+      if (visibleEnd > visibleStart) {
+        int sliceStart = editor.windowRender.getStreamedLineSliceStart(globalLine);
+        int sliceEnd = sliceStart + line.length();
+        int drawStart = Math.max(visibleStart, sliceStart);
+        int drawEnd = Math.min(visibleEnd, sliceEnd);
+        if (drawEnd > drawStart) {
+          float avg = editor.textRender.getAverageCharWidthForLine(line, globalLine);
+          float x = avg * drawStart;
+          canvas.drawText(
+              line, drawStart - sliceStart, drawEnd - sliceStart, x, y, editor.textRender.paint);
+        }
+      }
+      return;
+    }
+
+    // Handle partial visibility
+    if (visibleStart > 0 || visibleEnd < len) {
+      drawHighlightedLineRange(canvas, line, globalLine, visibleStart, visibleEnd, y);
+      return;
+    }
+
+    boolean hasCharFade =
+        globalLine == editor.charAnimation.charAnimLine
+            && editor.charAnimation.charAnimEndChar > editor.charAnimation.charAnimStartChar
+            && editor.charAnimation.charAnimAlpha < 1f;
+    boolean hasDeleteGhost =
+        globalLine == editor.charAnimation.delAnimLine
+            && editor.charAnimation.delAnimText != null
+            && !editor.charAnimation.delAnimText.isEmpty()
+            && editor.charAnimation.delAnimAlpha > 0f;
+    if (tracingCharAnimLine) {}
+    if (editor.highlight.rules.isEmpty()
+        && !editor.urlUnderline.isUrlUnderliningActive()
+        && !editor.pathUnderline.isPathUnderliningActive()
+        && !editor.errorUnderline.errorUnderlineEnabled
+        && !hasCharFade
+        && !hasDeleteGhost) {
+      canvas.drawText(line, 0, line.length(), 0f, y, editor.textRender.paint);
+      return;
+    }
+
+    // Collect underlines
+    ArrayList<TextRender.UnderlineSpan> combinedUnderlines = TextRender.TL_UNDERLINES.get();
+    combinedUnderlines.clear();
+    if (editor.urlUnderline.isUrlUnderliningActive()) {
+      List<TextRender.UnderlineSpan> urlSpans =
+          editor.urlUnderline.getUrlUnderlineSpansForLine(line, globalLine);
+      if (urlSpans != null) combinedUnderlines.addAll(urlSpans);
+    }
+    if (editor.pathUnderline.isPathUnderliningActive()) {
+      List<TextRender.UnderlineSpan> pathSpans =
+          editor.pathUnderline.getPathUnderlineSpansForLine(line, globalLine);
+      if (pathSpans != null) combinedUnderlines.addAll(pathSpans);
+    }
+    if (combinedUnderlines.size() > 1) {
+      Collections.sort(combinedUnderlines, (s1, s2) -> Integer.compare(s1.start, s2.start));
+    }
+
+    // Handle fade animation
+    int fadeStart = -1;
+    int fadeEnd = -1;
+    float fadeAlpha = 1f;
+    if (hasCharFade) {
+      fadeStart = Math.max(0, Math.min(editor.charAnimation.charAnimStartChar, line.length()));
+      fadeEnd = Math.max(0, Math.min(editor.charAnimation.charAnimEndChar, line.length()));
+      fadeAlpha = Math.max(0f, Math.min(1f, editor.charAnimation.charAnimAlpha));
+      if (fadeEnd <= fadeStart) {
+        fadeStart = -1;
+        fadeEnd = -1;
+      }
+    }
+    if (tracingCharAnimLine) {}
+
+    float lineTop = editor.textRender.getDrawLineTop(globalLine);
+    float lineBottom = lineTop + editor.textRender.lineHeight;
+
+    // Draw with or without syntax highlighting
+    if (editor.highlight.rules.isEmpty()) {
+      editor.textRender.drawTextSegmentWithFadeAndUnderlines(
+          canvas,
+          line,
+          0,
+          line.length(),
+          0f,
+          y,
+          editor.textRender.paint,
+          fadeStart,
+          fadeEnd,
+          fadeAlpha,
+          combinedUnderlines,
+          lineTop,
+          lineBottom);
+
+      // Draw delete animation
+      if (globalLine == editor.charAnimation.delAnimLine
+          && editor.charAnimation.delAnimText != null
+          && !editor.charAnimation.delAnimText.isEmpty()
+          && editor.charAnimation.delAnimAlpha > 0f) {
+        int at = Math.max(0, Math.min(editor.charAnimation.delAnimAtChar, line.length()));
+        float x = editor.textRender.measureText(line, at, globalLine);
+        Paint ghostPaint =
+            (editor.charAnimation.delAnimPaint != null)
+                ? editor.charAnimation.delAnimPaint
+                : editor.textRender.paint;
+        editor.charAnimation.charAnimTmpPaint.set(ghostPaint);
+        editor.charAnimation.charAnimTmpPaint.setUnderlineText(false);
+        int baseAlpha = ghostPaint.getAlpha();
+        editor.charAnimation.charAnimTmpPaint.setAlpha(
+            (int) (baseAlpha * Math.max(0f, Math.min(1f, editor.charAnimation.delAnimAlpha))));
+        canvas.drawText(
+            editor.charAnimation.delAnimText, x, y, editor.charAnimation.charAnimTmpPaint);
+      }
+      editor.errorUnderline.drawErrorUnderlinesForLine(
+          canvas, line, globalLine, y, lineTop, lineBottom);
+      return;
+    }
+
+    // Get syntax highlight spans
+    List<HighlightSpan> spans = editor.highlight.highlightCache.get(globalLine);
+    if (spans == null) {
+      spans = editor.highlight.calculateSpansForLine(line, globalLine);
+      editor.highlight.highlightCache.put(globalLine, spans);
+    }
+
+    if (spans.isEmpty()) {
+      editor.textRender.drawTextSegmentWithFadeAndUnderlines(
+          canvas,
+          line,
+          0,
+          line.length(),
+          0f,
+          y,
+          editor.textRender.paint,
+          fadeStart,
+          fadeEnd,
+          fadeAlpha,
+          combinedUnderlines,
+          lineTop,
+          lineBottom);
+
+      if (globalLine == editor.charAnimation.delAnimLine
+          && editor.charAnimation.delAnimText != null
+          && !editor.charAnimation.delAnimText.isEmpty()
+          && editor.charAnimation.delAnimAlpha > 0f) {
+        int at = Math.max(0, Math.min(editor.charAnimation.delAnimAtChar, line.length()));
+        float x = editor.textRender.measureText(line, at, globalLine);
+        Paint ghostPaint =
+            (editor.charAnimation.delAnimPaint != null)
+                ? editor.charAnimation.delAnimPaint
+                : editor.textRender.paint;
+        editor.charAnimation.charAnimTmpPaint.set(ghostPaint);
+        editor.charAnimation.charAnimTmpPaint.setUnderlineText(false);
+        int baseAlpha = ghostPaint.getAlpha();
+        editor.charAnimation.charAnimTmpPaint.setAlpha(
+            (int) (baseAlpha * Math.max(0f, Math.min(1f, editor.charAnimation.delAnimAlpha))));
+        canvas.drawText(
+            editor.charAnimation.delAnimText, x, y, editor.charAnimation.charAnimTmpPaint);
+      }
+      editor.errorUnderline.drawErrorUnderlinesForLine(
+          canvas, line, globalLine, y, lineTop, lineBottom);
+      return;
+    }
+
+    // Draw with syntax highlighting
+    drawSyntaxSpansMaskedByColorCodes(
+        canvas,
+        line,
+        globalLine,
+        0,
+        line.length(),
+        0f,
+        y,
+        spans,
+        fadeStart,
+        fadeEnd,
+        fadeAlpha,
+        combinedUnderlines,
+        lineTop,
+        lineBottom);
+
+    // Draw delete animation
+    if (globalLine == editor.charAnimation.delAnimLine
+        && editor.charAnimation.delAnimText != null
+        && !editor.charAnimation.delAnimText.isEmpty()
+        && editor.charAnimation.delAnimAlpha > 0f) {
+      int at = Math.max(0, Math.min(editor.charAnimation.delAnimAtChar, line.length()));
+      float x = editor.textRender.measureText(line, at, globalLine);
+      Paint ghostPaint =
+          (editor.charAnimation.delAnimPaint != null)
+              ? editor.charAnimation.delAnimPaint
+              : editor.textRender.paint;
+      editor.charAnimation.charAnimTmpPaint.set(ghostPaint);
+      editor.charAnimation.charAnimTmpPaint.setUnderlineText(false);
+      int baseAlpha = ghostPaint.getAlpha();
+      editor.charAnimation.charAnimTmpPaint.setAlpha(
+          (int) (baseAlpha * Math.max(0f, Math.min(1f, editor.charAnimation.delAnimAlpha))));
+      canvas.drawText(
+          editor.charAnimation.delAnimText, x, y, editor.charAnimation.charAnimTmpPaint);
+    }
+    editor.errorUnderline.drawErrorUnderlinesForLine(
+        canvas, line, globalLine, y, lineTop, lineBottom);
+  }
+
+  private boolean isTracingCharAnimLine(int globalLine) {
+    return globalLine == editor.charAnimation.charAnimLine
+        && editor.charAnimation.charAnimEndChar > editor.charAnimation.charAnimStartChar
+        && editor.charAnimation.charAnimAlpha < 1f;
+  }
+
+  private void drawDeleteAnimationGhost(Canvas canvas, String line, int globalLine, float y) {
+    if (globalLine != editor.charAnimation.delAnimLine
+        || editor.charAnimation.delAnimText == null
+        || editor.charAnimation.delAnimText.isEmpty()
+        || editor.charAnimation.delAnimAlpha <= 0f) {
+      return;
+    }
+    int at = Math.max(0, Math.min(editor.charAnimation.delAnimAtChar, line.length()));
+    float x = editor.textRender.measureText(line, at, globalLine);
+    Paint ghostPaint =
+        (editor.charAnimation.delAnimPaint != null)
+            ? editor.charAnimation.delAnimPaint
+            : editor.textRender.paint;
+    editor.charAnimation.charAnimTmpPaint.set(ghostPaint);
+    editor.charAnimation.charAnimTmpPaint.setUnderlineText(false);
+    int baseAlpha = ghostPaint.getAlpha();
+    editor.charAnimation.charAnimTmpPaint.setAlpha(
+        (int) (baseAlpha * Math.max(0f, Math.min(1f, editor.charAnimation.delAnimAlpha))));
+    canvas.drawText(editor.charAnimation.delAnimText, x, y, editor.charAnimation.charAnimTmpPaint);
+  }
+
+  private void drawUrlAndPathUnderlinesForBinaryLine(
+      Canvas canvas, String line, int globalLine, float y) {
+    ArrayList<TextRender.UnderlineSpan> combinedUnderlines = TextRender.TL_UNDERLINES.get();
+    combinedUnderlines.clear();
+    if (editor.urlUnderline.isUrlUnderliningActive()) {
+      List<TextRender.UnderlineSpan> urlSpans =
+          editor.urlUnderline.getUrlUnderlineSpansForLine(line, globalLine);
+      if (urlSpans != null) combinedUnderlines.addAll(urlSpans);
+    }
+    if (editor.pathUnderline.isPathUnderliningActive()) {
+      List<TextRender.UnderlineSpan> pathSpans =
+          editor.pathUnderline.getPathUnderlineSpansForLine(line, globalLine);
+      if (pathSpans != null) combinedUnderlines.addAll(pathSpans);
+    }
+    if (combinedUnderlines.isEmpty()) return;
+    if (combinedUnderlines.size() > 1) {
+      Collections.sort(combinedUnderlines, (s1, s2) -> Integer.compare(s1.start, s2.start));
+    }
+
+    float lineTop = editor.textRender.getDrawLineTop(globalLine);
+    float lineBottom = lineTop + editor.textRender.lineHeight;
+    for (TextRender.UnderlineSpan span : combinedUnderlines) {
+      int start = Math.max(0, Math.min(span.start, line.length()));
+      int end = Math.max(start, Math.min(span.end, line.length()));
+      if (start >= end) continue;
+      float x = editor.textRender.measureText(line, start, globalLine);
+      editor.textRender.drawUnderlineSegmentWithFade(
+          canvas,
+          line,
+          start,
+          end,
+          x,
+          y,
+          lineTop,
+          lineBottom,
+          editor.textRender.paint,
+          -1,
+          -1,
+          1f,
+          span.isPath);
+    }
+  }
+
+  /** Draw a highlighted line range */
+  public void drawHighlightedLineRange(
+      Canvas canvas, String line, int globalLine, int start, int end, float y) {
+    if (line == null || line.isEmpty()) return;
+    int len = line.length();
+    start = Math.max(0, Math.min(start, len));
+    end = Math.max(start, Math.min(end, len));
+    if (start >= end) return;
+
+    // Collect underlines
+    ArrayList<TextRender.UnderlineSpan> combinedUnderlines = TextRender.TL_UNDERLINES.get();
+    combinedUnderlines.clear();
+    if (editor.urlUnderline.isUrlUnderliningActive()) {
+      List<TextRender.UnderlineSpan> urlSpans =
+          editor.urlUnderline.getUrlUnderlineSpansForLine(line, globalLine);
+      if (urlSpans != null) combinedUnderlines.addAll(urlSpans);
+    }
+    if (editor.pathUnderline.isPathUnderliningActive()) {
+      List<TextRender.UnderlineSpan> pathSpans =
+          editor.pathUnderline.getPathUnderlineSpansForLine(line, globalLine);
+      if (pathSpans != null) combinedUnderlines.addAll(pathSpans);
+    }
+    if (combinedUnderlines.size() > 1) {
+      Collections.sort(combinedUnderlines, (s1, s2) -> Integer.compare(s1.start, s2.start));
+    }
+
+    // Handle fade animation
+    int fadeStart = -1;
+    int fadeEnd = -1;
+    float fadeAlpha = 1f;
+    if (editor.charAnimation.isCharAnimationEnabled
+        && globalLine == editor.charAnimation.charAnimLine
+        && editor.charAnimation.charAnimEndChar > editor.charAnimation.charAnimStartChar
+        && editor.charAnimation.charAnimAlpha < 1f) {
+      fadeStart = Math.max(0, Math.min(editor.charAnimation.charAnimStartChar, line.length()));
+      fadeEnd = Math.max(0, Math.min(editor.charAnimation.charAnimEndChar, line.length()));
+      fadeAlpha = Math.max(0f, Math.min(1f, editor.charAnimation.charAnimAlpha));
+      if (fadeEnd <= fadeStart) {
+        fadeStart = -1;
+        fadeEnd = -1;
+      }
+    }
+
+    float lineTop = editor.textRender.getDrawLineTop(globalLine);
+    float lineBottom = lineTop + editor.textRender.lineHeight;
+    float currentX = editor.textRender.measureText(line, start, globalLine);
+    int lastEnd = start;
+
+    if (editor.highlight.rules.isEmpty()) {
+      editor.textRender.drawTextSegmentWithFadeAndUnderlines(
+          canvas,
+          line,
+          start,
+          end,
+          currentX,
+          y,
+          editor.textRender.paint,
+          fadeStart,
+          fadeEnd,
+          fadeAlpha,
+          combinedUnderlines,
+          lineTop,
+          lineBottom);
+    } else {
+      List<HighlightSpan> spans = editor.highlight.highlightCache.get(globalLine);
+      if (spans == null) {
+        spans = editor.highlight.calculateSpansForLine(line, globalLine);
+        editor.highlight.highlightCache.put(globalLine, spans);
+      }
+      drawSyntaxSpansMaskedByColorCodes(
+          canvas,
+          line,
+          globalLine,
+          start,
+          end,
+          currentX,
+          y,
+          spans,
+          fadeStart,
+          fadeEnd,
+          fadeAlpha,
+          combinedUnderlines,
+          lineTop,
+          lineBottom);
+    }
+
+    // Draw delete animation
+    if (editor.charAnimation.isCharAnimationEnabled
+        && globalLine == editor.charAnimation.delAnimLine
+        && editor.charAnimation.delAnimText != null
+        && !editor.charAnimation.delAnimText.isEmpty()
+        && editor.charAnimation.delAnimAlpha > 0f) {
+      int at = Math.max(0, Math.min(editor.charAnimation.delAnimAtChar, line.length()));
+      if (at >= start && at <= end) {
+        float x = editor.textRender.measureText(line, at, globalLine);
+        Paint ghostPaint =
+            (editor.charAnimation.delAnimPaint != null)
+                ? editor.charAnimation.delAnimPaint
+                : editor.textRender.paint;
+        editor.charAnimation.charAnimTmpPaint.set(ghostPaint);
+        editor.charAnimation.charAnimTmpPaint.setUnderlineText(false);
+        int baseAlpha = ghostPaint.getAlpha();
+        editor.charAnimation.charAnimTmpPaint.setAlpha(
+            (int) (baseAlpha * Math.max(0f, Math.min(1f, editor.charAnimation.delAnimAlpha))));
+        canvas.drawText(
+            editor.charAnimation.delAnimText, x, y, editor.charAnimation.charAnimTmpPaint);
+      }
+    }
+    editor.errorUnderline.drawErrorUnderlinesForLineRange(
+        canvas, line, globalLine, start, end, y, lineTop, lineBottom);
+  }
+
+  /** Draw highlighted line segment */
+  public void drawHighlightedLineSegment(
+      Canvas canvas,
+      String line,
+      int globalLine,
+      int start,
+      int end,
+      float y,
+      float lineTop,
+      float lineBottom) {
+    if (line == null || line.isEmpty() || start >= end) return;
+    start = Math.max(0, Math.min(start, line.length()));
+    end = Math.max(start, Math.min(end, line.length()));
+    if (start >= end) return;
+
+    final List<TextRender.UnderlineSpan> urlUnderlines =
+        editor.urlUnderline.getUrlUnderlineSpansForLine(line, globalLine);
+
+    int fadeStart = -1;
+    int fadeEnd = -1;
+    float fadeAlpha = 1f;
+    if (editor.charAnimation.isCharAnimationEnabled
+        && globalLine == editor.charAnimation.charAnimLine
+        && editor.charAnimation.charAnimEndChar > editor.charAnimation.charAnimStartChar
+        && editor.charAnimation.charAnimAlpha < 1f) {
+      fadeStart = Math.max(0, Math.min(editor.charAnimation.charAnimStartChar, line.length()));
+      fadeEnd = Math.max(0, Math.min(editor.charAnimation.charAnimEndChar, line.length()));
+      fadeAlpha = Math.max(0f, Math.min(1f, editor.charAnimation.charAnimAlpha));
+      if (fadeEnd <= fadeStart) {
+        fadeStart = -1;
+        fadeEnd = -1;
+      }
+    }
+
+    if (editor.highlight.rules.isEmpty()) {
+      editor.textRender.drawTextSegmentWithFadeAndUnderlines(
+          canvas,
+          line,
+          start,
+          end,
+          0f,
+          y,
+          editor.textRender.paint,
+          fadeStart,
+          fadeEnd,
+          fadeAlpha,
+          urlUnderlines,
+          lineTop,
+          lineBottom);
+      return;
+    }
+
+    List<HighlightSpan> spans = editor.highlight.highlightCache.get(globalLine);
+    if (spans == null) {
+      spans = editor.highlight.calculateSpansForLine(line, globalLine);
+      editor.highlight.highlightCache.put(globalLine, spans);
+    }
+
+    drawSyntaxSpansMaskedByColorCodes(
+        canvas,
+        line,
+        globalLine,
+        start,
+        end,
+        0f,
+        y,
+        spans,
+        fadeStart,
+        fadeEnd,
+        fadeAlpha,
+        urlUnderlines,
+        lineTop,
+        lineBottom);
+  }
+
+  private float drawSyntaxSpansMaskedByColorCodes(
+      Canvas canvas,
+      String line,
+      int globalLine,
+      int start,
+      int end,
+      float currentX,
+      float y,
+      List<HighlightSpan> spans,
+      int fadeStart,
+      int fadeEnd,
+      float fadeAlpha,
+      List<TextRender.UnderlineSpan> underlines,
+      float lineTop,
+      float lineBottom) {
+    List<HighlightSpan> maskedSpans = maskColorCodeSpans(line, globalLine, spans);
+    int lastEnd = start;
+    if (!maskedSpans.isEmpty()) {
+      for (HighlightSpan span : maskedSpans) {
+        if (lastEnd >= end) break;
+        if (span.end <= start) continue;
+        if (span.start >= end) break;
+
+        int segStart = Math.max(start, span.start);
+        int segEnd = Math.min(end, span.end);
+
+        if (segStart > lastEnd) {
+          currentX +=
+              editor.textRender.drawTextSegmentWithFadeAndUnderlines(
+                  canvas,
+                  line,
+                  lastEnd,
+                  segStart,
+                  currentX,
+                  y,
+                  editor.textRender.paint,
+                  fadeStart,
+                  fadeEnd,
+                  fadeAlpha,
+                  underlines,
+                  lineTop,
+                  lineBottom);
+        }
+
+        if (segEnd > segStart) {
+          currentX +=
+              editor.textRender.drawTextSegmentWithFadeAndUnderlines(
+                  canvas,
+                  line,
+                  segStart,
+                  segEnd,
+                  currentX,
+                  y,
+                  span.paint,
+                  fadeStart,
+                  fadeEnd,
+                  fadeAlpha,
+                  underlines,
+                  lineTop,
+                  lineBottom);
+        }
+        lastEnd = Math.max(lastEnd, segEnd);
+      }
+    }
+
+    if (lastEnd < end) {
+      currentX +=
+          editor.textRender.drawTextSegmentWithFadeAndUnderlines(
+              canvas,
+              line,
+              lastEnd,
+              end,
+              currentX,
+              y,
+              editor.textRender.paint,
+              fadeStart,
+              fadeEnd,
+              fadeAlpha,
+              underlines,
+              lineTop,
+              lineBottom);
+    }
+    return currentX;
+  }
+
+  private List<HighlightSpan> maskColorCodeSpans(
+      String line, int globalLine, List<HighlightSpan> spans) {
+    if (spans == null || spans.isEmpty()) return spans;
+    int[] colorSpans = editor.colorCodeHighlight.getColorCodeSpansForLine(line, globalLine);
+    if (colorSpans.length == 0) return spans;
+
+    ArrayList<HighlightSpan> masked = TL_MASKED_COLOR_SPANS.get();
+    masked.clear();
+    boolean changedAny = false;
+    for (HighlightSpan span : spans) {
+      int current = span.start;
+      boolean changed = false;
+      for (int i = 0; i + 2 < colorSpans.length; i += 3) {
+        int colorStart = colorSpans[i];
+        int colorEnd = colorSpans[i + 1];
+        if (colorEnd <= current) continue;
+        if (colorStart >= span.end) break;
+        if (colorStart > current) {
+          masked.add(new HighlightSpan(current, Math.min(colorStart, span.end), span.paint));
+        }
+        current = Math.max(current, Math.min(colorEnd, span.end));
+        changed = true;
+        changedAny = true;
+        if (current >= span.end) break;
+      }
+      if (current < span.end) {
+        masked.add(changed ? new HighlightSpan(current, span.end, span.paint) : span);
+      } else if (!changed) {
+        masked.add(span);
+      }
+    }
+    if (!changedAny) return spans;
+    if (masked.isEmpty()) return java.util.Collections.emptyList();
+    return masked;
+  }
+
+  public void setMaxSyntaxLineLength(int maxChars) {
+    int safe = Math.max(512, maxChars);
+    if (maxSyntaxLineLength == safe) return;
+    maxSyntaxLineLength = safe;
+    editor.highlight.clearHighlightCaches();
+    editor.invalidate();
+  }
+
+  public void setPrefetchCols(int cols) {
+    int safe = Math.max(0, cols);
+    if (prefetchCols == safe) return;
+    prefetchCols = safe;
+    editor.invalidate();
+  }
+
+  public List<HighlightSpan> getHighlightSpansForLine(String line, int lineIndex) {
+    List<HighlightSpan> spans = editor.highlight.highlightCache.get(lineIndex);
+    if (spans == null) {
+      spans = editor.highlight.calculateSpansForLine(line, lineIndex);
+      editor.highlight.highlightCache.put(lineIndex, spans);
+    }
+    return spans;
+  }
+}

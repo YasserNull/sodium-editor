@@ -2,12 +2,9 @@ package com.yn.sodiumeditor.input.events;
 
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.io.EditOperators;
 import com.yn.sodiumeditor.io.EditOp;
 
-/**
- * OnDoubleTap handles onDoubleTap() gesture event for SodiumEditor.
- */
+/** OnDoubleTap handles onDoubleTap() gesture event for SodiumEditor. */
 public class OnDoubleTap {
 
   private final SodiumEditor editor;
@@ -18,13 +15,12 @@ public class OnDoubleTap {
     this.onSingleTapUp = onSingleTapUp;
   }
 
-  /**
-   * Handle onDoubleTap event
-   */
+  /** Handle onDoubleTap event */
   public boolean onDoubleTap(MotionEvent e) {
     if (editor.autoCompletion.suggestionAcceptedThisTouch)
       return true; // Don't process if suggestion was accepted
-    EditOp.CursorTarget target = editor.wordWrap.getCursorTargetForPosition(e.getX(), e.getY(), null);
+    EditOp.CursorTarget target =
+        editor.wordWrap.getCursorTargetForPosition(e.getX(), e.getY(), null);
     int line = target.line;
     editor.fileIO.ensureLineInWindow(line, true);
     String ln = editor.windowRender.getLineTextForRender(line);

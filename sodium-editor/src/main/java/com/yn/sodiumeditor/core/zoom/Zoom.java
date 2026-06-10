@@ -1,18 +1,13 @@
 package com.yn.sodiumeditor.core.zoom;
-import com.yn.sodiumeditor.SodiumEditor;
+
 import android.view.ScaleGestureDetector;
-import android.view.MotionEvent;
 import androidx.annotation.Nullable;
-import android.graphics.Paint;
-import android.text.TextPaint;
+import com.yn.sodiumeditor.SodiumEditor;
+
 /**
- * ZoomManager handles all zoom logic for SodiumEditor.
- * This includes:
- * - Pinch-to-zoom gestures
- * - Zoom bounds (min/max text size)
- * - Zoom step quantization
- * - Visual zoom during pinch (deferred wrap reflow)
- * - Scroll adjustment during zoom
+ * ZoomManager handles all zoom logic for SodiumEditor. This includes: - Pinch-to-zoom gestures -
+ * Zoom bounds (min/max text size) - Zoom step quantization - Visual zoom during pinch (deferred
+ * wrap reflow) - Scroll adjustment during zoom
  */
 public class Zoom {
 
@@ -55,17 +50,13 @@ public class Zoom {
   public float lastFocusX, lastFocusY;
   private boolean lazyZoomTextSizeApplied = false;
 
-
-private final SodiumEditor editor;
+  private final SodiumEditor editor;
 
   public Zoom(SodiumEditor editor) {
     this.editor = editor;
-    }
-  
+  }
 
-  /**
-   * Create ScaleGestureDetector.OnScaleGestureListener for ZoomManager
-   */
+  /** Create ScaleGestureDetector.OnScaleGestureListener for ZoomManager */
   public ScaleGestureDetector.SimpleOnScaleGestureListener createScaleListener() {
     return new ScaleGestureDetector.SimpleOnScaleGestureListener() {
       @Override
@@ -83,7 +74,8 @@ private final SodiumEditor editor;
           pinchTargetTextSizePx = pinchStartTextSizePx;
           pinchFocusX = lastFocusX;
           pinchFocusY = lastFocusY;
-          pinchAnchorGlobalLineAtFocus = editor.wordWrap.getGlobalLineForY(editor.scroll.scrollY + pinchFocusY);
+          pinchAnchorGlobalLineAtFocus =
+              editor.wordWrap.getGlobalLineForY(editor.scroll.scrollY + pinchFocusY);
         } else {
           pinchVisualZoomActive = false;
           pinchVisualScale = 1f;
@@ -107,7 +99,8 @@ private final SodiumEditor editor;
         if (pinchVisualZoomActive) {
           pinchFocusX = focusX;
           pinchFocusY = focusY;
-          pinchAnchorGlobalLineAtFocus = editor.wordWrap.getGlobalLineForY(editor.scroll.scrollY + focusY);
+          pinchAnchorGlobalLineAtFocus =
+              editor.wordWrap.getGlobalLineForY(editor.scroll.scrollY + focusY);
 
           pinchVisualScale *= scale;
           float targetSize = pinchStartTextSizePx * pinchVisualScale;
@@ -115,16 +108,15 @@ private final SodiumEditor editor;
           targetSize = quantizeZoomSizePx(targetSize);
           pinchTargetTextSizePx = targetSize;
           pinchVisualScale =
-              (pinchStartTextSizePx > 0f)
-                  ? (pinchTargetTextSizePx / pinchStartTextSizePx)
-                  : 1f;
+              (pinchStartTextSizePx > 0f) ? (pinchTargetTextSizePx / pinchStartTextSizePx) : 1f;
           editor.invalidate();
           return true;
         }
 
         int anchorGlobalLineAtFocus = -1;
         if (editor.wordWrap.isWordWrapEnabled) {
-          anchorGlobalLineAtFocus = editor.wordWrap.getGlobalLineForY(editor.scroll.scrollY + focusY);
+          anchorGlobalLineAtFocus =
+              editor.wordWrap.getGlobalLineForY(editor.scroll.scrollY + focusY);
         }
 
         // Zoom
@@ -183,14 +175,14 @@ private final SodiumEditor editor;
           if (Math.abs(targetSize - oldSize) > 0.1f) {
             editor.view.applyTextSizePx(targetSize, editor.wordWrap.isWordWrapEnabled);
             float newLineHeight = editor.textRender.paint.getFontSpacing();
-            float effectiveScaleY =
-                (oldLineHeight > 0) ? newLineHeight / oldLineHeight : 1f;
+            float effectiveScaleY = (oldLineHeight > 0) ? newLineHeight / oldLineHeight : 1f;
 
             float effectiveScrollX = editor.scroll.getEffectiveScrollX();
             effectiveScrollX =
                 (effectiveScrollX + focusX - editor.layout.getTextStartX()) * targetSize / oldSize
                     - (focusX - editor.layout.getTextStartX());
-            editor.scroll.scrollX = (editor.textRender.isRtl ? -effectiveScrollX : effectiveScrollX);
+            editor.scroll.scrollX =
+                (editor.textRender.isRtl ? -effectiveScrollX : effectiveScrollX);
             editor.scroll.scrollY = (editor.scroll.scrollY + focusY) * effectiveScaleY - focusY;
 
             if (editor.wordWrap.isWordWrapEnabled && anchorLine >= 0) {
@@ -220,23 +212,22 @@ private final SodiumEditor editor;
           pendingZoomScrollAdjustFocusY = -1f;
 
           // Use android.os.Handler for posting
-          new android.os.Handler(android.os.Looper.getMainLooper()).post(
-              new Runnable() {
-                @Override
-                public void run() {
-                  // Check if wrap metrics are ready
-                  // Note: This requires additional editor methods for wrap metrics
-                  // For now, this is a simplified version
-                }
-              });
+          new android.os.Handler(android.os.Looper.getMainLooper())
+              .post(
+                  new Runnable() {
+                    @Override
+                    public void run() {
+                      // Check if wrap metrics are ready
+                      // Note: This requires additional editor methods for wrap metrics
+                      // For now, this is a simplified version
+                    }
+                  });
         }
       }
     };
   }
 
-  /**
-   * Quantize zoom size to step increments
-   */
+  /** Quantize zoom size to step increments */
   public float quantizeZoomSizePx(float sizePx) {
     if (zoomStepClampSp <= 0f) return sizePx;
     float stepPx = editor.view.spToPx(zoomStepClampSp);
@@ -244,18 +235,14 @@ private final SodiumEditor editor;
     return Math.round(sizePx / stepPx) * stepPx;
   }
 
-  /**
-   * Check if zoom gesture is active
-   */
+  /** Check if zoom gesture is active */
   public boolean isZoomGestureActive() {
     return isScaling
         || pinchVisualZoomActive
         || (editor != null && false); // multiTouchActive check would be in editor
   }
 
-  /**
-   * Check if decorations should be drawn during zoom
-   */
+  /** Check if decorations should be drawn during zoom */
   public boolean shouldDrawDecorations() {
     return !(hideDecorationsWhileZooming && isZoomGestureActive());
   }
@@ -289,5 +276,4 @@ private final SodiumEditor editor;
     hideDecorationsWhileZooming = enabled;
     editor.invalidate();
   }
-  
 }

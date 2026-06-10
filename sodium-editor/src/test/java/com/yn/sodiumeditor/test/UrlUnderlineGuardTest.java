@@ -30,14 +30,16 @@ public class UrlUnderlineGuardTest {
   @Test
   public void urlUnderline_shouldCreateNonPathUnderlineSpans() throws Exception {
     String src =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/UrlUnderline.java");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/UrlUnderline.java");
     String body = methodBody(src, "getUrlUnderlineSpansForLine(String line, int globalLine)");
 
     assertTrue(
         "BUG: URL underline drawing must create underline spans after trimming the URL end.",
         body.contains("trimUrlUnderlineEnd(line, start, end)"));
     assertTrue(
-        "BUG: URL underline spans must be marked as non-path spans so drawing can style them correctly.",
+        "BUG: URL underline spans must be marked as non-path spans so drawing can style them"
+            + " correctly.",
         body.contains("new TextRender.UnderlineSpan(start, end, false)"));
     assertTrue(
         "BUG: URL underline spans must be cached per global line.",

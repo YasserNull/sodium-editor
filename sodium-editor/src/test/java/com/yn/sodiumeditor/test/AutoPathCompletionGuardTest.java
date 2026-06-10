@@ -5,10 +5,10 @@ import static org.junit.Assert.assertTrue;
 
 import com.yn.sodiumeditor.core.autocompletion.AutoPathCompletion;
 import java.io.File;
-import java.util.Arrays;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import org.junit.Test;
 
 /** Guards path completion integration with normal auto-completion updates and taps. */
@@ -22,15 +22,14 @@ public class AutoPathCompletionGuardTest {
     String body = methodBody(src, "public void updateSuggestionInternal()");
 
     assertTrue(
-        "BUG: typing should route through AutoPathCompletion before word completion can clear path suggestions.",
-        body.indexOf("updatePathSuggestionFromAutoCompletion()")
-            >= 0
+        "BUG: typing should route through AutoPathCompletion before word completion can clear path"
+            + " suggestions.",
+        body.indexOf("updatePathSuggestionFromAutoCompletion()") >= 0
             && body.indexOf("updatePathSuggestionFromAutoCompletion()")
                 < body.indexOf("String line = editor.windowRender.getLineTextForRender"));
     assertTrue(
         "BUG: path completion must stop word completion when the cursor context is a path.",
-        body.contains("if (handledPathSuggestion)")
-            && body.contains("return;"));
+        body.contains("if (handledPathSuggestion)") && body.contains("return;"));
   }
 
   @Test
@@ -38,14 +37,21 @@ public class AutoPathCompletionGuardTest {
     String src =
         readSource(
             "sodium-editor/src/main/java/com/yn/sodiumeditor/core/autocompletion/AutoCompletion.java");
-    String body = methodBody(src, "drawAutoSuggestion(Canvas canvas, String lineContent, int globalLine, float textBaselineY)");
+    String body =
+        methodBody(
+            src,
+            "drawAutoSuggestion(Canvas canvas, String lineContent, int globalLine, float"
+                + " textBaselineY)");
 
     assertTrue(
-        "BUG: drawAutoSuggestion must not pass globalLine as Paint.measureText end index; that crashes with IndexOutOfBoundsException.",
-        body.contains("editor.textRender.measureText(lineContent, cursorPositionInLine, globalLine)"));
+        "BUG: drawAutoSuggestion must not pass globalLine as Paint.measureText end index; that"
+            + " crashes with IndexOutOfBoundsException.",
+        body.contains(
+            "editor.textRender.measureText(lineContent, cursorPositionInLine, globalLine)"));
     assertTrue(
         "BUG: drawAutoSuggestion should only use Paint.measureText for the suggestion text itself.",
-        !body.contains("suggestionPaint.measureText(lineContent, cursorPositionInLine, globalLine)"));
+        !body.contains(
+            "suggestionPaint.measureText(lineContent, cursorPositionInLine, globalLine)"));
   }
 
   @Test
@@ -57,16 +63,17 @@ public class AutoPathCompletionGuardTest {
     String body = methodBody(src, "updatePathSuggestionInternal(boolean clearNonPathSuggestion)");
 
     assertTrue(
-        "BUG: shared auto-completion path must call AutoPathCompletion without clearing normal word suggestions in non-path contexts.",
+        "BUG: shared auto-completion path must call AutoPathCompletion without clearing normal word"
+            + " suggestions in non-path contexts.",
         entry.contains("updatePathSuggestionInternal(false)"));
     assertTrue(
         "BUG: non-path cursor contexts must return false so word completion can still run.",
-        body.contains("if (pathFragment.isEmpty())")
-            && body.contains("return false;"));
+        body.contains("if (pathFragment.isEmpty())") && body.contains("return false;"));
     assertTrue(
         "BUG: path cursor contexts must return true after resolving a path suggestion.",
         body.contains("String suggestion = findPathSuggestion(pathFragment)")
-            && body.lastIndexOf("return true;") > body.indexOf("String suggestion = findPathSuggestion(pathFragment)"));
+            && body.lastIndexOf("return true;")
+                > body.indexOf("String suggestion = findPathSuggestion(pathFragment)"));
   }
 
   @Test
@@ -78,9 +85,12 @@ public class AutoPathCompletionGuardTest {
     int pathContext = body.indexOf("String pathFragment = getCurrentPathFragment()");
     int suggestion = body.indexOf("String suggestion = findPathSuggestion(pathFragment)");
 
-    assertTrue("Expected path fragment and suggestion lookup in path completion.", pathContext >= 0 && suggestion > pathContext);
     assertTrue(
-        "BUG: path completion must work inside string/comment syntax spans; only word completion should be blocked there.",
+        "Expected path fragment and suggestion lookup in path completion.",
+        pathContext >= 0 && suggestion > pathContext);
+    assertTrue(
+        "BUG: path completion must work inside string/comment syntax spans; only word completion"
+            + " should be blocked there.",
         !body.substring(pathContext, suggestion).contains("calculateSpansForLine")
             && !body.substring(pathContext, suggestion).contains("HighlightSpan span"));
   }
@@ -93,12 +103,14 @@ public class AutoPathCompletionGuardTest {
     String body = methodBody(src, "public String findPathSuggestion(String fragment)");
 
     assertTrue(
-        "BUG: /storage/emulated/0 may return null or empty entries under scoped storage; path completion needs an Android public-directory fallback before returning null.",
+        "BUG: /storage/emulated/0 may return null or empty entries under scoped storage; path"
+            + " completion needs an Android public-directory fallback before returning null.",
         body.contains("getAndroidPublicDirectoryFallbackNames")
             && body.indexOf("getAndroidPublicDirectoryFallbackNames")
                 < body.indexOf("entries == null || entries.length == 0"));
     assertTrue(
-        "BUG: path completion should match Download for /storage/emulated/0/Do and also tolerate /do.",
+        "BUG: path completion should match Download for /storage/emulated/0/Do and also tolerate"
+            + " /do.",
         src.contains("startsWithIgnoreCase"));
   }
 
@@ -122,7 +134,8 @@ public class AutoPathCompletionGuardTest {
         readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/ViewRender.java");
     String body = methodBody(src, "void drawTextContent(Canvas canvas, int firstVisibleIndex");
     int highlightCall = body.indexOf("editor.textRender.drawHighlightedLine(canvas, line, i, y)");
-    int suggestionCall = body.indexOf("editor.autoCompletion.drawAutoSuggestion(canvas, line, i, y)");
+    int suggestionCall =
+        body.indexOf("editor.autoCompletion.drawAutoSuggestion(canvas, line, i, y)");
 
     assertTrue(
         "BUG: drawAutoSuggestion must be called after drawHighlightedLine in drawTextContent.",
@@ -136,7 +149,8 @@ public class AutoPathCompletionGuardTest {
     String body = methodBody(src, "handleSuggestionTap(float ex, float ey)");
 
     assertTrue(
-        "BUG: tapping a path suggestion must call acceptPathCompletion; acceptAutoCompletion rejects path suggestions.",
+        "BUG: tapping a path suggestion must call acceptPathCompletion; acceptAutoCompletion"
+            + " rejects path suggestions.",
         body.contains("if (editor.autoCompletion.activeSuggestionIsPath)")
             && body.contains("editor.autoPathCompletion.acceptPathCompletion()")
             && body.contains("editor.autoCompletion.acceptAutoCompletion()"));

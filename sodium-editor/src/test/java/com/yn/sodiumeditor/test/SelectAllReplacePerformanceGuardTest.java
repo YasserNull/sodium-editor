@@ -54,7 +54,8 @@ public class SelectAllReplacePerformanceGuardTest {
     int handleSelectAll = body.indexOf("handleSelectAllReplace(");
 
     assertTrue("Expected select-all branch in replaceSelectionWithText.", selectAllLike >= 0);
-    assertTrue("Expected non-select-all replacement to read removed text for undo.", readRangeText >= 0);
+    assertTrue(
+        "Expected non-select-all replacement to read removed text for undo.", readRangeText >= 0);
     assertTrue("Expected select-all replacement handler.", handleSelectAll >= 0);
     assertTrue(
         "BUG: select-all delete/paste must clear the screen before any full-range file read.",

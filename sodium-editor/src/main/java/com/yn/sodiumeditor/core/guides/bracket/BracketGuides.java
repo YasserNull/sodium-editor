@@ -12,9 +12,8 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Manages bracket guides for the SodiumEditor.
- * Draws vertical guide lines for matching braces.
- * This is the main entry point that delegates to specialized components.
+ * Manages bracket guides for the SodiumEditor. Draws vertical guide lines for matching braces. This
+ * is the main entry point that delegates to specialized components.
  */
 public class BracketGuides {
 
@@ -73,9 +72,7 @@ public class BracketGuides {
         || editor.selection.state.isEntireFileSelected;
   }
 
-  /**
-   * Enables or disables bracket guides.
-   */
+  /** Enables or disables bracket guides. */
   public void setBracketGuidesEnabled(boolean enabled) {
     if (this.isBracketGuidesEnabled == enabled) return;
     this.isBracketGuidesEnabled = enabled;
@@ -87,50 +84,39 @@ public class BracketGuides {
   public boolean shouldAllowFullBracketScan() {
     return editor.fileIO.sourceFile != null
         && editor.fileIO.sourceFile.exists()
-        && editor.fileIO.sourceFile.length() <= com.yn.sodiumeditor.io.FileIO.MAX_BRACKET_FULL_SCAN_BYTES;
+        && editor.fileIO.sourceFile.length()
+            <= com.yn.sodiumeditor.io.FileIO.MAX_BRACKET_FULL_SCAN_BYTES;
   }
 
-  /**
-   * Enables or disables drawing guides for off-screen lines.
-   */
+  /** Enables or disables drawing guides for off-screen lines. */
   public void setDrawGuidesForOffScreenLines(boolean enabled) {
     if (this.drawGuidesForOffScreenLines == enabled) return;
     this.drawGuidesForOffScreenLines = enabled;
     editor.invalidate();
   }
 
-  /**
-   * Check if drawing guides for off-screen lines is enabled.
-   */
+  /** Check if drawing guides for off-screen lines is enabled. */
   public boolean isDrawGuidesForOffScreenLinesEnabled() {
     return drawGuidesForOffScreenLines;
   }
 
-  /**
-   * Enable or disable skipping guide rebuilds during fast scroll.
-   */
+  /** Enable or disable skipping guide rebuilds during fast scroll. */
   public void setSkipGuidesDuringFastScroll(boolean enabled) {
     this.skipGuidesDuringFastScroll = enabled;
   }
 
-  /**
-   * Set minimum interval between cache rebuilds (in milliseconds).
-   */
+  /** Set minimum interval between cache rebuilds (in milliseconds). */
   public void setMinRebuildIntervalMs(long ms) {
     this.minRebuildIntervalMs = Math.max(0, ms);
   }
 
-  /**
-   * Sets the bracket guides color.
-   */
+  /** Sets the bracket guides color. */
   public void setBracketGuidesColor(int color) {
     bracketGuidePaint.setColor(color);
     editor.invalidate();
   }
 
-  /**
-   * Sets the bracket guides stroke width.
-   */
+  /** Sets the bracket guides stroke width. */
   public void setBracketGuidesStrokeWidth(float width) {
     if (this.bracketGuideStrokeWidth == width) return;
     this.baseBracketGuideStrokeWidth = width;
@@ -140,31 +126,30 @@ public class BracketGuides {
     editor.invalidate();
   }
 
-  /**
-   * Updates stroke width based on text size.
-   */
+  /** Updates stroke width based on text size. */
   public void updateStrokeWidth() {
     float sizePx = editor.textRender.paint.getTextSize();
-    bracketGuideStrokeWidth = Math.max(
-        1f,
-        editor.view.scaleByTextSize(baseBracketGuideStrokeWidth, baseBracketGuideTextSizePx, sizePx));
+    bracketGuideStrokeWidth =
+        Math.max(
+            1f,
+            editor.view.scaleByTextSize(
+                baseBracketGuideStrokeWidth, baseBracketGuideTextSizePx, sizePx));
     bracketGuidePaint.setStrokeWidth(bracketGuideStrokeWidth);
   }
 
-  /**
-   * Invalidates bracket guide cache.
-   */
+  /** Invalidates bracket guide cache. */
   public void invalidateBracketGuideCache() {
     invalidateBracketGuideCache(false);
   }
 
-  /**
-   * Invalidates bracket guide cache.
-   */
+  /** Invalidates bracket guide cache. */
   public void invalidateBracketGuideCache(boolean configChanged) {
     // Save current cache to fallback before invalidating
     boolean suppressFallback = shouldSuppressBracketGuidesForSelectAll();
-    if (!configChanged && !suppressFallback && mainCache.bracketGuideCacheStartLine >= 0 && mainCache.bracketGuideCacheEndLine >= mainCache.bracketGuideCacheStartLine
+    if (!configChanged
+        && !suppressFallback
+        && mainCache.bracketGuideCacheStartLine >= 0
+        && mainCache.bracketGuideCacheEndLine >= mainCache.bracketGuideCacheStartLine
         && mainCache.bracketGuideTokensWindow.size() > 0) {
       fallbackCache.mergeWithMainCache(
           mainCache.bracketGuideTokensWindow,
@@ -189,18 +174,14 @@ public class BracketGuides {
     draw.resetDrawTracking();
   }
 
-  /**
-   * Controls whether guides are drawn during fast scroll/fling.
-   */
+  /** Controls whether guides are drawn during fast scroll/fling. */
   public void setShowGuidesDuringFastScroll(boolean enabled) {
     if (this.showGuidesDuringFastScroll == enabled) return;
     this.showGuidesDuringFastScroll = enabled;
     editor.invalidate();
   }
 
-  /**
-   * Gets the bracket guide cache config hash.
-   */
+  /** Gets the bracket guide cache config hash. */
   public int getBracketGuideCacheConfigHash() {
     int h = 1;
     h = 31 * h + Float.floatToIntBits(bracketGuideStrokeWidth);
@@ -212,13 +193,11 @@ public class BracketGuides {
   // Synchronous Bracket Guide Calculation
   // ========================================================================
 
-  /**
-   * Calculate bracket guide state for a single line synchronously.
-   */
+  /** Calculate bracket guide state for a single line synchronously. */
   public BracketGuideState calculateBracketGuideStateForLine(
       String line, int globalLine, BracketGuideState prevState) {
     if (prevState == null) {
-      prevState = new BracketGuideState(editor.highlite.isBlockCommentsEnabled, 0);
+      prevState = new BracketGuideState(editor.highlight.isBlockCommentsEnabled, 0);
     }
 
     BracketGuideState state = BracketGuideScanner.copyState(prevState);
@@ -227,14 +206,14 @@ public class BracketGuides {
     return state;
   }
 
-  /**
-   * Calculate bracket guide state from a starting line to the target line.
-   */
+  /** Calculate bracket guide state from a starting line to the target line. */
   public BracketGuideState calculateBracketGuideStateFromWindowStart(
-      int targetLine, int windowStart, int windowEnd,
+      int targetLine,
+      int windowStart,
+      int windowEnd,
       @Nullable java.util.Map<Integer, String> directLines) {
 
-    BracketGuideState state = new BracketGuideState(editor.highlite.isBlockCommentsEnabled, 0);
+    BracketGuideState state = new BracketGuideState(editor.highlight.isBlockCommentsEnabled, 0);
 
     int checkpointIdx = checkpoint.getCheckpointIndexForLine(targetLine);
     int startLine = 0;
@@ -250,7 +229,10 @@ public class BracketGuides {
     }
 
     // Read lines and calculate state from startLine to targetLine (exclusive)
-    if (startLine < targetLine && editor.fileIO.isIndexReady && editor.fileIO.sourceFile != null && editor.fileIO.sourceFile.exists()) {
+    if (startLine < targetLine
+        && editor.fileIO.isIndexReady
+        && editor.fileIO.sourceFile != null
+        && editor.fileIO.sourceFile.exists()) {
       try (RandomAccessFile raf = new RandomAccessFile(editor.fileIO.sourceFile, "r")) {
         int currentLine = startLine;
         while (currentLine < targetLine) {
@@ -289,19 +271,19 @@ public class BracketGuides {
     return editor.fileIO.readLinePrefixUtf8AtByte(raf, offset, MAX_BRACKET_GUIDE_SCAN_LINE_BYTES);
   }
 
-  /**
-   * Ensures bracket guide cache for window.
-   */
+  /** Ensures bracket guide cache for window. */
   public void ensureBracketGuideCacheForWindow(
       int startLine, int endLine, @Nullable java.util.Map<Integer, String> directLines) {
     ensureBracketGuideCacheForWindow(startLine, endLine, startLine, endLine, directLines);
   }
 
-  /**
-   * Ensures bracket guide cache for window with visible line priority.
-   */
+  /** Ensures bracket guide cache for window with visible line priority. */
   public void ensureBracketGuideCacheForWindow(
-      int startLine, int endLine, int visibleStart, int visibleEnd, @Nullable java.util.Map<Integer, String> directLines) {
+      int startLine,
+      int endLine,
+      int visibleStart,
+      int visibleEnd,
+      @Nullable java.util.Map<Integer, String> directLines) {
     long startTime = SystemClock.uptimeMillis();
 
     if (!isBracketGuidesEnabled) {
@@ -323,7 +305,8 @@ public class BracketGuides {
       return;
     }
 
-    boolean fastScroll = editor.scroll.scrollerIsScrolling || editor.scroll.flingStopAnimator != null;
+    boolean fastScroll =
+        editor.scroll.scrollerIsScrolling || editor.scroll.flingStopAnimator != null;
 
     if (skipGuidesDuringFastScroll && fastScroll) {
       return;
@@ -354,7 +337,8 @@ public class BracketGuides {
     lastRebuildTimeMs = now;
     final int finalStart = startLine;
     final int finalEnd = endLine;
-    final java.util.Map<Integer, String> finalDirectLines = (directLines != null) ? new java.util.HashMap<>(directLines) : null;
+    final java.util.Map<Integer, String> finalDirectLines =
+        (directLines != null) ? new java.util.HashMap<>(directLines) : null;
     mainCache.bracketGuideBuildInProgress = true;
     mainCache.bracketGuidePendingStart = finalStart;
     mainCache.bracketGuidePendingEnd = finalEnd;
@@ -362,12 +346,20 @@ public class BracketGuides {
     mainCache.bracketGuidePendingConfigHash = cfg;
 
     // Post to IO thread for async building
-    editor.fileIO.ioHandler.post(() -> asyncBuilder.buildCacheAsync(finalStart, finalEnd, visibleStart, visibleEnd, v, cfg, startTime, finalDirectLines));
+    editor.fileIO.ioHandler.post(
+        () ->
+            asyncBuilder.buildCacheAsync(
+                finalStart,
+                finalEnd,
+                visibleStart,
+                visibleEnd,
+                v,
+                cfg,
+                startTime,
+                finalDirectLines));
   }
 
-  /**
-   * Gets bracket guide tokens for a line.
-   */
+  /** Gets bracket guide tokens for a line. */
   public List<BracketGuideToken> getBracketGuideTokensForLine(int globalLine) {
     if (!isBracketGuidesEnabled) return Collections.emptyList();
 
@@ -388,9 +380,7 @@ public class BracketGuides {
     return Collections.emptyList();
   }
 
-  /**
-   * Gets bracket guide state for a line.
-   */
+  /** Gets bracket guide state for a line. */
   public BracketGuideState getBracketGuideStateForLine(int globalLine) {
     // Try main cache first
     BracketGuideState state = mainCache.getStateForLine(globalLine);
@@ -409,47 +399,39 @@ public class BracketGuides {
     return null;
   }
 
-  /**
-   * Updates bracket guide state for a line (delegates to scanner).
-   */
+  /** Updates bracket guide state for a line (delegates to scanner). */
   public List<BracketGuideToken> updateBracketGuideStateForLine(
       String line, int globalLine, BracketGuideState state) {
     return scanner.updateBracketGuideStateForLine(line, globalLine, state);
   }
 
-  /**
-   * Scans a line for spans (delegates to scanner).
-   */
-  public void scanLineForSpans(String line, int globalLine, com.yn.sodiumeditor.utils.BracketGuideScanner.BracketSpanScanState state, BracketGuideScanner.SpanCollector collector) {
+  /** Scans a line for spans (delegates to scanner). */
+  public void scanLineForSpans(
+      String line,
+      int globalLine,
+      com.yn.sodiumeditor.utils.BracketGuideScanner.BracketSpanScanState state,
+      BracketGuideScanner.SpanCollector collector) {
     scanner.scanLineForSpans(line, globalLine, state, collector);
   }
 
-  /**
-   * Gets line text for guide scanning (delegates to scanner).
-   */
+  /** Gets line text for guide scanning (delegates to scanner). */
   public String getLineTextForGuideScan(
       int line, java.util.Map<Integer, String> directLines, java.io.RandomAccessFile raf) {
     return scanner.getLineTextForGuideScan(line, directLines, raf);
   }
 
-  /**
-   * Copy bracket guide state (delegates to scanner).
-   */
+  /** Copy bracket guide state (delegates to scanner). */
   public static BracketGuideState copyState(BracketGuideState src) {
     return BracketGuideScanner.copyState(src);
   }
 
-  /**
-   * Gets guide tokens from stack (delegates to scanner).
-   */
+  /** Gets guide tokens from stack (delegates to scanner). */
   public static List<BracketGuideToken> getGuideTokensFromStack(
       java.util.ArrayDeque<BracketGuideToken> stack) {
     return BracketGuideScanner.getGuideTokensFromStack(stack);
   }
 
-  /**
-   * Gets the guide X position (delegates to draw).
-   */
+  /** Gets the guide X position (delegates to draw). */
   public float getGuideX(String line, int column, int globalLine) {
     return draw.getGuideX(line, column, globalLine);
   }
@@ -458,9 +440,7 @@ public class BracketGuides {
   // Drawing methods (delegate to BracketGuideDraw)
   // ========================================================================
 
-  /**
-   * Call at start of render pass to track current state and visible lines
-   */
+  /** Call at start of render pass to track current state and visible lines */
   public void beginRenderFrame(int windowStart, int windowEnd, int visibleStart, int visibleEnd) {
     draw.beginRenderFrame(windowStart, windowEnd, visibleStart, visibleEnd);
 
@@ -471,53 +451,39 @@ public class BracketGuides {
     ensureBracketGuideCacheForWindow(start, end, visibleStart, visibleEnd, null);
   }
 
-  /**
-   * Call at start of render pass (backward compatibility)
-   */
+  /** Call at start of render pass (backward compatibility) */
   public void beginRenderFrame(int windowStart, int windowEnd) {
     draw.beginRenderFrame(windowStart, windowEnd);
   }
 
-  /**
-   * Update fast-scroll state for the current frame.
-   */
+  /** Update fast-scroll state for the current frame. */
   public void setFrameFastScroll(boolean fastScroll) {
     draw.setFrameFastScroll(fastScroll);
   }
 
-  /**
-   * Check if bracket guides can be drawn (cache is valid)
-   */
+  /** Check if bracket guides can be drawn (cache is valid) */
   public boolean canDrawBracketGuides() {
     return draw.canDrawBracketGuides();
   }
 
-  /**
-   * Check if a line is currently visible on screen
-   */
+  /** Check if a line is currently visible on screen */
   public boolean isLineVisible(int globalLine) {
     return draw.isLineVisible(globalLine);
   }
 
-  /**
-   * Draws bracket guides for a line.
-   */
+  /** Draws bracket guides for a line. */
   public void drawBracketGuidesForLine(
       Canvas canvas, String line, int globalLine, List<BracketGuideToken> guideTokens) {
     draw.drawBracketGuidesForLine(canvas, line, globalLine, guideTokens);
   }
 
-  /**
-   * Draws bracket guides for a line directly from the stack.
-   */
+  /** Draws bracket guides for a line directly from the stack. */
   public void drawBracketGuidesForLineFromStack(
       Canvas canvas, String line, int globalLine, java.util.ArrayDeque<BracketGuideToken> stack) {
     draw.drawBracketGuidesForLineFromStack(canvas, line, globalLine, stack);
   }
 
-  /**
-   * Draws bracket guides for visible range using span cache.
-   */
+  /** Draws bracket guides for visible range using span cache. */
   public void drawBracketGuidesForVisibleRange(Canvas canvas, int visibleStart, int visibleEnd) {
     if (!isBracketGuidesEnabled || editor.isHeavyDrawSuppressed()) return;
 
@@ -559,11 +525,13 @@ public class BracketGuides {
   // Span cache methods (delegate to BracketGuideSpanCache)
   // ========================================================================
 
-  /**
-   * Ensures span cache for window.
-   */
+  /** Ensures span cache for window. */
   public void ensureBracketGuideSpanCacheForWindow(
-      int startLine, int endLine, int visibleStart, int visibleEnd, @Nullable java.util.Map<Integer, String> directLines) {
+      int startLine,
+      int endLine,
+      int visibleStart,
+      int visibleEnd,
+      @Nullable java.util.Map<Integer, String> directLines) {
     long startTime = SystemClock.uptimeMillis();
     if (!isBracketGuidesEnabled) return;
     if (startLine > endLine) return;
@@ -579,7 +547,8 @@ public class BracketGuides {
       return;
     }
 
-    boolean fastScroll = editor.scroll.scrollerIsScrolling || editor.scroll.flingStopAnimator != null;
+    boolean fastScroll =
+        editor.scroll.scrollerIsScrolling || editor.scroll.flingStopAnimator != null;
     if (skipGuidesDuringFastScroll && fastScroll) {
       return;
     }
@@ -600,7 +569,8 @@ public class BracketGuides {
     lastRebuildTimeMs = now;
     final int finalStart = startLine;
     final int finalEnd = endLine;
-    final java.util.Map<Integer, String> finalDirectLines = (directLines != null) ? new java.util.HashMap<>(directLines) : null;
+    final java.util.Map<Integer, String> finalDirectLines =
+        (directLines != null) ? new java.util.HashMap<>(directLines) : null;
     spanCache.bracketGuideSpanBuildInProgress = true;
     spanCache.bracketGuideSpanPendingStart = finalStart;
     spanCache.bracketGuideSpanPendingEnd = finalEnd;
@@ -614,17 +584,15 @@ public class BracketGuides {
   // Checkpoint methods (delegate to BracketGuideCheckpoint)
   // ========================================================================
 
-  /**
-   * Ensure bracket guide checkpoints are built up to the specified line.
-   */
+  /** Ensure bracket guide checkpoints are built up to the specified line. */
   public void ensureBracketGuideCheckpointsUpTo(
-      int endLine, @Nullable java.util.Map<Integer, String> directLines, @Nullable java.io.RandomAccessFile ignoredRaf) {
+      int endLine,
+      @Nullable java.util.Map<Integer, String> directLines,
+      @Nullable java.io.RandomAccessFile ignoredRaf) {
     checkpoint.ensureCheckpointsUpTo(endLine, directLines);
   }
 
-  /**
-   * Get checkpoint index for a line.
-   */
+  /** Get checkpoint index for a line. */
   public int getCheckpointIndexForLine(int line) {
     return checkpoint.getCheckpointIndexForLine(line);
   }

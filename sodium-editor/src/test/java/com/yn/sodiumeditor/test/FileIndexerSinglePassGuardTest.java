@@ -22,7 +22,8 @@ public class FileIndexerSinglePassGuardTest {
         1,
         countOccurrences(body, "new RandomAccessFile(filepath, \"r\")"));
     assertTrue(
-        "BUG: one-pass indexing should store offsets in a growable primitive buffer before trimming.",
+        "BUG: one-pass indexing should store offsets in a growable primitive buffer before"
+            + " trimming.",
         body.contains("LongArrayBuilder"));
   }
 

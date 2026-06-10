@@ -12,27 +12,31 @@ public class MultiCommentHighlightRegressionTest {
 
   @Test
   public void customBlockCommentDelimiters_shouldBeConfigurable() throws Exception {
-    String highlite = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/Highlite.java");
+    String highlight =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/Highlight.java");
     String parser =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/HighlightParser.java");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/HighlightParser.java");
 
-    assertTrue(highlite.contains("setMultiCommentsHighlite"));
-    assertTrue(highlite.contains("blockCommentStartDelimiter"));
-    assertTrue(highlite.contains("blockCommentEndDelimiter"));
-    assertTrue(parser.contains("highlite.isConfiguredBlockCommentStart(line, i)"));
-    assertTrue(parser.contains("highlite.findConfiguredBlockCommentEnd"));
+    assertTrue(highlight.contains("setMultiCommentsHighlight"));
+    assertTrue(highlight.contains("blockCommentStartDelimiter"));
+    assertTrue(highlight.contains("blockCommentEndDelimiter"));
+    assertTrue(parser.contains("highlight.isConfiguredBlockCommentStart(line, i)"));
+    assertTrue(parser.contains("highlight.findConfiguredBlockCommentEnd"));
   }
 
   @Test
   public void customBlockCommentDelimiters_shouldSupportArbitraryTokenLengths() throws Exception {
-    String utils = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/utils/HighlightUtils.java");
+    String utils =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/utils/HighlightUtils.java");
     String parser =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/HighlightParser.java");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/highlight/HighlightParser.java");
 
     assertTrue(utils.contains("line.regionMatches(i, token, 0, token.length())"));
     assertTrue(utils.contains("line.regionMatches(start, token, 0, token.length())"));
-    assertTrue(parser.contains("highlite.blockCommentEndDelimiter.length()"));
-    assertTrue(parser.contains("highlite.blockCommentStartDelimiter.length()"));
+    assertTrue(parser.contains("highlight.blockCommentEndDelimiter.length()"));
+    assertTrue(parser.contains("highlight.blockCommentStartDelimiter.length()"));
   }
 
   private static String readSource(String rel) throws Exception {

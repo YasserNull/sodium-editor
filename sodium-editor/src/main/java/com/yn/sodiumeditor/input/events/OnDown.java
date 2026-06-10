@@ -3,9 +3,7 @@ package com.yn.sodiumeditor.input.events;
 import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
 
-/**
- * OnDown handles onDown() gesture event for SodiumEditor.
- */
+/** OnDown handles onDown() gesture event for SodiumEditor. */
 public class OnDown {
 
   private final SodiumEditor editor;
@@ -14,9 +12,7 @@ public class OnDown {
     this.editor = editor;
   }
 
-  /**
-   * Handle onDown event
-   */
+  /** Handle onDown event */
   public boolean onDown(MotionEvent e) {
     // If a suggestion was just accepted, clear the flag and allow normal onDown
     // processing

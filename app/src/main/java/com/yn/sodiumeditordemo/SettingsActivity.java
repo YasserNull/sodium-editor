@@ -61,30 +61,20 @@ public class SettingsActivity extends AppCompatActivity {
                     getResources().getStringArray(R.array.scroll_mode_values),
                     "2"));
     keyboardSuggestionsSummary =
-        addSettingsRow(
-            settingsList,
-            "Keyboard Suggestions",
-            v -> toggleKeyboardSuggestions());
+        addSettingsRow(settingsList, "Keyboard Suggestions", v -> toggleKeyboardSuggestions());
     bracketGuidesSummary =
         addSettingsRow(
-            settingsList,
-            "Bracket Guides",
-            v -> toggleBooleanSetting("bracket_guides", true));
+            settingsList, "Bracket Guides", v -> toggleBooleanSetting("bracket_guides", true));
     bracketMatchSummary =
         addSettingsRow(
-            settingsList,
-            "Bracket Match",
-            v -> toggleBooleanSetting("bracket_match", true));
+            settingsList, "Bracket Match", v -> toggleBooleanSetting("bracket_match", true));
     whitespaceGuidesSummary =
         addSettingsRow(
             settingsList,
             "Whitespace Guides",
             v -> toggleBooleanSetting("whitespace_guides", true));
     performanceModeSummary =
-        addSettingsRow(
-            settingsList,
-            "Performance Mode",
-            v -> togglePerformanceMode());
+        addSettingsRow(settingsList, "Performance Mode", v -> togglePerformanceMode());
     updateSummaries();
   }
 
@@ -171,10 +161,8 @@ public class SettingsActivity extends AppCompatActivity {
         prefs.getBoolean("keyboard_suggestions", true) ? "On" : "Off");
     bracketGuidesSummary.setText(prefs.getBoolean("bracket_guides", true) ? "On" : "Off");
     bracketMatchSummary.setText(prefs.getBoolean("bracket_match", true) ? "On" : "Off");
-    whitespaceGuidesSummary.setText(
-        prefs.getBoolean("whitespace_guides", true) ? "On" : "Off");
-    performanceModeSummary.setText(
-        prefs.getBoolean("performance_mode", false) ? "On" : "Off");
+    whitespaceGuidesSummary.setText(prefs.getBoolean("whitespace_guides", true) ? "On" : "Off");
+    performanceModeSummary.setText(prefs.getBoolean("performance_mode", false) ? "On" : "Off");
   }
 
   private void toggleKeyboardSuggestions() {

@@ -14,7 +14,8 @@ public class UndoBackupAndAsyncCopyGuardTest {
 
   @Test
   public void undoHistoryDisposesBackupFilesWhenDroppingOps() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/UndoRedoHistory.java");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/UndoRedoHistory.java");
     assertTrue(src.contains("dispose("));
     assertTrue(src.contains("removedTextBackupFile.delete()"));
     assertTrue(methodBody(src, "public void clear(").contains("dispose("));
@@ -23,13 +24,27 @@ public class UndoBackupAndAsyncCopyGuardTest {
 
   @Test
   public void rewriteReplaceRangeAsyncDoesNotCopyLargeFileOnUiThread() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileEditHandler.java");
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileEditHandler.java");
     String body = methodBody(src, "public void rewriteReplaceRangeAsync(");
     int copy = body.indexOf("copyFileReplacing(");
-    int uiPost = body.indexOf("editor.post(() -> {\n                    if (opToken != operators.editVersion.get()) return;", copy);
-    assertTrue("BUG: async rewrite should copy temp output into source before posting UI updates.", copy >= 0);
+    int uiPost =
+        body.indexOf(
+            "editor.post(() -> {\n"
+                + "                    if (opToken != operators.editVersion.get()) return;",
+            copy);
+    assertTrue(
+        "BUG: async rewrite should copy temp output into source before posting UI updates.",
+        copy >= 0);
     assertTrue("BUG: file copy must happen before editor.post UI section.", uiPost > copy);
-    assertFalse("BUG: UI section must not open FileInputStream for huge files.", body.contains("editor.post(() -> {\n                    if (opToken != operators.editVersion.get()) return;\n                    editor.fileIO.invalidatePendingIO();\n\n                    if (inFile != null) {\n                        try (FileInputStream"));
+    assertFalse(
+        "BUG: UI section must not open FileInputStream for huge files.",
+        body.contains(
+            "editor.post(() -> {\n"
+                + "                    if (opToken != operators.editVersion.get()) return;\n"
+                + "                    editor.fileIO.invalidatePendingIO();\n\n"
+                + "                    if (inFile != null) {\n"
+                + "                        try (FileInputStream"));
   }
 
   private static String readSource(String rel) throws Exception {

@@ -5,19 +5,16 @@ import android.view.MotionEvent;
 import com.yn.sodiumeditor.SodiumEditor;
 
 /**
- * OnScroll handles all scroll gesture logic for SodiumEditor.
- * This class delegates to specialized event handlers:
- * - OnDown for onDown() events
- * - OnLongPress for onLongPress() events
- * - OnSingleTapUp for onSingleTapUp() events
- * - OnFling for onFling() events
- * - OnDoubleTap for onDoubleTap() events
+ * OnScroll handles all scroll gesture logic for SodiumEditor. This class delegates to specialized
+ * event handlers: - OnDown for onDown() events - OnLongPress for onLongPress() events -
+ * OnSingleTapUp for onSingleTapUp() events - OnFling for onFling() events - OnDoubleTap for
+ * onDoubleTap() events
  */
 public class OnScroll extends GestureDetector.SimpleOnGestureListener {
 
   private final SodiumEditor editor;
   private final GestureDetector gestureDetector;
-  
+
   private final OnDown onDown;
   private final OnLongPress onLongPress;
   private final OnSingleTapUp onSingleTapUp;
@@ -26,14 +23,14 @@ public class OnScroll extends GestureDetector.SimpleOnGestureListener {
 
   public OnScroll(SodiumEditor editor) {
     this.editor = editor;
-    
+
     // Initialize event handlers (note: OnDoubleTap depends on OnSingleTapUp)
     this.onDown = new OnDown(editor);
     this.onLongPress = new OnLongPress(editor);
     this.onSingleTapUp = new OnSingleTapUp(editor);
     this.onFling = new OnFling(editor);
     this.onDoubleTap = new OnDoubleTap(editor, onSingleTapUp);
-    
+
     this.gestureDetector = new GestureDetector(editor.getContext(), this);
   }
 
@@ -57,8 +54,7 @@ public class OnScroll extends GestureDetector.SimpleOnGestureListener {
   }
 
   @Override
-  public boolean onScroll(
-      MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+  public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
     if (e2.getPointerCount() > 1) return true;
     if (editor.zoom.isScaling || editor.scaleGestureDetector.isInProgress()) return true;
     if (editor.zoom.mJustFinishedScale) return true;
@@ -75,8 +71,7 @@ public class OnScroll extends GestureDetector.SimpleOnGestureListener {
   }
 
   @Override
-  public boolean onFling(
-      MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+  public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
     return onFling.onFling(e1, e2, velocityX, velocityY);
   }
 

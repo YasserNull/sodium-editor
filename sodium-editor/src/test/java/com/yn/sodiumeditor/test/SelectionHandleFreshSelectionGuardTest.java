@@ -17,12 +17,14 @@ public class SelectionHandleFreshSelectionGuardTest {
   @Test
   public void newSelection_shouldRenderHandlesAtFreshLocationFromFirstFrame() throws Exception {
     String stateSrc =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/selection/SelectionState.java");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/selection/SelectionState.java");
     String animSrc =
         readSource(
             "sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/animation/SelectionHandlesAnimation.java");
     String smartSelectionSrc =
-        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/selection/SmartSelection.java");
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/selection/SmartSelection.java");
     String searchSrc =
         readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/search/Search.java");
     String actionHandlerSrc =
@@ -31,10 +33,10 @@ public class SelectionHandleFreshSelectionGuardTest {
 
     String setSelectionAround =
         methodBody(
-            stateSrc,
-            "setSelection(int startLine, int startChar, int endLine, int endChar)");
+            stateSrc, "setSelection(int startLine, int startChar, int endLine, int endChar)");
     assertTrue(
-        "BUG: starting a new selection must clear stale handle animation state before the next frame is computed.",
+        "BUG: starting a new selection must clear stale handle animation state before the next"
+            + " frame is computed.",
         setSelectionAround.contains("editor.selectionHandles.animation.resetAnimationState();")
             && setSelectionAround.contains("editor.selectionHandles.updateHandlesPosition();")
             && setSelectionAround.contains("editor.invalidate();"));
@@ -42,19 +44,24 @@ public class SelectionHandleFreshSelectionGuardTest {
     String setSelectionInternalAround =
         methodBody(stateSrc, "setSelectionInternal(int sL, int sC, int eL, int eC)");
     assertTrue(
-        "BUG: replacing one selection with another must clear stale handle animation state before visibility/geometry updates.",
-        setSelectionInternalAround.contains("editor.selectionHandles.animation.resetAnimationState();")
-            && setSelectionInternalAround.contains("editor.selectionHandles.updateHandlesPosition();")
+        "BUG: replacing one selection with another must clear stale handle animation state before"
+            + " visibility/geometry updates.",
+        setSelectionInternalAround.contains(
+                "editor.selectionHandles.animation.resetAnimationState();")
+            && setSelectionInternalAround.contains(
+                "editor.selectionHandles.updateHandlesPosition();")
             && setSelectionInternalAround.contains("editor.invalidate();")
             && setSelectionInternalAround.indexOf(
                     "editor.selectionHandles.animation.resetAnimationState();")
                 < setSelectionInternalAround.indexOf("updateSelectionVisibility(hasSelection);")
-            && setSelectionInternalAround.indexOf("editor.selectionHandles.updateHandlesPosition();")
+            && setSelectionInternalAround.indexOf(
+                    "editor.selectionHandles.updateHandlesPosition();")
                 < setSelectionInternalAround.indexOf("updateSelectionVisibility(hasSelection);"));
 
     String resetAround = methodBody(animSrc, "resetAnimationState()");
     assertTrue(
-        "BUG: resetting handle animation state must discard stale animated draw positions and the X start anchors used to redirect from the previous selection.",
+        "BUG: resetting handle animation state must discard stale animated draw positions and the X"
+            + " start anchors used to redirect from the previous selection.",
         resetAround.contains("animLeftX = Float.NaN;")
             && resetAround.contains("animLeftY = Float.NaN;")
             && resetAround.contains("animRightX = Float.NaN;")
@@ -66,13 +73,17 @@ public class SelectionHandleFreshSelectionGuardTest {
 
     int animatedAt =
         animSrc.indexOf(
-            "public float[] getAnimatedHandlePosition(boolean isLeft, float targetX, float targetY)");
+            "public float[] getAnimatedHandlePosition(boolean isLeft, float targetX, float"
+                + " targetY)");
     assertTrue("Expected getAnimatedHandlePosition in SelectionHandlesAnimation.", animatedAt >= 0);
-    String animatedAround = animSrc.substring(animatedAt, Math.min(animSrc.length(), animatedAt + 2600));
+    String animatedAround =
+        animSrc.substring(animatedAt, Math.min(animSrc.length(), animatedAt + 2600));
     assertTrue(
-        "BUG: after resetAnimationState, the first frame of a fresh selection must initialize from the new target itself, not from stale previous coordinates.",
+        "BUG: after resetAnimationState, the first frame of a fresh selection must initialize from"
+            + " the new target itself, not from stale previous coordinates.",
         animatedAround.contains("float drawX = Float.isNaN(currentDrawX) ? targetX : currentDrawX;")
-            && animatedAround.contains("float drawY = Float.isNaN(currentDrawY) ? targetY : currentDrawY;")
+            && animatedAround.contains(
+                "float drawY = Float.isNaN(currentDrawY) ? targetY : currentDrawY;")
             && animatedAround.contains("leftStartX = drawX;")
             && animatedAround.contains("leftTargetX = targetX;")
             && animatedAround.contains("rightStartX = drawX;")
@@ -80,13 +91,15 @@ public class SelectionHandleFreshSelectionGuardTest {
 
     int doubleTapAt =
         smartSelectionSrc.indexOf(
-            "public boolean applySmartDoubleTapSelection(int line, int charIndex, String lineText)");
+            "public boolean applySmartDoubleTapSelection(int line, int charIndex, String"
+                + " lineText)");
     assertTrue("Expected applySmartDoubleTapSelection in SmartSelection.", doubleTapAt >= 0);
     String doubleTapAround =
         smartSelectionSrc.substring(
             doubleTapAt, Math.min(smartSelectionSrc.length(), doubleTapAt + 2200));
     assertTrue(
-        "BUG: smart double-tap selection must go through selection.setSelection(...) so handle reset logic runs before the next frame.",
+        "BUG: smart double-tap selection must go through selection.setSelection(...) so handle"
+            + " reset logic runs before the next frame.",
         doubleTapAround.contains("selection.setSelection(line, pick.start, line, pick.end);")
             && !doubleTapAround.contains("selection.selStartLine = selection.selEndLine = line;")
             && !doubleTapAround.contains("selection.hasSelection = true;"));
@@ -97,7 +110,8 @@ public class SelectionHandleFreshSelectionGuardTest {
         searchSrc.substring(
             selectAllSearchAt, Math.min(searchSrc.length(), selectAllSearchAt + 1800));
     assertTrue(
-        "BUG: selecting all search matches must go through selection.setSelection(...) so a fresh search selection cannot reuse stale handle positions.",
+        "BUG: selecting all search matches must go through selection.setSelection(...) so a fresh"
+            + " search selection cannot reuse stale handle positions.",
         selectAllSearchAround.contains(
                 "editor.selection.setSelection(first.line, first.start, last.line, last.end);")
             && !selectAllSearchAround.contains("editor.selection.selStartLine = first.line;")
@@ -109,7 +123,8 @@ public class SelectionHandleFreshSelectionGuardTest {
         actionHandlerSrc.substring(
             selectAllAt, Math.min(actionHandlerSrc.length(), selectAllAt + 9000));
     assertTrue(
-        "BUG: selectAll completion paths must build the final selection via selection.setSelection(...) so handle positions refresh.",
+        "BUG: selectAll completion paths must build the final selection via"
+            + " selection.setSelection(...) so handle positions refresh.",
         selectAllAround.contains("selection.setSelection(0, 0, endLine, endChar);")
             && selectAllAround.contains("selection.setSelection(0, 0, winLast, endChar);")
             && selectAllAround.contains("selection.setSelection(0, 0, fileLast, endChar);")

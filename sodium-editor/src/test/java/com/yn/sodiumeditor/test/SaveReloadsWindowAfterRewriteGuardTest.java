@@ -12,19 +12,23 @@ import org.junit.Test;
 public class SaveReloadsWindowAfterRewriteGuardTest {
 
   @Test
-  public void applyPendingEditsToFileAsync_shouldReloadWindowAfterSuccessfulRewrite() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileEditHandler.java");
+  public void applyPendingEditsToFileAsync_shouldReloadWindowAfterSuccessfulRewrite()
+      throws Exception {
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/io/FileEditHandler.java");
     String body = methodBody(src, "applyPendingEditsToFileAsync(@Nullable Runnable onComplete)");
 
     int successBranch = body.indexOf("if (!success)");
     assertTrue("Expected save success branch in FileEditHandler.", successBranch >= 0);
 
     int clearModified = body.indexOf("editor.windowRender.clearModifiedLines()", successBranch);
-    assertTrue("Expected save to clear modifiedLines after a successful rewrite.", clearModified >= 0);
+    assertTrue(
+        "Expected save to clear modifiedLines after a successful rewrite.", clearModified >= 0);
 
     int reloadWindow = body.indexOf("editor.fileIO.loadWindowAround(", clearModified);
     assertTrue(
-        "BUG: after saving a structural delete, linesWindow still contains old file text unless it is reloaded.",
+        "BUG: after saving a structural delete, linesWindow still contains old file text unless it"
+            + " is reloaded.",
         reloadWindow >= 0);
   }
 

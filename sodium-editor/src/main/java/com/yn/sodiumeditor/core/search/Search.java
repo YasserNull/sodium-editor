@@ -1,8 +1,9 @@
 package com.yn.sodiumeditor.core.search;
-import com.yn.sodiumeditor.SodiumEditor;
+
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import androidx.annotation.Nullable;
+import com.yn.sodiumeditor.SodiumEditor;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
@@ -10,8 +11,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Manages search functionality for the SodiumEditor.
- * Handles search query, highlighting, and navigation.
+ * Manages search functionality for the SodiumEditor. Handles search query, highlighting, and
+ * navigation.
  */
 public class Search {
 
@@ -48,27 +49,21 @@ public class Search {
     mCurrentSearchMatchPaint.setColor(mCurrentSearchMatchColor);
   }
 
-  /**
-   * Checks if search is active.
-   */
+  /** Checks if search is active. */
   public boolean isSearchActive() {
     if (searchQuery == null || searchQuery.isEmpty()) return false;
     if (searchUseRegex) return searchPattern != null;
     return true;
   }
 
-  /**
-   * Clears search match cache.
-   */
+  /** Clears search match cache. */
   public void clearSearchMatchCache() {
     searchMatchCache.clear();
     searchCacheEditVersion = -1;
     searchCacheKey = null;
   }
 
-  /**
-   * Gets the search cache key.
-   */
+  /** Gets the search cache key. */
   public String getSearchCacheKey() {
     return searchQuery
         + "|"
@@ -77,9 +72,7 @@ public class Search {
         + (searchCaseSensitive ? "c" : "i");
   }
 
-  /**
-   * Gets search match spans for a line.
-   */
+  /** Gets search match spans for a line. */
   public int[] getSearchMatchSpansForLine(String line, int globalLine) {
     if (!searchHighlightEnabled || !isSearchActive() || line == null || line.isEmpty())
       return new int[0];
@@ -107,8 +100,7 @@ public class Search {
       }
     } else {
       String haystack = searchCaseSensitive ? line : line.toLowerCase(Locale.ROOT);
-      String needle =
-          searchCaseSensitive ? searchQuery : searchQuery.toLowerCase(Locale.ROOT);
+      String needle = searchCaseSensitive ? searchQuery : searchQuery.toLowerCase(Locale.ROOT);
       if (!needle.isEmpty()) {
         int idx = haystack.indexOf(needle, 0);
         while (idx >= 0) {
@@ -131,9 +123,7 @@ public class Search {
     return spans;
   }
 
-  /**
-   * Draws search highlights for a line.
-   */
+  /** Draws search highlights for a line. */
   public void drawSearchHighlightsForLine(
       Canvas canvas, String line, int globalLine, float top, float bottom) {
     int[] spans = getSearchMatchSpansForLine(line, globalLine);
@@ -157,9 +147,7 @@ public class Search {
     }
   }
 
-  /**
-   * Draws search highlights for a segment.
-   */
+  /** Draws search highlights for a segment. */
   public void drawSearchHighlightsForSegment(
       Canvas canvas,
       String line,
@@ -177,8 +165,10 @@ public class Search {
       int s = Math.max(segStart, start);
       int e = Math.min(segEnd, end);
       if (e <= s) continue;
-      float left = editor.textRender.measureTextWithVisualSpaces(line, segStart, s, editor.textRender.paint);
-      float right = left + editor.textRender.measureTextWithVisualSpaces(line, s, e, editor.textRender.paint);
+      float left =
+          editor.textRender.measureTextWithVisualSpaces(line, segStart, s, editor.textRender.paint);
+      float right =
+          left + editor.textRender.measureTextWithVisualSpaces(line, s, e, editor.textRender.paint);
 
       boolean isCurrentMatch =
           mHighlightCurrentSearchMatch
@@ -192,9 +182,7 @@ public class Search {
     }
   }
 
-  /**
-   * Goes to the next or previous search match.
-   */
+  /** Goes to the next or previous search match. */
   public boolean goToSearchMatch(boolean forward) {
     if (!isSearchActive()) return false;
     int total = editor.view.getLinesCount();
@@ -214,9 +202,7 @@ public class Search {
     return true;
   }
 
-  /**
-   * Finds the next search match from the given position.
-   */
+  /** Finds the next search match from the given position. */
   public SearchMatch findNextSearchMatchFrom(int line, int charIndex) {
     int total = editor.view.getLinesCount();
     if (total <= 0) return null;
@@ -231,9 +217,7 @@ public class Search {
     return null;
   }
 
-  /**
-   * Finds the previous search match from the given position.
-   */
+  /** Finds the previous search match from the given position. */
   public SearchMatch findPrevSearchMatchFrom(int line, int charIndex) {
     int total = editor.view.getLinesCount();
     if (total <= 0) return null;
@@ -248,9 +232,7 @@ public class Search {
     return null;
   }
 
-  /**
-   * Finds the next search match in a range.
-   */
+  /** Finds the next search match in a range. */
   public SearchMatch findNextSearchMatchInRange(
       int startLine,
       int endLine,
@@ -263,8 +245,11 @@ public class Search {
     int chunkSize = 200;
     while (true) {
       if (line < 0 || line >= total) break;
-      if (line < editor.windowRender.windowStartLine || line >= editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) {
-        if (editor.fileIO.isIndexReady && editor.fileIO.sourceFile != null && editor.fileIO.sourceFile.exists()) {
+      if (line < editor.windowRender.windowStartLine
+          || line >= editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) {
+        if (editor.fileIO.isIndexReady
+            && editor.fileIO.sourceFile != null
+            && editor.fileIO.sourceFile.exists()) {
           int rangeStart = Math.max(0, Math.min(line, line + (step * (chunkSize - 1))));
           int rangeEnd = Math.min(total - 1, Math.max(line, line + (step * (chunkSize - 1))));
           editor.fileIO.populateDirectLinesForRange(rangeStart, rangeEnd, direct);
@@ -286,9 +271,7 @@ public class Search {
     return null;
   }
 
-  /**
-   * Finds the previous search match in a range.
-   */
+  /** Finds the previous search match in a range. */
   public SearchMatch findPrevSearchMatchInRange(
       int startLine,
       int endLine,
@@ -301,8 +284,11 @@ public class Search {
     int chunkSize = 200;
     while (true) {
       if (line < 0 || line >= total) break;
-      if (line < editor.windowRender.windowStartLine || line >= editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) {
-        if (editor.fileIO.isIndexReady && editor.fileIO.sourceFile != null && editor.fileIO.sourceFile.exists()) {
+      if (line < editor.windowRender.windowStartLine
+          || line >= editor.windowRender.windowStartLine + editor.windowRender.linesWindow.size()) {
+        if (editor.fileIO.isIndexReady
+            && editor.fileIO.sourceFile != null
+            && editor.fileIO.sourceFile.exists()) {
           int rangeStart = Math.max(0, Math.min(line, line + (step * (chunkSize - 1))));
           int rangeEnd = Math.min(total - 1, Math.max(line, line + (step * (chunkSize - 1))));
           editor.fileIO.populateDirectLinesForRange(rangeStart, rangeEnd, direct);
@@ -326,9 +312,7 @@ public class Search {
     return null;
   }
 
-  /**
-   * Finds a match forward in a line.
-   */
+  /** Finds a match forward in a line. */
   public SearchMatch findMatchForwardInLine(
       String line, int fromIndex, @Nullable Integer maxStartInclusive) {
     if (line == null || line.isEmpty()) return null;
@@ -341,8 +325,7 @@ public class Search {
       return null;
     }
     String haystack = searchCaseSensitive ? line : line.toLowerCase(Locale.ROOT);
-    String needle =
-        searchCaseSensitive ? searchQuery : searchQuery.toLowerCase(Locale.ROOT);
+    String needle = searchCaseSensitive ? searchQuery : searchQuery.toLowerCase(Locale.ROOT);
     if (needle.isEmpty()) return null;
     int idx = haystack.indexOf(needle, fromIndex);
     if (idx < 0) return null;
@@ -350,9 +333,7 @@ public class Search {
     return new SearchMatch(-1, idx, idx + needle.length());
   }
 
-  /**
-   * Finds a match backward in a line.
-   */
+  /** Finds a match backward in a line. */
   public SearchMatch findMatchBackwardInLine(
       String line, int fromIndex, @Nullable Integer minStartInclusive) {
     if (line == null || line.isEmpty()) return null;
@@ -367,8 +348,7 @@ public class Search {
       return last;
     }
     String haystack = searchCaseSensitive ? line : line.toLowerCase(Locale.ROOT);
-    String needle =
-        searchCaseSensitive ? searchQuery : searchQuery.toLowerCase(Locale.ROOT);
+    String needle = searchCaseSensitive ? searchQuery : searchQuery.toLowerCase(Locale.ROOT);
     if (needle.isEmpty()) return null;
     int idx = haystack.lastIndexOf(needle, Math.min(fromIndex, haystack.length()));
     if (idx < 0) return null;
@@ -376,10 +356,9 @@ public class Search {
     return new SearchMatch(-1, idx, idx + needle.length());
   }
 
-  /**
-   * Sets the search query.
-   */
-  public void setSearchQuery(String query, boolean useRegex, boolean caseSensitive, boolean wrapAround) {
+  /** Sets the search query. */
+  public void setSearchQuery(
+      String query, boolean useRegex, boolean caseSensitive, boolean wrapAround) {
     String safe = (query == null) ? "" : query;
     if (safe.equals(searchQuery)
         && searchUseRegex == useRegex
@@ -408,59 +387,45 @@ public class Search {
     editor.invalidate();
   }
 
-  /**
-   * Sets search highlight enabled.
-   */
+  /** Sets search highlight enabled. */
   public void setSearchHighlightEnabled(boolean enabled) {
     if (searchHighlightEnabled == enabled) return;
     searchHighlightEnabled = enabled;
     editor.invalidate();
   }
 
-  /**
-   * Sets search highlight color.
-   */
+  /** Sets search highlight color. */
   public void setSearchHighlightColor(int color) {
     searchHighlightColor = color;
     searchHighlightPaint.setColor(color);
     editor.invalidate();
   }
 
-  /**
-   * Sets current search match highlight enabled.
-   */
+  /** Sets current search match highlight enabled. */
   public void setCurrentSearchMatchHighlightEnabled(boolean enabled) {
     if (mHighlightCurrentSearchMatch == enabled) return;
     mHighlightCurrentSearchMatch = enabled;
     editor.invalidate();
   }
 
-  /**
-   * Sets current search match highlight color.
-   */
+  /** Sets current search match highlight color. */
   public void setCurrentSearchMatchHighlightColor(int color) {
     mCurrentSearchMatchColor = color;
     mCurrentSearchMatchPaint.setColor(color);
     editor.invalidate();
   }
 
-  /**
-   * Goes to next search match.
-   */
+  /** Goes to next search match. */
   public boolean goToNextSearchMatch() {
     return goToSearchMatch(true);
   }
 
-  /**
-   * Goes to previous search match.
-   */
+  /** Goes to previous search match. */
   public boolean goToPreviousSearchMatch() {
     return goToSearchMatch(false);
   }
 
-  /**
-   * Selects a search match.
-   */
+  /** Selects a search match. */
   public boolean selectSearchMatch(boolean forward) {
     if (!isSearchActive()) return false;
     int total = editor.view.getLinesCount();
@@ -481,9 +446,7 @@ public class Search {
     return true;
   }
 
-  /**
-   * Selects a search match inclusively.
-   */
+  /** Selects a search match inclusively. */
   public boolean selectSearchMatchInclusive(boolean forward) {
     if (!isSearchActive()) return false;
     int total = editor.view.getLinesCount();
@@ -509,23 +472,20 @@ public class Search {
     return true;
   }
 
-  /**
-   * Selects search match at cursor or next.
-   */
+  /** Selects search match at cursor or next. */
   public boolean selectSearchMatchAtCursorOrNext() {
     SearchMatch atCursor = findSearchMatchAtCursor();
     if (atCursor != null) {
       editor.fileIO.ensureLineInWindow(atCursor.line, true);
-      editor.selection.setSelectionInternal(atCursor.line, atCursor.start, atCursor.line, atCursor.end);
+      editor.selection.setSelectionInternal(
+          atCursor.line, atCursor.start, atCursor.line, atCursor.end);
       editor.cursor.setCursorPositionNoClear(atCursor.line, atCursor.end);
       return true;
     }
     return selectSearchMatchInclusive(true);
   }
 
-  /**
-   * Finds search match at cursor.
-   */
+  /** Finds search match at cursor. */
   @Nullable
   public SearchMatch findSearchMatchAtCursor() {
     if (!isSearchActive()) return null;
@@ -570,9 +530,7 @@ public class Search {
     }
   }
 
-  /**
-   * Selects all search matches.
-   */
+  /** Selects all search matches. */
   public boolean selectAllSearchMatches() {
     if (!isSearchActive()) return false;
     int total = editor.view.getLinesCount();
@@ -604,8 +562,6 @@ public class Search {
     return true;
   }
 
-  /**
-   * Search match class.
-   */
+  /** Search match class. */
   // SearchMatch extracted to com.yn.sodiumeditor.core.SearchMatch
 }

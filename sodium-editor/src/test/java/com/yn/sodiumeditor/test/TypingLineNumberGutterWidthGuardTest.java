@@ -12,8 +12,10 @@ import org.junit.Test;
 public class TypingLineNumberGutterWidthGuardTest {
 
   @Test
-  public void typedMultiLineInsert_shouldRecomputeGutterWidthWhenLineNumberDigitsGrow() throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/WindowRender.java");
+  public void typedMultiLineInsert_shouldRecomputeGutterWidthWhenLineNumberDigitsGrow()
+      throws Exception {
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/WindowRender.java");
     String body = methodBody(src, "public void applyMultiLineReplaceInWindowNow");
 
     int digitChange = body.indexOf("String.valueOf(oldLineCount).length()");

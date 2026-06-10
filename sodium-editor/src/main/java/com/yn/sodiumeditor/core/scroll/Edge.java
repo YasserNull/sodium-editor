@@ -5,11 +5,9 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import com.yn.sodiumeditor.SodiumEditor;
 
-/**
- * Edge handles custom glow arc effects for overscroll.
- */
+/** Edge handles custom glow arc effects for overscroll. */
 public class Edge {
-  
+
   public boolean edgeEffectEnabled = true;
   // --- عدل هذه القيم للتحكم في الحجم والقوة ---
   public float edgeEffectStrength = 0.8f; // قوة السحب (أصغر = أهدأ)
@@ -47,21 +45,24 @@ public class Edge {
   public void pullBottom(float deltaPx, float touchX) {
     pullingBottom = true;
     distTop = 0; // منع التعارض
-    distBottom = Math.min(1.0f, distBottom + Math.abs(deltaPx) / editor.getHeight() * edgeEffectStrength);
+    distBottom =
+        Math.min(1.0f, distBottom + Math.abs(deltaPx) / editor.getHeight() * edgeEffectStrength);
     editor.postInvalidateOnAnimation();
   }
 
   public void pullLeft(float deltaPx, float touchY) {
     pullingLeft = true;
     distRight = 0; // منع التعارض
-    distLeft = Math.min(1.0f, distLeft + Math.abs(deltaPx) / editor.getWidth() * edgeEffectStrength);
+    distLeft =
+        Math.min(1.0f, distLeft + Math.abs(deltaPx) / editor.getWidth() * edgeEffectStrength);
     editor.postInvalidateOnAnimation();
   }
 
   public void pullRight(float deltaPx, float touchY) {
     pullingRight = true;
     distLeft = 0; // منع التعارض
-    distRight = Math.min(1.0f, distRight + Math.abs(deltaPx) / editor.getWidth() * edgeEffectStrength);
+    distRight =
+        Math.min(1.0f, distRight + Math.abs(deltaPx) / editor.getWidth() * edgeEffectStrength);
     editor.postInvalidateOnAnimation();
   }
 
@@ -146,18 +147,19 @@ public class Edge {
     }
   }
 
-  private void drawGlowArc(Canvas canvas, float cx, float cy, int size, float dist, float rotation) {
+  private void drawGlowArc(
+      Canvas canvas, float cx, float cy, int size, float dist, float rotation) {
     int save = canvas.save();
     canvas.translate(cx, cy);
     canvas.rotate(rotation);
 
     // حجم أصغر وأكثر تناسقاً
-    float glowHeight = size * MAX_ARC_HEIGHT_PERCENT * dist; 
+    float glowHeight = size * MAX_ARC_HEIGHT_PERCENT * dist;
     float glowWidth = size * 1.2f;
 
     arcRect.set(-glowWidth / 2, -glowHeight, glowWidth / 2, glowHeight);
     paint.setAlpha((int) (120 * Math.sqrt(dist))); // شفافية أقل للرمادي
-    
+
     canvas.drawArc(arcRect, 0, 180, true, paint);
     canvas.restoreToCount(save);
   }

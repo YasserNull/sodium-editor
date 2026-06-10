@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.renderer.animation; 
+package com.yn.sodiumeditor.renderer.animation;
 
 import android.animation.ValueAnimator;
 import android.graphics.Paint;
@@ -8,9 +8,10 @@ import android.util.Log;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.utils.TextArabicUtils;
+
 /**
- * Manages character fade animations for SodiumEditor.
- * Handles animations for typed characters and deleted characters.
+ * Manages character fade animations for SodiumEditor. Handles animations for typed characters and
+ * deleted characters.
  */
 public class CharAnimation {
   private static final String TAG = "SodiumCharAnim";
@@ -49,6 +50,7 @@ public class CharAnimation {
 
   /**
    * Enable or disable character animations.
+   *
    * @param enabled true to enable, false to disable
    * @param durationMs Animation duration in milliseconds
    */
@@ -63,6 +65,7 @@ public class CharAnimation {
 
   /**
    * Check if character animations are enabled.
+   *
    * @return true if enabled
    */
   public boolean isCharAnimationEnabled() {
@@ -71,11 +74,13 @@ public class CharAnimation {
 
   /**
    * Set animation duration parameters.
+   *
    * @param normalDurationMs Duration for normal typing (ms)
    * @param fastDurationMs Duration for fast typing (ms)
    * @param fastThresholdMs Threshold for detecting fast typing (ms)
    */
-  public void setAnimationParameters(int normalDurationMs, int fastDurationMs, long fastThresholdMs) {
+  public void setAnimationParameters(
+      int normalDurationMs, int fastDurationMs, long fastThresholdMs) {
     this.charAnimationDurationMs = normalDurationMs;
     this.charAnimFastDurationMs = fastDurationMs;
     this.charAnimFastThresholdMs = fastThresholdMs;
@@ -83,6 +88,7 @@ public class CharAnimation {
 
   /**
    * Start fade-in animation for typed characters.
+   *
    * @param committedText The text that was committed
    */
   public void startCharAnimationFromText(CharSequence committedText) {
@@ -136,7 +142,7 @@ public class CharAnimation {
     long now = SystemClock.uptimeMillis();
     long delta = (lastCharAnimUptime == 0L) ? Long.MAX_VALUE : (now - lastCharAnimUptime);
     lastCharAnimUptime = now;
-    
+
     final int animDuration =
         (delta <= charAnimFastThresholdMs)
             ? Math.max(1, Math.min(charAnimationDurationMs, charAnimFastDurationMs))
@@ -154,7 +160,7 @@ public class CharAnimation {
           delAnimText = null;
           delAnimPaint = null;
           final int token = ++charAnimToken;
-          
+
           charAnimLine = targetLine;
           charAnimEndChar = Math.max(0, targetEndChar);
           charAnimStartChar = targetStartChar;
@@ -192,7 +198,7 @@ public class CharAnimation {
               };
           editor.postOnAnimation(step);
         };
-    
+
     if (Looper.myLooper() == Looper.getMainLooper()) {
       start.run();
     } else {
@@ -202,6 +208,7 @@ public class CharAnimation {
 
   /**
    * Start fade-out animation for deleted characters.
+   *
    * @param targetLine The line where deletion occurred
    * @param atChar The character position where deletion occurred
    * @param removedText The text that was removed
@@ -226,11 +233,11 @@ public class CharAnimation {
     final int atForAnim = Math.max(0, atChar);
     final String textForAnim = removedText;
     final Paint p = (paintToUse != null) ? paintToUse : editor.textRender.paint;
-    
+
     long now = SystemClock.uptimeMillis();
     long delta = (lastCharAnimUptime == 0L) ? Long.MAX_VALUE : (now - lastCharAnimUptime);
     lastCharAnimUptime = now;
-    
+
     final int animDuration =
         (delta <= charAnimFastThresholdMs)
             ? Math.max(1, Math.min(charAnimationDurationMs, charAnimFastDurationMs))
@@ -247,7 +254,7 @@ public class CharAnimation {
           charAnimStartChar = 0;
           charAnimEndChar = 0;
           final int token = ++delAnimToken;
-          
+
           delAnimLine = lineForAnim;
           delAnimAtChar = atForAnim;
           delAnimText = textForAnim;
@@ -292,9 +299,7 @@ public class CharAnimation {
     }
   }
 
-  /**
-   * Cancel all character animations.
-   */
+  /** Cancel all character animations. */
   public void cancelAllAnimations() {
     if (charAnimAnimator != null) {
       charAnimAnimator.cancel();
@@ -318,9 +323,7 @@ public class CharAnimation {
     delAnimPaint = null;
   }
 
-  /**
-   * Cancel the typed character animation.
-   */
+  /** Cancel the typed character animation. */
   public void cancelCharAnimation() {
     if (charAnimAnimator != null) {
       charAnimAnimator.cancel();
@@ -333,9 +336,7 @@ public class CharAnimation {
     charAnimEndChar = 0;
   }
 
-  /**
-   * Cancel the delete animation.
-   */
+  /** Cancel the delete animation. */
   public void cancelDeleteAnimation() {
     if (delAnimAnimator != null) {
       delAnimAnimator.cancel();
@@ -351,6 +352,7 @@ public class CharAnimation {
 
   /**
    * Check if a typed character animation is currently running.
+   *
    * @return true if running
    */
   public boolean isCharAnimationRunning() {
@@ -359,6 +361,7 @@ public class CharAnimation {
 
   /**
    * Check if a delete animation is currently running.
+   *
    * @return true if running
    */
   public boolean isDeleteAnimationRunning() {
@@ -367,6 +370,7 @@ public class CharAnimation {
 
   /**
    * Get the alpha value for the typed character animation.
+   *
    * @return Alpha value (0.0 to 1.0)
    */
   public float getCharAnimAlpha() {
@@ -375,6 +379,7 @@ public class CharAnimation {
 
   /**
    * Get the alpha value for the delete animation.
+   *
    * @return Alpha value (0.0 to 1.0)
    */
   public float getDelAnimAlpha() {
@@ -383,6 +388,7 @@ public class CharAnimation {
 
   /**
    * Get the line number for the typed character animation.
+   *
    * @return Line number, or -1 if no animation
    */
   public int getCharAnimLine() {
@@ -391,6 +397,7 @@ public class CharAnimation {
 
   /**
    * Get the line number for the delete animation.
+   *
    * @return Line number, or -1 if no animation
    */
   public int getDelAnimLine() {

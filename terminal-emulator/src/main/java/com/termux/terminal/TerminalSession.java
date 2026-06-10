@@ -268,7 +268,7 @@ public final class TerminalSession extends TerminalOutput {
       /* 10xxxxxx continuation byte with following 6 bits */
       mUtf8InputBuffer[bufferPosition++] = (byte) (0b10000000 | (codePoint & 0b111111));
     } else {
-        /* We have checked codePoint <= 1114111 above, so we have max 21 bits = 0b111111111111111111111 */
+      /* We have checked codePoint <= 1114111 above, so we have max 21 bits = 0b111111111111111111111 */
       /* 11110xxx leading byte with leading 3 bits */
       mUtf8InputBuffer[bufferPosition++] = (byte) (0b11110000 | (codePoint >> 18));
       /* 10xxxxxx continuation byte with following 6 bits */
