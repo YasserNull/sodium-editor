@@ -1,19 +1,27 @@
 package com.yn.sodiumeditor.core.features;
 
 import com.yn.sodiumeditor.SodiumEditor;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
  * Manages automatic bracket/quote pairing for the SodiumEditor. Automatically inserts closing
  * brackets/quotes when opening ones are typed.
  */
-public class AutoBracketPair {
+public class AutoPair {
 
   private final SodiumEditor editor;
 
   // Auto-pairing state
   public boolean isAutoPairingEnabled = true;
+  public boolean isAutoBracketsPairingEnabled = true;
+  public boolean isAutoJavaCommentsPairingEnabled = true;
+  public boolean isAutoStringsPairingEnabled = true;
+  public boolean isAutoTupleStringsPairingEnabled = true;
+  private final ArrayList<String> autoPairingStrings = new ArrayList<>();
   private static final int BALANCE_CACHE_LIMIT = 256;
   private final LinkedHashMap<Integer, BalanceInfo> balanceCache =
       new LinkedHashMap<Integer, BalanceInfo>(BALANCE_CACHE_LIMIT, 0.75f, true) {
@@ -24,13 +32,69 @@ public class AutoBracketPair {
       };
   private BalanceInfo windowBalanceCache;
 
-  public AutoBracketPair(SodiumEditor editor) {
+  public AutoPair(SodiumEditor editor) {
     this.editor = editor;
   }
 
-  /** Enables or disables auto-pairing. */
+  /** Enables or disables all currently enabled auto-pairing groups. */
   public void setAutoPairingEnabled(boolean enabled) {
     this.isAutoPairingEnabled = enabled;
+  }
+
+  public boolean getAutoPairingEnabled() {
+    return this.isAutoPairingEnabled;
+  }
+
+  public void setAutoBracketsPairingEnabled(boolean enabled) {
+    isAutoBracketsPairingEnabled = enabled;
+  }
+
+  public boolean getAutoBracketsPairingEnabled() {
+    return isAutoBracketsPairingEnabled;
+  }
+
+  public void setAutoJavaCommentsPairingEnabled(boolean enabled) {
+    isAutoJavaCommentsPairingEnabled = enabled;
+  }
+
+  public boolean getAutoJavaCommentsPairingEnabled() {
+    return isAutoJavaCommentsPairingEnabled;
+  }
+
+  public void setAutoStringsPairingEnabled(boolean enabled) {
+    isAutoStringsPairingEnabled = enabled;
+  }
+
+  public boolean getAutoStringsPairingEnabled() {
+    return isAutoStringsPairingEnabled;
+  }
+
+  public void setAutoTupleStringsPairingEnabled(boolean enabled) {
+    isAutoTupleStringsPairingEnabled = enabled;
+  }
+
+  public boolean getAutoTupleStringsPairingEnabled() {
+    return isAutoTupleStringsPairingEnabled;
+  }
+
+  public void setAutoPairingStrings(String opening, String closing) {
+    if (opening == null || opening.isEmpty() || closing == null) return;
+    for (int i = 0; i + 1 < autoPairingStrings.size(); i += 2) {
+      if (opening.equals(autoPairingStrings.get(i))) {
+        autoPairingStrings.set(i + 1, closing);
+        return;
+      }
+    }
+    autoPairingStrings.add(opening);
+    autoPairingStrings.add(closing);
+  }
+
+  public List<String> getAutoPairingStrings() {
+    return Collections.unmodifiableList(autoPairingStrings);
+  }
+
+  public void clearAutoPairingStrings() {
+    autoPairingStrings.clear();
   }
 
   /**
@@ -58,7 +122,7 @@ public class AutoBracketPair {
       return;
     }
 
-    String closing = getClosingPair(typedChar);
+    String closing = getClosingPair(ln, pos, typedChar);
     if (closing != null) {
       if (shouldSuppressAutoPair(ln, editor.cursor.cursorLine, pos, typedStart, typedChar, closing)) {
         return;
@@ -75,6 +139,7 @@ public class AutoBracketPair {
       String line, int lineIndex, int pos, int typedStart, char opening, String closing) {
     if (line == null || closing == null || closing.isEmpty()) return false;
     if (pos < 0 || pos > line.length()) return false;
+    if (!isBalancedPairOpening(opening)) return false;
     BalanceInfo balance = getBalanceInfo(lineIndex, line);
     if (isQuotePair(opening)) {
       return balance.getQuoteCount(opening) > 0 && (balance.getQuoteCount(opening) % 2) == 0;
@@ -94,6 +159,10 @@ public class AutoBracketPair {
 
   private boolean isQuotePair(char c) {
     return c == '"' || c == '\'' || c == '`';
+  }
+
+  private boolean isBalancedPairOpening(char c) {
+    return c == '(' || c == '{' || c == '[' || c == '*' || isQuotePair(c);
   }
 
   private boolean hasUnmatchedClosingForOpening(BalanceInfo balance, char opening) {
@@ -274,14 +343,25 @@ public class AutoBracketPair {
 
   /** Gets the closing pair for the given character. */
   public String getClosingPair(char c) {
-    if (c == '(') return ")";
-    if (c == '{') return "}";
-    if (c == '[') return "]";
-    if (c == '"') return "\"";
-    if (c == '\'') return "'";
-    if (c == '`') return "`";
+    return getClosingPair(null, -1, c);
+  }
 
-    if (c == '*') {
+  private String getClosingPair(String line, int pos, char c) {
+    String custom = getCustomClosingPair(line, pos, c);
+    if (custom != null) return custom;
+
+    if (isAutoBracketsPairingEnabled) {
+      if (c == '(') return ")";
+      if (c == '{') return "}";
+      if (c == '[') return "]";
+    }
+    if (isAutoStringsPairingEnabled) {
+      if (c == '"') return "\"";
+      if (c == '\'') return "'";
+    }
+    if (isAutoTupleStringsPairingEnabled && c == '`') return "`";
+
+    if (isAutoJavaCommentsPairingEnabled && c == '*') {
       // Check for /* comment start
       if (editor.cursor.cursorChar >= 2) {
         String ln = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
@@ -296,6 +376,23 @@ public class AutoBracketPair {
     return null;
   }
 
+  private String getCustomClosingPair(String line, int pos, char c) {
+    if (autoPairingStrings.isEmpty()) return null;
+    for (int i = 0; i + 1 < autoPairingStrings.size(); i += 2) {
+      String opening = autoPairingStrings.get(i);
+      if (opening.length() == 1 && opening.charAt(0) == c) {
+        return autoPairingStrings.get(i + 1);
+      }
+      if (line != null
+          && pos >= opening.length()
+          && pos <= line.length()
+          && line.regionMatches(pos - opening.length(), opening, 0, opening.length())) {
+        return autoPairingStrings.get(i + 1);
+      }
+    }
+    return null;
+  }
+
   /** Checks if a character is an opening bracket/quote. */
   public boolean isOpeningPair(char c) {
     return getClosingPair(c) != null;
@@ -303,7 +400,9 @@ public class AutoBracketPair {
 
   /** Checks if a character is a closing bracket/quote. */
   public boolean isClosingPair(char c) {
-    return c == ')' || c == '}' || c == ']' || c == '"' || c == '\'' || c == '`';
+    if (isAutoBracketsPairingEnabled && (c == ')' || c == '}' || c == ']')) return true;
+    if (isAutoStringsPairingEnabled && (c == '"' || c == '\'')) return true;
+    return isAutoTupleStringsPairingEnabled && c == '`';
   }
 
   /**

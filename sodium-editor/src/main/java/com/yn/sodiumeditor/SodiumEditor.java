@@ -15,11 +15,14 @@ import android.view.inputmethod.InputConnection;
 import androidx.annotation.Nullable;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
-import com.yn.sodiumeditor.core.autocompletion.*;
+import com.yn.sodiumeditor.core.autosuggestion.*;
 import com.yn.sodiumeditor.core.binary.*;
 import com.yn.sodiumeditor.core.cursor.*;
 import com.yn.sodiumeditor.core.features.AutoBracketNewline;
-import com.yn.sodiumeditor.core.features.AutoBracketPair;
+import com.yn.sodiumeditor.core.features.AutoBracketNewlineIndent;
+import com.yn.sodiumeditor.core.features.AutoPair;
+import com.yn.sodiumeditor.core.features.AutoIndentAfterClosingBracket;
+import com.yn.sodiumeditor.core.features.BaseIndentOnNewline;
 import com.yn.sodiumeditor.core.features.ClickAfterEndToAddLine;
 import com.yn.sodiumeditor.core.guides.bracket.*;
 import com.yn.sodiumeditor.core.guides.SymbolsMatch;
@@ -66,8 +69,11 @@ public class SodiumEditor extends View {
   public final UrlUnderline urlUnderline;
   public final PathUnderline pathUnderline;
   public final IndentGuides indentGuides;
-  public final AutoBracketPair autoBracketPair;
+  public final AutoPair autoPair;
   public final AutoBracketNewline autoBracketNewline;
+  public final AutoBracketNewlineIndent autoBracketNewlineIndent;
+  public final AutoIndentAfterClosingBracket autoIndentAfterClosingBracket;
+  public final BaseIndentOnNewline baseIndentOnNewline;
   public final Search search;
   public final BinaryRender binaryRender;
   public final Popup popup;
@@ -75,8 +81,8 @@ public class SodiumEditor extends View {
   public final WindowRender windowRender;
   public final HighlightRender highlightRender;
   public final Highlight highlight;
-  public final AutoCompletion autoCompletion;
-  public final AutoPathCompletion autoPathCompletion;
+  public final AutoSuggestion autoSuggestion;
+  public final AutoPathSuggestion autoPathSuggestion;
   public final ErrorUnderline errorUnderline;
   public final CursorAnimation cursorAnimation;
   public final CharAnimation charAnimation;
@@ -85,7 +91,7 @@ public class SodiumEditor extends View {
   public final com.yn.sodiumeditor.core.TextRange textRange;
   public final com.yn.sodiumeditor.renderer.draw.TextLineDraw textLineDraw;
   public final HighlightRules highlightRules;
-  public final com.yn.sodiumeditor.core.view.View view;
+  public final com.yn.sodiumeditor.core.view.EditorView view;
   public final Cursor cursor;
   public final Caret caret;
   public final CursorHandle cursorHandle;
@@ -113,7 +119,7 @@ public class SodiumEditor extends View {
     clickAfterEndToAddLine = new ClickAfterEndToAddLine(this);
     highlight = new Highlight(this);
     highlightRules = new HighlightRules(this, highlight);
-    view = new com.yn.sodiumeditor.core.view.View(this);
+    view = new com.yn.sodiumeditor.core.view.EditorView(this);
     errorUnderline = new ErrorUnderline(this);
     scroll = new Scroll(this);
     layout = new Layout(this);
@@ -137,12 +143,15 @@ public class SodiumEditor extends View {
     urlUnderline = new UrlUnderline(this);
     pathUnderline = new PathUnderline(this);
     indentGuides = new IndentGuides(this);
-    autoBracketPair = new AutoBracketPair(this);
+    autoPair = new AutoPair(this);
+    autoIndentAfterClosingBracket = new AutoIndentAfterClosingBracket(this);
+    baseIndentOnNewline = new BaseIndentOnNewline(this);
     autoBracketNewline = new AutoBracketNewline(this);
+    autoBracketNewlineIndent = autoBracketNewline;
     search = new Search(this);
     popup = new Popup(this);
-    autoCompletion = new AutoCompletion(this);
-    autoPathCompletion = new AutoPathCompletion(this);
+    autoSuggestion = new AutoSuggestion(this);
+    autoPathSuggestion = new AutoPathSuggestion(this);
     loadingCircle = new LoadingCircle(this);
     editOperators = new EditOperators(this);
     viewRender = new ViewRender(this);
@@ -232,12 +241,12 @@ public class SodiumEditor extends View {
               }
             });
 
-    autoCompletion.suggestionPaint.set(textRender.paint);
-    autoCompletion.suggestionPaint.setColor(0xFFAAAAAA);
-    autoCompletion.suggestionPaint.setAntiAlias(true);
-    autoCompletion.suggestionPaint.setSubpixelText(true);
-    autoCompletion.suggestionPaint.setHinting(Paint.HINTING_ON);
-    autoCompletion.isSuggestionTextSizeCustom = false;
+    autoSuggestion.suggestionPaint.set(textRender.paint);
+    autoSuggestion.suggestionPaint.setColor(0xFFAAAAAA);
+    autoSuggestion.suggestionPaint.setAntiAlias(true);
+    autoSuggestion.suggestionPaint.setSubpixelText(true);
+    autoSuggestion.suggestionPaint.setHinting(Paint.HINTING_ON);
+    autoSuggestion.isSuggestionTextSizeCustom = false;
   }
 
   @Override

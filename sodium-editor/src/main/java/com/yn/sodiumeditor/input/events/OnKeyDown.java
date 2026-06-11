@@ -121,7 +121,7 @@ public class OnKeyDown {
         if (editor.selection.hasSelection) {
           editor.selection.replaceSelectionWithText("\n");
         } else {
-          editor.autoBracketNewline.insertNewlineAtCursor();
+          editor.autoBracketNewlineIndent.insertNewlineAtCursor();
         }
         return true;
     }

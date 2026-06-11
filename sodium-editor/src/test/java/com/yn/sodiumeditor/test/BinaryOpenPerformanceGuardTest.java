@@ -105,7 +105,7 @@ public class BinaryOpenPerformanceGuardTest {
 
   @Test
   public void binaryScrollAndLineCount_shouldUseBinaryRowCount() throws Exception {
-    String view = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/view/View.java");
+    String view = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/view/ViewMetrics.java");
     String scroll =
         readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/scroll/ScrollBounds.java");
     String gutter =

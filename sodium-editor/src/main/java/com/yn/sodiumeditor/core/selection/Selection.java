@@ -33,8 +33,6 @@ public class Selection {
   public boolean isSelectAllActive;
   public boolean isEntireFileSelected;
   public int selectionColor;
-  public int selectionHighlightColor;
-  public int selectionHandleColor;
   public android.graphics.Paint selectionPaint;
   public android.graphics.RectF selectionHighlightRect;
   public android.graphics.RectF selectionRectTmp;
@@ -51,6 +49,8 @@ public class Selection {
   public int lastDoubleTapWordStart;
   public int lastDoubleTapWordEnd;
   public int lastDoubleTapStage;
+  public boolean smartSelectionEnabled;
+  public boolean longPressSelectionEnabled;
   public long copyCutMaxLines;
   public int copyCutMaxChars;
   public int hideCopyCutMaxLines;
@@ -80,8 +80,6 @@ public class Selection {
     isSelectAllActive = state.isSelectAllActive;
     isEntireFileSelected = state.isEntireFileSelected;
     selectionColor = state.selectionColor;
-    selectionHighlightColor = state.selectionHighlightColor;
-    selectionHandleColor = state.selectionHandleColor;
     selectionPaint = state.selectionPaint;
     selectionHighlightRect = state.selectionHighlightRect;
     selectionRectTmp = state.selectionRectTmp;
@@ -98,6 +96,8 @@ public class Selection {
     lastDoubleTapWordStart = state.lastDoubleTapWordStart;
     lastDoubleTapWordEnd = state.lastDoubleTapWordEnd;
     lastDoubleTapStage = state.lastDoubleTapStage;
+    smartSelectionEnabled = state.smartSelectionEnabled;
+    longPressSelectionEnabled = state.longPressSelectionEnabled;
     copyCutMaxLines = state.copyCutMaxLines;
     copyCutMaxChars = state.copyCutMaxChars;
     hideCopyCutMaxLines = state.hideCopyCutMaxLines;
@@ -114,6 +114,12 @@ public class Selection {
     state.selecting = selecting;
     state.isSelectAllActive = isSelectAllActive;
     state.isEntireFileSelected = isEntireFileSelected;
+    state.smartSelectionEnabled = smartSelectionEnabled;
+    state.longPressSelectionEnabled = longPressSelectionEnabled;
+    state.copyCutMaxLines = copyCutMaxLines;
+    state.copyCutMaxChars = copyCutMaxChars;
+    state.hideCopyCutMaxLines = hideCopyCutMaxLines;
+    state.replaceAllMaxCount = replaceAllMaxCount;
   }
 
   // ==============================
@@ -136,10 +142,12 @@ public class Selection {
   }
 
   public void selectWordAtCursor() {
+    if (!smartSelectionEnabled) return;
     smart.selectWordAtCursor();
   }
 
   public void selectLineAtCursor() {
+    if (!smartSelectionEnabled) return;
     smart.selectLineAtCursor();
   }
 
@@ -180,6 +188,7 @@ public class Selection {
   }
 
   public boolean applySmartDoubleTapSelection(int l, int c, String t) {
+    if (!smartSelectionEnabled) return false;
     boolean r = smart.applySmartDoubleTapSelection(l, c, t);
     syncFromState();
     return r;
@@ -239,6 +248,77 @@ public class Selection {
 
   public void setSelectionAnimationEnabled(boolean enabled) {
     state.setSelectionAnimationEnabled(enabled);
+  }
+
+  public void setSelectionColor(int color) {
+    state.setSelectionColor(color);
+    syncFromState();
+  }
+
+  public int getSelectionColor() {
+    return state.getSelectionColor();
+  }
+
+  public void setLineNumberSelectionEnabled(boolean enabled) {
+    editor.lineNumber.setLineNumberSelectionEnabled(enabled);
+  }
+
+  public boolean getLineNumberSelectionEnabled() {
+    return editor.lineNumber.isLineNumberSelectionEnabled();
+  }
+
+  public void setSmartSelectionEnabled(boolean enabled) {
+    state.setSmartSelectionEnabled(enabled);
+    syncFromState();
+  }
+
+  public boolean getSmartSelectionEnabled() {
+    return state.getSmartSelectionEnabled();
+  }
+
+  public void setLongPressSelectionEnabled(boolean enabled) {
+    state.setLongPressSelectionEnabled(enabled);
+    syncFromState();
+  }
+
+  public boolean getLongPressSelectionEnabled() {
+    return state.getLongPressSelectionEnabled();
+  }
+
+  public void setCopyCutMaxChars(int maxChars) {
+    state.setCopyCutMaxChars(maxChars);
+    syncFromState();
+  }
+
+  public int getCopyCutMaxChars() {
+    return state.getCopyCutMaxChars();
+  }
+
+  public void setCopyCutMaxLines(long maxLines) {
+    state.setCopyCutMaxLines(maxLines);
+    syncFromState();
+  }
+
+  public long getCopyCutMaxLines() {
+    return state.getCopyCutMaxLines();
+  }
+
+  public void setHideCopyCutMaxLines(int maxLines) {
+    state.setHideCopyCutMaxLines(maxLines);
+    syncFromState();
+  }
+
+  public int getHideCopyCutMaxLines() {
+    return state.getHideCopyCutMaxLines();
+  }
+
+  public void setReplaceAllMaxCount(int maxCount) {
+    state.setReplaceAllMaxCount(maxCount);
+    syncFromState();
+  }
+
+  public int getReplaceAllMaxCount() {
+    return state.getReplaceAllMaxCount();
   }
 
   public boolean isPositionInsideSelection(int line, int ch) {

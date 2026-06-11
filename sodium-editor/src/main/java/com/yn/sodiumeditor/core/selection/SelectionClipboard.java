@@ -17,7 +17,7 @@ public class SelectionClipboard {
 
   public void copyOrCutSelection(final boolean cut) {
     if (!selection.hasSelection) return;
-    editor.autoCompletion.clearActiveSuggestion();
+    editor.autoSuggestion.clearActiveSuggestion();
     if (selection.shouldHideCopyCutForSelection()) return;
 
     int sL = selection.selStartLine,
@@ -74,7 +74,7 @@ public class SelectionClipboard {
   }
 
   public void deleteSelection() {
-    editor.autoCompletion.clearActiveSuggestion();
+    editor.autoSuggestion.clearActiveSuggestion();
     selection.replaceSelectionWithText("");
   }
 }

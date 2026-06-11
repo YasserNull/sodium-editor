@@ -130,7 +130,7 @@ public class Cursor {
    * of line, moves to end of previous line.
    */
   public void moveCursorLeft() {
-    editor.autoCompletion.clearActiveSuggestion();
+    editor.autoSuggestion.clearActiveSuggestion();
 
     if (editor.selection.hasSelection) {
       int sL = editor.selection.selStartLine, sC = editor.selection.selStartChar;
@@ -175,7 +175,7 @@ public class Cursor {
     editor.caret.resumeBlinkAfterCursorPlacement();
     editor.cursor.invalidateCursorArea();
     editor.scroll.keepCursorVisibleHorizontally();
-    editor.autoCompletion.updateSuggestion();
+    editor.autoSuggestion.updateSuggestion();
   }
 
   /**
@@ -183,7 +183,7 @@ public class Cursor {
    * line, moves to beginning of next line.
    */
   public void moveCursorRight() {
-    editor.autoCompletion.clearActiveSuggestion();
+    editor.autoSuggestion.clearActiveSuggestion();
 
     if (editor.selection.hasSelection) {
       int eL = editor.selection.selEndLine, eC = editor.selection.selEndChar;
@@ -234,7 +234,7 @@ public class Cursor {
     editor.caret.resumeBlinkAfterCursorPlacement();
     editor.cursor.invalidateCursorArea();
     editor.scroll.keepCursorVisibleHorizontally();
-    editor.autoCompletion.updateSuggestion();
+    editor.autoSuggestion.updateSuggestion();
   }
 
   /**
@@ -242,7 +242,7 @@ public class Cursor {
    * Maintains column position when possible.
    */
   public void moveCursorUp() {
-    editor.autoCompletion.clearActiveSuggestion();
+    editor.autoSuggestion.clearActiveSuggestion();
 
     if (editor.selection.hasSelection) {
       int sL = editor.selection.selStartLine, sC = editor.selection.selStartChar;
@@ -283,7 +283,7 @@ public class Cursor {
     editor.caret.resumeBlinkAfterCursorPlacement();
     editor.cursor.invalidateCursorArea();
     editor.scroll.keepCursorVisibleHorizontally();
-    editor.autoCompletion.updateSuggestion();
+    editor.autoSuggestion.updateSuggestion();
   }
 
   /**
@@ -291,7 +291,7 @@ public class Cursor {
    * Maintains column position when possible.
    */
   public void moveCursorDown() {
-    editor.autoCompletion.clearActiveSuggestion();
+    editor.autoSuggestion.clearActiveSuggestion();
 
     if (editor.selection.hasSelection) {
       int eL = editor.selection.selEndLine, eC = editor.selection.selEndChar;
@@ -338,7 +338,7 @@ public class Cursor {
     editor.caret.resumeBlinkAfterCursorPlacement();
     editor.cursor.invalidateCursorArea();
     editor.scroll.keepCursorVisibleHorizontally();
-    editor.autoCompletion.updateSuggestion();
+    editor.autoSuggestion.updateSuggestion();
   }
 
   // ========================================================================

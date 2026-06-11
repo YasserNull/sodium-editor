@@ -12,7 +12,7 @@ public class Edge {
   // --- عدل هذه القيم للتحكم في الحجم والقوة ---
   public float edgeEffectStrength = 0.8f; // قوة السحب (أصغر = أهدأ)
   public int edgeEffectColor = 0x80808080; // لون رمادي نصف شفاف
-  private final float MAX_ARC_HEIGHT_PERCENT = 0.12f; // أقصى ارتفاع للقوس (12% من الشاشة)
+  private float edgeEffectMaxArcHeightPercent = 0.12f; // أقصى ارتفاع للقوس (12% من الشاشة)
   // ------------------------------------------
 
   private final SodiumEditor editor;
@@ -29,10 +29,36 @@ public class Edge {
     this.paint.setColor(edgeEffectColor);
   }
 
+  public boolean getEdgeEffectEnabled() {
+    return edgeEffectEnabled;
+  }
+
+  public void setEdgeEffectStrength(float strength) {
+    edgeEffectStrength = Math.max(0f, strength);
+    editor.invalidate();
+  }
+
+  public float getEdgeEffectStrength() {
+    return edgeEffectStrength;
+  }
+
   public void setEdgeEffectColor(int color) {
     this.edgeEffectColor = color;
     this.paint.setColor(color);
     editor.invalidate();
+  }
+
+  public int getEdgeEffectColor() {
+    return edgeEffectColor;
+  }
+
+  public void setEdgeEffectMaxArcHeightPercent(float percent) {
+    edgeEffectMaxArcHeightPercent = Math.max(0f, percent);
+    editor.invalidate();
+  }
+
+  public float getEdgeEffectMaxArcHeightPercent() {
+    return edgeEffectMaxArcHeightPercent;
   }
 
   public void pullTop(float deltaPx, float touchX) {
@@ -154,7 +180,7 @@ public class Edge {
     canvas.rotate(rotation);
 
     // حجم أصغر وأكثر تناسقاً
-    float glowHeight = size * MAX_ARC_HEIGHT_PERCENT * dist;
+    float glowHeight = size * edgeEffectMaxArcHeightPercent * dist;
     float glowWidth = size * 1.2f;
 
     arcRect.set(-glowWidth / 2, -glowHeight, glowWidth / 2, glowHeight);

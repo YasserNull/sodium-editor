@@ -19,7 +19,7 @@ public class EditorActions {
     editor.caret.pauseBlinkForTyping();
     editor.fileIO.invalidatePendingIOForEdit();
     operators.editVersion.incrementAndGet();
-    editor.autoCompletion.clearActiveSuggestion();
+    editor.autoSuggestion.clearActiveSuggestion();
 
     if (editor.ime.hasComposing) {
       editor.ime.deleteComposing();
@@ -130,7 +130,7 @@ public class EditorActions {
       }
     }
     editor.ime.updateImeSelection();
-    editor.autoCompletion.updateSuggestion();
+    editor.autoSuggestion.updateSuggestion();
   }
 
   private boolean isLineInLoadedWindow(int line) {
@@ -264,7 +264,7 @@ public class EditorActions {
       else editor.view.invalidateLineGlobal(editor.cursor.cursorLine);
       editor.scroll.keepCursorVisibleHorizontally();
     }
-    editor.autoCompletion.updateSuggestion();
+    editor.autoSuggestion.updateSuggestion();
 
     EditOp op = new EditOp();
     op.startLine = beforeLine;
@@ -325,7 +325,7 @@ public class EditorActions {
       editor.scroll.keepCursorVisibleHorizontally();
     }
 
-    editor.autoCompletion.updateSuggestion();
+    editor.autoSuggestion.updateSuggestion();
 
     EditOp op = new EditOp();
     op.startLine = beforeLine;
@@ -354,7 +354,7 @@ public class EditorActions {
     editor.caret.pauseBlinkForTyping();
     editor.fileIO.invalidatePendingIOForEdit();
     operators.editVersion.incrementAndGet();
-    editor.autoCompletion.clearActiveSuggestion();
+    editor.autoSuggestion.clearActiveSuggestion();
 
     if (editor.ime.hasComposing) {
       editor.ime.deleteComposing();
@@ -504,7 +504,7 @@ public class EditorActions {
       }
     }
     editor.ime.updateImeSelection();
-    editor.autoCompletion.updateSuggestion();
+    editor.autoSuggestion.updateSuggestion();
   }
 
   private int previousCodePointStart(String text, int offset) {
@@ -624,7 +624,7 @@ public class EditorActions {
     editor.scroll.keepCursorVisibleHorizontally();
     editor.cursor.invalidateCursorArea();
     editor.invalidate();
-    editor.autoCompletion.updateSuggestion();
+    editor.autoSuggestion.updateSuggestion();
 
     EditOp op = new EditOp();
     op.startLine = beforeLine;

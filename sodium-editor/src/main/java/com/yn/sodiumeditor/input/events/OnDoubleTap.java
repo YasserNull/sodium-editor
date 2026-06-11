@@ -17,7 +17,7 @@ public class OnDoubleTap {
 
   /** Handle onDoubleTap event */
   public boolean onDoubleTap(MotionEvent e) {
-    if (editor.autoCompletion.suggestionAcceptedThisTouch)
+    if (editor.autoSuggestion.suggestionAcceptedThisTouch)
       return true; // Don't process if suggestion was accepted
     EditOp.CursorTarget target =
         editor.wordWrap.getCursorTargetForPosition(e.getX(), e.getY(), null);

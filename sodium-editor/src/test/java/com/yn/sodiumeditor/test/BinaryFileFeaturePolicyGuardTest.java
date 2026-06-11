@@ -65,10 +65,15 @@ public class BinaryFileFeaturePolicyGuardTest {
     assertTrue(body.contains("editor.bracketGuides.setBracketGuidesEnabled(false)"));
     assertTrue(body.contains("editor.indentGuides.setIndentGuidesEnabled(false)"));
     assertTrue(body.contains("editor.whitespaceGuides.setWhitespaceGuidesEnabled(false)"));
-    assertTrue(body.contains("editor.autoCompletion.setAutoCompletionEnabled(false)"));
-    assertTrue(body.contains("editor.autoPathCompletion.setAutoPathCompletionEnabled(false)"));
-    assertTrue(body.contains("editor.autoBracketPair.setAutoPairingEnabled(false)"));
-    assertTrue(body.contains("editor.autoBracketNewline.setAutoBracketNewlineEnabled(false)"));
+    assertTrue(body.contains("editor.autoSuggestion.setAutoSuggestionEnabled(false)"));
+    assertTrue(body.contains("editor.autoPathSuggestion.setAutoPathSuggestionEnabled(false)"));
+    assertTrue(body.contains("editor.autoPair.setAutoPairingEnabled(false)"));
+    assertTrue(
+        body.contains("editor.autoBracketNewlineIndent.setAutoBracketNewlineIndentEnabled(false)"));
+    assertTrue(body.contains("editor.baseIndentOnNewline.setBaseIndentOnNewlineEnabled(false)"));
+    assertTrue(
+        body.contains(
+            "editor.autoIndentAfterClosingBracket.setAutoIndentAfterClosingBracketEnabled(false)"));
     assertTrue(body.contains("editor.currentLineHighlight.setHighlightCurrentLine(false)"));
   }
 

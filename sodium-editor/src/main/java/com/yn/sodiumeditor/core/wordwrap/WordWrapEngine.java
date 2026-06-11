@@ -127,7 +127,7 @@ public class WordWrapEngine {
               ? (c == ' '
                       ? editor.view.measureWidthBuffer[i]
                       : editor.view.measureWidthBuffer[i]
-                          * com.yn.sodiumeditor.core.view.View.DEFAULT_TAB_SIZE_SPACES)
+                          * com.yn.sodiumeditor.core.view.EditorView.DEFAULT_TAB_SIZE_SPACES)
                   * editor.textRender.getVisualSpaceScale()
               : editor.view.measureWidthBuffer[i];
       if (x < cur + advance * 0.5f) return start + i;

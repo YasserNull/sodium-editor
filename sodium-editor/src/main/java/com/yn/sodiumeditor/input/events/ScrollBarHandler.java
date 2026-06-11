@@ -12,7 +12,7 @@ public class ScrollBarHandler {
   }
 
   public boolean handleActionDown(MotionEvent event) {
-    if (!editor.scroll.bar.enabled) return false;
+    if (!editor.scroll.bar.scrollBarEnabled) return false;
 
     float ex = event.getX();
     float ey = event.getY();
@@ -25,8 +25,8 @@ public class ScrollBarHandler {
     float bottom = editor.scroll.bar.thumbRect.bottom + hitSlop;
 
     if (ex >= left && ex <= right && ey >= top && ey <= bottom) {
-      editor.scroll.bar.dragging = true;
-      editor.scroll.bar.dragOffset = ey - editor.scroll.bar.thumbRect.top;
+      editor.scroll.bar.scrollBarDragging = true;
+      editor.scroll.bar.scrollBarDragOffset = ey - editor.scroll.bar.thumbRect.top;
       editor.scroll.showScrollBar();
       return true;
     }
@@ -34,7 +34,7 @@ public class ScrollBarHandler {
   }
 
   public boolean handleActionMove(MotionEvent event) {
-    if (!editor.scroll.bar.dragging) return false;
+    if (!editor.scroll.bar.scrollBarDragging) return false;
 
     float ey = event.getY();
     float maxScroll = editor.scroll.getMaxScrollYForClamp();
@@ -44,14 +44,14 @@ public class ScrollBarHandler {
     float contentHeight = maxScroll + h;
     float thumbHeight = (trackHeight * trackHeight) / Math.max(1f, contentHeight);
 
-    if (thumbHeight < editor.scroll.bar.minThumbPx) {
-      thumbHeight = editor.scroll.bar.minThumbPx;
+    if (thumbHeight < editor.scroll.bar.scrollBarMinThumbPx) {
+      thumbHeight = editor.scroll.bar.scrollBarMinThumbPx;
     }
     if (thumbHeight > trackHeight) thumbHeight = trackHeight;
 
     float thumbRange = Math.max(1f, trackHeight - thumbHeight);
     float targetTop =
-        Math.max(0f, Math.min(trackHeight - thumbHeight, ey - editor.scroll.bar.dragOffset));
+        Math.max(0f, Math.min(trackHeight - thumbHeight, ey - editor.scroll.bar.scrollBarDragOffset));
 
     if (maxScroll > 0f) {
       editor.scroll.scrollY = (targetTop / thumbRange) * maxScroll;
@@ -67,8 +67,8 @@ public class ScrollBarHandler {
   }
 
   public void handleActionUpOrCancel() {
-    if (editor.scroll.bar.dragging) {
-      editor.scroll.bar.dragging = false;
+    if (editor.scroll.bar.scrollBarDragging) {
+      editor.scroll.bar.scrollBarDragging = false;
       editor.scroll.showScrollBar();
       editor.removeCallbacks(editor.scroll.delayedWindowCheck);
       editor.fileIO.checkAndLoadWindow();

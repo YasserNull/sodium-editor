@@ -13,7 +13,7 @@ public class onFocusChanged {
   }
 
   public void onFocusChanged(boolean focused, int direction, Rect previouslyFocusedRect) {
-    editor.autoCompletion.clearActiveSuggestion(); // Clear suggestion on focus change
+    editor.autoSuggestion.clearActiveSuggestion(); // Clear suggestion on focus change
     InputMethodManager imm =
         (InputMethodManager) editor.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
     if (focused) {

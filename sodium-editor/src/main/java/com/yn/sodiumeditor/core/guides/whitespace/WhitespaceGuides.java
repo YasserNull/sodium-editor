@@ -398,7 +398,7 @@ public class WhitespaceGuides {
       Paint segmentPaint,
       List<com.yn.sodiumeditor.renderer.HighlightRender.HighlightSpan> syntaxSpans,
       boolean hasSyntaxSpans,
-      com.yn.sodiumeditor.core.view.View.WhitespaceDrawState state,
+      com.yn.sodiumeditor.core.view.EditorView.WhitespaceDrawState state,
       float rtlWidth) {
     if (start >= end) return x;
     int segLen = end - start;

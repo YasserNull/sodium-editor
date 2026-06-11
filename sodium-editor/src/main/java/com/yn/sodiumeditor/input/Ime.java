@@ -114,7 +114,7 @@ public class Ime {
     editor.cursor.cursorChar = e.ch;
     editor.caret.resetBlink();
     editor.invalidate();
-    editor.autoCompletion.updateSuggestion();
+    editor.autoSuggestion.updateSuggestion();
     return true;
   }
 
@@ -137,7 +137,7 @@ public class Ime {
       editor.cursor.cursorChar = e.ch;
       editor.caret.resetBlink();
       editor.invalidate();
-      editor.autoCompletion.updateSuggestion();
+      editor.autoSuggestion.updateSuggestion();
       return true;
     }
     composingLine = s.line;
@@ -150,7 +150,7 @@ public class Ime {
     captureOriginalComposingTextIfNeeded();
     lastComposingTextForCharAnim = null;
     editor.invalidate();
-    editor.autoCompletion.updateSuggestion();
+    editor.autoSuggestion.updateSuggestion();
     return true;
   }
 
@@ -181,14 +181,14 @@ public class Ime {
     long startMs = android.os.SystemClock.uptimeMillis();
     String str = text.toString();
     if ("\n".equals(str)) {
-      editor.autoBracketNewline.insertNewlineAtCursor();
+      editor.autoBracketNewlineIndent.insertNewlineAtCursor();
       commitComposing(true);
       editor.charAnimation.startCharAnimationFromText(text);
-      editor.autoCompletion.updateSuggestion();
+      editor.autoSuggestion.updateSuggestion();
       return true;
     }
     if (tryReplaceWordFromImeCommit(str)) {
-      editor.autoCompletion.updateSuggestion();
+      editor.autoSuggestion.updateSuggestion();
       return true;
     }
     if (!hasComposing && !editor.selection.hasSelection && lastImeCommitText != null) {
@@ -234,8 +234,8 @@ public class Ime {
       editor.selection.replaceSelectionWithText(str);
       commitComposing(true);
       editor.charAnimation.startCharAnimationFromText(text);
-      editor.autoBracketPair.handleAutoPairing(str);
-      editor.autoCompletion.updateSuggestion();
+      editor.autoPair.handleAutoPairing(str);
+      editor.autoSuggestion.updateSuggestion();
       return true;
     }
     if (hasComposing) {
@@ -248,8 +248,8 @@ public class Ime {
         editor.editOperators.insertTextAtCursor(str);
         markImeCommit(str);
         editor.charAnimation.startCharAnimationFromText(text);
-        editor.autoBracketPair.handleAutoPairing(str);
-        editor.autoCompletion.updateSuggestion();
+        editor.autoPair.handleAutoPairing(str);
+        editor.autoSuggestion.updateSuggestion();
         return true;
       }
       replaceComposingWith(replacement);
@@ -257,8 +257,8 @@ public class Ime {
       commitComposing(true);
       markImeCommit(replacement);
       editor.charAnimation.startCharAnimationFromText(replacement);
-      editor.autoBracketPair.handleAutoPairing(replacement);
-      editor.autoCompletion.updateSuggestion();
+      editor.autoPair.handleAutoPairing(replacement);
+      editor.autoSuggestion.updateSuggestion();
       return true;
     }
     long insertStartMs = android.os.SystemClock.uptimeMillis();
@@ -271,10 +271,10 @@ public class Ime {
     editor.charAnimation.startCharAnimationFromText(text);
     long animMs = android.os.SystemClock.uptimeMillis() - animStartMs;
     long pairStartMs = android.os.SystemClock.uptimeMillis();
-    editor.autoBracketPair.handleAutoPairing(str);
+    editor.autoPair.handleAutoPairing(str);
     long pairMs = android.os.SystemClock.uptimeMillis() - pairStartMs;
     long completionStartMs = android.os.SystemClock.uptimeMillis();
-    editor.autoCompletion.updateSuggestion();
+    editor.autoSuggestion.updateSuggestion();
     long completionMs = android.os.SystemClock.uptimeMillis() - completionStartMs;
     long totalMs = android.os.SystemClock.uptimeMillis() - startMs;
     return true;
@@ -284,7 +284,7 @@ public class Ime {
     if (editor.selection.hasSelection) {
       editor.selection.replaceSelectionWithText(text.toString());
       editor.charAnimation.startCharAnimationFromText(text);
-      editor.autoCompletion.updateSuggestion();
+      editor.autoSuggestion.updateSuggestion();
       return true;
     }
     editor.fileIO.ensureLineInWindow(editor.cursor.cursorLine, true);
@@ -305,7 +305,7 @@ public class Ime {
     updateComposingPendingOp(newText, composingStartLine, composingStartChar);
     lastComposingTextForCharAnim = newText;
     if (shouldAnim) editor.charAnimation.startCharAnimationFromText(newText);
-    editor.autoCompletion.updateSuggestion();
+    editor.autoSuggestion.updateSuggestion();
     return true;
   }
 
@@ -327,13 +327,13 @@ public class Ime {
         editor.selection.replaceSelectionWithText("");
       }
       updateImeSelection();
-      editor.autoCompletion.updateSuggestion();
+      editor.autoSuggestion.updateSuggestion();
       return true;
     }
     for (int i = 0; i < beforeLength; i++) editor.editOperators.deleteCharAtCursor();
     for (int i = 0; i < afterLength; i++) editor.editOperators.deleteForwardAtCursor();
     updateImeSelection();
-    editor.autoCompletion.updateSuggestion();
+    editor.autoSuggestion.updateSuggestion();
     return true;
   }
 
@@ -430,7 +430,7 @@ public class Ime {
     composingPendingOp = null;
     lastComposingTextForCharAnim = null;
     editor.invalidate();
-    editor.autoCompletion.updateSuggestion();
+    editor.autoSuggestion.updateSuggestion();
   }
 
   public void replaceComposingWith(CharSequence textSeq) {
@@ -488,7 +488,7 @@ public class Ime {
       editor.scroll.keepCursorVisibleHorizontally();
       editor.invalidate();
     }
-    editor.autoCompletion.updateSuggestion();
+    editor.autoSuggestion.updateSuggestion();
   }
 
   public void deleteComposing() {

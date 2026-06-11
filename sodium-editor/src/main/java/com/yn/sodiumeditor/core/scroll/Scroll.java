@@ -115,6 +115,14 @@ public class Scroll {
     edge.draw(c);
   }
 
+  public void drawScrollBar(android.graphics.Canvas c) {
+    bar.draw(c);
+  }
+
+  public void showScrollBar() {
+    bar.show();
+  }
+
   public float getMaxScrollXForClamp() {
     return bounds.getMaxScrollXForClamp();
   }
@@ -139,21 +147,6 @@ public class Scroll {
     return bounds.getKeyboardBarrierPadding();
   }
 
-  public void drawScrollBar(android.graphics.Canvas c) {
-    bar.draw(c);
-  }
-
-  public void showScrollBar() {
-    bar.show();
-  }
-
-  public void startScrollBarFadeOut() {
-    bar.startFadeOut();
-  }
-
-  public void cancelScrollBarFade() {
-    bar.cancelFade();
-  }
 
   public void scrollTo(float x, float y) {
     scrollX = x;
@@ -388,75 +381,55 @@ public class Scroll {
       this.scrollMode = m;
   }
 
+  public int getScrollMode() {
+    return this.scrollMode;
+  }
+
   public void setScrollSensitivity(float s) {
     if (s > 0) this.scrollSensitivity = s;
+  }
+
+  public float getScrollSensitivity() {
+    return this.scrollSensitivity;
   }
 
   public void setFlingSensitivity(float s) {
     if (s > 0) this.flingSensitivity = s;
   }
 
-  public void setScrollBarEnabled(boolean e) {
-    bar.setEnabled(e);
-  }
-
-  public void setScrollBarFadeEnabled(boolean e) {
-    bar.setFadeEnabled(e);
-  }
-
-  public void setScrollBarColor(int color) {
-    bar.setColor(color);
-  }
-
-  public void setScrollBarWidthPx(float px) {
-    bar.setWidthPx(px);
-  }
-
-  public void setScrollBarMinThumbPx(float px) {
-    bar.setMinThumbPx(px);
-  }
-
-  public void setScrollBarFadeDelayMs(long ms) {
-    bar.setFadeDelayMs(ms);
-  }
-
-  public void setScrollBarFadeDurationMs(long ms) {
-    bar.setFadeDurationMs(ms);
-  }
-
-  public void setScrollBarHaloColor(int color) {
-    bar.setHaloColor(color);
-  }
-
-  public void setScrollBarHaloSizePx(float px) {
-    bar.setHaloSizePx(px);
-  }
-
-  public void setScrollBarCornerRadiusPx(float px) {
-    bar.setCornerRadiusPx(px);
-  }
-
-  public void setScrollBarMarginPx(float px) {
-    bar.setMarginPx(px);
-  }
-
-  public void setStretchOverscrollEnabled(boolean e) {
-    stretch.setStretchOverscrollEnabled(e);
-  }
-
-  public void setStretchOverscrollStrength(float s) {
-    stretch.setStretchOverscrollStrength(s);
+  public float getFlingSensitivity() {
+    return this.flingSensitivity;
   }
 
   public void setFlingBounceEnabled(boolean e) {
     this.flingBounceEnabled = e;
   }
 
+  public boolean getFlingBounceEnabled() {
+    return this.flingBounceEnabled;
+  }
+
   public void setFlingBounceDistancePx(int px) {
     this.flingBounceOverScrollPx = Math.max(0, px);
   }
 
+  public int getFlingBounceDistancePx() {
+    return this.flingBounceOverScrollPx;
+  }
+
   public void setFlingBounceDistanceFactor(float f) {
     if (f > 0) this.flingBounceOverScrollFactor = f;
+  }
+
+  public float getFlingBounceDistanceFactor() {
+    return this.flingBounceOverScrollFactor;
+  }
+
+  public float getScrollX() {
+    return this.scrollX;
+  }
+
+  public float getScrollY() {
+    return this.scrollY;
   }
 }

@@ -8,13 +8,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.Test;
 
-public class AutoBracketPairSmartClosingGuardTest {
+public class AutoPairSmartClosingGuardTest {
 
   @Test
   public void autoPair_shouldUseExistingClosingBracketInsteadOfDuplicatingIt() throws Exception {
     String src =
         readSource(
-            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/features/AutoBracketPair.java");
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/features/AutoPair.java");
     String handleBody = methodBody(src, "handleAutoPairing");
     String helperBody = methodBody(src, "private boolean shouldSuppressAutoPair");
 
@@ -40,7 +40,7 @@ public class AutoBracketPairSmartClosingGuardTest {
   public void autoPair_shouldTreatUnmatchedQuoteBeforeCursorAsClosingQuote() throws Exception {
     String src =
         readSource(
-            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/features/AutoBracketPair.java");
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/features/AutoPair.java");
     String handleBody = methodBody(src, "handleAutoPairing");
 
     assertTrue(
@@ -66,7 +66,7 @@ public class AutoBracketPairSmartClosingGuardTest {
       throws Exception {
     String src =
         readSource(
-            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/features/AutoBracketPair.java");
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/features/AutoPair.java");
     String cacheBody = methodBody(src, "private BalanceInfo getBalanceInfo");
     String scanBody = methodBody(src, "void scanLine");
 
@@ -92,7 +92,7 @@ public class AutoBracketPairSmartClosingGuardTest {
       throws Exception {
     String src =
         readSource(
-            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/features/AutoBracketPair.java");
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/features/AutoPair.java");
     String helperBody = methodBody(src, "private boolean shouldSuppressAutoPair");
 
     assertTrue(

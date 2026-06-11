@@ -16,7 +16,7 @@ public class OnLongPress {
 
   /** Handle onLongPress event */
   public void onLongPress(MotionEvent e) {
-    if (editor.autoCompletion.suggestionAcceptedThisTouch) return;
+    if (editor.autoSuggestion.suggestionAcceptedThisTouch) return;
     if (editor.onTouch.multiTouchActive || editor.onTouch.hadMultiTouch) return;
 
     if (editor.popup.showPopup) {
@@ -35,6 +35,8 @@ public class OnLongPress {
       editor.lineNumber.beginLineNumberSelection(line);
       return;
     }
+
+    if (!editor.selection.getLongPressSelectionEnabled()) return;
 
     // Position calculation
     EditOp.CursorTarget target =

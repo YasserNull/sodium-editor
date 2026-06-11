@@ -79,7 +79,7 @@ public class OnTouch {
         editor.onTouch.downX = ex;
         editor.onTouch.downY = ey;
         editor.onTouch.movedSinceDown = false;
-        editor.autoCompletion.suggestionAcceptedThisTouch = false;
+        editor.autoSuggestion.suggestionAcceptedThisTouch = false;
         editor.scroll.dragMaxScrollX =
             editor.wordWrap.isWordWrapEnabled ? -1f : editor.scroll.getMaxScrollXForClamp();
 
@@ -183,11 +183,11 @@ public class OnTouch {
         editor.selection.endLongPressSelection();
         editor.selection.isLineNumberSelecting = false;
         editor.selection.lineNumberSelectAnchorLine = -1;
-        editor.autoCompletion.clearActiveSuggestion();
+        editor.autoSuggestion.clearActiveSuggestion();
         editor.scroll.dragMaxScrollX = -1f;
         editor.scroll.edge.releaseAll();
         editor.scroll.stretch.releaseStretch();
-        if (editor.scroll.bar.fadeEnabled)
+        if (editor.scroll.bar.scrollBarFadeEnabled)
           editor.caret.mainHandler.removeCallbacks(editor.scroll.bar.hideRunnable);
         editor.scroll.gestureDetector.onTouchEvent(event);
         return true;
@@ -204,19 +204,19 @@ public class OnTouch {
     boolean isEmptyArea = (ln == null || ln.isEmpty() || charIndex >= ln.length());
 
     boolean allowSuggestionTap =
-        editor.autoCompletion.activeSuggestionIsPath
-            ? editor.autoPathCompletion.isAutoPathCompletionEnabled
-            : editor.autoCompletion.isAutoCompletionEnabled;
+        editor.autoSuggestion.activeSuggestionIsPath
+            ? editor.autoPathSuggestion.isAutoPathSuggestionEnabled
+            : editor.autoSuggestion.isAutoSuggestionEnabled;
     if (!editor.onTouch.movedSinceDown
         && allowSuggestionTap
-        && editor.autoCompletion.activeSuggestion != null
-        && !editor.autoCompletion.activeSuggestionRect.isEmpty()) {
-      if (editor.autoCompletion.activeSuggestionRect.contains(ex, ey)
+        && editor.autoSuggestion.activeSuggestion != null
+        && !editor.autoSuggestion.activeSuggestionRect.isEmpty()) {
+      if (editor.autoSuggestion.activeSuggestionRect.contains(ex, ey)
           || (isEmptyArea && target.line == editor.cursor.cursorLine)) {
-        if (editor.autoCompletion.activeSuggestionIsPath) {
-          editor.autoPathCompletion.acceptPathCompletion();
+        if (editor.autoSuggestion.activeSuggestionIsPath) {
+          editor.autoPathSuggestion.acceptPathSuggestion();
         } else {
-          editor.autoCompletion.acceptAutoCompletion();
+          editor.autoSuggestion.acceptAutoSuggestion();
         }
         editor.onTouch.pointerDown = false;
         return true;

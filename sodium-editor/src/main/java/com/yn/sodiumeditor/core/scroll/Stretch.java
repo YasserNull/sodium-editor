@@ -125,8 +125,14 @@ public class Stretch {
     this.stretchOverscrollEnabled = enabled;
     if (!enabled) reset();
   }
+  public boolean getStretchOverscrollEnabled() {
+    return this.stretchOverscrollEnabled;
+  }
 
   public void setStretchOverscrollStrength(float strength) {
     this.stretchOverscrollStrength = strength;
+  }
+  public float getStretchOverscrollStrength() {
+    return this.stretchOverscrollStrength;
   }
 }

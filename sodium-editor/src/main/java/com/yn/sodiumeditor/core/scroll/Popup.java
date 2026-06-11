@@ -140,6 +140,10 @@ public class Popup {
     if (showPopup) editor.invalidate();
   }
 
+  public int getPopupBackgroundColor() {
+    return popupBackgroundColor;
+  }
+
   /**
    * Set popup text color.
    *
@@ -151,6 +155,10 @@ public class Popup {
     if (showPopup) editor.invalidate();
   }
 
+  public int getPopupTextColor() {
+    return popupTextColor;
+  }
+
   /**
    * Set popup text size in scaled pixels.
    *
@@ -160,6 +168,10 @@ public class Popup {
     popupTextSizeSp = sp;
     popupTextPaint.setTextSize(spToPx(sp));
     if (showPopup) editor.invalidate();
+  }
+
+  public float getPopupTextSize() {
+    return popupTextSizeSp;
   }
 
   /**
@@ -187,6 +199,10 @@ public class Popup {
     if (showPopup) editor.invalidate();
   }
 
+  public boolean getPopupTextFollowsEditorTypeface() {
+    return popupTextFollowsEditorTypeface;
+  }
+
   /**
    * Set a custom typeface for popup text.
    *
@@ -196,6 +212,11 @@ public class Popup {
     popupTextFollowsEditorTypeface = false;
     popupTextPaint.setTypeface((typeface != null) ? typeface : android.graphics.Typeface.DEFAULT);
     if (showPopup) editor.invalidate();
+  }
+
+  @Nullable
+  public android.graphics.Typeface getPopupTextTypeface() {
+    return popupTextPaint.getTypeface();
   }
 
   /**

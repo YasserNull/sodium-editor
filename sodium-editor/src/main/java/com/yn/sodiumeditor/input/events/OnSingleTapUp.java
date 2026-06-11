@@ -18,7 +18,7 @@ public class OnSingleTapUp {
 
   /** Handle onSingleTapUp event */
   public boolean onSingleTapUp(MotionEvent e) {
-    if (editor.autoCompletion.suggestionAcceptedThisTouch) return true;
+    if (editor.autoSuggestion.suggestionAcceptedThisTouch) return true;
     if (editor.onTouch.multiTouchActive || editor.onTouch.hadMultiTouch) return true;
 
     if (editor.selection.hasSelection) {
@@ -114,7 +114,7 @@ public class OnSingleTapUp {
     editor.caret.resetBlink();
     editor.ime.showKeyboard();
     editor.view.restartInput();
-    editor.autoCompletion.updateSuggestion();
+    editor.autoSuggestion.updateSuggestion();
   }
 
   private String getLineTextForTap(int line) {

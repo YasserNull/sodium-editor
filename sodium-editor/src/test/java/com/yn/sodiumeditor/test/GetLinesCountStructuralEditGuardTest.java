@@ -15,14 +15,14 @@ public class GetLinesCountStructuralEditGuardTest {
   @Test
   public void viewGetLinesCount_shouldNotUseStaleWindowCountDuringIndexedStructuralEdits()
       throws Exception {
-    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/view/View.java");
-    int at = src.indexOf("if (editor.fileIO.isIndexReady && editor.fileIO.lineOffsets.length > 0)");
-    assertTrue("Expected indexed getLinesCount branch in View.", at >= 0);
+    String src = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/view/ViewMetrics.java");
+    int at = src.indexOf("if (view.editor.fileIO.isIndexReady && view.editor.fileIO.lineOffsets.length > 0)");
+    assertTrue("Expected indexed getLinesCount branch in ViewMetrics.", at >= 0);
     String around = src.substring(at, Math.min(src.length(), at + 1200));
 
     assertTrue(
         "BUG: getLinesCount should compute count from lineOffsets + lineCountDelta.",
-        around.contains("editor.fileIO.lineOffsets.length + editor.editOperators.lineCountDelta"));
+        around.contains("view.editor.fileIO.lineOffsets.length + view.editor.editOperators.lineCountDelta"));
     assertFalse(
         "BUG: getLinesCount must not let stale windowCount override indexed structural edit count.",
         around.contains("Math.max(count, windowCount)"));

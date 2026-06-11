@@ -42,11 +42,11 @@ public class BinaryRender {
   private boolean savedIndentGuidesEnabled;
   private boolean savedIndentationBlocksEnabled;
   private boolean savedWhitespaceGuidesEnabled;
-  private boolean savedAutoCompletionEnabled;
-  private boolean savedAutoPathCompletionEnabled;
+  private boolean savedAutoSuggestionEnabled;
+  private boolean savedAutoPathSuggestionEnabled;
   private boolean savedAutoPairingEnabled;
-  private boolean savedAutoBracketNewlineEnabled;
   private boolean savedAutoBracketNewlineIndentEnabled;
+  private boolean savedBaseIndentOnNewlineEnabled;
   private boolean savedAutoIndentAfterClosingBracketEnabled;
   private boolean savedCurrentLineHighlightEnabled;
 
@@ -111,12 +111,12 @@ public class BinaryRender {
       editor.bracketGuides.setBracketGuidesEnabled(false);
       editor.indentGuides.setIndentGuidesEnabled(false);
       editor.whitespaceGuides.setWhitespaceGuidesEnabled(false);
-      editor.autoCompletion.setAutoCompletionEnabled(false);
-      editor.autoPathCompletion.setAutoPathCompletionEnabled(false);
-      editor.autoBracketPair.setAutoPairingEnabled(false);
-      editor.autoBracketNewline.setAutoBracketNewlineEnabled(false);
-      editor.autoBracketNewline.setAutoBracketNewlineIndentEnabled(false);
-      editor.autoBracketNewline.setAutoIndentAfterClosingBracketEnabled(false);
+      editor.autoSuggestion.setAutoSuggestionEnabled(false);
+      editor.autoPathSuggestion.setAutoPathSuggestionEnabled(false);
+      editor.autoPair.setAutoPairingEnabled(false);
+      editor.autoBracketNewlineIndent.setAutoBracketNewlineIndentEnabled(false);
+      editor.baseIndentOnNewline.setBaseIndentOnNewlineEnabled(false);
+      editor.autoIndentAfterClosingBracket.setAutoIndentAfterClosingBracketEnabled(false);
       editor.currentLineHighlight.setHighlightCurrentLine(false);
       editor.invalidate();
       return;
@@ -139,14 +139,14 @@ public class BinaryRender {
     savedIndentGuidesEnabled = editor.indentGuides.isIndentGuidesEnabled;
     savedIndentationBlocksEnabled = editor.indentGuides.isIndentationBlocksEnabled;
     savedWhitespaceGuidesEnabled = editor.whitespaceGuides.isWhitespaceGuidesEnabled;
-    savedAutoCompletionEnabled = editor.autoCompletion.isAutoCompletionEnabled;
-    savedAutoPathCompletionEnabled = editor.autoPathCompletion.isAutoPathCompletionEnabled;
-    savedAutoPairingEnabled = editor.autoBracketPair.isAutoPairingEnabled;
-    savedAutoBracketNewlineEnabled = editor.autoBracketNewline.isAutoBracketNewlineEnabled;
+    savedAutoSuggestionEnabled = editor.autoSuggestion.isAutoSuggestionEnabled;
+    savedAutoPathSuggestionEnabled = editor.autoPathSuggestion.isAutoPathSuggestionEnabled;
+    savedAutoPairingEnabled = editor.autoPair.isAutoPairingEnabled;
     savedAutoBracketNewlineIndentEnabled =
-        editor.autoBracketNewline.isAutoBracketNewlineIndentEnabled;
+        editor.autoBracketNewlineIndent.isAutoBracketNewlineIndentEnabled;
+    savedBaseIndentOnNewlineEnabled = editor.baseIndentOnNewline.isBaseIndentOnNewlineEnabled;
     savedAutoIndentAfterClosingBracketEnabled =
-        editor.autoBracketNewline.isAutoIndentAfterClosingBracketEnabled;
+        editor.autoIndentAfterClosingBracket.isAutoIndentAfterClosingBracketEnabled;
     savedCurrentLineHighlightEnabled = editor.currentLineHighlight.highlightCurrentLine;
   }
 
@@ -161,13 +161,13 @@ public class BinaryRender {
     editor.bracketGuides.setBracketGuidesEnabled(savedBracketGuidesEnabled);
     editor.indentGuides.setIndentGuidesEnabled(savedIndentGuidesEnabled);
     editor.whitespaceGuides.setWhitespaceGuidesEnabled(savedWhitespaceGuidesEnabled);
-    editor.autoCompletion.setAutoCompletionEnabled(savedAutoCompletionEnabled);
-    editor.autoPathCompletion.setAutoPathCompletionEnabled(savedAutoPathCompletionEnabled);
-    editor.autoBracketPair.setAutoPairingEnabled(savedAutoPairingEnabled);
-    editor.autoBracketNewline.setAutoBracketNewlineEnabled(savedAutoBracketNewlineEnabled);
-    editor.autoBracketNewline.setAutoBracketNewlineIndentEnabled(
+    editor.autoSuggestion.setAutoSuggestionEnabled(savedAutoSuggestionEnabled);
+    editor.autoPathSuggestion.setAutoPathSuggestionEnabled(savedAutoPathSuggestionEnabled);
+    editor.autoPair.setAutoPairingEnabled(savedAutoPairingEnabled);
+    editor.autoBracketNewlineIndent.setAutoBracketNewlineIndentEnabled(
         savedAutoBracketNewlineIndentEnabled);
-    editor.autoBracketNewline.setAutoIndentAfterClosingBracketEnabled(
+    editor.baseIndentOnNewline.setBaseIndentOnNewlineEnabled(savedBaseIndentOnNewlineEnabled);
+    editor.autoIndentAfterClosingBracket.setAutoIndentAfterClosingBracketEnabled(
         savedAutoIndentAfterClosingBracketEnabled);
     editor.currentLineHighlight.setHighlightCurrentLine(savedCurrentLineHighlightEnabled);
   }

@@ -22,6 +22,10 @@ public class ClickAfterEndToAddLine {
   public void setClickAfterEndToAddLineEnabled(boolean enabled) {
     this.isClickAfterEndToAddLineEnabled = enabled;
   }
+  
+  public boolean getClickAfterEndToAddLineEnabled() {
+    return this.isClickAfterEndToAddLineEnabled;
+  }
 
   /** Checks if the click is after the end of the document. */
   public boolean isClickAfterEnd(int visibleIndex, int totalVisible) {

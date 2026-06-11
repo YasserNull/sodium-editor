@@ -21,7 +21,6 @@ public class SelectionHandles {
   // Selection handle appearance
   public float handleWidth = 40f;
   public float handleHeight = 40f; // Square for perfect circle
-  public int handleColor = 0xFF33B5E5;
   public int selectionHandleColor = 0xFF2196F3; // Blue
   public float handleRadius = 6f;
 
@@ -85,9 +84,17 @@ public class SelectionHandles {
     animation.setHandleMoveAnimationEnabled(enabled);
   }
 
+  public boolean getHandleMoveAnimationEnabled() {
+    return animation.handleMoveAnimationEnabled;
+  }
+
   public void setSelectionAnimationEnabled(boolean enabled) {
     selection.setSelectionAnimationEnabled(enabled);
     setHandleMoveAnimationEnabled(enabled);
+  }
+
+  public boolean getSelectionAnimationEnabled() {
+    return selection.getSelectionAnimationEnabled();
   }
 
   /** Update selection handles positions */
@@ -305,13 +312,21 @@ public class SelectionHandles {
     editor.invalidate();
   }
 
-  public void setHandleColor(int color) {
-    handleColor = color;
+  public float getHandleWidth() {
+    return handleWidth;
+  }
+
+  public float getHandleHeight() {
+    return handleHeight;
   }
 
   public void setSelectionHandleColor(int color) {
     selectionHandleColor = color;
     editor.invalidate();
+  }
+
+  public int getSelectionHandleColor() {
+    return selectionHandleColor;
   }
 
   public void setHandleRadius(float radius) {
@@ -320,6 +335,10 @@ public class SelectionHandles {
     baseHandleTextSizePx = editor.textRender.paint.getTextSize();
     updateHandleMetricsForTextSize(baseHandleTextSizePx);
     editor.invalidate();
+  }
+
+  public float getHandleRadius() {
+    return handleRadius;
   }
 
   public void updateHandleMetricsForTextSize(float sizePx) {

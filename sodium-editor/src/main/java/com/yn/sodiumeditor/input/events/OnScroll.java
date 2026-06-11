@@ -61,7 +61,7 @@ public class OnScroll extends GestureDetector.SimpleOnGestureListener {
     if (editor.wordWrap.isWordWrapEnabled && editor.wordWrap.wrapPrefixBuilding) {
       editor.wordWrap.cancelWrapPrefixRebuildForInteraction();
     }
-    if (editor.autoCompletion.suggestionAcceptedThisTouch)
+    if (editor.autoSuggestion.suggestionAcceptedThisTouch)
       return false; // Don't process if suggestion was accepted
 
     editor.onTouch.movedSinceDown = true;

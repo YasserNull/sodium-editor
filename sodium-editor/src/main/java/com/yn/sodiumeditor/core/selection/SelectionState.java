@@ -19,8 +19,6 @@ public class SelectionState {
 
   // Selection appearance
   public int selectionColor = 0x6633B5E5;
-  public int selectionHighlightColor = 0x8033B5E5;
-  public int selectionHandleColor = 0xFF2196F3;
 
   // Selection paint and drawing objects
   public final Paint selectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -39,6 +37,8 @@ public class SelectionState {
   public int longPressEndPointerId = -1;
 
   // Double tap selection state
+  public boolean smartSelectionEnabled = true;
+  public boolean longPressSelectionEnabled = true;
   public int lastDoubleTapLine = -1;
   public int lastDoubleTapWordStart = -1;
   public int lastDoubleTapWordEnd = -1;
@@ -67,21 +67,6 @@ public class SelectionState {
     selectionPaint.setAlpha(102);
   }
 
-  public float getSelectionAlpha() {
-    return animation.selectionAlpha;
-  }
-
-  public float getHandleAlpha() {
-    return animation.handleAlpha;
-  }
-
-  public float getSelectionGeometryProgress() {
-    return animation.geometryProgress;
-  }
-
-  public boolean isSelectionAnimationEnabled() {
-    return animation.selectionAnimationEnabled;
-  }
 
   /** Set selection range */
   public void setSelection(int startLine, int startChar, int endLine, int endChar) {
@@ -264,30 +249,64 @@ public class SelectionState {
     editor.invalidate();
   }
 
-  /** Set selection handle color */
-  public void setSelectionHandleColor(int color) {
-    selectionHandleColor = color;
+  public int getSelectionColor() {
+    return selectionColor;
   }
 
-  /** Set selection highlight color */
-  public void setSelectionHighlightColor(int color) {
-    if (this.selectionHighlightColor == color) return;
-    this.selectionHighlightColor = color;
-    if (hasSelection) editor.invalidate();
+  public void setSmartSelectionEnabled(boolean enabled) {
+    smartSelectionEnabled = enabled;
   }
 
-  /** Set selection animation enabled */
-  public void setSelectionAnimationEnabled(boolean enabled) {
-    animation.setSelectionAnimationEnabled(enabled);
+  public boolean getSmartSelectionEnabled() {
+    return smartSelectionEnabled;
   }
 
-  /** Update selection visibility */
-  public void updateSelectionVisibility(boolean nowHasSelection) {
-    animation.updateSelectionVisibility(nowHasSelection);
+  public void setLongPressSelectionEnabled(boolean enabled) {
+    longPressSelectionEnabled = enabled;
+    if (!enabled && longPressSelecting) {
+      endLongPressSelection();
+    }
+  }
+
+  public boolean getLongPressSelectionEnabled() {
+    return longPressSelectionEnabled;
+  }
+
+  public void setCopyCutMaxChars(int maxChars) {
+    copyCutMaxChars = Math.max(0, maxChars);
+  }
+
+  public int getCopyCutMaxChars() {
+    return copyCutMaxChars;
+  }
+
+  public void setCopyCutMaxLines(long maxLines) {
+    copyCutMaxLines = Math.max(0L, maxLines);
+  }
+
+  public long getCopyCutMaxLines() {
+    return copyCutMaxLines;
+  }
+
+  public void setHideCopyCutMaxLines(int maxLines) {
+    hideCopyCutMaxLines = Math.max(0, maxLines);
+  }
+
+  public int getHideCopyCutMaxLines() {
+    return hideCopyCutMaxLines;
+  }
+
+  public void setReplaceAllMaxCount(int maxCount) {
+    replaceAllMaxCount = Math.max(0, maxCount);
+  }
+
+  public int getReplaceAllMaxCount() {
+    return replaceAllMaxCount;
   }
 
   /** Begin long press selection */
   public void beginLongPressSelection(int line, int ch) {
+    if (!longPressSelectionEnabled) return;
     longPressSelecting = true;
     longPressAnchorLine = Math.max(0, line);
     longPressAnchorChar = Math.max(0, ch);
@@ -295,6 +314,7 @@ public class SelectionState {
 
   /** Update long press selection */
   public void updateLongPressSelection(int line, int ch) {
+    if (!longPressSelectionEnabled) return;
     if (!longPressSelecting) return;
     setSelectionInternal(longPressAnchorLine, longPressAnchorChar, line, ch);
     selecting = true;
@@ -305,6 +325,7 @@ public class SelectionState {
    * active before long press drag
    */
   public void updateLongPressSelectionFromSelectionEnd(int line, int ch) {
+    if (!longPressSelectionEnabled) return;
     if (!longPressSelecting) return;
     // Use the current selection end as the anchor point for extension
     setSelectionInternal(selStartLine, selStartChar, line, ch);
@@ -384,7 +405,7 @@ public class SelectionState {
   public void pasteFromClipboard() {
     editor.fileIO.invalidatePendingIOForEdit();
     editor.editOperators.editVersion.incrementAndGet();
-    editor.autoCompletion.clearActiveSuggestion();
+    editor.autoSuggestion.clearActiveSuggestion();
 
     android.content.ClipboardManager cm =
         (android.content.ClipboardManager)
@@ -395,6 +416,6 @@ public class SelectionState {
     CharSequence txt = cd.getItemAt(0).coerceToText(editor.getContext());
     if (txt == null) return;
     editor.editOperators.insertTextAtCursor(txt.toString());
-    editor.autoCompletion.updateSuggestion();
+    editor.autoSuggestion.updateSuggestion();
   }
 }

@@ -121,10 +121,10 @@ public class FileIO {
     isFileCleared = false;
     sourceFile = file;
     editor.selection.clearSelection();
-    editor.autoBracketPair.clearBalanceCache();
+    editor.autoPair.clearBalanceCache();
     editor.lineNumber.invalidateLineNumberCache();
     editor.editOperators.clearUndoRedoHistory();
-    editor.autoCompletion.clearActiveSuggestion();
+    editor.autoSuggestion.clearActiveSuggestion();
     isIndexReady = false;
     isIndexBuilding = false;
     isIndexDisabled = false;
@@ -187,7 +187,7 @@ public class FileIO {
     isFileCleared = true;
     editor.binaryRender.applyBinaryFileFeaturePolicy(false);
     editor.selection.clearSelection();
-    editor.autoBracketPair.clearBalanceCache();
+    editor.autoPair.clearBalanceCache();
     isIndexReady = false;
 
     // Manual reset of wrap metrics

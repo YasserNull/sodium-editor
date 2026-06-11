@@ -14,6 +14,7 @@ public class SmartSelection {
   }
 
   public void selectWordAtCursor() {
+    if (!selection.getSmartSelectionEnabled()) return;
     String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
     if (line == null || line.isEmpty()) return;
     int pos = Math.max(0, Math.min(editor.cursor.cursorChar, line.length()));
@@ -29,6 +30,7 @@ public class SmartSelection {
   }
 
   public void selectLineAtCursor() {
+    if (!selection.getSmartSelectionEnabled()) return;
     String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
     if (line == null) return;
     selection.setSelection(editor.cursor.cursorLine, 0, editor.cursor.cursorLine, line.length());
@@ -38,6 +40,7 @@ public class SmartSelection {
   public ArrayList<SelectionTextRange> buildDoubleTapCandidates(
       String line, int charIndex, int wStart, int wEnd) {
     ArrayList<SelectionTextRange> out = new ArrayList<>(6);
+    if (!selection.getSmartSelectionEnabled()) return out;
     if (line == null) return out;
     int len = line.length();
     selection.wordFinder.addSelectionCandidate(out, wStart, wEnd, len);
@@ -57,6 +60,7 @@ public class SmartSelection {
   }
 
   public boolean applySmartDoubleTapSelection(int line, int charIndex, String lineText) {
+    if (!selection.getSmartSelectionEnabled()) return false;
     if (lineText == null) return false;
     ArrayList<SelectionTextRange> candidates =
         selection.wordFinder.buildSmartWordCandidates(lineText, charIndex);

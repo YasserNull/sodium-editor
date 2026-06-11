@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.core.autocompletion;
+package com.yn.sodiumeditor.core.autosuggestion;
 
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
@@ -7,10 +7,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** Auto path completion functionality for SodiumEditor. Handles file system path suggestions. */
-public class AutoPathCompletion {
+/** Auto path suggestion functionality for SodiumEditor. Handles file system path suggestions. */
+public class AutoPathSuggestion {
 
-  private static final String TAG = "SodiumPathCompletion";
+  private static final String TAG = "SodiumPathSuggestion";
   private static final String ANDROID_PUBLIC_STORAGE_ROOT = "/storage/emulated/0";
   private static final String[] ANDROID_PUBLIC_DIRECTORY_NAMES = {
     "Alarms/",
@@ -29,29 +29,29 @@ public class AutoPathCompletion {
 
   private final SodiumEditor editor;
 
-  // Auto path completion state
-  public boolean isAutoPathCompletionEnabled = true;
+  // Auto path suggestion state
+  public boolean isAutoPathSuggestionEnabled = true;
 
   // Path suggestion cache
   public String lastPathQuery = null;
   public String lastPathSuggestion = null;
 
-  public AutoPathCompletion(SodiumEditor editor) {
+  public AutoPathSuggestion(SodiumEditor editor) {
     this.editor = editor;
   }
 
-  /** Set auto path completion enabled state. */
-  public void setAutoPathCompletionEnabled(boolean enabled) {
-    this.isAutoPathCompletionEnabled = enabled;
-    if (!enabled && editor.autoCompletion != null && editor.autoCompletion.activeSuggestionIsPath) {
-      editor.autoCompletion.clearActiveSuggestion();
+  /** Set auto path suggestion enabled state. */
+  public void setAutoPathSuggestionEnabled(boolean enabled) {
+    this.isAutoPathSuggestionEnabled = enabled;
+    if (!enabled && editor.autoSuggestion != null && editor.autoSuggestion.activeSuggestionIsPath) {
+      editor.autoSuggestion.clearActiveSuggestion();
     }
     editor.invalidate();
   }
 
-  /** Get auto path completion enabled state. */
-  public boolean isAutoPathCompletionEnabled() {
-    return isAutoPathCompletionEnabled;
+  /** Get auto path suggestion enabled state. */
+  public boolean isAutoPathSuggestionEnabled() {
+    return isAutoPathSuggestionEnabled;
   }
 
   /** Find path suggestion for the given fragment. */
@@ -130,7 +130,7 @@ public class AutoPathCompletion {
     return suggestion;
   }
 
-  /** Resolve the base directory for path completion. */
+  /** Resolve the base directory for path suggestion. */
   @Nullable
   public File resolveBaseDir(
       String expanded, String fragment, String dirPart, @Nullable String home) {
@@ -145,7 +145,7 @@ public class AutoPathCompletion {
     return dirPart.isEmpty() ? base : new File(base, dirPart);
   }
 
-  /** Get the default base directory for path completion. */
+  /** Get the default base directory for path suggestion. */
   @Nullable
   public File getDefaultBaseDir() {
     if (editor.fileIO.sourceFile != null) {
@@ -292,28 +292,28 @@ public class AutoPathCompletion {
   }
 
   /**
-   * Updates path suggestion from the shared auto-completion update path.
+   * Updates path suggestion from the shared auto-suggestion update path.
    *
-   * @return true when the current cursor context is a path context and word completion should not
+   * @return true when the current cursor context is a path context and word suggestion should not
    *     run.
    */
-  public boolean updatePathSuggestionFromAutoCompletion() {
+  public boolean updatePathSuggestionFromAutoSuggestion() {
     return updatePathSuggestionInternal(false);
   }
 
   private boolean updatePathSuggestionInternal(boolean clearNonPathSuggestion) {
-    if (!isAutoPathCompletionEnabled) {
-      if (editor.autoCompletion != null && editor.autoCompletion.activeSuggestionIsPath) {
-        editor.autoCompletion.clearActiveSuggestion();
+    if (!isAutoPathSuggestionEnabled) {
+      if (editor.autoSuggestion != null && editor.autoSuggestion.activeSuggestionIsPath) {
+        editor.autoSuggestion.clearActiveSuggestion();
       }
       return false;
     }
 
     String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
     if (line == null) {
-      if (editor.autoCompletion != null
-          && (clearNonPathSuggestion || editor.autoCompletion.activeSuggestionIsPath)) {
-        editor.autoCompletion.clearActiveSuggestion();
+      if (editor.autoSuggestion != null
+          && (clearNonPathSuggestion || editor.autoSuggestion.activeSuggestionIsPath)) {
+        editor.autoSuggestion.clearActiveSuggestion();
       }
       return false;
     }
@@ -321,9 +321,9 @@ public class AutoPathCompletion {
     // Do not show suggestions if the cursor is in the middle of a word
     if (editor.cursor.cursorChar < line.length()
         && Character.isLetterOrDigit(line.charAt(editor.cursor.cursorChar))) {
-      if (editor.autoCompletion != null
-          && (clearNonPathSuggestion || editor.autoCompletion.activeSuggestionIsPath)) {
-        editor.autoCompletion.clearActiveSuggestion();
+      if (editor.autoSuggestion != null
+          && (clearNonPathSuggestion || editor.autoSuggestion.activeSuggestionIsPath)) {
+        editor.autoSuggestion.clearActiveSuggestion();
       }
       return false;
     }
@@ -331,55 +331,55 @@ public class AutoPathCompletion {
     // Do not show suggestions if there is non-whitespace text after the cursor
     if (editor.cursor.cursorChar < line.length()
         && !line.substring(editor.cursor.cursorChar).trim().isEmpty()) {
-      if (editor.autoCompletion != null
-          && (clearNonPathSuggestion || editor.autoCompletion.activeSuggestionIsPath)) {
-        editor.autoCompletion.clearActiveSuggestion();
+      if (editor.autoSuggestion != null
+          && (clearNonPathSuggestion || editor.autoSuggestion.activeSuggestionIsPath)) {
+        editor.autoSuggestion.clearActiveSuggestion();
       }
       return false;
     }
 
     String pathFragment = getCurrentPathFragment();
     if (pathFragment.isEmpty()) {
-      if (editor.autoCompletion != null && editor.autoCompletion.activeSuggestionIsPath) {
-        editor.autoCompletion.clearActiveSuggestion();
+      if (editor.autoSuggestion != null && editor.autoSuggestion.activeSuggestionIsPath) {
+        editor.autoSuggestion.clearActiveSuggestion();
       }
       return false;
     }
 
     String suggestion = findPathSuggestion(pathFragment);
-    if (editor.autoCompletion != null) {
+    if (editor.autoSuggestion != null) {
       if (suggestion != null && suggestion.length() > pathFragment.length()) {
-        editor.autoCompletion.activeSuggestion = suggestion.substring(pathFragment.length());
-        editor.autoCompletion.activeSuggestionLine = editor.cursor.cursorLine;
-        editor.autoCompletion.activeSuggestionCharStart =
+        editor.autoSuggestion.activeSuggestion = suggestion.substring(pathFragment.length());
+        editor.autoSuggestion.activeSuggestionLine = editor.cursor.cursorLine;
+        editor.autoSuggestion.activeSuggestionCharStart =
             editor.cursor.cursorChar - pathFragment.length();
-        editor.autoCompletion.activeSuggestionWordFragment = pathFragment;
-        editor.autoCompletion.activeSuggestionIsPath = true;
+        editor.autoSuggestion.activeSuggestionWordFragment = pathFragment;
+        editor.autoSuggestion.activeSuggestionIsPath = true;
       } else {
-        editor.autoCompletion.clearActiveSuggestion();
+        editor.autoSuggestion.clearActiveSuggestion();
       }
       editor.invalidate();
     }
     return true;
   }
 
-  /** Accept the current path completion suggestion. */
-  public void acceptPathCompletion() {
-    if (editor.autoCompletion == null || editor.autoCompletion.activeSuggestion == null) {
+  /** Accept the current path suggestion suggestion. */
+  public void acceptPathSuggestion() {
+    if (editor.autoSuggestion == null || editor.autoSuggestion.activeSuggestion == null) {
       return;
     }
-    if (!editor.autoCompletion.activeSuggestionIsPath) {
+    if (!editor.autoSuggestion.activeSuggestionIsPath) {
       return;
     }
-    if (!isAutoPathCompletionEnabled) {
+    if (!isAutoPathSuggestionEnabled) {
       return;
     }
 
     editor.ime.commitComposing(false);
-    editor.autoCompletion.suggestionAcceptedThisTouch = true;
+    editor.autoSuggestion.suggestionAcceptedThisTouch = true;
 
-    String textToInsert = editor.autoCompletion.activeSuggestion;
-    editor.autoCompletion.clearActiveSuggestion();
+    String textToInsert = editor.autoSuggestion.activeSuggestion;
+    editor.autoSuggestion.clearActiveSuggestion();
     editor.selection.hasSelection = false;
     editor.selection.isSelectAllActive = false;
     editor.selection.isEntireFileSelected = false;

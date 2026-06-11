@@ -299,8 +299,8 @@ public class ViewRender {
       }
       if (line != null) editor.colorCodeHighlight.drawColorCodeBackgrounds(canvas, line, i);
       editor.textRender.drawHighlightedLine(canvas, line, i, y);
-      if (editor.autoCompletion != null && line != null) {
-        editor.autoCompletion.drawAutoSuggestion(canvas, line, i, y);
+      if (editor.autoSuggestion != null && line != null) {
+        editor.autoSuggestion.drawAutoSuggestion(canvas, line, i, y);
       }
       if (i == editor.charAnimation.charAnimLine
           && editor.charAnimation.charAnimEndChar > editor.charAnimation.charAnimStartChar

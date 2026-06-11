@@ -256,7 +256,7 @@ public class FileWindowLoader {
       }
     }
     applyStreamedInfo(result.streamedLengths, result.streamedSliceStarts);
-    editor.autoBracketPair.clearBalanceCache();
+    editor.autoPair.clearBalanceCache();
     editor.lineNumber.invalidateLineNumberCache();
     editor.highlight.clearHighlightCaches();
     fileIO.recalculateMaxLineWidthAsync();
@@ -428,7 +428,7 @@ public class FileWindowLoader {
             }
           }
           applyStreamedInfo(newLengths, newSliceStarts);
-          editor.autoBracketPair.clearBalanceCache();
+          editor.autoPair.clearBalanceCache();
           editor.lineNumber.invalidateLineNumberCache();
           editor.highlight.clearHighlightCaches();
           if (recalcWidthSync) editor.windowRender.recalculateMaxLineWidth();

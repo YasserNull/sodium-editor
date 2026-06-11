@@ -1,4 +1,4 @@
-package com.yn.sodiumeditor.core.autocompletion;
+package com.yn.sodiumeditor.core.autosuggestion;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -6,19 +6,21 @@ import android.graphics.RectF;
 import android.os.Looper;
 import android.os.SystemClock;
 import com.yn.sodiumeditor.SodiumEditor;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Auto-completion functionality for SodiumEditor. Handles word-based suggestions using a Trie data
+ * Auto-suggestion functionality for SodiumEditor. Handles word-based suggestions using a Trie data
  * structure.
  */
-public class AutoCompletion {
+public class AutoSuggestion {
 
   private final SodiumEditor editor;
 
-  // Auto-completion state
-  public boolean isAutoCompletionEnabled = true;
+  // Auto-suggestion state
+  public boolean isAutoSuggestionEnabled = true;
   public final Trie suggestionTrie = new Trie();
+  private final ArrayList<String> suggestionList = new ArrayList<>();
 
   // Active suggestion state
   public String activeSuggestion = null;
@@ -30,6 +32,7 @@ public class AutoCompletion {
 
   // Suggestion paint
   public final Paint suggestionPaint = new Paint();
+  public int suggestionColor = 0xFFAAAAAA;
 
   // Suggestion text size
   public boolean isSuggestionTextSizeCustom = false;
@@ -49,55 +52,87 @@ public class AutoCompletion {
   // Touch flag
   public boolean suggestionAcceptedThisTouch = false;
 
-  public AutoCompletion(SodiumEditor editor) {
+  public AutoSuggestion(SodiumEditor editor) {
     this.editor = editor;
     initSuggestionPaint();
   }
 
   private void initSuggestionPaint() {
     suggestionPaint.set(editor.textRender.paint);
-    suggestionPaint.setColor(0xFFAAAAAA);
+    suggestionPaint.setColor(suggestionColor);
     suggestionPaint.setAntiAlias(true);
     suggestionPaint.setSubpixelText(true);
     suggestionPaint.setHinting(Paint.HINTING_ON);
   }
 
-  /** Set auto-completion enabled state. */
-  public void setAutoCompletionEnabled(boolean enabled) {
-    this.isAutoCompletionEnabled = enabled;
+  /** Set auto-suggestion enabled state. */
+  public void setAutoSuggestionEnabled(boolean enabled) {
+    this.isAutoSuggestionEnabled = enabled;
     if (!enabled && !activeSuggestionIsPath) {
       clearActiveSuggestion();
     }
     editor.invalidate();
   }
 
-  /** Get auto-completion enabled state. */
-  public boolean isAutoCompletionEnabled() {
-    return isAutoCompletionEnabled;
+  /** Get auto-suggestion enabled state. */
+  public boolean isAutoSuggestionEnabled() {
+    return isAutoSuggestionEnabled;
   }
 
   /** Set suggestions from a list of keywords. */
-  public void setSuggestions(List<String> keywords, int color) {
+  public void setSuggestions(List<String> keywords) {
+    suggestionList.clear();
     suggestionTrie.clear();
     if (keywords != null) {
       for (String word : keywords) {
+        if (word == null || word.isEmpty()) continue;
+        suggestionList.add(word);
         suggestionTrie.insert(word);
       }
     }
-    suggestionPaint.setColor(color);
     clearActiveSuggestion();
     editor.invalidate();
   }
 
-  /** Accept the current auto-completion suggestion. */
-  public void acceptAutoCompletion() {
+  public List<String> getSuggestionList() {
+    return new ArrayList<>(suggestionList);
+  }
+
+  public void removeSuggestion(String keyword) {
+    if (keyword == null || keyword.isEmpty()) return;
+    if (!suggestionList.remove(keyword)) return;
+    rebuildSuggestionTrie();
+    clearActiveSuggestion();
+    editor.invalidate();
+  }
+
+  public void setSuggestionColor(int color) {
+    if (suggestionColor == color) return;
+    suggestionColor = color;
+    suggestionPaint.setColor(color);
+    editor.invalidate();
+  }
+
+  public int getSuggestionColor() {
+    return suggestionColor;
+  }
+
+  private void rebuildSuggestionTrie() {
+    suggestionTrie.clear();
+    for (String word : suggestionList) {
+      suggestionTrie.insert(word);
+    }
+  }
+
+  /** Accept the current auto-suggestion suggestion. */
+  public void acceptAutoSuggestion() {
     if (activeSuggestion == null) {
       return;
     }
     if (activeSuggestionIsPath) {
       return;
     }
-    if (!isAutoCompletionEnabled) {
+    if (!isAutoSuggestionEnabled) {
       return;
     }
 
@@ -146,10 +181,10 @@ public class AutoCompletion {
 
   /** Internal suggestion update logic. */
   public void updateSuggestionInternal() {
-    if (editor.autoPathCompletion != null
-        && editor.autoPathCompletion.isAutoPathCompletionEnabled()) {
+    if (editor.autoPathSuggestion != null
+        && editor.autoPathSuggestion.isAutoPathSuggestionEnabled()) {
       boolean handledPathSuggestion =
-          editor.autoPathCompletion.updatePathSuggestionFromAutoCompletion();
+          editor.autoPathSuggestion.updatePathSuggestionFromAutoSuggestion();
       if (handledPathSuggestion) {
         return;
       }
@@ -161,7 +196,7 @@ public class AutoCompletion {
       return;
     }
 
-    if (!isAutoCompletionEnabled) {
+    if (!isAutoSuggestionEnabled) {
       clearActiveSuggestion();
       return;
     }
@@ -236,7 +271,11 @@ public class AutoCompletion {
     editor.invalidate();
   }
 
-  /** Trie node for auto-completion. */
+  public float getSuggestionTextSize() {
+    return suggestionPaint.getTextSize();
+  }
+
+  /** Trie node for auto-suggestion. */
   public static class TrieNode {
     final java.util.Map<Character, TrieNode> children = new java.util.TreeMap<>();
     String word = null;
@@ -297,8 +336,8 @@ public class AutoCompletion {
 
     boolean allowSuggestion =
         activeSuggestionIsPath
-            ? (editor.autoPathCompletion.isAutoPathCompletionEnabled)
-            : (isAutoCompletionEnabled);
+            ? (editor.autoPathSuggestion.isAutoPathSuggestionEnabled)
+            : (isAutoSuggestionEnabled);
     if (!allowSuggestion || activeSuggestion == null || globalLine != activeSuggestionLine) {
       return;
     }
@@ -333,8 +372,8 @@ public class AutoCompletion {
 
     boolean allowSuggestion =
         activeSuggestionIsPath
-            ? (editor.autoPathCompletion.isAutoPathCompletionEnabled)
-            : (isAutoCompletionEnabled);
+            ? (editor.autoPathSuggestion.isAutoPathSuggestionEnabled)
+            : (isAutoSuggestionEnabled);
     if (!allowSuggestion || activeSuggestion == null || globalLine != activeSuggestionLine) {
       return;
     }

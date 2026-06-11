@@ -645,7 +645,7 @@ public class MainActivity extends AppCompatActivity {
       editor.fileIO.directLineCache.clear();
     }
     editor.bracketCache.clear();
-    editor.autoCompletion.clearActiveSuggestion();
+    editor.autoSuggestion.clearActiveSuggestion();
 
     // Abort any ongoing scroll animation from previous tab
     if (!editor.scroll.scroller.isFinished()) editor.scroll.scroller.abortAnimation();

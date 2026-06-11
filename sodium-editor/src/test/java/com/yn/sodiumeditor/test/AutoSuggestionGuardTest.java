@@ -4,19 +4,19 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-import com.yn.sodiumeditor.core.autocompletion.AutoCompletion;
+import com.yn.sodiumeditor.core.autosuggestion.AutoSuggestion;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.Test;
 
-/** Guards AutoCompletion word suggestions, update flow, and suggestion drawing. */
-public class AutoCompletionGuardTest {
+/** Guards AutoSuggestion word suggestions, update flow, and suggestion drawing. */
+public class AutoSuggestionGuardTest {
 
   @Test
-  public void trie_shouldReturnFirstLexicographicCompletionAfterPrefix() {
-    AutoCompletion.Trie trie = new AutoCompletion.Trie();
+  public void trie_shouldReturnFirstLexicographicSuggestionAfterPrefix() {
+    AutoSuggestion.Trie trie = new AutoSuggestion.Trie();
     trie.insert("download");
     trie.insert("document");
     trie.insert("done");
@@ -27,7 +27,7 @@ public class AutoCompletionGuardTest {
 
   @Test
   public void trie_shouldNotSuggestExactWordOrMissingPrefix() {
-    AutoCompletion.Trie trie = new AutoCompletion.Trie();
+    AutoSuggestion.Trie trie = new AutoSuggestion.Trie();
     trie.insert("class");
     trie.insert("clear");
 
@@ -38,35 +38,52 @@ public class AutoCompletionGuardTest {
   }
 
   @Test
-  public void updateSuggestionInternal_shouldPreservePathCompletionPriority() throws Exception {
+  public void autoSuggestionApi_shouldSeparateWordsColorAndTextSize() throws Exception {
     String src =
         readSource(
-            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/autocompletion/AutoCompletion.java");
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/autosuggestion/AutoSuggestion.java");
+
+    assertTrue(src.contains("public void setSuggestions(List<String> keywords)"));
+    assertTrue(!src.contains("public void setSuggestions(List<String> keywords, int color)"));
+    assertTrue(src.contains("public void setSuggestionColor(int color)"));
+    assertTrue(src.contains("public int getSuggestionColor()"));
+    assertTrue(src.contains("public List<String> getSuggestionList()"));
+    assertTrue(src.contains("public void removeSuggestion(String keyword)"));
+    assertTrue(src.contains("public float getSuggestionTextSize()"));
+    assertTrue(src.contains("private final ArrayList<String> suggestionList"));
+    assertTrue(src.contains("rebuildSuggestionTrie()"));
+  }
+
+  @Test
+  public void updateSuggestionInternal_shouldPreservePathSuggestionPriority() throws Exception {
+    String src =
+        readSource(
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/autosuggestion/AutoSuggestion.java");
     String body = methodBody(src, "public void updateSuggestionInternal()");
 
     assertTrue(
-        "BUG: AutoCompletion must ask AutoPathCompletion first so path suggestions like /sdcard/D"
-            + " are not cleared by word completion.",
-        body.indexOf("updatePathSuggestionFromAutoCompletion()") >= 0
-            && body.indexOf("updatePathSuggestionFromAutoCompletion()")
+        "BUG: AutoSuggestion must ask AutoPathSuggestion first so path suggestions like /sdcard/D"
+            + " are not cleared by word suggestion.",
+        body.indexOf("updatePathSuggestionFromAutoSuggestion()") >= 0
+            && body.indexOf("updatePathSuggestionFromAutoSuggestion()")
                 < body.indexOf("String line = editor.windowRender.getLineTextForRender"));
     assertTrue(
-        "BUG: a handled path context must stop normal word completion.",
+        "BUG: a handled path context must stop normal word suggestion.",
         body.contains("if (handledPathSuggestion)") && body.contains("return;"));
   }
 
   @Test
-  public void updateSuggestionInternal_shouldStoreOnlyCompletionSuffix() throws Exception {
+  public void updateSuggestionInternal_shouldStoreOnlySuggestionSuffix() throws Exception {
     String src =
         readSource(
-            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/autocompletion/AutoCompletion.java");
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/autosuggestion/AutoSuggestion.java");
     String body = methodBody(src, "public void updateSuggestionInternal()");
 
     assertTrue(
         "BUG: activeSuggestion should store only the suffix drawn after the cursor.",
         body.contains("activeSuggestion = suggestion.substring(wordFragment.length())"));
     assertTrue(
-        "BUG: AutoCompletion must remember where the current word started for drawing and tap hit"
+        "BUG: AutoSuggestion must remember where the current word started for drawing and tap hit"
             + " testing.",
         body.contains(
             "activeSuggestionCharStart = editor.cursor.cursorChar - wordFragment.length()"));
@@ -76,14 +93,14 @@ public class AutoCompletionGuardTest {
   }
 
   @Test
-  public void acceptAutoCompletion_shouldRejectPathSuggestions() throws Exception {
+  public void acceptAutoSuggestion_shouldRejectPathSuggestions() throws Exception {
     String src =
         readSource(
-            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/autocompletion/AutoCompletion.java");
-    String body = methodBody(src, "acceptAutoCompletion()");
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/autosuggestion/AutoSuggestion.java");
+    String body = methodBody(src, "acceptAutoSuggestion()");
 
     assertTrue(
-        "BUG: acceptAutoCompletion must not consume path suggestions; AutoPathCompletion owns"
+        "BUG: acceptAutoSuggestion must not consume path suggestions; AutoPathSuggestion owns"
             + " that.",
         body.contains("if (activeSuggestionIsPath)")
             && body.indexOf("if (activeSuggestionIsPath)") < body.indexOf("insertStringAtCursor"));
@@ -93,7 +110,7 @@ public class AutoCompletionGuardTest {
   public void drawAutoSuggestion_shouldUseSafeEditorMeasurementForCursorX() throws Exception {
     String src =
         readSource(
-            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/autocompletion/AutoCompletion.java");
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/autosuggestion/AutoSuggestion.java");
     String body =
         methodBody(
             src,
@@ -115,7 +132,7 @@ public class AutoCompletionGuardTest {
   public void drawAutoSuggestionWrapped_shouldOnlyDrawInsideCurrentWrapSegment() throws Exception {
     String src =
         readSource(
-            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/autocompletion/AutoCompletion.java");
+            "sodium-editor/src/main/java/com/yn/sodiumeditor/core/autosuggestion/AutoSuggestion.java");
     String body =
         methodBody(
             src,

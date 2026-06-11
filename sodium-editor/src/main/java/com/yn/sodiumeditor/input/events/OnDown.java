@@ -16,8 +16,8 @@ public class OnDown {
   public boolean onDown(MotionEvent e) {
     // If a suggestion was just accepted, clear the flag and allow normal onDown
     // processing
-    if (editor.autoCompletion.suggestionAcceptedThisTouch) {
-      editor.autoCompletion.suggestionAcceptedThisTouch = false; // Reset the flag
+    if (editor.autoSuggestion.suggestionAcceptedThisTouch) {
+      editor.autoSuggestion.suggestionAcceptedThisTouch = false; // Reset the flag
       // DON'T return false; proceed with normal onDown logic
     }
     editor.scroll.scrollLockAxis = 0;

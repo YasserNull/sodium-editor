@@ -28,7 +28,7 @@ public class SelectionActionHandler {
 
   public void selectAll() {
     final int requestToken = selectAllRequestToken.incrementAndGet();
-    editor.autoCompletion.clearActiveSuggestion();
+    editor.autoSuggestion.clearActiveSuggestion();
     final boolean keyboardWasVisible = editor.view.keyboardHeight > 0;
     if (editor.wordWrap.isWordWrapEnabled) {
       int widthPx = Math.max(1, Math.round(editor.wordWrap.getWrapWidth()));
@@ -224,11 +224,11 @@ public class SelectionActionHandler {
     editor.caret.pauseBlinkForTyping();
     editor.fileIO.invalidatePendingIOForEdit();
     final int opToken = editor.editOperators.editVersion.incrementAndGet();
-    editor.autoCompletion.clearActiveSuggestion();
+    editor.autoSuggestion.clearActiveSuggestion();
     if (insertText == null) insertText = "";
     if (!selection.hasSelection) {
       if (!insertText.isEmpty()) editor.editOperators.insertTextAtCursor(insertText);
-      editor.autoCompletion.updateSuggestion();
+      editor.autoSuggestion.updateSuggestion();
       return;
     }
 
@@ -335,7 +335,7 @@ public class SelectionActionHandler {
     editor.cursorHandle.hideForTyping();
     editor.caret.pauseBlinkForTyping();
     editor.editOperators.editVersion.incrementAndGet();
-    editor.autoCompletion.clearActiveSuggestion();
+    editor.autoSuggestion.clearActiveSuggestion();
 
     synchronized (editor.windowRender.linesWindow) {
       editor.windowRender.linesWindow.clear();
@@ -438,7 +438,7 @@ public class SelectionActionHandler {
     editor.cursorHandle.hideForTyping();
     editor.caret.pauseBlinkForTyping();
     editor.editOperators.editVersion.incrementAndGet();
-    editor.autoCompletion.clearActiveSuggestion();
+    editor.autoSuggestion.clearActiveSuggestion();
 
     synchronized (editor.windowRender.linesWindow) {
       editor.windowRender.linesWindow.clear();
@@ -694,7 +694,7 @@ public class SelectionActionHandler {
       String ins,
       int bL,
       int bC) {
-    editor.autoCompletion.updateSuggestion();
+    editor.autoSuggestion.updateSuggestion();
     editor.editOperators.lineCountDelta += (insNl - remNl);
     selection.recordReplaceSelectionEdit(sL, sC, eL, eC, rem, ins, bL, bC);
   }

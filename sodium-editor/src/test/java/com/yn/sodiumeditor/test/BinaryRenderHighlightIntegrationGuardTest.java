@@ -34,7 +34,7 @@ public class BinaryRenderHighlightIntegrationGuardTest {
         readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/HighlightRender.java");
     String binary =
         readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/BinaryRender.java");
-    String view = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/view/View.java");
+    String view = readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/core/view/ViewMetrics.java");
     String drawBody =
         methodBody(
             render, "drawHighlightedLine(Canvas canvas, String line, int globalLine, float y)");
@@ -51,7 +51,7 @@ public class BinaryRenderHighlightIntegrationGuardTest {
     assertTrue(
         "BUG: normal text cursor hit-testing must not use binary M-width fallback when there are no"
             + " binary spans.",
-        viewBody.contains("editor.binaryRender.shouldUseBinaryRenderingForLine(globalLine)")
+        viewBody.contains("view.editor.binaryRender.shouldUseBinaryRenderingForLine(globalLine)")
             && !viewBody.contains("effectiveAvgWidth"));
   }
 
