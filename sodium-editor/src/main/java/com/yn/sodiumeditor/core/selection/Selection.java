@@ -250,6 +250,10 @@ public class Selection {
     state.setSelectionAnimationEnabled(enabled);
   }
 
+  public boolean getSelectionAnimationEnabled() {
+    return state.isSelectionAnimationEnabled();
+  }
+
   public void setSelectionColor(int color) {
     state.setSelectionColor(color);
     syncFromState();

@@ -4,9 +4,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
-import com.yn.sodiumeditor.core.guides.SymbolsMatch;
-import com.yn.sodiumeditor.core.guides.SymbolsMatch.SymbolsMatchResult;
-import com.yn.sodiumeditor.core.guides.SymbolsMatch.SymbolsMatchSet;
+import com.yn.sodiumeditor.core.guides.symbols.SymbolsMatch;
+import com.yn.sodiumeditor.core.guides.symbols.SymbolsMatchResult;
+import com.yn.sodiumeditor.core.guides.symbols.SymbolsMatchSet;
 import java.util.Arrays;
 import java.util.Collections;
 import org.junit.Test;

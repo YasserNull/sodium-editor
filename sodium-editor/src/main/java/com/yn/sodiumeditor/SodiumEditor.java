@@ -25,7 +25,7 @@ import com.yn.sodiumeditor.core.features.AutoIndentAfterClosingBracket;
 import com.yn.sodiumeditor.core.features.BaseIndentOnNewline;
 import com.yn.sodiumeditor.core.features.ClickAfterEndToAddLine;
 import com.yn.sodiumeditor.core.guides.bracket.*;
-import com.yn.sodiumeditor.core.guides.SymbolsMatch;
+import com.yn.sodiumeditor.core.guides.symbols.SymbolsMatch;
 import com.yn.sodiumeditor.core.guides.indent.*;
 import com.yn.sodiumeditor.core.guides.whitespace.*;
 import com.yn.sodiumeditor.core.highlight.*;

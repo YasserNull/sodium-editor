@@ -4,7 +4,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.guides.SymbolsMatchRange;
+import com.yn.sodiumeditor.core.guides.symbols.SymbolsMatchResult;
 import java.util.HashMap;
 
 public class ViewRender {
@@ -189,7 +189,7 @@ public class ViewRender {
       }
     }
 
-    SymbolsMatchRange symbolsMatchResult = null;
+    SymbolsMatchResult symbolsMatchResult = null;
     if (editor.symbolsMatch.isSymbolsMatchingEnabled) {
       symbolsMatchResult =
           editor.symbolsMatch.findAndCacheSymbolsMatch(

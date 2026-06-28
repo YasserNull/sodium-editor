@@ -1,34 +1,26 @@
-package com.yn.sodiumeditor.core.guides;
+package com.yn.sodiumeditor.core.guides.symbols;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
-import com.yn.sodiumeditor.core.highlight.Highlight;
 import com.yn.sodiumeditor.core.guides.bracket.BracketCache;
 import com.yn.sodiumeditor.core.guides.bracket.BracketToken;
+import com.yn.sodiumeditor.core.highlight.Highlight;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /** Manages regex-backed symbol matching for the SodiumEditor. */
 public class SymbolsMatch {
+  final SodiumEditor editor;
 
-  private static final SymbolsMatchSet BRACE_MATCH = new SymbolsMatchSet("\\{", "\\}");
-  private static final SymbolsMatchSet PAREN_MATCH = new SymbolsMatchSet("\\(", "\\)");
-  private static final SymbolsMatchSet BRACKET_MATCH = new SymbolsMatchSet("\\[", "\\]");
-  private static final SymbolsMatchSet DOUBLE_QUOTE_MATCH = new SymbolsMatchSet("\"", "\"");
-  private static final SymbolsMatchSet SINGLE_QUOTE_MATCH = new SymbolsMatchSet("'", "'");
-  private static final SymbolsMatchSet BACKTICK_MATCH = new SymbolsMatchSet("`", "`");
-  private static final SymbolsMatchSet JAVA_BLOCK_COMMENT_MATCH =
-      new SymbolsMatchSet("/\\*", "\\*/");
-
-  private final SodiumEditor editor;
+  public final SymbolsMatchRegistry registry = new SymbolsMatchRegistry(this);
+  public final SymbolsMatchCache cache = new SymbolsMatchCache();
+  public final SyntaxAwareBracketMatcher syntaxAwareBracketMatcher =
+      new SyntaxAwareBracketMatcher(this);
 
   public boolean BracketsMatch = true;
   public boolean StringsMatch = true; // ' and "
@@ -36,110 +28,13 @@ public class SymbolsMatch {
   public boolean JavaCommentsMatch = true; // like that /**/
   public final List<SymbolsMatchSet> customSymbolsMatchSets = new ArrayList<>();
 
-  // Symbols matching state
   public boolean isSymbolsMatchingEnabled = true;
   public final Paint symbolsMatchPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   public float symbolsMatchStrokeWidth = 3f;
   public float baseSymbolsMatchStrokeWidth = symbolsMatchStrokeWidth;
   public float baseSymbolsMatchTextSizePx = 0f;
   public final RectF symbolsMatchRect = new RectF();
-  public int symbolsMatchColor = 0x302196F3; // Opaque Yellow
-  // Symbols match cache
-  @Nullable public SymbolsMatchRange cachedSymbolsMatch = null;
-  public int cachedSymbolsMatchCursorLine = -1;
-  public int cachedSymbolsMatchCursorChar = -1;
-  public int cachedSymbolsMatchEditVersion = -1;
-
-  public static final class SymbolsMatchSet {
-    public final String regexStart;
-    public final String regexEnd;
-    private final Pattern startPattern;
-    private final Pattern endPattern;
-    private final boolean samePattern;
-
-    public SymbolsMatchSet(String regexStart, String regexEnd) {
-      if (regexStart == null || regexStart.isEmpty()) {
-        throw new IllegalArgumentException("regexStart must not be empty");
-      }
-      if (regexEnd == null || regexEnd.isEmpty()) {
-        throw new IllegalArgumentException("regexEnd must not be empty");
-      }
-      this.regexStart = regexStart;
-      this.regexEnd = regexEnd;
-      this.startPattern = Pattern.compile(regexStart);
-      this.endPattern = Pattern.compile(regexEnd);
-      this.samePattern = regexStart.equals(regexEnd);
-    }
-
-    private int startLength(String text, int index) {
-      if (isJavaBlockCommentStart() && index > 0 && text.charAt(index - 1) == '/') {
-        return 0;
-      }
-      return matchLength(startPattern, text, index);
-    }
-
-    private boolean isJavaBlockCommentStart() {
-      return regexStart.equals("/\\*")
-          || regexStart.equals("/[*]")
-          || regexStart.equals("/\\Q*\\E");
-    }
-
-    private int endLength(String text, int index) {
-      return matchLength(endPattern, text, index);
-    }
-
-    private static int matchLength(Pattern pattern, String text, int index) {
-      Matcher matcher = pattern.matcher(text);
-      matcher.region(index, text.length());
-      if (!matcher.lookingAt()) return 0;
-      int end = matcher.end();
-      return end > index ? end - index : 0;
-    }
-  }
-
-  public static final class SymbolsMatchResult {
-    public final int openLine;
-    public final int openChar;
-    public final int closeLine;
-    public final int closeChar;
-    public final int openLength;
-    public final int closeLength;
-
-    public SymbolsMatchResult(
-        int openLine,
-        int openChar,
-        int closeLine,
-        int closeChar,
-        int openLength,
-        int closeLength) {
-      this.openLine = openLine;
-      this.openChar = openChar;
-      this.closeLine = closeLine;
-      this.closeChar = closeChar;
-      this.openLength = Math.max(1, openLength);
-      this.closeLength = Math.max(1, closeLength);
-    }
-  }
-
-  private static final class SymbolToken {
-    final int line;
-    final int ch;
-    final int length;
-    final SymbolsMatchSet set;
-    final boolean opening;
-
-    SymbolToken(int line, int ch, int length, SymbolsMatchSet set, boolean opening) {
-      this.line = line;
-      this.ch = ch;
-      this.length = length;
-      this.set = set;
-      this.opening = opening;
-    }
-
-    boolean touchesCursor(int cursorLine, int cursorChar) {
-      return line == cursorLine && cursorChar >= ch && cursorChar <= ch + length;
-    }
-  }
+  public int symbolsMatchColor = 0x302196F3;
 
   public SymbolsMatch(SodiumEditor editor) {
     this.editor = editor;
@@ -148,92 +43,12 @@ public class SymbolsMatch {
     symbolsMatchPaint.setStrokeWidth(symbolsMatchStrokeWidth);
   }
 
-  public static SymbolsMatchResult findMatchInLines(
-      List<String> lines, int cursorLine, int cursorChar, List<SymbolsMatchSet> sets) {
-    if (lines == null || sets == null || sets.isEmpty()) return null;
-    if (cursorLine < 0 || cursorLine >= lines.size()) return null;
-
-    ArrayDeque<SymbolToken> stack = new ArrayDeque<>();
-    for (int line = 0; line < lines.size(); line++) {
-      String text = lines.get(line);
-      if (text == null) text = "";
-      for (int i = 0; i < text.length(); ) {
-        SymbolToken token = findTokenAt(text, line, i, sets, stack);
-        if (token == null) {
-          i++;
-          continue;
-        }
-
-        SymbolToken open = null;
-        SymbolToken close = null;
-        if (token.opening) {
-          stack.push(token);
-        } else if (!stack.isEmpty() && stack.peek().set == token.set) {
-          open = stack.pop();
-          close = token;
-        }
-
-        if (open != null
-            && (open.touchesCursor(cursorLine, cursorChar)
-                || close.touchesCursor(cursorLine, cursorChar))) {
-          return new SymbolsMatchResult(
-              open.line, open.ch, close.line, close.ch, open.length, close.length);
-        }
-        i += token.length;
-      }
-    }
-    return null;
-  }
-
-  private static SymbolToken findTokenAt(
-      String text,
-      int line,
-      int index,
-      List<SymbolsMatchSet> sets,
-      ArrayDeque<SymbolToken> stack) {
-    SymbolToken best = null;
-    for (SymbolsMatchSet set : sets) {
-      int startLength = set.startLength(text, index);
-      int endLength = set.endLength(text, index);
-      if (set.samePattern && startLength > 0) {
-        boolean opening = stack.isEmpty() || stack.peek().set != set;
-        best = longer(best, new SymbolToken(line, index, startLength, set, opening));
-        continue;
-      }
-      if (endLength > 0) {
-        best = longer(best, new SymbolToken(line, index, endLength, set, false));
-      }
-      if (startLength > 0) {
-        best = longer(best, new SymbolToken(line, index, startLength, set, true));
-      }
-    }
-    return best;
-  }
-
-  private static SymbolToken longer(SymbolToken current, SymbolToken candidate) {
-    if (current == null) return candidate;
-    return candidate.length > current.length ? candidate : current;
+  public static SymbolsMatchResult findMatchInLines(List<String> lines, int cursorLine, int cursorChar, List<SymbolsMatchSet> sets) {
+    return RegexSymbolsMatcher.findMatchInLines(lines, cursorLine, cursorChar, sets);
   }
 
   public List<SymbolsMatchSet> getEnabledSymbolsMatchSets() {
-    ArrayList<SymbolsMatchSet> sets = new ArrayList<>();
-    if (BracketsMatch) {
-      sets.add(BRACE_MATCH);
-      sets.add(PAREN_MATCH);
-      sets.add(BRACKET_MATCH);
-    }
-    if (StringsMatch) {
-      sets.add(DOUBLE_QUOTE_MATCH);
-      sets.add(SINGLE_QUOTE_MATCH);
-    }
-    if (TupleStringsMatch) {
-      sets.add(BACKTICK_MATCH);
-    }
-    if (JavaCommentsMatch) {
-      sets.add(JAVA_BLOCK_COMMENT_MATCH);
-    }
-    sets.addAll(customSymbolsMatchSets);
-    return Collections.unmodifiableList(sets);
+    return registry.getEnabledSymbolsMatchSets();
   }
 
   public void addSymbolsMatchSet(SymbolsMatchSet set) {
@@ -292,41 +107,37 @@ public class SymbolsMatch {
 
   /** Clears the symbols match cache. */
   public void clearSymbolsMatchCache() {
-    cachedSymbolsMatch = null;
-    cachedSymbolsMatchCursorLine = -1;
-    cachedSymbolsMatchCursorChar = -1;
-    cachedSymbolsMatchEditVersion = -1;
+    cache.clear();
   }
 
   /**
    * Finds and caches symbols match for the current cursor position. Searches the configured range to
    * find matching symbols.
    */
-  public SymbolsMatchRange findAndCacheSymbolsMatch(
+  public SymbolsMatchResult findAndCacheSymbolsMatch(
       int firstVisibleLine, int lastVisibleLine, HashMap<Integer, String> directLines) {
     if (!isSymbolsMatchingEnabled) return null;
 
     int v = editor.editOperators.editVersion.get();
-    if (cachedSymbolsMatch != null
-        && cachedSymbolsMatchCursorLine == editor.cursor.cursorLine
-        && cachedSymbolsMatchCursorChar == editor.cursor.cursorChar
-        && cachedSymbolsMatchEditVersion == v) {
-      return cachedSymbolsMatch;
+    if (cache.matches(editor.cursor.cursorLine, editor.cursor.cursorChar, v)) {
+      return cache.cachedSymbolsMatch;
     }
 
     // Search entire document for matching symbols, not just visible range.
-    SymbolsMatchRange match = findSymbolsMatchInDocument();
+    SymbolsMatchResult match = findSymbolsMatchInDocument();
     if (match != null) {
-      cachedSymbolsMatch = match;
-      cachedSymbolsMatchCursorLine = editor.cursor.cursorLine;
-      cachedSymbolsMatchCursorChar = editor.cursor.cursorChar;
-      cachedSymbolsMatchEditVersion = v;
+      cache.store(match, editor.cursor.cursorLine, editor.cursor.cursorChar, v);
     }
     return match;
   }
 
   /** Finds symbols match in visible range. */
-  public SymbolsMatchRange findSymbolsMatchInVisible(
+  public SymbolsMatchResult findSymbolsMatchInVisible(
+      int firstVisibleLine, int lastVisibleLine, HashMap<Integer, String> directLines) {
+    return syntaxAwareBracketMatcher.findInVisible(firstVisibleLine, lastVisibleLine, directLines);
+  }
+
+  SymbolsMatchResult findSyntaxAwareSymbolsMatchInVisible(
       int firstVisibleLine, int lastVisibleLine, HashMap<Integer, String> directLines) {
     if (!isSymbolsMatchingEnabled) {
       return null;
@@ -478,10 +289,10 @@ public class SymbolsMatch {
                 && stack.peek().bracket == com.yn.sodiumeditor.utils.TextUtils.matchingBracket(c)) {
               BracketToken open = stack.pop();
               if (line == editor.cursor.cursorLine && i == targetIndex) {
-                return new SymbolsMatchRange(open.line, open.ch, line, i);
+                return new SymbolsMatchResult(open.line, open.ch, line, i);
               }
               if (open.line == editor.cursor.cursorLine && open.ch == targetIndex) {
-                return new SymbolsMatchRange(open.line, open.ch, line, i);
+                return new SymbolsMatchResult(open.line, open.ch, line, i);
               }
             }
           }
@@ -490,7 +301,7 @@ public class SymbolsMatch {
         i++;
       }
     }
-    return new SymbolsMatchRange(
+    return new SymbolsMatchResult(
         editor.cursor.cursorLine, targetIndex, editor.cursor.cursorLine, targetIndex);
   }
 
@@ -498,7 +309,11 @@ public class SymbolsMatch {
    * Finds symbols match in the ENTIRE document. This ensures matching works even when the matching
    * symbol is outside the visible range.
    */
-  public SymbolsMatchRange findSymbolsMatchInDocument() {
+  public SymbolsMatchResult findSymbolsMatchInDocument() {
+    return syntaxAwareBracketMatcher.findInDocument();
+  }
+
+  SymbolsMatchResult findSyntaxAwareSymbolsMatchInDocument() {
     if (!isSymbolsMatchingEnabled) return null;
 
     int totalLines = editor.view.getLinesCount();
@@ -524,8 +339,8 @@ public class SymbolsMatch {
         BracketCache.BracketPosition match = editor.bracketCache.findMatchingBracket(targetBp);
         if (match != null) {
           return (targetBp.isOpening)
-              ? new SymbolsMatchRange(targetBp.line, targetBp.column, match.line, match.column)
-              : new SymbolsMatchRange(match.line, match.column, targetBp.line, targetBp.column);
+              ? new SymbolsMatchResult(targetBp.line, targetBp.column, match.line, match.column)
+              : new SymbolsMatchResult(match.line, match.column, targetBp.line, targetBp.column);
         }
       }
     }
@@ -542,7 +357,7 @@ public class SymbolsMatch {
     return findSyntaxAwareSymbolsMatchInRange(0, totalLines - 1);
   }
 
-  private SymbolsMatchRange findSyntaxAwareSymbolsMatchInRange(int startLine, int endLine) {
+  private SymbolsMatchResult findSyntaxAwareSymbolsMatchInRange(int startLine, int endLine) {
     if (isCursorOnConfiguredNonBracketSymbol(null)) {
       return findSymbolsMatchInRange(startLine, endLine, null);
     }
@@ -662,7 +477,7 @@ public class SymbolsMatch {
               BracketToken open = stack.pop();
               if ((line == editor.cursor.cursorLine && i == targetIndex)
                   || (open.line == editor.cursor.cursorLine && open.ch == targetIndex)) {
-                return new SymbolsMatchRange(open.line, open.ch, line, i);
+                return new SymbolsMatchResult(open.line, open.ch, line, i);
               }
             }
           }
@@ -670,11 +485,11 @@ public class SymbolsMatch {
         i++;
       }
     }
-    return new SymbolsMatchRange(
+    return new SymbolsMatchResult(
         editor.cursor.cursorLine, targetIndex, editor.cursor.cursorLine, targetIndex);
   }
 
-  private SymbolsMatchRange findSymbolsMatchInRange(
+  private SymbolsMatchResult findSymbolsMatchInRange(
       int startLine, int endLine, @Nullable HashMap<Integer, String> directLines) {
     List<SymbolsMatchSet> sets = getEnabledSymbolsMatchSets();
     if (sets.isEmpty()) return null;
@@ -696,7 +511,7 @@ public class SymbolsMatch {
             sets);
     return result == null
         ? null
-        : new SymbolsMatchRange(
+        : new SymbolsMatchResult(
             result.openLine + startLine,
             result.openChar,
             result.closeLine + startLine,
@@ -716,7 +531,7 @@ public class SymbolsMatch {
     int cursor = editor.cursor.cursorChar;
     List<SymbolsMatchSet> sets = getEnabledSymbolsMatchSets();
     for (int i = Math.max(0, cursor - 4); i <= Math.min(cursor, text.length() - 1); i++) {
-      SymbolToken token = findTokenAt(text, editor.cursor.cursorLine, i, sets, new ArrayDeque<>());
+      SymbolToken token = RegexSymbolsMatcher.findTokenAt(text, editor.cursor.cursorLine, i, sets, new ArrayDeque<>());
       if (token == null) continue;
       char first = text.charAt(token.ch);
       if (com.yn.sodiumeditor.utils.TextUtils.isBracketChar(first)) continue;
@@ -727,7 +542,7 @@ public class SymbolsMatch {
 
   /** Draws symbols match for a line. */
   public void drawSymbolsMatchForLine(
-      Canvas canvas, String line, int globalLine, SymbolsMatchRange match) {
+      Canvas canvas, String line, int globalLine, SymbolsMatchResult match) {
     if (match == null) return;
     if (globalLine != match.openLine && globalLine != match.closeLine) return;
     if (line == null || line.isEmpty()) return;
@@ -769,7 +584,7 @@ public class SymbolsMatch {
       int segEnd,
       float segBaseX,
       float top,
-      SymbolsMatchRange match) {
+      SymbolsMatchResult match) {
     if (match == null) return;
     if (globalLine != match.openLine && globalLine != match.closeLine) return;
     if (line == null || line.isEmpty()) return;

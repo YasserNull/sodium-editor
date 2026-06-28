@@ -1,6 +1,6 @@
-package com.yn.sodiumeditor.core.guides;
+package com.yn.sodiumeditor.core.guides.symbols;
 
-public final class SymbolsMatchRange {
+public final class SymbolsMatchResult {
   public final int openLine;
   public final int openChar;
   public final int closeLine;
@@ -8,11 +8,11 @@ public final class SymbolsMatchRange {
   public final int openLength;
   public final int closeLength;
 
-  public SymbolsMatchRange(int openLine, int openChar, int closeLine, int closeChar) {
+  public SymbolsMatchResult(int openLine, int openChar, int closeLine, int closeChar) {
     this(openLine, openChar, closeLine, closeChar, 1, 1);
   }
 
-  public SymbolsMatchRange(
+  public SymbolsMatchResult(
       int openLine, int openChar, int closeLine, int closeChar, int openLength, int closeLength) {
     this.openLine = openLine;
     this.openChar = openChar;

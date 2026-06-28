@@ -67,6 +67,21 @@ public class SelectionState {
     selectionPaint.setAlpha(102);
   }
 
+  public float getSelectionAlpha() {
+    return animation.selectionAlpha;
+  }
+
+  public float getHandleAlpha() {
+    return animation.handleAlpha;
+  }
+
+  public float getSelectionGeometryProgress() {
+    return animation.geometryProgress;
+  }
+
+  public boolean isSelectionAnimationEnabled() {
+    return animation.selectionAnimationEnabled;
+  }
 
   /** Set selection range */
   public void setSelection(int startLine, int startChar, int endLine, int endChar) {
@@ -302,6 +317,16 @@ public class SelectionState {
 
   public int getReplaceAllMaxCount() {
     return replaceAllMaxCount;
+  }
+
+  /** Set selection animation enabled */
+  public void setSelectionAnimationEnabled(boolean enabled) {
+    animation.setSelectionAnimationEnabled(enabled);
+  }
+
+  /** Update selection visibility */
+  public void updateSelectionVisibility(boolean nowHasSelection) {
+    animation.updateSelectionVisibility(nowHasSelection);
   }
 
   /** Begin long press selection */
