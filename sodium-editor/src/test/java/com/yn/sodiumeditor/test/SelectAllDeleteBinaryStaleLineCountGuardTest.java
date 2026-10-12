@@ -61,6 +61,21 @@ public class SelectAllDeleteBinaryStaleLineCountGuardTest {
   }
 
   @Test
+  public void redoEntireFileDelete_mustResetBinaryState() throws Exception {
+    String src = normalized("sodium-editor/src/main/java/com/yn/sodiumeditor/io/Redo.java");
+    String body = methodBody(src, "void applyEntireFileDeleteForRedo(");
+
+    boolean resetsBinary =
+        body.contains("resetBinaryStateForEntireFileReplace()")
+            || body.contains("applyBinaryFileFeaturePolicy(false)")
+            || body.contains("clearBinaryDocument()");
+    assertTrue(
+        "BUG: redo of an entire-file delete must reset stale binary state, otherwise getLinesCount()"
+            + " keeps returning the old binaryDocument.getRowCount() and blank rows remain.",
+        resetsBinary);
+  }
+
+  @Test
   public void binaryLineCountConsumers_guardOnDocumentNotNull() throws Exception {
     String metrics = normalized("sodium-editor/src/main/java/com/yn/sodiumeditor/core/view/ViewMetrics.java");
     String gutter = normalized("sodium-editor/src/main/java/com/yn/sodiumeditor/utils/GutterUtils.java");

@@ -70,6 +70,7 @@ public class Redo {
     }
     editor.fileIO.isIndexReady = false;
     editor.fileIO.isIndexBuilding = false;
+    editor.selection.actions.resetBinaryStateForEntireFileReplace();
     editor.cursor.setCursorPosition(
         Math.max(0, op.cursorLineAfter), Math.max(0, op.cursorCharAfter));
     editor.selection.clearSelection();

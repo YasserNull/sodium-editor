@@ -105,6 +105,7 @@ public class Undo {
                 synchronized (editor.fileIO.lineOffsetsLock) {
                   editor.fileIO.lineOffsets = new long[0];
                 }
+                resyncBinaryRenderingForSourceFile();
                 int reloadStart =
                     Math.max(0, editor.cursor.cursorLine - editor.windowRender.prefetchLines);
                 editor.fileIO.loadWindowAround(
@@ -144,6 +145,7 @@ public class Undo {
     synchronized (editor.fileIO.lineOffsetsLock) {
       editor.fileIO.lineOffsets = new long[0];
     }
+    resyncBinaryRenderingForSourceFile();
     int reloadStart = Math.max(0, editor.cursor.cursorLine - editor.windowRender.prefetchLines);
     editor.fileIO.loadWindowAround(
         reloadStart,
@@ -172,6 +174,23 @@ public class Undo {
       editor.windowRender.lineWidthCache.clear();
     }
     editor.windowRender.clearStreamedLineCaches();
+  }
+
+  /**
+   * Re-establishes binary rendering for the restored source file.
+   *
+   * <p>An entire-file select-all delete disables the binary feature policy (see
+   * SelectionActionHandler.resetBinaryStateForEntireFileReplace). Undo restores the file bytes, but
+   * the render window must be reloaded with binary row semantics; otherwise the text loader seeks
+   * past EOF (the cursor/scroll still reference binary row indices) and the editor stays blank.
+   * Re-apply the policy and reopen the document so its cached length is fresh.
+   */
+  private void resyncBinaryRenderingForSourceFile() {
+    java.io.File file = editor.fileIO.sourceFile;
+    if (file == null) return;
+    boolean binary = editor.fileIO.metadata.isBinaryFile(file);
+    editor.binaryRender.applyBinaryFileFeaturePolicy(binary);
+    if (binary) editor.binaryRender.openBinaryDocument(file);
   }
 
   private String describeOp(EditOp op) {

@@ -685,7 +685,7 @@ public class SelectionActionHandler {
     editor.bracketGuides.invalidateBracketGuideCache(true);
   }
 
-  private void resetBinaryStateForEntireFileReplace() {
+  public void resetBinaryStateForEntireFileReplace() {
     if (editor.binaryRender.binaryFileFeaturePolicyActive) {
       editor.binaryRender.applyBinaryFileFeaturePolicy(false);
     } else if (editor.binaryRender.binaryDocument != null) {
