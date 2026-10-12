@@ -447,6 +447,7 @@ public class SelectionActionHandler {
       editor.fileIO.isEof = true;
     }
     editor.windowRender.clearModifiedLines();
+    resetBinaryStateForEntireFileReplace();
 
     EditOp.CursorTarget target = editor.editOperators.computeCursorAfterInsert(0, 0, insertText);
     if (!insertText.isEmpty()) {
@@ -555,6 +556,7 @@ public class SelectionActionHandler {
     editor.bracketGuides.invalidateBracketGuideCache(true);
     editor.windowRender.currentMaxWindowLineWidth = 0f;
     editor.windowRender.globalMaxLineWidth = 0f;
+    resetBinaryStateForEntireFileReplace();
     editor.fileIO.isFileCleared = editor.fileIO.sourceFile == null;
     synchronized (editor.fileIO.lineOffsetsLock) {
       editor.fileIO.lineOffsets = new long[0];
@@ -681,6 +683,14 @@ public class SelectionActionHandler {
   private void invalidateFeatureStateForReplace(int startLine, int endLine) {
     editor.highlight.invalidateHighlightEnsureRange();
     editor.bracketGuides.invalidateBracketGuideCache(true);
+  }
+
+  private void resetBinaryStateForEntireFileReplace() {
+    if (editor.binaryRender.binaryFileFeaturePolicyActive) {
+      editor.binaryRender.applyBinaryFileFeaturePolicy(false);
+    } else if (editor.binaryRender.binaryDocument != null) {
+      editor.binaryRender.clearBinaryDocument();
+    }
   }
 
   private void finalizeAction(
