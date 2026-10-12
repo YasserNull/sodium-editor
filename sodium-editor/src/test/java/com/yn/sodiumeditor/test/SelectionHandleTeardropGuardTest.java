@@ -52,7 +52,7 @@ public class SelectionHandleTeardropGuardTest {
   }
 
   @Test
-  public void handles_shouldBeDrawnOutsideTextAreaClip_soTheyRenderAboveLineNumbers()
+  public void handles_shouldBeDrawnInsideTextAreaClip_soTheyRenderBelowLineNumbers()
       throws Exception {
     String src =
         readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/ViewRender.java");
@@ -69,13 +69,13 @@ public class SelectionHandleTeardropGuardTest {
     assertTrue("Expected cursor handle drawing.", cursorHandleAt >= 0);
 
     assertTrue(
-        "BUG: selection handles are drawn inside the text-area clip, so they are hidden behind"
-            + " the line-number gutter. They must be drawn after that clip is restored.",
-        selectionHandlesAt > restoreAfterCaret);
+        "Handles must stay inside the text-area clip so they render below the line-number"
+            + " gutter instead of covering the line numbers.",
+        selectionHandlesAt < restoreAfterCaret);
     assertTrue(
-        "BUG: cursor handle is drawn inside the text-area clip, so it is hidden behind the"
-            + " line-number gutter. It must be drawn after that clip is restored.",
-        cursorHandleAt > restoreAfterCaret);
+        "Cursor handle must stay inside the text-area clip so it renders below the line-number"
+            + " gutter instead of covering the line numbers.",
+        cursorHandleAt < restoreAfterCaret);
   }
 
   private static String readSource(String relativePath) throws Exception {

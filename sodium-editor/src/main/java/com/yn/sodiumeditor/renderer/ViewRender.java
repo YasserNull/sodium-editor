@@ -139,18 +139,16 @@ public class ViewRender {
     clipTextArea(canvas);
     if (!editor.selection.hasSelection) {
       editor.caret.drawCaret(canvas);
-    }
-    canvas.restore();
-
-    // Draw handles outside the text-area clip so they render on top of the line-number gutter
-    // instead of being cut off by it.
-    if (!editor.selection.hasSelection) {
+      // Draw cursor handle when focused and no selection
       if (editor.isFocused()) {
         editor.cursorHandle.drawCursorHandle(canvas);
       }
-    } else {
+    }
+
+    if (editor.selection.hasSelection) {
       editor.selectionHandles.drawHandles(canvas);
     }
+    canvas.restore();
 
     // Draw popup if it's supposed to be shown, even if no selection
     if (editor.popup.showPopup && editor.popup.popupAlpha > 0f) {
