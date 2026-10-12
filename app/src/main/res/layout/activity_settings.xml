@@ -21,11 +21,19 @@
         android:layout_height="1dp"
         android:background="#555555" />
 
-    <LinearLayout
-        android:id="@+id/settingsList"
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingTop="8dp" />
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:id="@+id/settingsList"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingTop="8dp" />
+
+    </ScrollView>
 
 </LinearLayout>

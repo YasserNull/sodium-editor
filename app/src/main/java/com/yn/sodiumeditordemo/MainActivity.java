@@ -65,6 +65,11 @@ public class MainActivity extends AppCompatActivity {
   private ActivityResultLauncher<Intent> manageStorageLauncher;
   private ActivityResultLauncher<String[]> requestPermissionLauncher;
   private int currentScrollMode = 2;
+  private boolean currentBinaryRender = true;
+  private boolean currentBinarySafeRendering = true;
+  private boolean currentBinaryHexTokens = true;
+  private boolean currentBinaryCaretNotation = false;
+  private boolean currentBinaryTokenBox = true;
   private Uri pendingUri = null;
   private boolean hasFileOpened = false;
   private LinearLayout tabContainer;
@@ -148,6 +153,10 @@ public class MainActivity extends AppCompatActivity {
         Integer.parseInt(
             PreferenceManager.getDefaultSharedPreferences(this).getString("scroll_mode", "2"));
     editor.scroll.setScrollMode(currentScrollMode);
+    currentBinaryRender =
+        PreferenceManager.getDefaultSharedPreferences(this).getBoolean("binary_render", true);
+    editor.fileIO.autoDetectBinaryFiles = currentBinaryRender;
+    applyBinaryRenderFeaturePrefs(PreferenceManager.getDefaultSharedPreferences(this));
     editor.setKeyboardSuggestionsEnabled(
         PreferenceManager.getDefaultSharedPreferences(this)
             .getBoolean("keyboard_suggestions", true));
@@ -764,6 +773,49 @@ public class MainActivity extends AppCompatActivity {
     editor.setKeyboardSuggestionsEnabled(prefs.getBoolean("keyboard_suggestions", true));
     applyGuideSettingsFromPreferences(prefs);
     editor.view.setPerformanceModeEnabled(prefs.getBoolean("performance_mode", false));
+    boolean binaryRender = prefs.getBoolean("binary_render", true);
+    if (binaryRender != currentBinaryRender) {
+      applyBinaryRenderSetting(binaryRender);
+    }
+    applyBinaryRenderFeaturePrefs(prefs);
+  }
+
+  private void applyBinaryRenderFeaturePrefs(SharedPreferences prefs) {
+    boolean safeRendering = prefs.getBoolean("binary_safe_rendering", true);
+    if (safeRendering != currentBinarySafeRendering) {
+      currentBinarySafeRendering = safeRendering;
+      editor.binaryRender.setBinarySafeRenderingEnabled(safeRendering);
+    }
+    boolean hexTokens = prefs.getBoolean("binary_hex_tokens", true);
+    if (hexTokens != currentBinaryHexTokens) {
+      currentBinaryHexTokens = hexTokens;
+      editor.binaryRender.setBinaryHexTokensEnabled(hexTokens);
+    }
+    boolean caretNotation = prefs.getBoolean("binary_caret_notation", false);
+    if (caretNotation != currentBinaryCaretNotation) {
+      currentBinaryCaretNotation = caretNotation;
+      editor.binaryRender.setBinaryCaretNotationEnabled(caretNotation);
+    }
+    boolean tokenBox = prefs.getBoolean("binary_token_box", true);
+    if (tokenBox != currentBinaryTokenBox) {
+      currentBinaryTokenBox = tokenBox;
+      editor.binaryRender.setBinaryTokenBoxEnabled(tokenBox);
+    }
+  }
+
+  private void applyBinaryRenderSetting(boolean enabled) {
+    currentBinaryRender = enabled;
+    editor.fileIO.autoDetectBinaryFiles = enabled;
+    if (currentTabIndex < 0 || isSwitchingTab) return;
+    FileTab tab = openTabs.get(currentTabIndex);
+    if (tab == null || tab.file == null) return;
+    boolean wasBinary = editor.binaryRender.binaryFileFeaturePolicyActive;
+    boolean shouldBeBinary = enabled && editor.fileIO.metadata.isBinaryFile(tab.file);
+    if (wasBinary != shouldBeBinary) {
+      editor.fileIO.loadFromFile(tab.file);
+      applyCurrentFileHighlight();
+      updateDirtyIndicator();
+    }
   }
 
   private void applyGuideSettingsFromPreferences(SharedPreferences prefs) {

@@ -49,6 +49,8 @@ public class BinaryRender {
   private boolean savedBaseIndentOnNewlineEnabled;
   private boolean savedAutoIndentAfterClosingBracketEnabled;
   private boolean savedCurrentLineHighlightEnabled;
+  private boolean savedBinarySafeRenderingEnabled;
+  private boolean savedBinaryTokenBoxEnabled;
 
   public BinaryRender(SodiumEditor editor) {
     this.editor = editor;
@@ -148,6 +150,8 @@ public class BinaryRender {
     savedAutoIndentAfterClosingBracketEnabled =
         editor.autoIndentAfterClosingBracket.isAutoIndentAfterClosingBracketEnabled;
     savedCurrentLineHighlightEnabled = editor.currentLineHighlight.highlightCurrentLine;
+    savedBinarySafeRenderingEnabled = binarySafeRenderingEnabled;
+    savedBinaryTokenBoxEnabled = lineDrawer.binaryTokenBoxEnabled;
   }
 
   private void restoreFeatureStateAfterBinaryFile() {
@@ -170,6 +174,10 @@ public class BinaryRender {
     editor.autoIndentAfterClosingBracket.setAutoIndentAfterClosingBracketEnabled(
         savedAutoIndentAfterClosingBracketEnabled);
     editor.currentLineHighlight.setHighlightCurrentLine(savedCurrentLineHighlightEnabled);
+    if (binarySafeRenderingEnabled != savedBinarySafeRenderingEnabled) {
+      setBinarySafeRenderingEnabled(savedBinarySafeRenderingEnabled, false);
+    }
+    setBinaryTokenBoxEnabled(savedBinaryTokenBoxEnabled);
   }
 
   // ── Token Box Configuration ────────────────────────────────────────────────

@@ -103,6 +103,30 @@ public class BinaryFileFeaturePolicyGuardTest {
         body.contains("editor.binaryRender.applyBinaryFileFeaturePolicy(false)"));
   }
 
+  @Test
+  public void featurePolicy_mustPreserveBinarySafeRenderingAndTokenBox() throws Exception {
+    String src =
+        readSource("sodium-editor/src/main/java/com/yn/sodiumeditor/renderer/BinaryRender.java");
+    String saveBody = methodBody(src, "private void saveFeatureStateForBinaryFile()");
+    String restoreBody = methodBody(src, "private void restoreFeatureStateAfterBinaryFile()");
+
+    assertTrue(
+        "BUG: the binary policy must remember whether binary-safe rendering was enabled so it"
+            + " can be restored when switching from a binary file back to a text file.",
+        saveBody.contains("savedBinarySafeRenderingEnabled = binarySafeRenderingEnabled"));
+    assertTrue(
+        "BUG: the binary policy must remember the token-box preference so it survives a"
+            + " binary/text switch.",
+        saveBody.contains("savedBinaryTokenBoxEnabled = lineDrawer.binaryTokenBoxEnabled"));
+    assertTrue(
+        "BUG: binary-safe rendering must be restored (not left disabled) after leaving binary"
+            + " mode.",
+        restoreBody.contains("setBinarySafeRenderingEnabled(savedBinarySafeRenderingEnabled"));
+    assertTrue(
+        "BUG: the token-box preference must be restored after leaving binary mode.",
+        restoreBody.contains("setBinaryTokenBoxEnabled(savedBinaryTokenBoxEnabled)"));
+  }
+
   private static String methodBody(String src, String signature) {
     int method = src.indexOf(signature);
     if (method < 0) throw new IllegalStateException("Method not found: " + signature);

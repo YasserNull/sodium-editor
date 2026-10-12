@@ -22,6 +22,11 @@ public class SettingsActivity extends AppCompatActivity {
   private TextView bracketGuidesSummary;
   private TextView bracketMatchSummary;
   private TextView whitespaceGuidesSummary;
+  private TextView binaryRenderSummary;
+  private TextView binarySafeRenderingSummary;
+  private TextView binaryHexTokensSummary;
+  private TextView binaryCaretNotationSummary;
+  private TextView binaryTokenBoxSummary;
 
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -73,6 +78,29 @@ public class SettingsActivity extends AppCompatActivity {
             settingsList,
             "Whitespace Guides",
             v -> toggleBooleanSetting("whitespace_guides", true));
+    binaryRenderSummary =
+        addSettingsRow(
+            settingsList,
+            "Binary Render",
+            v -> toggleBooleanSetting("binary_render", true));
+    binarySafeRenderingSummary =
+        addSettingsRow(
+            settingsList,
+            "Binary Safe Rendering",
+            v -> toggleBooleanSetting("binary_safe_rendering", true));
+    binaryHexTokensSummary =
+        addSettingsRow(
+            settingsList, "Binary Hex Tokens", v -> toggleBooleanSetting("binary_hex_tokens", true));
+    binaryCaretNotationSummary =
+        addSettingsRow(
+            settingsList,
+            "Binary Caret Notation",
+            v -> toggleBooleanSetting("binary_caret_notation", false));
+    binaryTokenBoxSummary =
+        addSettingsRow(
+            settingsList,
+            "Binary Token Box",
+            v -> toggleBooleanSetting("binary_token_box", true));
     performanceModeSummary =
         addSettingsRow(settingsList, "Performance Mode", v -> togglePerformanceMode());
     updateSummaries();
@@ -162,6 +190,13 @@ public class SettingsActivity extends AppCompatActivity {
     bracketGuidesSummary.setText(prefs.getBoolean("bracket_guides", true) ? "On" : "Off");
     bracketMatchSummary.setText(prefs.getBoolean("bracket_match", true) ? "On" : "Off");
     whitespaceGuidesSummary.setText(prefs.getBoolean("whitespace_guides", true) ? "On" : "Off");
+    binaryRenderSummary.setText(prefs.getBoolean("binary_render", true) ? "On" : "Off");
+    binarySafeRenderingSummary.setText(
+        prefs.getBoolean("binary_safe_rendering", true) ? "On" : "Off");
+    binaryHexTokensSummary.setText(prefs.getBoolean("binary_hex_tokens", true) ? "On" : "Off");
+    binaryCaretNotationSummary.setText(
+        prefs.getBoolean("binary_caret_notation", false) ? "On" : "Off");
+    binaryTokenBoxSummary.setText(prefs.getBoolean("binary_token_box", true) ? "On" : "Off");
     performanceModeSummary.setText(prefs.getBoolean("performance_mode", false) ? "On" : "Off");
   }
 
