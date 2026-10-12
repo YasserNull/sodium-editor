@@ -2,10 +2,10 @@ package com.yn.sodiumeditor.core.selection;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.RectF;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.renderer.animation.SelectionHandlesAnimation;
+import com.yn.sodiumeditor.utils.TeardropPathBuilder;
 
 /**
  * SelectionHandles handles the left and right selection handles for SodiumEditor. This includes: -
@@ -56,22 +56,9 @@ public class SelectionHandles {
     this.animation = new SelectionHandlesAnimation();
   }
 
-  public void drawTeardropHandle(Canvas canvas, float cx, float cy, Paint paint) {
-    Paint.Style prevStyle = paint.getStyle();
-    int prevColor = paint.getColor();
-    float prevStroke = paint.getStrokeWidth();
-    Paint.Cap prevCap = paint.getStrokeCap();
-
-    paint.setStyle(Paint.Style.FILL);
-    editor.view.teardropPath.reset();
-    editor.view.teardropPath.addOval(
-        cx - handleRadius, cy, cx + handleRadius, cy + handleRadius * 2, Path.Direction.CW);
+  public void drawTeardropHandle(Canvas canvas, RectF rect, Paint paint) {
+    TeardropPathBuilder.build(editor.view.teardropPath, rect);
     canvas.drawPath(editor.view.teardropPath, paint);
-
-    paint.setStyle(prevStyle);
-    paint.setColor(prevColor);
-    paint.setStrokeWidth(prevStroke);
-    paint.setStrokeCap(prevCap);
   }
 
   /** Get animated handle position (delegated to animation class). */
@@ -195,17 +182,9 @@ public class SelectionHandles {
     paint.setStyle(Paint.Style.FILL);
     paint.setAlpha((int) (255f * Math.max(0f, Math.min(1f, selection.state.getHandleAlpha()))));
 
-    // Draw left handle as circle
-    float leftCenterX = leftHandleRect.centerX();
-    float leftCenterY = leftHandleRect.centerY();
-    float leftRadius = Math.min(leftHandleRect.width(), leftHandleRect.height()) / 2f;
-    canvas.drawCircle(leftCenterX, leftCenterY, leftRadius, paint);
-
-    // Draw right handle as circle
-    float rightCenterX = rightHandleRect.centerX();
-    float rightCenterY = rightHandleRect.centerY();
-    float rightRadius = Math.min(rightHandleRect.width(), rightHandleRect.height()) / 2f;
-    canvas.drawCircle(rightCenterX, rightCenterY, rightRadius, paint);
+    // Draw both handles as teardrops, tip pointing up at the selection boundary.
+    drawTeardropHandle(canvas, leftHandleRect, paint);
+    drawTeardropHandle(canvas, rightHandleRect, paint);
   }
 
   /** Check if point hits left handle */

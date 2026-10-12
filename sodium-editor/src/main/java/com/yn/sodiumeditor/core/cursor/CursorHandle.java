@@ -4,6 +4,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import com.yn.sodiumeditor.SodiumEditor;
+import com.yn.sodiumeditor.utils.TeardropPathBuilder;
 
 /**
  * CursorHandle handles the cursor handle (draggable handle when cursor is visible without
@@ -84,7 +85,8 @@ public class CursorHandle {
     paint.setColor(cursorHandleColor);
     paint.setStyle(Paint.Style.FILL);
 
-    canvas.drawRoundRect(cursorHandleRect, cursorHandleRadius, cursorHandleRadius, paint);
+    TeardropPathBuilder.build(editor.view.teardropPath, cursorHandleRect);
+    canvas.drawPath(editor.view.teardropPath, paint);
   }
 
   /** Check if point hits cursor handle */
