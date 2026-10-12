@@ -2,12 +2,14 @@ package com.yn.sodiumeditor.input;
 
 import android.text.Editable;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.CorrectionInfo;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.SurroundingText;
+import android.view.inputmethod.TextAttribute;
 import com.yn.sodiumeditor.SodiumEditor;
 
 /** Implementation of InputConnection for SodiumEditor. */
@@ -26,13 +28,37 @@ public class SodiumInputConnection extends BaseInputConnection {
     this.ime = ime;
   }
 
+  private void logConnEntry(String op, String extra) {
+    if (!SodiumEditor.DEBUG_LOGS) return;
+    if (imeLogCount++ >= MAX_IME_LOGS) return;
+    Log.d(
+        "SodiumIme",
+        "[SodiumEditor] conn="
+            + op
+            + " zoomGesture="
+            + editor.zoom.isZoomGestureActive()
+            + " disabled="
+            + editor.view.isDisabled
+            + " readOnly="
+            + editor.view.isReadOnly
+            + (extra == null ? "" : " " + extra)
+            + " thread="
+            + Thread.currentThread().getName());
+  }
+
   @Override
   public Editable getEditable() {
-    return ime.imeEditable;
+    logConnEntry("getEditable", null);
+    // SodiumEditor is file-backed and streamed, so it cannot be represented by an Editable.
+    // Returning a dummy Editable made IMEs (Gboard) apply tapped suggestions by editing that
+    // throwaway buffer, so the document never changed. Return null to force the IME onto the
+    // commitText/setComposingText/deleteSurroundingText API that we actually implement.
+    return null;
   }
 
   @Override
   public ExtractedText getExtractedText(ExtractedTextRequest request, int flags) {
+    logConnEntry("getExtractedText", "flags=" + flags + " token=" + (request == null ? -1 : request.token));
     if (editor.view.isDisabled || editor.view.isReadOnly) return null;
     long startMs = android.os.SystemClock.uptimeMillis();
     ExtractedText result = ime.onGetExtractedText(request, flags);
@@ -41,6 +67,7 @@ public class SodiumInputConnection extends BaseInputConnection {
 
   @Override
   public CharSequence getTextBeforeCursor(int length, int flags) {
+    logConnEntry("getTextBeforeCursor", "length=" + length + " flags=" + flags);
     if (editor.view.isDisabled || editor.view.isReadOnly) return "";
     long startMs = android.os.SystemClock.uptimeMillis();
     CharSequence result = ime.scanner.getImeTextBeforeCursor(length);
@@ -49,6 +76,7 @@ public class SodiumInputConnection extends BaseInputConnection {
 
   @Override
   public CharSequence getTextAfterCursor(int length, int flags) {
+    logConnEntry("getTextAfterCursor", "length=" + length + " flags=" + flags);
     if (editor.view.isDisabled || editor.view.isReadOnly) return "";
     long startMs = android.os.SystemClock.uptimeMillis();
     CharSequence result = ime.scanner.getImeTextAfterCursor(length);
@@ -57,6 +85,7 @@ public class SodiumInputConnection extends BaseInputConnection {
 
   @Override
   public CharSequence getSelectedText(int flags) {
+    logConnEntry("getSelectedText", "flags=" + flags);
     if (editor.view.isDisabled || editor.view.isReadOnly) return "";
     long startMs = android.os.SystemClock.uptimeMillis();
     CharSequence result = editor.selection.getSelectedText();
@@ -65,6 +94,7 @@ public class SodiumInputConnection extends BaseInputConnection {
 
   @Override
   public SurroundingText getSurroundingText(int beforeLength, int afterLength, int flags) {
+    logConnEntry("getSurroundingText", "before=" + beforeLength + " after=" + afterLength + " flags=" + flags);
     if (editor.view.isDisabled || editor.view.isReadOnly) return null;
     int before = Math.max(0, beforeLength);
     int after = Math.max(0, afterLength);
@@ -96,6 +126,7 @@ public class SodiumInputConnection extends BaseInputConnection {
 
   @Override
   public int getCursorCapsMode(int reqModes) {
+    logConnEntry("getCursorCapsMode", "reqModes=" + reqModes);
     CharSequence before = getTextBeforeCursor(2048, 0);
     int len = (before == null) ? 0 : before.length();
     return TextUtils.getCapsMode(before, len, reqModes);
@@ -103,18 +134,21 @@ public class SodiumInputConnection extends BaseInputConnection {
 
   @Override
   public boolean setSelection(int start, int end) {
+    logConnEntry("setSelection", "start=" + start + " end=" + end);
     if (editor.view.isDisabled || editor.view.isReadOnly) return true;
     return ime.onSetSelection(start, end);
   }
 
   @Override
   public boolean setComposingRegion(int start, int end) {
+    logConnEntry("setComposingRegion", "start=" + start + " end=" + end);
     if (editor.view.isDisabled || editor.view.isReadOnly) return true;
     return ime.onSetComposingRegion(start, end);
   }
 
   @Override
   public boolean finishComposingText() {
+    logConnEntry("finishComposingText", null);
     if (editor.view.isDisabled || editor.view.isReadOnly) return true;
     ime.onFinishComposingText();
     return true;
@@ -122,6 +156,7 @@ public class SodiumInputConnection extends BaseInputConnection {
 
   @Override
   public boolean commitCompletion(CompletionInfo text) {
+    logConnEntry("commitCompletion", "text=" + (text == null ? "null" : String.valueOf(text.getText())));
     if (editor.view.isDisabled || editor.view.isReadOnly) return true;
     if (text == null || text.getText() == null) return true;
     return ime.onCommitCompletion(text.getText());
@@ -129,16 +164,22 @@ public class SodiumInputConnection extends BaseInputConnection {
 
   @Override
   public boolean commitCorrection(CorrectionInfo correctionInfo) {
+    logConnEntry(
+        "commitCorrection",
+        correctionInfo == null
+            ? "null"
+            : "old=" + correctionInfo.getOldText() + " new=" + correctionInfo.getNewText());
     if (editor.view.isDisabled || editor.view.isReadOnly) return true;
     if (correctionInfo == null || correctionInfo.getNewText() == null) return true;
-    return ime.onCommitCorrection(correctionInfo.getNewText());
+    return ime.onCommitCorrection(correctionInfo.getOldText(), correctionInfo.getNewText());
   }
 
   @Override
   public boolean commitText(CharSequence text, int newCursorPosition) {
+    logConnEntry("commitText", "text=" + text + " newCursorPosition=" + newCursorPosition);
     if (editor.view.isDisabled || editor.view.isReadOnly) return true;
     if (editor.zoom.isZoomGestureActive()) return true;
-    if (text == null) return super.commitText(text, newCursorPosition);
+    if (text == null) return true;
     int beforeLine = editor.cursor.cursorLine;
     int beforeChar = editor.cursor.cursorChar;
     long startMs = android.os.SystemClock.uptimeMillis();
@@ -149,6 +190,7 @@ public class SodiumInputConnection extends BaseInputConnection {
 
   @Override
   public boolean setComposingText(CharSequence text, int newCursorPosition) {
+    logConnEntry("setComposingText", "text=" + text + " newCursorPosition=" + newCursorPosition);
     if (editor.view.isDisabled || editor.view.isReadOnly) return true;
     if (editor.zoom.isZoomGestureActive()) return true;
     if (text == null) return true;
@@ -157,6 +199,7 @@ public class SodiumInputConnection extends BaseInputConnection {
 
   @Override
   public boolean deleteSurroundingText(int beforeLength, int afterLength) {
+    logConnEntry("deleteSurroundingText", "before=" + beforeLength + " after=" + afterLength);
     if (editor.view.isDisabled || editor.view.isReadOnly) return true;
     if (editor.zoom.isZoomGestureActive()) return true;
     return ime.onDeleteSurroundingText(beforeLength, afterLength);
@@ -164,8 +207,20 @@ public class SodiumInputConnection extends BaseInputConnection {
 
   @Override
   public boolean deleteSurroundingTextInCodePoints(int beforeLength, int afterLength) {
+    logConnEntry("deleteSurroundingTextInCodePoints", "before=" + beforeLength + " after=" + afterLength);
     if (editor.view.isDisabled || editor.view.isReadOnly) return true;
     if (editor.zoom.isZoomGestureActive()) return true;
     return ime.onDeleteSurroundingTextInCodePoints(beforeLength, afterLength);
+  }
+
+  @Override
+  public boolean replaceText(
+      int start, int end, CharSequence text, int newCursorPosition, TextAttribute textAttribute) {
+    logConnEntry(
+        "replaceText",
+        "start=" + start + " end=" + end + " text=" + text + " newCursorPosition=" + newCursorPosition);
+    if (editor.view.isDisabled || editor.view.isReadOnly) return true;
+    if (editor.zoom.isZoomGestureActive()) return true;
+    return ime.onReplaceText(start, end, text, newCursorPosition);
   }
 }

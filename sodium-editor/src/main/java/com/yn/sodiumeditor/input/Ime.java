@@ -2,6 +2,7 @@ package com.yn.sodiumeditor.input;
 
 import android.text.Editable;
 import android.text.InputType;
+import android.util.Log;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
@@ -11,6 +12,7 @@ import androidx.annotation.Nullable;
 import com.yn.sodiumeditor.SodiumEditor;
 import com.yn.sodiumeditor.io.EditOp;
 import com.yn.sodiumeditor.io.EditOperators;
+import com.yn.sodiumeditor.utils.AutocorrectRangeUtil;
 
 /** Ime handles all Input Method Editor (IME) logic for SodiumEditor. */
 public class Ime {
@@ -62,6 +64,7 @@ public class Ime {
     }
     outAttrs.inputType = inputType;
     outAttrs.imeOptions = EditorInfo.IME_ACTION_NONE | EditorInfo.IME_FLAG_NO_EXTRACT_UI;
+    logImeState("createInputConnection", "inputType=" + inputType);
 
     ImeContext ctx = scanner.buildImeContext(imeExtractedBeforeChars, imeExtractedAfterChars);
     ExtractedText et = scanner.buildExtractedTextFromContext(ctx);
@@ -109,6 +112,9 @@ public class Ime {
     if (sOff == 0 && eOff == 0 && cursorOff > 0 && !editor.selection.hasSelection) return true;
     CursorTarget s = scanner.offsetToLineCharInContext(ctx, sOff);
     CursorTarget e = scanner.offsetToLineCharInContext(ctx, eOff);
+    logImeState(
+        "setSelection",
+        "requested=" + start + ".." + end + " mapped=" + s.line + ":" + s.ch + ".." + e.line + ":" + e.ch);
     editor.selection.setSelectionInternal(s.line, s.ch, e.line, e.ch);
     editor.cursor.cursorLine = e.line;
     editor.cursor.cursorChar = e.ch;
@@ -149,6 +155,9 @@ public class Ime {
     composingStartActive = true;
     captureOriginalComposingTextIfNeeded();
     lastComposingTextForCharAnim = null;
+    logImeState(
+        "setComposingRegion",
+        "requested=" + start + ".." + end + " mapped=" + s.line + ":" + s.ch + ".." + e.line + ":" + e.ch);
     editor.invalidate();
     editor.autoSuggestion.updateSuggestion();
     return true;
@@ -158,10 +167,12 @@ public class Ime {
     if (lastComposingTextForCharAnim != null && !lastComposingTextForCharAnim.isEmpty()) {
       markImeCommit(lastComposingTextForCharAnim);
     }
+    logImeState("finishComposingText", "lastComposing=" + safeImeText(lastComposingTextForCharAnim));
     commitComposing(true);
   }
 
   public boolean onCommitCompletion(CharSequence text) {
+    logImeState("commitCompletion", "text=" + safeImeText(text == null ? null : text.toString()));
     if (!hasComposing && !editor.selection.hasSelection && replaceWordAtCursorWith(text)) {
       markImeCommit(text);
       return true;
@@ -169,17 +180,105 @@ public class Ime {
     return onCommitText(text, 1);
   }
 
-  public boolean onCommitCorrection(CharSequence text) {
-    if (!hasComposing && !editor.selection.hasSelection && replaceWordAtCursorWith(text)) {
-      markImeCommit(text);
+  public boolean onCommitCorrection(CharSequence oldText, CharSequence newText) {
+    logImeState(
+        "commitCorrection",
+        "old="
+            + safeImeText(oldText == null ? null : oldText.toString())
+            + " new="
+            + safeImeText(newText == null ? null : newText.toString()));
+    if (newText == null) return true;
+    String oldStr = (oldText == null) ? "" : oldText.toString();
+    if (!oldStr.isEmpty() && replaceReportedCorrectionRange(oldStr, newText.toString())) {
+      markImeCommit(newText);
+      editor.charAnimation.startCharAnimationFromText(newText);
+      editor.autoSuggestion.updateSuggestion();
       return true;
     }
-    return onCommitText(text, 1);
+    // Gboard deletes the misspelled text itself and delivers the corrected text through a
+    // following commitText; applying it here too would duplicate it. Acknowledge and let the
+    // commitText path insert it.
+    editor.autoSuggestion.updateSuggestion();
+    return true;
+  }
+
+  /**
+   * Applies a suggested-text replacement delivered via {@link
+   * android.view.inputmethod.InputConnection#replaceText(int, int, CharSequence, int,
+   * android.view.inputmethod.TextAttribute)} (Android 13+). IMEs such as Gboard use this to apply a
+   * tapped suggestion; the offsets are relative to the extracted-text window we handed the IME.
+   */
+  public boolean onReplaceText(
+      int start, int end, CharSequence text, int newCursorPosition) {
+    String newStr = (text == null) ? "" : text.toString();
+    logImeState(
+        "replaceText",
+        "start="
+            + start
+            + " end="
+            + end
+            + " text="
+            + safeImeText(newStr)
+            + " newCursorPosition="
+            + newCursorPosition);
+    if (hasComposing) commitComposing(true);
+    ImeContext ctx =
+        scanner.buildImeContext(imeExtractedBeforeChars, imeExtractedAfterChars);
+    if (ctx.text.isEmpty()) return false;
+    int textLen = ctx.text.length();
+    int sOff = Math.max(0, Math.min(start, textLen));
+    int eOff = Math.max(0, Math.min(end, textLen));
+    if (eOff < sOff) {
+      int t = sOff;
+      sOff = eOff;
+      eOff = t;
+    }
+    CursorTarget s = scanner.offsetToLineCharInContext(ctx, sOff);
+    CursorTarget e = scanner.offsetToLineCharInContext(ctx, eOff);
+    editor.selection.setSelectionInternal(s.line, s.ch, e.line, e.ch);
+    editor.cursor.cursorLine = e.line;
+    editor.cursor.cursorChar = e.ch;
+    editor.selection.replaceSelectionWithText(newStr);
+    markImeCommit(newStr);
+    if (text != null) editor.charAnimation.startCharAnimationFromText(text);
+    editor.autoSuggestion.updateSuggestion();
+    return true;
+  }
+
+  private boolean replaceReportedCorrectionRange(String oldStr, String newStr) {
+    if (hasComposing) {
+      String composingText = getCurrentComposingText();
+      if (composingText != null && composingText.equals(oldStr)) {
+        int startLine = composingStartActive ? composingStartLine : composingLine;
+        int startChar = composingStartActive ? composingStartChar : composingOffset;
+        replaceComposingWith(newStr);
+        updateComposingPendingOp(newStr, startLine, startChar);
+        commitComposing(true);
+        return true;
+      }
+    }
+    if (editor.selection.hasSelection) {
+      editor.selection.replaceSelectionWithText(newStr);
+      commitComposing(true);
+      return true;
+    }
+    String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
+    if (line == null || line.isEmpty()) return false;
+    int[] bounds = AutocorrectRangeUtil.findRangeForText(line, editor.cursor.cursorChar, oldStr);
+    if (bounds == null || bounds[0] >= bounds[1] || bounds[1] > line.length()) return false;
+    if (hasComposing) commitComposing(true);
+    editor.selection.setSelectionInternal(
+        editor.cursor.cursorLine, bounds[0], editor.cursor.cursorLine, bounds[1]);
+    editor.selection.replaceSelectionWithText(newStr);
+    return true;
   }
 
   public boolean onCommitText(CharSequence text, int newCursorPosition) {
     long startMs = android.os.SystemClock.uptimeMillis();
     String str = text.toString();
+    logImeState(
+        "commitText",
+        "text=" + safeImeText(str) + " newCursorPosition=" + newCursorPosition);
     if ("\n".equals(str)) {
       editor.autoBracketNewlineIndent.insertNewlineAtCursor();
       commitComposing(true);
@@ -281,6 +380,12 @@ public class Ime {
   }
 
   public boolean onSetComposingText(CharSequence text, int newCursorPosition) {
+    logImeState(
+        "setComposingText",
+        "text="
+            + safeImeText(text == null ? null : text.toString())
+            + " newCursorPosition="
+            + newCursorPosition);
     if (editor.selection.hasSelection) {
       editor.selection.replaceSelectionWithText(text.toString());
       editor.charAnimation.startCharAnimationFromText(text);
@@ -310,6 +415,9 @@ public class Ime {
   }
 
   public boolean onDeleteSurroundingText(int beforeLength, int afterLength) {
+    logImeState(
+        "deleteSurroundingText",
+        "before=" + beforeLength + " after=" + afterLength);
     int beforeCodePoints = countCodePointsBeforeCursorForCharUnits(beforeLength);
     int afterCodePoints = countCodePointsAfterCursorForCharUnits(afterLength);
     return deleteSurroundingCodePoints(beforeCodePoints, afterCodePoints);
@@ -647,9 +755,17 @@ public class Ime {
     }
     String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
     if (line == null || line.isEmpty()) return false;
-    int pos = Math.max(0, Math.min(editor.cursor.cursorChar, line.length()));
-    if (pos == line.length()) pos = Math.max(0, pos - 1);
+    int pos = AutocorrectRangeUtil.replaceableWordPos(line, editor.cursor.cursorChar);
+    if (pos < 0) {
+      logImeState(
+          "replaceWordAtCursor",
+          "insert=" + safeImeText(insert) + " skipped=whitespaceOrEmptyCursor");
+      return false;
+    }
     int[] bounds = editor.view.computeWordBounds(line, pos);
+    logImeState(
+        "replaceWordAtCursor",
+        "insert=" + safeImeText(insert) + " pos=" + pos + " bounds=" + bounds[0] + ".." + bounds[1]);
     if (bounds[0] == bounds[1]) return false;
     editor.selection.setSelectionInternal(
         editor.cursor.cursorLine, bounds[0], editor.cursor.cursorLine, bounds[1]);
@@ -673,6 +789,10 @@ public class Ime {
     String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
     if (line == null || bounds[0] >= bounds[1] || bounds[1] > line.length()) return false;
     String word = line.substring(bounds[0], bounds[1]);
+    logImeState(
+        "tryReplaceWordFromImeCommit",
+        "insert=" + safeImeText(insert) + " core=" + safeImeText(core) + " word=" + safeImeText(word)
+            + " bounds=" + bounds[0] + ".." + bounds[1]);
     if (word.isEmpty() || word.equals(core)) return false;
     if (!core.startsWith(word)) return false;
     editor.selection.setSelectionInternal(
@@ -700,6 +820,54 @@ public class Ime {
 
   public void setImeExtractedTextToken(int token) {
     this.imeExtractedTextToken = token;
+  }
+
+  void logImeState(String operation, String details) {
+    if (!SodiumEditor.DEBUG_LOGS) return;
+    String line = editor.windowRender.getLineTextForRender(editor.cursor.cursorLine);
+    Log.d(
+        TAG,
+        "[SodiumEditor] operation="
+            + operation
+            + " cursor="
+            + editor.cursor.cursorLine
+            + ":"
+            + editor.cursor.cursorChar
+            + " selection="
+            + editor.selection.selStartLine
+            + ":"
+            + editor.selection.selStartChar
+            + ".."
+            + editor.selection.selEndLine
+            + ":"
+            + editor.selection.selEndChar
+            + " hasSelection="
+            + editor.selection.hasSelection
+            + " hasComposing="
+            + hasComposing
+            + " composing="
+            + composingLine
+            + ":"
+            + composingOffset
+            + "+"
+            + composingLength
+            + " composingText="
+            + safeImeText(getCurrentComposingText())
+            + " line="
+            + safeImeText(line)
+            + " "
+            + details
+            + " thread="
+            + Thread.currentThread().getName());
+  }
+
+  private String safeImeText(String text) {
+    if (text == null) return "<null>";
+    String escaped =
+        text.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
+    int max = 160;
+    if (escaped.length() > max) return escaped.substring(0, max) + "...(len=" + text.length() + ")";
+    return escaped + "(len=" + text.length() + ")";
   }
 
   public void setImeContextSize(int beforeChars, int afterChars) {
