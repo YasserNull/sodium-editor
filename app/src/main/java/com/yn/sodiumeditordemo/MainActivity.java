@@ -65,6 +65,7 @@ public class MainActivity extends AppCompatActivity {
   private ActivityResultLauncher<Intent> manageStorageLauncher;
   private ActivityResultLauncher<String[]> requestPermissionLauncher;
   private int currentScrollMode = 2;
+  private final EditorSettings editorSettings = new EditorSettings();
   private boolean currentBinaryRender = true;
   private boolean currentBinarySafeRendering = true;
   private boolean currentBinaryHexTokens = true;
@@ -819,9 +820,16 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void applyGuideSettingsFromPreferences(SharedPreferences prefs) {
+    editor.lineNumber.setShowLineNumbers(prefs.getBoolean("show_line_numbers", true));
+    editor.wordWrap.setWordWrapEnabled(prefs.getBoolean("word_wrap", false));
     editor.bracketGuides.setBracketGuidesEnabled(prefs.getBoolean("bracket_guides", true));
     editor.symbolsMatch.setSymbolsMatchingEnabled(prefs.getBoolean("bracket_match", true));
     editor.whitespaceGuides.setWhitespaceGuidesEnabled(prefs.getBoolean("whitespace_guides", true));
+    editor.indentGuides.setIndentGuidesEnabled(prefs.getBoolean("indent_guides", true));
+    if (editorSettings.apply(editor, prefs)) {
+      applyEditorColors(currentTheme);
+      editorSettings.reapplyStrings(editor, prefs);
+    }
   }
 
   private void applyEditorColors(String themeValue) {
