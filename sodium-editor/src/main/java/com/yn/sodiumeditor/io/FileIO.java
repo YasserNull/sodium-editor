@@ -491,6 +491,27 @@ public class FileIO {
       snapshot = new ArrayList<>(editor.windowRender.linesWindow);
     }
     if (snapshot.isEmpty()) return;
+    if (editor.binaryRender.binaryFileFeaturePolicyActive
+        && editor.binaryRender.binaryDocument != null) {
+      // Fixed-size binary rows: measure only the longest few rows (no UI-thread chunk chain).
+      float sampledMax = 0f;
+      for (int i :
+          com.yn.sodiumeditor.core.binary.BinaryWidthSampler.longestRowIndices(
+              snapshot, com.yn.sodiumeditor.core.binary.BinaryWidthSampler.MAX_SAMPLES)) {
+        float w = editor.view.getWidthForLine(start + i, snapshot.get(i));
+        if (w > sampledMax) sampledMax = w;
+      }
+      final float finalMax = sampledMax;
+      editor.post(
+          () -> {
+            if (token != editor.loadingCircle.maxWidthRecalcToken) return;
+            editor.windowRender.currentMaxWindowLineWidth = finalMax;
+            editor.windowRender.globalMaxLineWidth = finalMax;
+            editor.scroll.clampScrollX();
+            editor.invalidate();
+          });
+      return;
+    }
     editor.post(
         new Runnable() {
           int idx = 0;

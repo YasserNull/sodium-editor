@@ -426,11 +426,24 @@ public class WindowRender {
   public void recalculateMaxLineWidth() {
     float maxW = 0f;
     synchronized (linesWindow) {
-      for (int i = 0; i < linesWindow.size(); i++) {
-        int globalLine = windowStartLine + i;
-        String line = linesWindow.get(i);
-        float w = editor.view.getWidthForLine(globalLine, line);
-        if (w > maxW) maxW = w;
+      if (editor.binaryRender.binaryFileFeaturePolicyActive
+          && editor.binaryRender.binaryDocument != null) {
+        // Fixed-size binary rows: measuring every row is costly for garbage glyphs, so only the
+        // longest few rows can define the max width.
+        int[] picked =
+            com.yn.sodiumeditor.core.binary.BinaryWidthSampler.longestRowIndices(
+                linesWindow, com.yn.sodiumeditor.core.binary.BinaryWidthSampler.MAX_SAMPLES);
+        for (int i : picked) {
+          float w = editor.view.getWidthForLine(windowStartLine + i, linesWindow.get(i));
+          if (w > maxW) maxW = w;
+        }
+      } else {
+        for (int i = 0; i < linesWindow.size(); i++) {
+          int globalLine = windowStartLine + i;
+          String line = linesWindow.get(i);
+          float w = editor.view.getWidthForLine(globalLine, line);
+          if (w > maxW) maxW = w;
+        }
       }
     }
     currentMaxWindowLineWidth = maxW;
